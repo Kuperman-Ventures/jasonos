@@ -25,11 +25,11 @@ export interface MeetingPoint {
   state: PointState;
   stateChangedAt: string | null;
   note: string | null;
-  source: "user" | "ai";
+  source: "user" | "ai" | "script";
   editedByUser: boolean;
 }
 
-type PointResult<T> = ({ ok: true } & T) | { ok: false; error: string };
+export type PointResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
 interface PointRow {
   id: string;
@@ -81,7 +81,7 @@ function toPoint(row: PointRow): MeetingPoint {
     state: asState(row.state),
     stateChangedAt: row.state_changed_at,
     note: row.note?.trim() || null,
-    source: row.source === "ai" ? "ai" : "user",
+    source: row.source === "ai" || row.source === "script" ? row.source : "user",
     editedByUser: Boolean(row.edited_by_user),
   };
 }

@@ -1,21 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BlockTitle } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { POINT_KINDS, type PointKind } from "@/lib/meeting-prep/points";
-import {
-  createMeetingPoint,
-  deleteMeetingPoint,
-  draftMeetingPoints,
-  reorderMeetingPoints,
-  updateMeetingPoint,
-  type MeetingPoint,
-} from "@/lib/server-actions/meeting-points";
+import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
 const KIND_LABEL: Record<PointKind, string> = {
@@ -25,7 +17,29 @@ const KIND_LABEL: Record<PointKind, string> = {
   ask: "Ask",
 };
 
-function pointSignature(points: MeetingPoint[]): string {
+export type EditorPoint = {
+  id: string;
+  kind: PointKind;
+  headline: string;
+  detail: string | null;
+  position: number;
+};
+
+export type PointsEditorActions = {
+  create: (input: {
+    kind: PointKind;
+    headline: string;
+    detail?: string | null;
+  }) => Promise<PointResult<{ id: string }>>;
+  update: (
+    id: string,
+    patch: { kind?: PointKind; headline?: string; detail?: string | null }
+  ) => Promise<PointResult<object>>;
+  remove: (id: string) => Promise<PointResult<object>>;
+  reorder: (orderedIds: string[]) => Promise<PointResult<object>>;
+};
+
+function pointSignature(points: EditorPoint[]): string {
   return points
     .map((point) =>
       [point.id, point.position, point.kind, point.headline, point.detail ?? ""].join("\u001f")
@@ -33,7 +47,7 @@ function pointSignature(points: MeetingPoint[]): string {
     .join("\u001e");
 }
 
-function InlineField({
+export function InlineField({
   value,
   placeholder,
   className,
@@ -54,11 +68,15 @@ function InlineField({
 
   if (!editing) {
     return (
-      <button type="button" className={cn("block w-full text-left", className)} onClick={() => {
-        cancel.current = false;
-        setText(value);
-        setEditing(true);
-      }}>
+      <button
+        type="button"
+        className={cn("block w-full text-left", className)}
+        onClick={() => {
+          cancel.current = false;
+          setText(value);
+          setEditing(true);
+        }}
+      >
         {value || <span className="font-normal text-[var(--jos-muted)]">{emptyLabel}</span>}
       </button>
     );
@@ -98,14 +116,23 @@ function InlineField({
   );
 }
 
-export function MeetingPointsEditor({
-  prepId,
+export function PointsEditor({
   points,
   error,
+  actions,
+  draft,
+  footer,
+  note,
 }: {
-  prepId: string;
-  points: MeetingPoint[];
+  points: EditorPoint[];
   error?: string | null;
+  actions: PointsEditorActions;
+  draft?: {
+    label: string;
+    run: () => Promise<PointResult<{ added: number; quiet?: boolean }>>;
+  };
+  footer?: ReactNode | ((pointCount: number) => ReactNode);
+  note?: ReactNode;
 }) {
   const router = useRouter();
   const signature = pointSignature(points);
@@ -116,6 +143,7 @@ export function MeetingPointsEditor({
   const [dragId, setDragId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drafting, setDrafting] = useState(false);
+  const addId = useId();
 
   if (signature !== seen) {
     setSeen(signature);
@@ -123,21 +151,18 @@ export function MeetingPointsEditor({
   }
 
   const savePatch = (
-    point: MeetingPoint,
+    point: EditorPoint,
     patch: { kind?: PointKind; headline?: string; detail?: string | null }
   ) => {
     const previous = rows;
-    setRows((current) =>
-      current.map((row) => (row.id === point.id ? { ...row, ...patch, editedByUser: true } : row))
-    );
+    setRows((current) => current.map((row) => (row.id === point.id ? { ...row, ...patch } : row)));
     startTransition(async () => {
-      const result = await updateMeetingPoint(point.id, patch);
+      const result = await actions.update(point.id, patch);
       if (!result.ok) {
         setRows(previous);
         toast.error(result.error);
         return;
       }
-      setRows((current) => current.map((row) => (row.id === result.point.id ? result.point : row)));
       router.refresh();
     });
   };
@@ -146,26 +171,31 @@ export function MeetingPointsEditor({
     const headline = draftHeadline.trim();
     if (!headline) return;
     startTransition(async () => {
-      const result = await createMeetingPoint({
-        prepId,
-        kind: draftKind,
-        headline,
-      });
+      const result = await actions.create({ kind: draftKind, headline });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       setDraftHeadline("");
-      setRows((current) => [...current, result.point]);
+      setRows((current) => [
+        ...current,
+        {
+          id: result.id,
+          kind: draftKind,
+          headline,
+          detail: null,
+          position: current.length + 1,
+        },
+      ]);
       router.refresh();
     });
   };
 
-  const removePoint = (point: MeetingPoint) => {
+  const removePoint = (point: EditorPoint) => {
     const previous = rows;
     setRows((current) => current.filter((row) => row.id !== point.id));
     startTransition(async () => {
-      const result = await deleteMeetingPoint(point.id);
+      const result = await actions.remove(point.id);
       if (!result.ok) {
         setRows(previous);
         toast.error(result.error);
@@ -189,10 +219,7 @@ export function MeetingPointsEditor({
     const ordered = next.map((row, index) => ({ ...row, position: index + 1 }));
     setRows(ordered);
     startTransition(async () => {
-      const result = await reorderMeetingPoints(
-        prepId,
-        ordered.map((row) => row.id)
-      );
+      const result = await actions.reorder(ordered.map((row) => row.id));
       if (!result.ok) {
         setRows(previous);
         toast.error(result.error);
@@ -202,41 +229,37 @@ export function MeetingPointsEditor({
     });
   };
 
-  const draft = () => {
+  const runDraft = () => {
+    if (!draft) return;
     setDrafting(true);
-    void draftMeetingPoints(prepId).then((result) => {
+    void draft.run().then((result) => {
       setDrafting(false);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      if (result.quiet) return;
       toast.success(result.added === 1 ? "Added 1 point" : `Added ${result.added} points`);
       router.refresh();
     });
   };
 
+  const draftLabel =
+    draft && draft.label === "Draft points" && rows.length > 0 ? "Add more with AI" : draft?.label;
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <BlockTitle>Points to make</BlockTitle>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" disabled={drafting} onClick={draft}>
-            <Sparkles />
-            {rows.length ? "Add more with AI" : "Draft points"}
-          </Button>
-          {rows.length ? (
-            <Link
-              href={`/meetings/${prepId}/live`}
-              className={buttonVariants({ variant: "calendar" })}
-            >
-              Start live
-            </Link>
-          ) : (
-            <button type="button" disabled className={buttonVariants({ variant: "calendar" })}>
-              Add at least one point
-            </button>
-          )}
+        <div>
+          <BlockTitle>Points to make</BlockTitle>
+          {note ? <div className="mt-1 text-[13px] text-[var(--jos-muted)]">{note}</div> : null}
         </div>
+        {draft ? (
+          <Button type="button" variant="outline" disabled={drafting} onClick={runDraft}>
+            <Sparkles />
+            {draftLabel}
+          </Button>
+        ) : null}
       </div>
 
       {error ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
@@ -330,11 +353,11 @@ export function MeetingPointsEditor({
       )}
 
       <div className="flex items-center gap-2 border-t border-[var(--jos-line)] pt-3">
-        <label className="sr-only" htmlFor={`add-kind-${prepId}`}>
+        <label className="sr-only" htmlFor={addId}>
           Kind for the new point
         </label>
         <select
-          id={`add-kind-${prepId}`}
+          id={addId}
           aria-label="Kind for the new point"
           value={draftKind}
           className="h-8 bg-transparent text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--jos-muted)] outline-none"
@@ -361,6 +384,7 @@ export function MeetingPointsEditor({
           }}
         />
       </div>
+      {typeof footer === "function" ? footer(rows.length) : footer}
     </section>
   );
 }

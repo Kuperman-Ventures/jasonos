@@ -45,6 +45,19 @@ export function clampHeadline(value: string): string {
   return trimmed.slice(0, 80).trim();
 }
 
+/** Fill {{name}}, {{company}}, and {{title}}. Leave the token when the value is missing. */
+export function fillScriptPlaceholders(
+  value: string | null,
+  person: { name?: string | null; company?: string | null; title?: string | null } | null
+): string | null {
+  if (!value) return value;
+  return value.replace(/\{\{\s*(name|company|title)\s*\}\}/gi, (token, key: string) => {
+    const field = key.toLowerCase() as "name" | "company" | "title";
+    const filled = person?.[field]?.trim();
+    return filled ? filled : token;
+  });
+}
+
 export function clampDetail(value: string): string {
   const trimmed = value.trim().replace(/\s+/g, " ");
   if (trimmed.length <= 400) return trimmed;

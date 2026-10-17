@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { easternClock, joinHref } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
-import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
+import type { PointState } from "@/lib/meeting-prep/points";
+import {
+  endLiveMeeting,
+  getMeetingPoints,
+  setMeetingPointNote,
+  setMeetingPointState,
+  startLiveMeeting,
+} from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +20,29 @@ export default async function LiveMeetingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  async function start() {
+    "use server";
+    const result = await startLiveMeeting(id);
+    if (!result.ok) return result;
+    return { ok: true as const, startedAt: result.liveStartedAt };
+  }
+
+  async function setState(pointId: string, state: PointState) {
+    "use server";
+    return setMeetingPointState(pointId, state);
+  }
+
+  async function setNote(pointId: string, note: string) {
+    "use server";
+    return setMeetingPointNote(pointId, note);
+  }
+
+  async function end() {
+    "use server";
+    return endLiveMeeting(id);
+  }
+
   const [prepResult, pointsResult] = await Promise.all([
     getMeetingPrep(id),
     getMeetingPoints(id),
@@ -37,11 +68,20 @@ export default async function LiveMeetingPage({
       </div>
     );
   }
+
+  const prep = prepResult.prep;
   return (
     <LiveCallClient
-      prep={prepResult.prep}
+      session={{
+        title: prep.title,
+        timeLabel: `${easternClock(prep.startsAt)}–${easternClock(prep.endsAt)} ET`,
+        joinHref: joinHref(prep),
+        backHref: `/meetings/${prep.id}`,
+        badge: "live",
+        startedAt: prep.liveStartedAt,
+      }}
       points={pointsResult.points}
-      liveStartedAt={prepResult.prep.liveStartedAt}
+      actions={{ start, setState, setNote, end }}
     />
   );
 }

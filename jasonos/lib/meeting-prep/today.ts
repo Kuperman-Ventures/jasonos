@@ -67,11 +67,27 @@ function conferenceUrlOf(ev: CalendarApiEvent): string | null {
   return any?.uri?.trim() || null;
 }
 
+function addCalendarDays(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days, 12));
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export async function loadTodaysMeetings(): Promise<TodaysMeetingsLoad> {
+  return loadMeetingsForDays(1);
+}
+
+/** Today plus the following Eastern days. `days` of 2 is today and tomorrow. */
+export async function loadMeetingsForDays(days = 1): Promise<TodaysMeetingsLoad> {
   const warnings: string[] = [];
-  const { start, end } = easternDayBounds(etToday());
-  const timeMin = start.toISOString();
-  const timeMax = end.toISOString();
+  const span = Math.max(1, Math.floor(days));
+  const startYmd = etToday();
+  const endYmd = addCalendarDays(startYmd, span - 1);
+  const timeMin = easternDayBounds(startYmd).start.toISOString();
+  const timeMax = easternDayBounds(endYmd).end.toISOString();
 
   const [google, outlook, lookup] = await Promise.all([
     fetchAllPersonalCalendarEvents({ timeMin, timeMax }).catch((err: unknown) => ({

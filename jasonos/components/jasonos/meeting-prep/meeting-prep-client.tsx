@@ -7,9 +7,16 @@ import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
-import { MeetingPointsEditor } from "@/components/jasonos/meeting-prep/meeting-points-editor";
+import { PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
 import {
   BlockTitle,
   easternClock,
@@ -39,7 +46,19 @@ import {
   setMeetingPurpose,
   type MeetingPrepDetail,
 } from "@/lib/server-actions/meeting-prep";
-import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
+import {
+  createMeetingPoint,
+  deleteMeetingPoint,
+  draftMeetingPoints,
+  reorderMeetingPoints,
+  updateMeetingPoint,
+  type MeetingPoint,
+} from "@/lib/server-actions/meeting-points";
+import {
+  applyLiveScript,
+  saveMeetingPointsAsScript,
+  type LiveScript,
+} from "@/lib/server-actions/live-scripts";
 import { cn } from "@/lib/utils";
 
 export { BlockTitle, easternClock, joinHref, Prose };
@@ -476,16 +495,235 @@ function ThreadRow({ thread }: { thread: OtherThread }) {
   );
 }
 
+const FIELD =
+  "w-full rounded-[2px] border-0 border-b-2 border-[var(--color-neutral-400)] bg-[var(--jos-surface)] px-3.5 text-[16px] text-[var(--jos-ink)] outline-none placeholder:text-[var(--jos-muted)]";
+
+function PrepPoints({
+  prep,
+  points,
+  pointsError,
+  scripts,
+}: {
+  prep: MeetingPrepDetail;
+  points: MeetingPoint[];
+  pointsError?: string | null;
+  scripts: LiveScript[];
+}) {
+  const router = useRouter();
+  const [scriptId, setScriptId] = useState("");
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saveDescription, setSaveDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const apply = (mode: "add" | "replace") => {
+    if (!scriptId) return;
+    setApplying(true);
+    void applyLiveScript({ scriptId, prepId: prep.id, mode }).then((result) => {
+      setApplying(false);
+      setConfirmReplace(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const count = result.added === 1 ? "1 point" : `${result.added} points`;
+      toast.success(`Added ${count}`);
+      router.refresh();
+    });
+  };
+
+  const saveScript = () => {
+    const name = saveName.trim();
+    if (!name) {
+      toast.error("Name the script.");
+      return;
+    }
+    setSaving(true);
+    void saveMeetingPointsAsScript({
+      prepId: prep.id,
+      name,
+      description: saveDescription,
+    }).then((result) => {
+      setSaving(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setSaveOpen(false);
+      setSaveName("");
+      setSaveDescription("");
+      toast.success(
+        <span>
+          Saved as script.{" "}
+          <a className="underline" href={`/live/scripts/${result.scriptId}`}>
+            Open it
+          </a>
+        </span>
+      );
+    });
+  };
+
+  return (
+    <PointsEditor
+      points={points}
+      error={pointsError}
+      note={prep.scriptName ? `Started from ${prep.scriptName}` : null}
+      actions={{
+        create: async (input) => {
+          const result = await createMeetingPoint({ prepId: prep.id, ...input });
+          if (!result.ok) return result;
+          return { ok: true, id: result.point.id };
+        },
+        update: (id, patch) => updateMeetingPoint(id, patch),
+        remove: (id) => deleteMeetingPoint(id),
+        reorder: (ids) => reorderMeetingPoints(prep.id, ids),
+      }}
+      draft={{ label: "Draft points", run: () => draftMeetingPoints(prep.id) }}
+      footer={(pointCount) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {pointCount ? (
+            <Link href={`/meetings/${prep.id}/live`} className={buttonVariants({ variant: "calendar" })}>
+              Start live
+            </Link>
+          ) : (
+            <button type="button" disabled className={buttonVariants({ variant: "calendar" })}>
+              Add at least one point
+            </button>
+          )}
+          <label className="sr-only" htmlFor="start-from-script">
+            Start from a script
+          </label>
+          <select
+            id="start-from-script"
+            aria-label="Start from a script"
+            value={scriptId}
+            className="h-8 max-w-full bg-transparent text-[14px] font-semibold text-[var(--jos-ink)] outline-none"
+            onChange={(event) => {
+              setScriptId(event.target.value);
+              setConfirmReplace(false);
+            }}
+          >
+            <option value="">Start from a script</option>
+            {scripts.map((script) => (
+              <option key={script.id} value={script.id}>
+                {script.name}
+              </option>
+            ))}
+          </select>
+          {scriptId ? (
+            confirmReplace ? (
+              <span className="text-[13px] text-[var(--jos-ink)]">
+                Replace {pointCount} existing points?{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                  disabled={applying}
+                  onClick={() => apply("replace")}
+                >
+                  Confirm
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  className="font-semibold hover:underline"
+                  onClick={() => setConfirmReplace(false)}
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <>
+                <Button type="button" size="sm" variant="outline" disabled={applying} onClick={() => apply("add")}>
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={applying}
+                  onClick={() => setConfirmReplace(true)}
+                >
+                  Replace
+                </Button>
+              </>
+            )
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pointCount === 0}
+            onClick={() => setSaveOpen(true)}
+          >
+            Save as script
+          </Button>
+          <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+            <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Save as script</DialogTitle>
+                <DialogDescription>
+                  Copies these points into a script. State and notes stay on this meeting.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  saveScript();
+                }}
+              >
+                <label className="block space-y-1">
+                  <span className="text-[14px] font-semibold">
+                    Name <span className="text-[var(--jos-danger)]">*</span>
+                  </span>
+                  <input
+                    required
+                    value={saveName}
+                    maxLength={120}
+                    className={`${FIELD} h-11`}
+                    onChange={(event) => setSaveName(event.target.value)}
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[14px] font-semibold">Description</span>
+                  <textarea
+                    value={saveDescription}
+                    rows={3}
+                    className={`${FIELD} py-2`}
+                    onChange={(event) => setSaveDescription(event.target.value)}
+                  />
+                </label>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setSaveOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" variant="calendar" disabled={saving}>
+                    Save
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+    />
+  );
+}
+
 export function MeetingPrepClient({
   prep,
   context,
   points,
   pointsError,
+  scripts,
 }: {
   prep: MeetingPrepDetail;
   context: MeetingContext;
   points: MeetingPoint[];
   pointsError?: string | null;
+  scripts: LiveScript[];
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
@@ -677,7 +915,7 @@ export function MeetingPrepClient({
       ) : null}
 
       {stored || editing ? (
-        <MeetingPointsEditor prepId={prep.id} points={points} error={pointsError} />
+        <PrepPoints prep={prep} points={points} pointsError={pointsError} scripts={scripts} />
       ) : null}
 
       {context.people.length || context.unmatched.length ? (
@@ -905,7 +1143,7 @@ export function MeetingPrepClient({
       ) : null}
 
       {!stored && !editing ? (
-        <MeetingPointsEditor prepId={prep.id} points={points} error={pointsError} />
+        <PrepPoints prep={prep} points={points} pointsError={pointsError} scripts={scripts} />
       ) : null}
 
       {briefing.otherThreads.length ? (

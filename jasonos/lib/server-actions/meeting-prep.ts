@@ -7,7 +7,7 @@ import {
   type MeetingHomeContext,
 } from "@/lib/meeting-prep/context-model";
 import {
-  loadTodaysMeetings,
+  loadMeetingsForDays,
   type TodaysMeeting,
 } from "@/lib/meeting-prep/today";
 import { purposeFromCalendarDescription } from "@/lib/meeting-prep/text";
@@ -74,6 +74,8 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   builtAt: string | null;
   liveStartedAt: string | null;
   liveEndedAt: string | null;
+  scriptId: string | null;
+  scriptName: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -106,6 +108,7 @@ interface PrepRow {
 const PREP_COLUMNS =
   "id, gcal_event_id, ical_uid, calendar_source, title, starts_at, ends_at, calendar_url, conference_url, location, description, attendees, purpose, purpose_source, purpose_confirmed, status, error, gathered_at, built_at";
 const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`;
+const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -195,6 +198,8 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     builtAt: row.built_at,
     liveStartedAt: row.live_started_at ?? null,
     liveEndedAt: row.live_ended_at ?? null,
+    scriptId: null,
+    scriptName: null,
     sources,
   };
 }
@@ -269,10 +274,23 @@ async function pointCounts(
 export async function getTodaysMeetingPreps(): Promise<
   PrepResult<{ meetings: MeetingPrepSummary[]; warnings: string[] }>
 > {
+  return getMeetingPrepsForDays(1);
+}
+
+/** Today and the following Eastern days. Default is today and tomorrow. */
+export async function getUpcomingMeetingPreps(
+  days = 2
+): Promise<PrepResult<{ meetings: MeetingPrepSummary[]; warnings: string[] }>> {
+  return getMeetingPrepsForDays(days);
+}
+
+async function getMeetingPrepsForDays(
+  days: number
+): Promise<PrepResult<{ meetings: MeetingPrepSummary[]; warnings: string[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
   try {
-    const loaded = await loadTodaysMeetings();
+    const loaded = await loadMeetingsForDays(days);
     const sb = createServiceRoleClient();
     const nowIso = new Date().toISOString();
     const eventIds = loaded.meetings.map((meeting) => meeting.gcalEventId);
@@ -379,9 +397,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_WITH_LIVE)
+    .select(PREP_COLUMNS_FULL)
     .eq("id", id)
     .maybeSingle();
+  if (error && /script_id/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_LIVE)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && missingLiveColumn(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
@@ -417,10 +442,19 @@ export async function getMeetingPrep(
     excluded: Boolean(row.excluded),
   }));
 
-  return {
-    ok: true,
-    prep: toDetail(data as PrepRow, sources, sources.length),
-  };
+  const prep = toDetail(data as PrepRow, sources, sources.length);
+  const scriptId = (data as { script_id?: string | null }).script_id ?? null;
+  prep.scriptId = scriptId;
+  if (scriptId) {
+    const { data: script } = await sb
+      .from("live_scripts")
+      .select("name")
+      .eq("id", scriptId)
+      .maybeSingle();
+    prep.scriptName = (script?.name as string | undefined)?.trim() || null;
+  }
+
+  return { ok: true, prep };
 }
 
 export async function setMeetingPurpose(

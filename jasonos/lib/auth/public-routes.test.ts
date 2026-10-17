@@ -51,6 +51,8 @@ describe("public JasonOS paths", () => {
     assert.equal(isLiveCallPath("/meetings/abc/live/"), true);
     assert.equal(isLiveCallPath("/meetings/abc"), false);
     assert.equal(isLiveCallPath("/meetings/abc/live/extra"), false);
+    assert.equal(isLiveCallPath("/live/scripts/abc/rehearse"), true);
+    assert.equal(isLiveCallPath("/live/scripts/abc"), false);
   });
 
   it("hides chrome on login, IUGR, and Ski Tracker", () => {

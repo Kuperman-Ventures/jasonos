@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildMeetingPointsUserMessage,
   coveredTally,
+  fillScriptPlaceholders,
   firstOpenIndex,
   formatElapsed,
   markableIndexAt,
@@ -87,6 +88,21 @@ describe("live navigation", () => {
     assert.equal(formatElapsed(65), "01:05");
     assert.equal(formatElapsed(3599), "59:59");
     assert.equal(formatElapsed(3600), "60:00");
+  });
+});
+
+describe("fillScriptPlaceholders", () => {
+  it("fills tokens from the first person and leaves the rest written out", () => {
+    assert.equal(
+      fillScriptPlaceholders("Ask {{ name }} at {{company}} about the {{title}} role", {
+        name: "Alex Chen",
+        company: "Northwind",
+        title: null,
+      }),
+      "Ask Alex Chen at Northwind about the {{title}} role"
+    );
+    assert.equal(fillScriptPlaceholders("Hi {{company}}", null), "Hi {{company}}");
+    assert.equal(fillScriptPlaceholders(null, { name: "Alex" }), null);
   });
 });
 

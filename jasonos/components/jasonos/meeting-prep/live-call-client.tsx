@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus } from "lucide-react";
 import { toast } from "sonner";
-import { easternClock, joinHref } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -14,31 +13,47 @@ import {
   markableIndexAt,
   moveMarkableIndex,
   nextOpenIndex,
+  type PointKind,
   type PointState,
 } from "@/lib/meeting-prep/points";
-import type { MeetingPrepDetail } from "@/lib/server-actions/meeting-prep";
-import {
-  endLiveMeeting,
-  setMeetingPointNote,
-  setMeetingPointState,
-  startLiveMeeting,
-  type MeetingPoint,
-} from "@/lib/server-actions/meeting-points";
+import type { MeetingPoint, PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
-const KIND_LABEL: Record<MeetingPoint["kind"], string> = {
+const KIND_LABEL: Record<PointKind, string> = {
   agenda: "Agenda",
   point: "Point",
   question: "Question",
   ask: "Ask",
 };
 
+export type LiveSession = {
+  title: string;
+  timeLabel: string | null;
+  joinHref: string | null;
+  backHref: string;
+  badge: "live" | "rehearsal";
+  startedAt: string | null;
+};
+
+export type LiveCallActions = {
+  start?: () => Promise<PointResult<{ startedAt: string }>>;
+  setState: (id: string, state: PointState) => Promise<PointResult<object>>;
+  setNote: (id: string, note: string) => Promise<PointResult<object>>;
+  end: () => Promise<PointResult<object>>;
+};
+
 function pointSignature(points: MeetingPoint[]): string {
   return points
     .map((point) =>
-      [point.id, point.position, point.kind, point.headline, point.detail ?? "", point.state, point.note ?? ""].join(
-        "\u001f"
-      )
+      [
+        point.id,
+        point.position,
+        point.kind,
+        point.headline,
+        point.detail ?? "",
+        point.state,
+        point.note ?? "",
+      ].join("\u001f")
     )
     .join("\u001e");
 }
@@ -65,13 +80,15 @@ function Elapsed({ startedAt }: { startedAt: string | null }) {
 }
 
 export function LiveCallClient({
-  prep,
+  session,
   points,
-  liveStartedAt,
+  actions,
+  extraControls,
 }: {
-  prep: MeetingPrepDetail;
+  session: LiveSession;
   points: MeetingPoint[];
-  liveStartedAt: string | null;
+  actions: LiveCallActions;
+  extraControls?: ReactNode;
 }) {
   const router = useRouter();
   const signature = pointSignature(points);
@@ -82,12 +99,14 @@ export function LiveCallClient({
     initialOpen >= 0 ? points[initialOpen].id : (points.find((point) => point.kind !== "agenda")?.id ?? null)
   );
   const [finished, setFinished] = useState(initialOpen < 0 && points.some((point) => point.kind !== "agenda"));
-  const [startedAt, setStartedAt] = useState(liveStartedAt);
+  const [startedAt, setStartedAt] = useState(session.startedAt);
   const [, startTransition] = useTransition();
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const rowsRef = useRef(rows);
   const currentRef = useRef(currentId);
   const finishedRef = useRef(finished);
+  const actionsRef = useRef(actions);
+  const hasStart = Boolean(actions.start);
 
   if (signature !== seen) {
     setSeen(signature);
@@ -95,27 +114,37 @@ export function LiveCallClient({
   }
 
   useEffect(() => {
-    if (startedAt) return;
+    actionsRef.current = actions;
+  });
+
+  useEffect(() => {
+    if (startedAt || !hasStart) return;
     let cancelled = false;
-    void startLiveMeeting(prep.id).then((result) => {
-      if (cancelled) return;
+    void actionsRef.current.start?.().then((result) => {
+      if (cancelled || !result) return;
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      setStartedAt(result.liveStartedAt);
+      setStartedAt(result.startedAt);
     });
     return () => {
       cancelled = true;
     };
-  }, [prep.id, startedAt]);
+  }, [hasStart, startedAt]);
+
+  useEffect(() => {
+    if (startedAt || hasStart || session.startedAt) return;
+    // Rehearsal has no saved start. The clock begins when this screen mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStartedAt(new Date().toISOString());
+  }, [hasStart, session.startedAt, startedAt]);
 
   useEffect(() => {
     if (!currentId) return;
     document.getElementById(`live-point-${currentId}`)?.scrollIntoView({ block: "nearest" });
   }, [currentId]);
 
-  const join = joinHref(prep);
   const tally = coveredTally(rows);
   const currentIndex = rows.findIndex((point) => point.id === currentId);
   const current = currentIndex >= 0 ? rows[currentIndex] : null;
@@ -159,7 +188,7 @@ export function LiveCallClient({
       setCurrentId(id);
     }
     startTransition(async () => {
-      const result = await setMeetingPointState(id, state);
+      const result = await actionsRef.current.setState(id, state);
       if (!result.ok) {
         setRows(previous);
         setCurrentId(previousId);
@@ -170,6 +199,7 @@ export function LiveCallClient({
   };
 
   useEffect(() => {
+    actionsRef.current = actions;
     rowsRef.current = rows;
     currentRef.current = currentId;
     finishedRef.current = finished;
@@ -238,12 +268,12 @@ export function LiveCallClient({
 
   const finish = () => {
     startTransition(async () => {
-      const result = await endLiveMeeting(prep.id);
+      const result = await actions.end();
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      router.push(`/meetings/${prep.id}`);
+      router.push(session.backHref);
     });
   };
 
@@ -256,16 +286,18 @@ export function LiveCallClient({
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]">
       <header className="flex h-[var(--jos-nav-h)] shrink-0 items-center gap-3 border-b border-[var(--jos-line)] px-4">
-        <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-tight">{prep.title}</h1>
-        <p className="shrink-0 text-[13px] font-medium text-[var(--jos-muted)]">
-          {easternClock(prep.startsAt)}–{easternClock(prep.endsAt)} ET
-        </p>
+        <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-tight">{session.title}</h1>
+        {session.timeLabel ? (
+          <p className="shrink-0 text-[13px] font-medium text-[var(--jos-muted)]">{session.timeLabel}</p>
+        ) : session.badge === "rehearsal" ? (
+          <p className="shrink-0 text-[13px] font-semibold text-[var(--color-accent-2-text)]">Rehearsal</p>
+        ) : null}
         <p className="shrink-0 text-[13px] font-semibold">
           <Elapsed startedAt={startedAt} />
         </p>
-        {join ? (
+        {session.joinHref ? (
           <a
-            href={join}
+            href={session.joinHref}
             target="_blank"
             rel="noreferrer"
             className={buttonVariants({ variant: "calendar", size: "sm" })}
@@ -273,6 +305,7 @@ export function LiveCallClient({
             Join the call
           </a>
         ) : null}
+        {extraControls}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col min-[900px]:flex-row">
@@ -383,10 +416,9 @@ export function LiveCallClient({
                 onSelect={select}
                 onMark={(state) => mark(current.id, state)}
                 onNote={(note) => {
-                  setRows((list) =>
-                    list.map((row) => (row.id === current.id ? { ...row, note } : row))
-                  );
+                  setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
                 }}
+                saveNote={(note) => actions.setNote(current.id, note)}
               />
             ) : (
               <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]">
@@ -394,9 +426,10 @@ export function LiveCallClient({
               </h2>
             )}
           </div>
-          <p className="pt-4 text-[12px] text-[var(--jos-muted)]">
-            j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump
-          </p>
+          <div className="pt-4 text-[12px] text-[var(--jos-muted)]">
+            <p>j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump</p>
+            {session.badge === "rehearsal" ? <p>Nothing here is saved.</p> : null}
+          </div>
         </section>
       </div>
     </div>
@@ -410,6 +443,7 @@ function CurrentPoint({
   onSelect,
   onMark,
   onNote,
+  saveNote,
 }: {
   point: MeetingPoint;
   noteRef: React.RefObject<HTMLTextAreaElement | null>;
@@ -417,6 +451,7 @@ function CurrentPoint({
   onSelect: (id: string) => void;
   onMark: (state: PointState) => void;
   onNote: (note: string | null) => void;
+  saveNote: (note: string) => Promise<PointResult<object>>;
 }) {
   const [text, setText] = useState(point.note ?? "");
   const [saved, setSaved] = useState(false);
@@ -433,13 +468,13 @@ function CurrentPoint({
     const next = text.trim() ? text.trim() : null;
     const previous = stored.trim() ? stored.trim() : null;
     if (next === previous) return;
-    void setMeetingPointNote(point.id, text).then((result) => {
+    void saveNote(text).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
         setText(stored);
         return;
       }
-      onNote(result.note);
+      onNote(next);
       setSaved(true);
       if (savedTimer.current != null) window.clearTimeout(savedTimer.current);
       savedTimer.current = window.setTimeout(() => setSaved(false), 2000);
