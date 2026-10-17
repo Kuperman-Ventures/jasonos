@@ -77,6 +77,7 @@ const NAV: NavItem[] = [
       { href: "/resume-customizer", label: "Resume & Cover Letter" },
       { href: "/post-master", label: "Post Master" },
       { href: "/library", label: "Library" },
+      { href: "/live", label: "Live" },
     ],
   },
   {
