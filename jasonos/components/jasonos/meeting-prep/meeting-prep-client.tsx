@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -9,10 +9,17 @@ import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { MeetingPointsEditor } from "@/components/jasonos/meeting-prep/meeting-points-editor";
+import {
+  BlockTitle,
+  easternClock,
+  ExternalLink,
+  joinHref,
+  Prose,
+} from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import {
   collapseText,
   easternDateLong,
-  linkify,
   subjectKey,
   type BriefingBeat,
   type BriefingThread,
@@ -32,15 +39,10 @@ import {
   setMeetingPurpose,
   type MeetingPrepDetail,
 } from "@/lib/server-actions/meeting-prep";
+import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
-function easternClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: "America/New_York",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
+export { BlockTitle, easternClock, joinHref, Prose };
 
 function easternDay(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -99,12 +101,6 @@ function humanPlace(location: string | null): string | null {
   return value;
 }
 
-function joinHref(prep: MeetingPrepDetail): string | null {
-  if (prep.conferenceUrl) return prep.conferenceUrl;
-  if (prep.location && /^https?:/i.test(prep.location.trim())) return prep.location.trim();
-  return null;
-}
-
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
@@ -118,43 +114,6 @@ function sameText(a: string | null | undefined, b: string | null | undefined): b
   const left = collapseText(a)?.toLowerCase();
   const right = collapseText(b)?.toLowerCase();
   return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
-}
-
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
-  const external = /^https?:/i.test(href);
-  return (
-    <a
-      href={href}
-      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
-      className="font-semibold text-[var(--color-accent-700)] hover:underline"
-    >
-      {children}
-    </a>
-  );
-}
-
-function Prose({ text, className }: { text: string; className?: string }) {
-  return (
-    <span className={className}>
-      {linkify(text).map((part, index) =>
-        part.href ? (
-          <ExternalLink key={`${part.href}-${index}`} href={part.href}>
-            {part.text}
-          </ExternalLink>
-        ) : (
-          <span key={index}>{part.text}</span>
-        )
-      )}
-    </span>
-  );
-}
-
-function BlockTitle({ children }: { children: ReactNode }) {
-  return (
-    <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
-      {children}
-    </h2>
-  );
 }
 
 function Expandable({ text }: { text: string }) {
@@ -520,9 +479,13 @@ function ThreadRow({ thread }: { thread: OtherThread }) {
 export function MeetingPrepClient({
   prep,
   context,
+  points,
+  pointsError,
 }: {
   prep: MeetingPrepDetail;
   context: MeetingContext;
+  points: MeetingPoint[];
+  pointsError?: string | null;
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
@@ -535,6 +498,8 @@ export function MeetingPrepClient({
   const [addTarget, setAddTarget] = useState<{ email: string; name: string | null } | null>(null);
 
   useEffect(() => {
+    // Clock starts after mount so the server HTML does not depend on the current minute.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(Date.now());
   }, []);
 
@@ -709,6 +674,10 @@ export function MeetingPrepClient({
             />
           )}
         </section>
+      ) : null}
+
+      {stored || editing ? (
+        <MeetingPointsEditor prepId={prep.id} points={points} error={pointsError} />
       ) : null}
 
       {context.people.length || context.unmatched.length ? (
@@ -933,6 +902,10 @@ export function MeetingPrepClient({
             }}
           />
         </section>
+      ) : null}
+
+      {!stored && !editing ? (
+        <MeetingPointsEditor prepId={prep.id} points={points} error={pointsError} />
       ) : null}
 
       {briefing.otherThreads.length ? (

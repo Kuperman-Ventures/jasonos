@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { TopNav } from "@/components/jasonos/top-nav";
 import { TellClaudePalette } from "@/components/jasonos/tell-claude-palette";
-import { hidesJasonosChrome } from "@/lib/auth/public-routes";
+import { hidesJasonosChrome, isLiveCallPath } from "@/lib/auth/public-routes";
 import type { NetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
 /** Hide JasonOS chrome on standalone public tools and the login page. */
@@ -13,12 +13,14 @@ export function JasonOsChrome({
 }: {
   networkingCounts?: NetworkingNavCounts;
 }) {
-  const pathname = usePathname();
-  if (hidesJasonosChrome(pathname ?? "")) return null;
+  const pathname = usePathname() ?? "";
+  if (hidesJasonosChrome(pathname)) return null;
+  const liveCall = isLiveCallPath(pathname);
   return (
     <>
-      <TopNav networkingCounts={networkingCounts} />
+      {liveCall ? null : <TopNav networkingCounts={networkingCounts} />}
       <TellClaudePalette />
+      {liveCall ? null : (
       <button
         type="button"
         aria-label="Tools"
@@ -29,6 +31,7 @@ export function JasonOsChrome({
       >
         <SlidersHorizontal className="h-5 w-5" />
       </button>
+      )}
     </>
   );
 }

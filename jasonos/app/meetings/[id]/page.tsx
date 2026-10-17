@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { MeetingPrepClient } from "@/components/jasonos/meeting-prep/meeting-prep-client";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export default async function MeetingPrepPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [result, contextResult] = await Promise.all([
+  const [result, contextResult, pointsResult] = await Promise.all([
     getMeetingPrep(id),
     loadMeetingContext(id).then(
       (context) => ({ ok: true as const, context }),
@@ -21,6 +22,7 @@ export default async function MeetingPrepPage({
         error: error instanceof Error ? error.message : String(error),
       })
     ),
+    getMeetingPoints(id),
   ]);
   if (!result.ok) {
     if (result.error === "Meeting prep not found.") notFound();
@@ -42,6 +44,8 @@ export default async function MeetingPrepPage({
       key={result.prep.id}
       prep={result.prep}
       context={contextResult.context}
+      points={pointsResult.ok ? pointsResult.points : []}
+      pointsError={pointsResult.ok ? null : pointsResult.error}
     />
   );
 }
