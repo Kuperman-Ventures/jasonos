@@ -18590,8 +18590,33 @@ button.at-link {
 .nudge-person:hover,
 .nudge-tab:hover,
 .nudge-when:hover { background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
+.nudge-copy-hint {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-subtle);
+}
+.nudge-todo .nudge-row { border-bottom: 0; }
+.nudge-email-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 8px 12px 44px;
+}
+.nudge-email-line-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.nudge-email-line-label .is-over { color: var(--milestone-ink); }
 .nudge-note,
-.nudge-blurb-edit {
+.nudge-blurb-edit,
+.nudge-email-line textarea {
   width: 100%;
   padding: 12px 14px;
   background: var(--color-bg);

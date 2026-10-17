@@ -69,8 +69,9 @@ test("nudge screen keeps selections, updates the preview, and relabels send", as
       return new Response(JSON.stringify(catalog), { status: 200 });
     }
     if (url.includes("/blurb")) {
-      const body = JSON.parse(String(init?.body ?? "{}")) as { itemId?: string };
-      return new Response(JSON.stringify({ itemId: body.itemId, blurb: "A small step this week is enough." }), { status: 200 });
+      const body = JSON.parse(String(init?.body ?? "{}")) as { itemId?: string; blurb?: string };
+      const blurb = typeof body.blurb === "string" ? body.blurb : "A small step this week is enough.";
+      return new Response(JSON.stringify({ itemId: body.itemId, blurb }), { status: 200 });
     }
     return new Response(JSON.stringify({ ok: true, sent: 1 }), { status: 200 });
   }) as typeof fetch;
@@ -151,6 +152,76 @@ test("nudge screen keeps selections, updates the preview, and relabels send", as
     });
     const send = [...container.querySelectorAll(".nudge-send")][0] as HTMLButtonElement;
     assert.equal(send.disabled, true);
+  } finally {
+    await act(async () => {
+      root.unmount();
+    });
+    globalThis.fetch = original;
+  }
+});
+
+test("email line edits the sentence under a to-do and leaves the to-do title", async () => {
+  const win = installDom();
+  const saves: { itemId?: string; blurb?: string }[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/api/admin/nudge") && init?.method !== "POST") {
+      return new Response(JSON.stringify(catalog), { status: 200 });
+    }
+    if (url.includes("/blurb")) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { itemId?: string; blurb?: string };
+      if (typeof body.blurb === "string") saves.push(body);
+      const blurb = typeof body.blurb === "string" ? body.blurb : "A small step this week is enough.";
+      return new Response(JSON.stringify({ itemId: body.itemId, blurb }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }) as typeof fetch;
+
+  const container = win.document.createElement("div");
+  win.document.body.appendChild(container);
+  const root: Root = createRoot(container as unknown as Element);
+  try {
+    await act(async () => {
+      root.render(<NudgePanel onBack={() => {}} />);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const field = container.querySelector(
+      'textarea[aria-label="Email line for Develop Your College List"]',
+    ) as HTMLTextAreaElement | null;
+    assert.ok(field);
+    assert.equal(field.closest(".nudge-row"), null);
+    assert.equal(field.value, "A first draft is enough for this week.");
+
+    const next = "Bring a short first draft, even if the list is still messy.";
+    const setter = Object.getOwnPropertyDescriptor(win.HTMLTextAreaElement.prototype, "value")?.set;
+    await act(async () => {
+      field.focus();
+      setter?.call(field, next);
+      field.blur();
+    });
+    assert.equal(saves.at(-1)?.itemId, "t-kyle");
+    assert.equal(saves.at(-1)?.blurb, next);
+    assert.match(container.querySelector(".nudge-mail-body")?.textContent ?? "", /Bring a short first draft/);
+    const title = [...container.querySelectorAll(".nudge-row")].find((row) =>
+      row.textContent?.includes("Develop Your College List"),
+    );
+    assert.match(title?.textContent ?? "", /Develop Your College List/);
+    assert.equal(title?.textContent?.includes("Bring a short first draft"), false);
+
+    const opening = container.querySelector('textarea[aria-label="Opening"]') as HTMLTextAreaElement;
+    const openingNext = "Start with the list. The rest of the week can wait.";
+    await act(async () => {
+      opening.focus();
+      setter?.call(opening, openingNext);
+      opening.blur();
+    });
+    assert.equal(saves.at(-1)?.itemId, "opening");
+    assert.equal(saves.at(-1)?.blurb, openingNext);
+    assert.match(container.querySelector(".nudge-mail-body")?.textContent ?? "", /Start with the list/);
   } finally {
     await act(async () => {
       root.unmount();

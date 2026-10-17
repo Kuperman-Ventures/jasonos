@@ -21,10 +21,17 @@ export async function POST(request: Request) {
   const itemId = body.itemId?.trim() ?? "";
   if (!itemId) return NextResponse.json({ error: "Missing item" }, { status: 400 });
   try {
-    const blurb =
-      typeof body.blurb === "string"
-        ? clampBlurb(body.blurb)
-        : await generateNudgeBlurb(body.title?.trim() || itemId, body.context?.trim() || "");
+    if (itemId === "opening" && typeof body.blurb === "string") {
+      const blurb = body.blurb.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 800);
+      await saveNudgeBlurb(itemId, blurb);
+      return NextResponse.json({ itemId, blurb });
+    }
+    if (typeof body.blurb === "string") {
+      const blurb = clampBlurb(body.blurb);
+      await saveNudgeBlurb(itemId, blurb);
+      return NextResponse.json({ itemId, blurb });
+    }
+    const blurb = await generateNudgeBlurb(body.title?.trim() || itemId, body.context?.trim() || "");
     if (blurb) await saveNudgeBlurb(itemId, blurb);
     return NextResponse.json({ itemId, blurb });
   } catch (error) {

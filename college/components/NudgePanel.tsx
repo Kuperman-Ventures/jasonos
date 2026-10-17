@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BLURB_WORD_CAP,
   nudgeSubject,
   nudgeSummary,
   personWillReceive,
@@ -120,7 +121,10 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
       })
         .then((response) => response.json())
         .then((body: { blurb?: string }) => {
-          if (body.blurb) setBlurbs((current) => ({ ...current, [item.id]: body.blurb! }));
+          if (!body.blurb) return;
+          setBlurbs((current) =>
+            current[item.id]?.trim() ? current : { ...current, [item.id]: body.blurb! },
+          );
         })
         .catch(() => {
           requested.current.delete(item.id);
@@ -130,15 +134,39 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blurbQueueKey]);
 
+  async function saveOpening(value: string) {
+    setNote(value);
+    touch();
+    const response = await fetch("/api/admin/nudge/blurb", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId: "opening", blurb: value }),
+    });
+    const body = (await response.json().catch(() => ({}))) as { blurb?: string; error?: string };
+    if (!response.ok) {
+      setSendError(body.error || "Could not save the opening");
+      return;
+    }
+    if (typeof body.blurb === "string") setNote(body.blurb);
+  }
+
   async function saveBlurb(target: BlurbTarget, value: string) {
     setBlurbs((current) => ({ ...current, [target.id]: value }));
     setEditing(null);
     touch();
-    await fetch("/api/admin/nudge/blurb", {
+    const response = await fetch("/api/admin/nudge/blurb", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...target, blurb: value }),
+      body: JSON.stringify({ itemId: target.id, title: target.title, context: target.context, blurb: value }),
     });
+    const body = (await response.json().catch(() => ({}))) as { blurb?: string; error?: string };
+    if (!response.ok) {
+      setSendError(body.error || "Could not save the email line");
+      return;
+    }
+    if (typeof body.blurb === "string") {
+      setBlurbs((current) => ({ ...current, [target.id]: body.blurb! }));
+    }
   }
 
   function togglePerson(id: string) {
@@ -232,8 +260,28 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
             </section>
 
             <section className="nudge-block">
+              <div className="nudge-label">2 · Opening</div>
+              <p className="nudge-copy-hint">
+                This paragraph sits under the greeting, at the top of the email.
+              </p>
+              <textarea
+                className="nudge-note"
+                rows={3}
+                aria-label="Opening"
+                value={note}
+                onChange={(event) => {
+                  touch();
+                  setNote(event.target.value);
+                }}
+                onBlur={(event) => {
+                  void saveOpening(event.target.value);
+                }}
+              />
+            </section>
+
+            <section className="nudge-block">
               <div className="nudge-label-row">
-                <div className="nudge-label">2 · On the timeline</div>
+                <div className="nudge-label">3 · On the timeline</div>
                 <span className="nudge-count">{stageCountLabel}</span>
               </div>
               <div>
@@ -257,7 +305,7 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
 
             <section className="nudge-block">
               <div className="nudge-label-row">
-                <div className="nudge-label">3 · To-dos</div>
+                <div className="nudge-label">4 · To-dos</div>
                 <button
                   type="button"
                   className="nudge-helper"
@@ -283,6 +331,9 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
                   Clear
                 </button>
               </div>
+              <p className="nudge-copy-hint">
+                Edit the sentence under each to-do. That line is what the email says about it.
+              </p>
               {groups.map((group) => {
                 const off = !peopleOn[group.person.id];
                 const selected = group.rows.filter((row) => todoOn[row.id]).length;
@@ -296,38 +347,32 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
                       </span>
                     </div>
                     {group.rows.map((row) => (
-                      <SelectRow
-                        key={`${group.person.id}:${row.id}`}
-                        on={Boolean(todoOn[row.id])}
-                        title={row.title}
-                        sub={row.dueLabel}
-                        aside={row.dateLabel}
-                        asideTone={row.tone}
-                        onToggle={() => {
-                          touch();
-                          setTodoOn((current) => ({ ...current, [row.id]: !current[row.id] }));
-                        }}
-                      />
+                      <div key={`${group.person.id}:${row.id}`} className="nudge-todo">
+                        <SelectRow
+                          on={Boolean(todoOn[row.id])}
+                          title={row.title}
+                          sub={row.dueLabel}
+                          aside={row.dateLabel}
+                          asideTone={row.tone}
+                          onToggle={() => {
+                            touch();
+                            setTodoOn((current) => ({ ...current, [row.id]: !current[row.id] }));
+                          }}
+                        />
+                        <EmailLine
+                          title={row.title}
+                          value={blurbText(row)}
+                          onSave={(value) =>
+                            void saveBlurb({ id: row.id, title: row.title, context: row.dueLabel }, value)
+                          }
+                        />
+                      </div>
                     ))}
                   </div>
                 );
               })}
             </section>
 
-            <section className="nudge-block">
-              <div className="nudge-label">
-                4 · Personal note <span className="nudge-optional">(optional)</span>
-              </div>
-              <textarea
-                className="nudge-note"
-                rows={3}
-                value={note}
-                onChange={(event) => {
-                  touch();
-                  setNote(event.target.value);
-                }}
-              />
-            </section>
           </div>
 
           <aside className="nudge-preview">
@@ -470,6 +515,35 @@ function Avatar({
         person.initials
       )}
     </span>
+  );
+}
+
+function EmailLine({ title, value, onSave }: { title: string; value: string; onSave: (value: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = draft ?? value;
+  const words = shown.trim() ? shown.trim().split(/\s+/).length : 0;
+  return (
+    <label className="nudge-email-line">
+      <span className="nudge-email-line-label">
+        Email line
+        <span className={words > BLURB_WORD_CAP ? "is-over" : ""}>
+          {words}/{BLURB_WORD_CAP}
+        </span>
+      </span>
+      <textarea
+        rows={2}
+        value={shown}
+        placeholder="Sentence under this to-do."
+        aria-label={`Email line for ${title}`}
+        onFocus={() => setDraft(value)}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={(event) => {
+          const next = event.currentTarget.value;
+          setDraft(null);
+          if (next.trim() !== value.trim()) onSave(next);
+        }}
+      />
+    </label>
   );
 }
 
