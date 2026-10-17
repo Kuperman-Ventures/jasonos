@@ -1,4 +1,4 @@
-/** One reminder email per recipient. Resend when RESEND_API_KEY is set. */
+/** One HTML reminder per recipient, sent through Resend. */
 
 import type { NudgeEmailDraft } from "@/lib/nudge";
 
@@ -57,6 +57,9 @@ export function resendConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY?.trim());
 }
 
+const DEFAULT_FROM = "College Launch Plan <reminders@kupermanadvisors.com>";
+const DEFAULT_REPLY_TO = "jason@kupermanadvisors.com";
+
 export function renderNudgePlainText(email: NudgeEmail): string {
   const lines: string[] = [`Hi ${email.firstName},`, ""];
   if (email.note.trim()) lines.push(email.note.trim(), "");
@@ -74,35 +77,27 @@ export function renderNudgePlainText(email: NudgeEmail): string {
   return lines.join("\n").trim();
 }
 
-/** Opens the admin's own mail app. Used when no mail provider is configured. */
-export function mailtoHref(email: NudgeEmail): string {
-  let text = renderNudgePlainText(email);
-  const build = () =>
-    `mailto:${encodeURIComponent(email.to)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(text)}`;
-  if (build().length > 1800) {
-    const short = { ...email, stages: email.stages.map((item) => ({ ...item, blurb: "" })), todos: email.todos.map((item) => ({ ...item, blurb: "" })) };
-    text = renderNudgePlainText(short);
-  }
-  return build();
-}
-
 export async function sendNudgeEmail(email: NudgeEmail): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) {
-    return { ok: false, code: "unconfigured", error: "Mail provider is not set up." };
+    return { ok: false, code: "unconfigured", error: "Email is not configured. Add RESEND_API_KEY to send nudges." };
   }
-  const from = process.env.NUDGE_FROM_EMAIL?.trim() || "College Launch Plan <reminders@kyle-college.vercel.app>";
+  const from = process.env.NUDGE_FROM_EMAIL?.trim() || DEFAULT_FROM;
+  const replyTo = process.env.NUDGE_REPLY_TO?.trim() || DEFAULT_REPLY_TO;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
+      "User-Agent": "kyle-college-nudges",
     },
     body: JSON.stringify({
       from,
       to: [email.to],
+      reply_to: replyTo,
       subject: email.subject,
       html: renderNudgeEmail(email),
+      text: renderNudgePlainText(email),
     }),
   });
   const body = (await response.json().catch(() => ({}))) as { id?: string; message?: string };

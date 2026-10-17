@@ -18694,16 +18694,6 @@ button.at-link {
 .nudge-send:disabled { opacity: 0.45; cursor: default; }
 .nudge-send.is-sent { background: var(--color-done); color: var(--color-raised); }
 .nudge-send-error { flex-basis: 100%; color: var(--milestone-ink); font-size: 14px; }
-.nudge-open-mail {
-  flex-basis: 100%;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.nudge-open-mail a { font-weight: 700; color: var(--text-accent); }
 @media (max-width: 1000px) {
   .nudge-grid { grid-template-columns: minmax(0, 1fr); }
   .nudge-preview { position: static; }

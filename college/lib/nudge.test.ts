@@ -21,7 +21,7 @@ import {
   composeRecipientEmails,
   type NudgeCatalog,
 } from "./nudge";
-import { mailtoHref } from "./nudge-mail";
+import { renderNudgeEmail, sendNudgeEmail } from "./nudge-mail";
 
 const TODAY = new Date("2026-10-17T15:00:00.000Z");
 
@@ -127,7 +127,7 @@ test("recurring send drops items that are no longer open", () => {
   assert.deepEqual(stillCurrentIds(["a", "b", "c"], ["b"]), ["b"]);
 });
 
-test("each recipient gets only their to-dos plus the shared stages", () => {
+test("each recipient gets only their to-dos plus the shared stages", async () => {
   const catalog: NudgeCatalog = {
     people: [
       { id: "kyle", name: "Kyle", firstName: "Kyle", initials: "KY", email: "kyle@example.com", role: "student", avatarUrl: null, defaultOn: true },
@@ -162,11 +162,16 @@ test("each recipient gets only their to-dos plus the shared stages", () => {
   assert.equal(kyle.email.stages.length, 1);
   assert.equal(kyle.email.trackerUrl, "https://kyle-college.vercel.app/?tab=projects&pm=todos");
   assert.equal(emails.find((row) => row.personId === "kat")!.email.todos[0]?.title.includes("PSAT"), true);
-  const href = mailtoHref(kyle.email);
-  const decoded = decodeURIComponent(href);
-  assert.match(href, /^mailto:kyle%40example\.com\?/);
-  assert.match(decoded, /Hi Kyle/);
-  assert.match(decoded, /Develop Your College List/);
-  assert.match(decoded, /Open the tracker|kyle-college\.vercel\.app/);
-  assert.equal(decoded.includes("RESEND"), false);
+  const html = renderNudgeEmail(kyle.email);
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /Hi Kyle/);
+  assert.match(html, /Develop Your College List/);
+  assert.match(html, /kyle-college\.vercel\.app\/\?tab=projects&amp;pm=todos/);
+  assert.equal(html.includes("mailto:"), false);
+  const previous = process.env.RESEND_API_KEY;
+  delete process.env.RESEND_API_KEY;
+  const missing = await sendNudgeEmail(kyle.email);
+  if (previous) process.env.RESEND_API_KEY = previous;
+  assert.equal(missing.ok, false);
+  if (!missing.ok) assert.equal(missing.code, "unconfigured");
 });

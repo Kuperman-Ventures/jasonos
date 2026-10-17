@@ -27,8 +27,6 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
-  const [mailNote, setMailNote] = useState("");
-  const [mailLinks, setMailLinks] = useState<{ toName: string; href: string }[]>([]);
   const [blurbs, setBlurbs] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<BlurbTarget | null>(null);
   const [draft, setDraft] = useState("");
@@ -37,8 +35,6 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
   const touch = useCallback(() => {
     setSent(false);
     setSendError("");
-    setMailNote("");
-    setMailLinks([]);
   }, []);
 
   useEffect(() => {
@@ -171,23 +167,9 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
           choice: when,
         }),
       });
-      const body = (await response.json()) as {
-        ok?: boolean;
-        error?: string;
-        delivery?: string;
-        warning?: string;
-        messages?: { toName: string; href: string }[];
-      };
+      const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || body.ok === false) throw new Error(body.error || "Could not send");
-      if (body.delivery === "mailto" && body.messages?.length) {
-        setMailLinks(body.messages);
-        setMailNote("These go out from your mail app. Open each person and send.");
-        setSent(false);
-      } else {
-        setMailLinks([]);
-        setMailNote(body.warning ?? "");
-        setSent(true);
-      }
+      setSent(true);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : "Could not send");
     } finally {
@@ -465,18 +447,6 @@ export function NudgePanel({ onBack }: { onBack: () => void }) {
           >
             {sending ? "Sending…" : sendButtonLabel(when, sent)}
           </button>
-          {mailLinks.length ? (
-            <div className="nudge-open-mail">
-              <span>{mailNote}</span>
-              {mailLinks.map((link) => (
-                <a key={link.toName} href={link.href}>
-                  Email {link.toName}
-                </a>
-              ))}
-            </div>
-          ) : mailNote ? (
-            <span className="nudge-open-mail">{mailNote}</span>
-          ) : null}
           {sendError ? <span className="nudge-send-error">{sendError}</span> : null}
         </div>
       </div>

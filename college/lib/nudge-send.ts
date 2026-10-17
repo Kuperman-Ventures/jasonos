@@ -1,7 +1,7 @@
 /** Compose one email per recipient and persist the nudge record. */
 
 import { randomUUID } from "node:crypto";
-import { mailtoHref, resendConfigured, sendNudgeEmail } from "@/lib/nudge-mail";
+import { resendConfigured, sendNudgeEmail } from "@/lib/nudge-mail";
 import { generateNudgeBlurb } from "@/lib/nudge-ai";
 import { appendNudge, markNudgeSent, patchNudge, saveNudgeBlurb } from "@/lib/nudge-store";
 import {
@@ -25,17 +25,12 @@ export type NudgeSendInput = {
   now?: Date;
 };
 
-export type NudgeMailLink = { toName: string; href: string };
-
 export type NudgeSendResult = {
   ok: boolean;
   status: "sent" | "scheduled";
-  delivery?: "resend" | "mailto";
   nudgeId: string;
   sent: number;
   skipped: { id: string; reason: string }[];
-  messages?: NudgeMailLink[];
-  warning?: string;
   error?: string;
 };
 
@@ -105,31 +100,17 @@ export async function executeNudgeSend(input: NudgeSendInput): Promise<NudgeSend
 
   if (input.choice !== "now") {
     await appendNudge(record);
-    return {
-      ok: true,
-      status: "scheduled",
-      nudgeId: record.id,
-      sent: 0,
-      skipped,
-      warning: resendConfigured()
-        ? undefined
-        : "Saved. Friday delivery needs a mail provider, so use Send now and open each message in your mail app.",
-    };
+    return { ok: true, status: "scheduled", nudgeId: record.id, sent: 0, skipped };
   }
 
   if (!resendConfigured()) {
-    record.status = "sent";
-    record.sentAt = now.toISOString();
-    record.lastError = "Opened in your mail app";
-    await appendNudge(record);
     return {
-      ok: true,
+      ok: false,
       status: "sent",
-      delivery: "mailto",
       nudgeId: record.id,
       sent: 0,
       skipped,
-      messages: emails.map((row) => ({ toName: row.email.toName, href: mailtoHref(row.email) })),
+      error: "Email is not configured. Add RESEND_API_KEY to send nudges.",
     };
   }
 
@@ -156,7 +137,6 @@ export async function executeNudgeSend(input: NudgeSendInput): Promise<NudgeSend
   return {
     ok: failures.length === 0,
     status: "sent",
-    delivery: "resend",
     nudgeId: record.id,
     sent,
     skipped,
