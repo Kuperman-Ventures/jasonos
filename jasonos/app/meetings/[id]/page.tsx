@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { MeetingPrepClient } from "@/components/jasonos/meeting-prep/meeting-prep-client";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
-import { getLiveScript, listLiveScripts } from "@/lib/server-actions/live-scripts";
+import {
+  getAdaptation,
+  getLiveScript,
+  getProposedAdaptation,
+  listLiveScripts,
+} from "@/lib/server-actions/live-scripts";
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep, listProjectsForPicker } from "@/lib/server-actions/meeting-prep";
 import { getMeetingReview } from "@/lib/server-actions/meeting-reviews";
@@ -11,10 +16,13 @@ export const maxDuration = 300;
 
 export default async function MeetingPrepPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ adapt?: string }>;
 }) {
   const { id } = await params;
+  const query = await searchParams;
   const [result, contextResult, pointsResult, scriptsResult, projectsResult] = await Promise.all([
     getMeetingPrep(id),
     loadMeetingContext(id).then(
@@ -48,6 +56,14 @@ export default async function MeetingPrepPage({
     result.prep.scriptId ? getLiveScript(result.prep.scriptId) : Promise.resolve(null),
   ]);
   const rubric = scriptResult?.ok ? scriptResult.script.rubric : [];
+  const adaptId = typeof query.adapt === "string" ? query.adapt.trim() : "";
+  const adaptationResult = adaptId
+    ? await getAdaptation({ scriptId: adaptId, prepId: id })
+    : await getProposedAdaptation(id);
+  const adaptation =
+    adaptationResult.ok && adaptationResult.adaptation?.status === "proposed"
+      ? adaptationResult.adaptation
+      : null;
   return (
     <MeetingPrepClient
       key={result.prep.id}
@@ -59,6 +75,7 @@ export default async function MeetingPrepPage({
       rubric={rubric}
       review={reviewResult.ok ? reviewResult.review : null}
       projects={projectsResult.ok ? projectsResult.projects : []}
+      adaptation={adaptation}
     />
   );
 }

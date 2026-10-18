@@ -64,9 +64,13 @@ import {
   type MeetingPoint,
 } from "@/lib/server-actions/meeting-points";
 import {
+  acceptAdaptation,
   applyLiveScript,
+  discardAdaptation,
+  proposeAdaptation,
   saveMeetingPointsAsScript,
   type LiveScript,
+  type MeetingAdaptation,
 } from "@/lib/server-actions/live-scripts";
 import { cn } from "@/lib/utils";
 
@@ -725,6 +729,155 @@ function GoalLinks({
   );
 }
 
+function AdaptedPlan({
+  proposal,
+  personName,
+  pointCount,
+  onProposal,
+  onClose,
+}: {
+  proposal: MeetingAdaptation;
+  personName: string;
+  pointCount: number;
+  onProposal: (next: MeetingAdaptation | null) => void;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+
+  const accept = (mode: "add" | "replace") => {
+    setBusy(true);
+    void acceptAdaptation({ adaptationId: proposal.id, mode }).then((result) => {
+      setBusy(false);
+      setConfirmReplace(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(mode === "replace" ? "Replaced with the adapted plan" : "Added the adapted plan");
+      onClose();
+      router.replace(`/meetings/${proposal.prepId}`);
+      router.refresh();
+    });
+  };
+
+  const redo = () => {
+    setBusy(true);
+    void proposeAdaptation({ scriptId: proposal.scriptId, prepId: proposal.prepId }).then((result) => {
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      onProposal(result.adaptation);
+      router.refresh();
+    });
+  };
+
+  const discard = () => {
+    setBusy(true);
+    void discardAdaptation(proposal.id).then((result) => {
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      onClose();
+      router.replace(`/meetings/${proposal.prepId}`);
+      router.refresh();
+    });
+  };
+
+  return (
+    <section className="space-y-3 border border-[var(--color-neutral-400)] bg-[var(--jos-surface)] p-4">
+      <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Adapted plan</h2>
+      <div className="grid grid-cols-1 gap-4 min-[900px]:grid-cols-2">
+        <div className="space-y-2">
+          <h3 className="text-[14px] font-semibold text-[var(--jos-ink)]">{proposal.scriptName}</h3>
+          <ul className="space-y-3">
+            {proposal.genericItems.map((item, index) => (
+              <li key={`${item.kind}-${item.headline}-${index}`} className="space-y-1">
+                <p className="text-[15px] font-semibold text-[var(--jos-ink)]">{item.headline}</p>
+                {item.detail ? <p className="text-[14px] leading-snug text-[var(--jos-ink)]">{item.detail}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-[14px] font-semibold text-[var(--jos-ink)]">{personName}&apos;s version</h3>
+          <ul className="space-y-3">
+            {proposal.items.map((item, index) => (
+              <li key={`${item.headline}-${index}`} className="space-y-1">
+                <p
+                  className={`text-[15px] font-semibold text-[var(--jos-ink)] ${item.dropped ? "line-through" : ""}`}
+                >
+                  {item.headline}
+                </p>
+                {item.dropped ? (
+                  <p className="text-[13px] text-[var(--jos-muted)]">{item.droppedReason || item.sourceHint}</p>
+                ) : (
+                  <>
+                    {item.detail ? <p className="text-[14px] leading-snug text-[var(--jos-ink)]">{item.detail}</p> : null}
+                    {item.added ? (
+                      <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                        Added from context
+                      </p>
+                    ) : null}
+                    {item.sourceHint ? <p className="text-[13px] text-[var(--jos-muted)]">{item.sourceHint}</p> : null}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <p className="text-[13px] text-[var(--jos-muted)]">Used: {proposal.contextUsed.join(" · ") || "none"}</p>
+      <p className="text-[13px] text-[var(--jos-muted)]">Missing: {proposal.contextMissing.join(" · ") || "none"}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {confirmReplace ? (
+          <span className="text-[13px] text-[var(--jos-ink)]">
+            Replace {pointCount} existing points?{" "}
+            <button
+              type="button"
+              className="font-semibold text-[var(--color-accent-700)] hover:underline"
+              disabled={busy}
+              onClick={() => accept("replace")}
+            >
+              Confirm
+            </button>
+            {" · "}
+            <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmReplace(false)}>
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => (pointCount > 0 ? setConfirmReplace(true) : accept("replace"))}
+            >
+              Accept and replace
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => accept("add")}>
+              Accept and add
+            </Button>
+          </>
+        )}
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={redo}>
+          Redo
+        </Button>
+        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={discard}>
+          Discard
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function PrepPoints({
   prep,
   points,
@@ -734,6 +887,7 @@ function PrepPoints({
   review,
   projects,
   people,
+  adaptation,
 }: {
   prep: MeetingPrepDetail;
   points: MeetingPoint[];
@@ -743,6 +897,7 @@ function PrepPoints({
   review: MeetingReview | null;
   projects: ProjectPickerOption[];
   people: MeetingContextPerson[];
+  adaptation: MeetingAdaptation | null;
 }) {
   const router = useRouter();
   const [scriptId, setScriptId] = useState("");
@@ -752,6 +907,32 @@ function PrepPoints({
   const [saveName, setSaveName] = useState("");
   const [saveDescription, setSaveDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const signature = adaptation ? `${adaptation.id}:${adaptation.updatedAt}` : "";
+  const [seenAdaptation, setSeenAdaptation] = useState(signature);
+  const [proposal, setProposal] = useState<MeetingAdaptation | null>(adaptation);
+  if (signature !== seenAdaptation) {
+    setSeenAdaptation(signature);
+    setProposal(adaptation);
+  }
+  const personName =
+    prep.primaryContactName ||
+    people.find((person) => person.contactId === prep.primaryContactId)?.name ||
+    people[0]?.name ||
+    "This person";
+
+  const adapt = () => {
+    if (!scriptId) return;
+    setApplying(true);
+    void proposeAdaptation({ scriptId, prepId: prep.id }).then((result) => {
+      setApplying(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setProposal(result.adaptation);
+      router.replace(`/meetings/${prep.id}?adapt=${scriptId}`);
+    });
+  };
 
   const apply = (mode: "add" | "replace") => {
     if (!scriptId) return;
@@ -802,10 +983,25 @@ function PrepPoints({
 
   return (
     <>
+    {proposal ? (
+      <AdaptedPlan
+        proposal={proposal}
+        personName={personName}
+        pointCount={points.length}
+        onProposal={setProposal}
+        onClose={() => setProposal(null)}
+      />
+    ) : null}
     <PointsEditor
       points={points}
       error={pointsError}
-      note={prep.scriptName ? `Started from ${prep.scriptName}` : null}
+      note={
+        prep.adaptedFromScriptName
+          ? `Adapted from ${prep.adaptedFromScriptName}`
+          : prep.scriptName
+            ? `Started from ${prep.scriptName}`
+            : null
+      }
       belowTitle={<OutcomeForMeeting prep={prep} projects={projects} people={people} />}
       actions={{
         create: async (input) => {
@@ -885,6 +1081,9 @@ function PrepPoints({
                 >
                   Replace
                 </Button>
+                <Button type="button" size="sm" variant="outline" disabled={applying} onClick={adapt}>
+                  Adapt
+                </Button>
               </>
             )
           ) : null}
@@ -961,6 +1160,7 @@ export function MeetingPrepClient({
   rubric,
   review,
   projects,
+  adaptation,
 }: {
   prep: MeetingPrepDetail;
   context: MeetingContext;
@@ -970,6 +1170,7 @@ export function MeetingPrepClient({
   rubric: string[];
   review: MeetingReview | null;
   projects: ProjectPickerOption[];
+  adaptation: MeetingAdaptation | null;
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
@@ -1170,6 +1371,7 @@ export function MeetingPrepClient({
           review={review}
           projects={projects}
           people={context.people}
+          adaptation={adaptation}
         />
       ) : null}
 
@@ -1407,6 +1609,7 @@ export function MeetingPrepClient({
           review={review}
           projects={projects}
           people={context.people}
+          adaptation={adaptation}
         />
       ) : null}
 

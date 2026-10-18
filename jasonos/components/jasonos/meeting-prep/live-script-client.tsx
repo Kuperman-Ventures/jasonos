@@ -18,6 +18,7 @@ import type { PointResult } from "@/lib/server-actions/meeting-points";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
 import {
   applyLiveScript,
+  proposeAdaptation,
   createLiveScriptItem,
   deleteLiveScript,
   deleteLiveScriptItem,
@@ -251,6 +252,19 @@ export function LiveScriptClient({
     draftDone.current = null;
   };
 
+  const adapt = () => {
+    if (!prepId) return;
+    setApplying(true);
+    void proposeAdaptation({ scriptId: script.id, prepId }).then((result) => {
+      setApplying(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.push(`/meetings/${prepId}?adapt=${script.id}`);
+    });
+  };
+
   const apply = (mode: "add" | "replace") => {
     if (!prepId) return;
     setApplying(true);
@@ -435,6 +449,9 @@ export function LiveScriptClient({
                     onClick={() => setConfirmReplace(true)}
                   >
                     Replace
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" disabled={applying} onClick={adapt}>
+                    Adapt
                   </Button>
                 </>
               )

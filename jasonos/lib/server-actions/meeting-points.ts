@@ -4,16 +4,15 @@ import { revalidatePath } from "next/cache";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { callClaude } from "@/lib/ai/models";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
-import { isJoinBoilerplate } from "@/lib/meeting-prep/text";
 import { REACTION_SHAPES, type Reaction, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import {
   buildReactionsUserMessage,
   parseReactions,
   reactionsSystemPrompt,
 } from "@/lib/meeting-prep/reactions";
+import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
 import {
   buildMeetingPointsUserMessage,
-  draftContextLines,
   meetingPointsSystemPrompt,
   newDrafts,
   parseDraftPoints,
@@ -399,74 +398,7 @@ export async function draftMeetingPoints(
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 
-  const prep = prepResult.prep;
-  const purpose = prep.purpose && !isJoinBoilerplate(prep.purpose) ? prep.purpose : null;
-  const person = context.people[0] ?? null;
-  const referrer =
-    context.people.find((item) => item.referredByName?.trim())?.referredByName?.trim() ||
-    context.connections.find((item) => item.who?.trim())?.who?.trim() ||
-    null;
-  const personalGoal = person?.personalGoal?.trim() || null;
-  const openCommitments = context.brief.commitments
-    .filter((item) => item.status === "open")
-    .map((item) => ({
-      text: item.text,
-      direction: item.direction,
-      due: item.due,
-      personName: item.personName,
-    }));
-  const granolaSummaries = [
-    ...context.pastMeetings
-      .filter((meeting) => meeting.granolaSummary?.trim())
-      .map((meeting) => ({
-        title: meeting.title,
-        date: meeting.when,
-        summary: meeting.granolaSummary!.trim().slice(0, 1500),
-        sort: meeting.when ? Date.parse(meeting.when) : 0,
-      })),
-    ...context.granolaNotes
-      .filter((note) => note.summary.trim())
-      .map((note) => ({
-        title: note.title,
-        date: note.when,
-        summary: note.summary.trim().slice(0, 1500),
-        sort: note.when ? Date.parse(note.when) : 0,
-      })),
-  ]
-    .sort((a, b) => (Number.isNaN(b.sort) ? 0 : b.sort) - (Number.isNaN(a.sort) ? 0 : a.sort))
-    .filter((note, index, list) => list.findIndex((item) => item.summary === note.summary) === index)
-    .slice(0, 3)
-    .map(({ title, date, summary }) => ({ title, date, summary }));
-  const lastNextStep =
-    context.pastMeetings.find((meeting) => meeting.nextStep?.trim())?.nextStep?.trim() || null;
-  const contextLines = draftContextLines({
-    purpose,
-    outcomeSentence: prep.outcomeSentence,
-    relationshipBrief: context.brief.summary,
-    openCommitments: openCommitments.length,
-    referrer,
-    personalGoal,
-    projectGoal: prep.projectGoal,
-    relationshipGoal: prep.personalGoal || personalGoal,
-    granolaNotes: granolaSummaries.length,
-    earlierMeetings: context.pastMeetings.length,
-    jobSearch: context.jobSearch.length,
-  });
-  const knownEmails = new Set(context.people.map((item) => item.email.toLowerCase()));
-  const attendees = [
-    ...context.people.map((person) => ({
-      name: person.name,
-      title: person.title,
-      company: person.company,
-    })),
-    ...prep.attendees
-      .filter((attendee) => !knownEmails.has(attendee.email.toLowerCase()))
-      .map((attendee) => ({
-        name: attendee.name || attendee.email,
-        title: null,
-        company: null,
-      })),
-  ];
+  const assembled = assembleDraftPrompt(prepResult.prep, context);
 
   let text: string;
   try {
@@ -474,40 +406,7 @@ export async function draftMeetingPoints(
       model: "claude-sonnet-4-6",
       maxTokens: 1200,
       system: meetingPointsSystemPrompt(NO_AI_SLOP_WRITING_RULES),
-      messages: [
-        {
-          role: "user",
-          content: buildMeetingPointsUserMessage({
-            title: prep.title,
-            attendees,
-            purpose,
-            outcomeSentence: prep.outcomeSentence,
-            summary: context.brief.summary,
-            nextMove: context.brief.nextMove,
-            openCommitments,
-            topics: context.brief.topics,
-            whereItStands: context.briefing.whereItStands?.text ?? null,
-            yourStake: context.briefing.yourStake?.text ?? null,
-            introduction: context.briefing.introduction?.text ?? null,
-            referrer,
-            personalGoal,
-            projectGoal: prep.projectGoal,
-            relationshipGoal: prep.personalGoal || personalGoal,
-            lastNextStep,
-            granolaSummaries,
-            pastMeetings: context.pastMeetings.map((meeting) => ({
-              title: meeting.title,
-              debriefNotes: meeting.debriefNotes,
-              nextStep: meeting.nextStep,
-            })),
-            jobSearch: context.jobSearch.map((job) => ({
-              title: job.title,
-              company: job.company,
-              kind: job.kind,
-            })),
-          }),
-        },
-      ],
+      messages: [{ role: "user", content: buildMeetingPointsUserMessage(assembled.input) }],
     });
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not draft points." };
@@ -523,7 +422,7 @@ export async function draftMeetingPoints(
     existing.points.map((point) => point.headline),
     drafted
   );
-  if (!fresh.length) return { ok: true, added: 0, ...contextLines };
+  if (!fresh.length) return { ok: true, added: 0, contextUsed: assembled.contextUsed, contextMissing: assembled.contextMissing };
 
   const start =
     existing.points.reduce((max, point) => Math.max(max, point.position), 0) + 1;
@@ -544,7 +443,12 @@ export async function draftMeetingPoints(
   if (error) return { ok: false, error: error.message };
 
   revalidatePoints(id);
-  return { ok: true, added: fresh.length, ...contextLines };
+  return {
+    ok: true,
+    added: fresh.length,
+    contextUsed: assembled.contextUsed,
+    contextMissing: assembled.contextMissing,
+  };
 }
 
 export async function startLiveMeeting(

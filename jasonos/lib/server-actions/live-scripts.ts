@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { callClaude } from "@/lib/ai/models";
 import { getLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
+import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
+import {
+  adaptSystemPrompt,
+  buildAdaptUserMessage,
+  parseAdaptation,
+  type AdaptedItem,
+} from "@/lib/meeting-prep/adapt";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
 import {
   clampDetail,
   clampHeadline,
@@ -754,4 +762,376 @@ export async function draftScriptItemReactions(
 
   revalidateScripts(item.scriptId);
   return { ok: true, reactions };
+}
+
+export interface MeetingAdaptation {
+  id: string;
+  prepId: string;
+  scriptId: string;
+  scriptName: string;
+  status: "proposed" | "accepted" | "discarded";
+  items: AdaptedItem[];
+  genericItems: Array<{ kind: PointKind; headline: string; detail: string | null }>;
+  contextUsed: string[];
+  contextMissing: string[];
+  updatedAt: string;
+}
+
+interface AdaptationRow {
+  id: string;
+  prep_id: string;
+  script_id: string;
+  items: unknown;
+  context_used: unknown;
+  context_missing: unknown;
+  status: string;
+  updated_at: string;
+}
+
+const ADAPT_COLUMNS =
+  "id, prep_id, script_id, items, context_used, context_missing, status, updated_at";
+
+function asLabels(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
+}
+
+function asStatus(value: string): MeetingAdaptation["status"] {
+  if (value === "accepted" || value === "discarded") return value;
+  return "proposed";
+}
+
+function asAdaptedItems(value: unknown): AdaptedItem[] {
+  if (!Array.isArray(value)) return [];
+  const items: AdaptedItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.headline !== "string" || typeof row.kind !== "string" || !KINDS.has(row.kind as PointKind)) {
+      continue;
+    }
+    items.push({
+      kind: row.kind as PointKind,
+      headline: row.headline,
+      detail: typeof row.detail === "string" && row.detail.trim() ? row.detail : null,
+      prepareReactions: Boolean(row.prepareReactions ?? row.prepare_reactions),
+      reactions: asReactions(row.reactions),
+      sourceHint:
+        typeof row.sourceHint === "string"
+          ? row.sourceHint
+          : typeof row.source_hint === "string"
+            ? row.source_hint
+            : null,
+      dropped: row.dropped === true,
+      droppedReason:
+        typeof row.droppedReason === "string"
+          ? row.droppedReason
+          : typeof row.dropped_reason === "string"
+            ? row.dropped_reason
+            : null,
+      added: row.added === true,
+    });
+  }
+  return items;
+}
+
+async function toAdaptation(row: AdaptationRow): Promise<PointResult<{ adaptation: MeetingAdaptation }>> {
+  const loaded = await getLiveScript(row.script_id);
+  if (!loaded.ok) return loaded;
+  return {
+    ok: true,
+    adaptation: {
+      id: row.id,
+      prepId: row.prep_id,
+      scriptId: row.script_id,
+      scriptName: loaded.script.name,
+      status: asStatus(row.status),
+      items: asAdaptedItems(row.items),
+      genericItems: loaded.items.map((item) => ({
+        kind: item.kind,
+        headline: item.headline,
+        detail: item.detail,
+      })),
+      contextUsed: asLabels(row.context_used),
+      contextMissing: asLabels(row.context_missing),
+      updatedAt: row.updated_at,
+    },
+  };
+}
+
+export async function getAdaptation(input: {
+  scriptId: string;
+  prepId: string;
+}): Promise<PointResult<{ adaptation: MeetingAdaptation | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const scriptId = input.scriptId.trim();
+  const prepId = input.prepId.trim();
+  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_adaptations")
+    .select(ADAPT_COLUMNS)
+    .eq("prep_id", prepId)
+    .eq("script_id", scriptId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, adaptation: null };
+  return toAdaptation(data as AdaptationRow);
+}
+
+export async function getProposedAdaptation(
+  prepId: string
+): Promise<PointResult<{ adaptation: MeetingAdaptation | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_adaptations")
+    .select(ADAPT_COLUMNS)
+    .eq("prep_id", id)
+    .eq("status", "proposed")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, adaptation: null };
+  return toAdaptation(data as AdaptationRow);
+}
+
+export async function proposeAdaptation(input: {
+  scriptId: string;
+  prepId: string;
+}): Promise<PointResult<{ adaptation: MeetingAdaptation }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const scriptId = input.scriptId.trim();
+  const prepId = input.prepId.trim();
+  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
+
+  const loaded = await getLiveScript(scriptId);
+  if (!loaded.ok) return loaded;
+  if (!loaded.items.length) return { ok: false, error: "This strategy has no points." };
+
+  const sb = createServiceRoleClient();
+  const { data: existing, error: existingError } = await sb
+    .from("meeting_adaptations")
+    .select("id, status")
+    .eq("prep_id", prepId)
+    .eq("script_id", scriptId)
+    .maybeSingle();
+  if (existingError) return { ok: false, error: existingError.message };
+  if (existing?.status === "accepted") {
+    return { ok: false, error: "Already accepted onto this meeting." };
+  }
+
+  const prepResult = await getMeetingPrep(prepId);
+  if (!prepResult.ok) return prepResult;
+  let context;
+  try {
+    context = await loadMeetingContext(prepId);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  const settingsResult = await getLiveSettings();
+  const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  const assembled = assembleDraftPrompt(prepResult.prep, context);
+
+  let text: string;
+  try {
+    text = await callClaude({
+      model: "claude-sonnet-4-6",
+      maxTokens: 4000,
+      system: adaptSystemPrompt(NO_AI_SLOP_WRITING_RULES),
+      messages: [
+        {
+          role: "user",
+          content: buildAdaptUserMessage({
+            ...assembled.input,
+            strategy: {
+              name: loaded.script.name,
+              situation: loaded.script.situation,
+              successSentence: loaded.script.successSentence,
+              rubric: loaded.script.rubric,
+              items: loaded.items.map((item) => ({
+                kind: item.kind,
+                headline: item.headline,
+                detail: item.detail,
+                prepareReactions: item.prepareReactions,
+                reactions: item.reactions,
+              })),
+            },
+            liveSettings: settings,
+          }),
+        },
+      ],
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not adapt the strategy." };
+  }
+
+  const items = parseAdaptation(text, loaded.items);
+  if (!items) return { ok: false, error: "Could not read the adaptation." };
+
+  const payload = {
+    prep_id: prepId,
+    script_id: scriptId,
+    items,
+    context_used: assembled.contextUsed,
+    context_missing: assembled.contextMissing,
+    status: "proposed",
+  };
+  const write = existing
+    ? await sb.from("meeting_adaptations").update(payload).eq("id", existing.id).select(ADAPT_COLUMNS).single()
+    : await sb.from("meeting_adaptations").insert(payload).select(ADAPT_COLUMNS).single();
+  if (write.error || !write.data) return { ok: false, error: write.error?.message || "Could not save the adaptation." };
+
+  revalidateScripts(scriptId, prepId);
+  return toAdaptation(write.data as AdaptationRow);
+}
+
+export async function acceptAdaptation(input: {
+  adaptationId: string;
+  mode: "add" | "replace";
+}): Promise<PointResult<{ added: number }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const adaptationId = input.adaptationId.trim();
+  if (!adaptationId) return { ok: false, error: "Adaptation not found." };
+  if (input.mode !== "add" && input.mode !== "replace") return { ok: false, error: "Pick add or replace." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_adaptations")
+    .select(ADAPT_COLUMNS)
+    .eq("id", adaptationId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Adaptation not found." };
+  const row = data as AdaptationRow;
+  if (row.status === "accepted") return { ok: false, error: "Already accepted onto this meeting." };
+  if (row.status !== "proposed") return { ok: false, error: "This adaptation was discarded." };
+
+  const loaded = await getLiveScript(row.script_id);
+  if (!loaded.ok) return loaded;
+  const prepResult = await getMeetingPrep(row.prep_id);
+  if (!prepResult.ok) return prepResult;
+  let context;
+  try {
+    context = await loadMeetingContext(row.prep_id);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  const settingsResult = await getLiveSettings();
+  const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  const person =
+    context.people.find((item) => item.contactId === prepResult.prep.primaryContactId) ??
+    context.people[0] ??
+    null;
+  const kept = asAdaptedItems(row.items).filter((item) => !item.dropped);
+
+  const { data: existingPoints, error: existingError } = await sb
+    .from("meeting_points")
+    .select("*")
+    .eq("prep_id", row.prep_id)
+    .order("position", { ascending: true });
+  if (existingError) return { ok: false, error: existingError.message };
+  const previous = existingPoints ?? [];
+
+  if (input.mode === "replace" && previous.length) {
+    const { error: deleteError } = await sb.from("meeting_points").delete().eq("prep_id", row.prep_id);
+    if (deleteError) return { ok: false, error: deleteError.message };
+  }
+
+  const start =
+    input.mode === "replace"
+      ? 1
+      : previous.reduce((max, point) => Math.max(max, Number(point.position) || 0), 0) + 1;
+  const pointRows = kept.map((item, index) => ({
+    prep_id: row.prep_id,
+    position: start + index,
+    kind: item.kind,
+    headline: fillAppliedText(item.headline, person, settings) || item.headline,
+    detail: fillAppliedText(item.detail, person, settings),
+    state: "open",
+    source: "script",
+    script_id: row.script_id,
+    edited_by_user: false,
+    source_hint: item.sourceHint,
+    prepare_reactions: item.prepareReactions,
+    reactions: filledReactions(item.reactions, person, settings),
+  }));
+
+  if (pointRows.length) {
+    const { error: insertError } = await sb.from("meeting_points").insert(pointRows);
+    if (insertError) {
+      if (input.mode === "replace" && previous.length) {
+        await sb.from("meeting_points").insert(previous);
+      }
+      return { ok: false, error: insertError.message };
+    }
+  }
+
+  const success = loaded.script.successSentence
+    ? fillAppliedText(loaded.script.successSentence, person, settings)
+    : null;
+  const existingOutcome = prepResult.prep.outcomeSentence?.trim() ?? "";
+  const prepUpdate: {
+    script_id: string;
+    adapted_from_script_id: string;
+    adapted_at: string;
+    outcome_sentence?: string;
+  } = {
+    script_id: row.script_id,
+    adapted_from_script_id: row.script_id,
+    adapted_at: new Date().toISOString(),
+  };
+  if (!existingOutcome && success) prepUpdate.outcome_sentence = success;
+
+  const { error: prepError } = await sb.from("meeting_preps").update(prepUpdate).eq("id", row.prep_id);
+  if (prepError) return { ok: false, error: prepError.message };
+
+  const { error: statusError } = await sb
+    .from("meeting_adaptations")
+    .update({ status: "accepted" })
+    .eq("id", row.id);
+  if (statusError) return { ok: false, error: statusError.message };
+
+  const { data: scriptRow } = await sb
+    .from("live_scripts")
+    .select("use_count")
+    .eq("id", row.script_id)
+    .maybeSingle();
+  await sb
+    .from("live_scripts")
+    .update({
+      use_count: (typeof scriptRow?.use_count === "number" ? scriptRow.use_count : 0) + 1,
+      last_used_at: new Date().toISOString(),
+    })
+    .eq("id", row.script_id);
+
+  revalidateScripts(row.script_id, row.prep_id);
+  return { ok: true, added: pointRows.length };
+}
+
+export async function discardAdaptation(
+  adaptationId: string
+): Promise<PointResult<{ discarded: true }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = adaptationId.trim();
+  if (!id) return { ok: false, error: "Adaptation not found." };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_adaptations")
+    .select("id, status, prep_id, script_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Adaptation not found." };
+  if (data.status === "accepted") return { ok: false, error: "Already accepted onto this meeting." };
+  const { error: updateError } = await sb
+    .from("meeting_adaptations")
+    .update({ status: "discarded" })
+    .eq("id", id);
+  if (updateError) return { ok: false, error: updateError.message };
+  revalidateScripts(data.script_id as string, data.prep_id as string);
+  return { ok: true, discarded: true };
 }
