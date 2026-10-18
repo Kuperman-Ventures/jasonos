@@ -26,6 +26,8 @@ const KIND_LABEL: Record<PointKind, string> = {
   ask: "Ask",
 };
 
+export type OutcomeChoice = "hit" | "partial" | "missed";
+
 export type LiveSession = {
   title: string;
   timeLabel: string | null;
@@ -33,6 +35,8 @@ export type LiveSession = {
   backHref: string;
   badge: "live" | "rehearsal";
   startedAt: string | null;
+  outcomeSentence: string | null;
+  onDone: "mark" | "none";
 };
 
 export type LiveCallActions = {
@@ -40,6 +44,7 @@ export type LiveCallActions = {
   setState: (id: string, state: PointState) => Promise<PointResult<object>>;
   setNote: (id: string, note: string) => Promise<PointResult<object>>;
   end: () => Promise<PointResult<object>>;
+  markOutcome?: (mark: OutcomeChoice, note: string) => Promise<PointResult<object>>;
 };
 
 function pointSignature(points: MeetingPoint[]): string {
@@ -106,6 +111,13 @@ export function LiveCallClient({
   const currentRef = useRef(currentId);
   const finishedRef = useRef(finished);
   const actionsRef = useRef(actions);
+  const markingRef = useRef(false);
+  const chosenRef = useRef<OutcomeChoice | null>(null);
+  const outcomeNoteRef = useRef("");
+  const submittingRef = useRef(false);
+  const [marking, setMarking] = useState(false);
+  const [chosen, setChosen] = useState<OutcomeChoice | null>(null);
+  const [outcomeNote, setOutcomeNote] = useState("");
   const hasStart = Boolean(actions.start);
 
   if (signature !== seen) {
@@ -195,11 +207,52 @@ export function LiveCallClient({
     });
   };
 
+  const leave = () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    startTransition(async () => {
+      const result = await actionsRef.current.end();
+      if (!result.ok) {
+        submittingRef.current = false;
+        toast.error(result.error);
+        return;
+      }
+      router.push(session.backHref);
+    });
+  };
+
+  const confirmOutcome = () => {
+    const mark = chosenRef.current;
+    if (!mark || submittingRef.current) return;
+    submittingRef.current = true;
+    startTransition(async () => {
+      const marker = actionsRef.current.markOutcome;
+      if (marker) {
+        const result = await marker(mark, outcomeNoteRef.current);
+        if (!result.ok) {
+          submittingRef.current = false;
+          toast.error(result.error);
+          return;
+        }
+      }
+      const ended = await actionsRef.current.end();
+      if (!ended.ok) {
+        submittingRef.current = false;
+        toast.error(ended.error);
+        return;
+      }
+      router.push(session.backHref);
+    });
+  };
+
   useEffect(() => {
     actionsRef.current = actions;
     rowsRef.current = rows;
     currentRef.current = currentId;
     finishedRef.current = finished;
+    markingRef.current = marking;
+    chosenRef.current = chosen;
+    outcomeNoteRef.current = outcomeNote;
     function onKey(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
@@ -208,6 +261,26 @@ export function LiveCallClient({
         if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
           return;
         }
+      }
+      if (markingRef.current) {
+        const key = event.key.toLowerCase();
+        if (key === "h" || key === "p" || key === "m") {
+          event.preventDefault();
+          const next = key === "h" ? "hit" : key === "p" ? "partial" : "missed";
+          chosenRef.current = next;
+          setChosen(next);
+          return;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          leave();
+          return;
+        }
+        if (event.key === "Enter") {
+          event.preventDefault();
+          confirmOutcome();
+        }
+        return;
       }
       const list = rowsRef.current;
       const index = list.findIndex((point) => point.id === currentRef.current);
@@ -264,14 +337,11 @@ export function LiveCallClient({
   });
 
   const finish = () => {
-    startTransition(async () => {
-      const result = await actions.end();
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.push(session.backHref);
-    });
+    if (session.onDone === "mark") {
+      setMarking(true);
+      return;
+    }
+    leave();
   };
 
   const pills = rows.flatMap((point, index) => {
@@ -418,7 +488,23 @@ export function LiveCallClient({
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="flex min-h-full flex-col px-5 py-6 min-[900px]:px-14 min-[900px]:py-8">
-              {showAllCovered ? (
+              {marking ? (
+                <OutcomePanel
+                  sentence={session.outcomeSentence}
+                  chosen={chosen}
+                  note={outcomeNote}
+                  onChoose={(mark) => {
+                    chosenRef.current = mark;
+                    setChosen(mark);
+                  }}
+                  onNote={(value) => {
+                    outcomeNoteRef.current = value;
+                    setOutcomeNote(value);
+                  }}
+                  onConfirm={confirmOutcome}
+                  onSkip={leave}
+                />
+              ) : showAllCovered ? (
                 <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
                   <h2 className="text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
                     All points covered
@@ -482,6 +568,97 @@ export function LiveCallClient({
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function OutcomePanel({
+  sentence,
+  chosen,
+  note,
+  onChoose,
+  onNote,
+  onConfirm,
+  onSkip,
+}: {
+  sentence: string | null;
+  chosen: OutcomeChoice | null;
+  note: string;
+  onChoose: (mark: OutcomeChoice) => void;
+  onNote: (note: string) => void;
+  onConfirm: () => void;
+  onSkip: () => void;
+}) {
+  const choices: { mark: OutcomeChoice; label: string; selected: string }[] = [
+    {
+      mark: "hit",
+      label: "Hit",
+      selected: "border-[var(--color-done)] bg-[var(--color-done-100)] text-[var(--color-done)]",
+    },
+    {
+      mark: "partial",
+      label: "Partial",
+      selected: "border-[var(--color-process-yellow)] bg-[var(--jos-warn-tint)] text-[var(--jos-ink)]",
+    },
+    {
+      mark: "missed",
+      label: "Missed",
+      selected: "border-[var(--color-accent-2)] bg-[var(--color-accent-2-100)] text-[var(--color-accent-2-text)]",
+    },
+  ];
+
+  return (
+    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
+      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">Outcome</p>
+      {sentence ? (
+        <h2 className="mt-4 text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
+          {sentence}
+        </h2>
+      ) : (
+        <p className="mt-4 text-[28px] font-medium text-[var(--jos-muted)]">No outcome sentence was set</p>
+      )}
+      <div className="mt-8 flex flex-wrap gap-2">
+        {choices.map((choice) => (
+          <button
+            key={choice.mark}
+            type="button"
+            className={cn(
+              "border-2 px-4 py-2 text-[16px] font-bold",
+              chosen === choice.mark
+                ? choice.selected
+                : "border-[var(--jos-line)] bg-transparent text-[var(--jos-ink)]"
+            )}
+            onClick={() => onChoose(choice.mark)}
+          >
+            {choice.label}
+          </button>
+        ))}
+      </div>
+      <input
+        value={note}
+        maxLength={400}
+        placeholder="Optional note"
+        aria-label="Optional note"
+        className="mt-6 w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-2 text-[16px] outline-none"
+        onChange={(event) => onNote(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onConfirm();
+          }
+        }}
+      />
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Button type="button" variant="ok" disabled={!chosen} onClick={onConfirm}>
+          Confirm
+        </Button>
+        <Button type="button" variant="ghost" onClick={onSkip}>
+          Skip for now
+        </Button>
+      </div>
+      <p className="mt-4 text-[12px] text-[var(--jos-muted)]">
+        h hit · p partial · m missed · Enter confirms · Escape skips
+      </p>
     </div>
   );
 }

@@ -25,6 +25,8 @@ export type MeetingPurposeSource = "calendar" | "suggested" | "user";
 
 export type CalendarSource = "google" | "outlook";
 
+export type OutcomeMark = "hit" | "partial" | "missed";
+
 export interface MeetingPrepAttendee {
   email: string;
   name: string | null;
@@ -43,6 +45,10 @@ export interface MeetingPrepSummary {
   status: MeetingPrepStatus;
   sourceCount: number;
   pointCount: number;
+  outcomeSentence: string | null;
+  outcomeMark: OutcomeMark | null;
+  outcomeNote: string | null;
+  outcomeMarkedAt: string | null;
   home: MeetingHomeContext;
 }
 
@@ -103,15 +109,31 @@ interface PrepRow {
   built_at: string | null;
   live_started_at?: string | null;
   live_ended_at?: string | null;
+  outcome_sentence?: string | null;
+  outcome_mark?: string | null;
+  outcome_note?: string | null;
+  outcome_marked_at?: string | null;
 }
 
 const PREP_COLUMNS =
   "id, gcal_event_id, ical_uid, calendar_source, title, starts_at, ends_at, calendar_url, conference_url, location, description, attendees, purpose, purpose_source, purpose_confirmed, status, error, gathered_at, built_at";
 const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`;
 const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
+const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
+}
+
+function missingOutcomeColumn(message: string): boolean {
+  return /outcome_sentence|outcome_mark|outcome_note|outcome_marked_at/.test(message);
+}
+
+const OUTCOME_MARKS = new Set<OutcomeMark>(["hit", "partial", "missed"]);
+
+function asOutcomeMark(value: string | null | undefined): OutcomeMark | null {
+  if (value && OUTCOME_MARKS.has(value as OutcomeMark)) return value as OutcomeMark;
+  return null;
 }
 
 const STATUSES = new Set<MeetingPrepStatus>([
@@ -179,6 +201,10 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     status: asStatus(row.status),
     sourceCount,
     pointCount,
+    outcomeSentence: row.outcome_sentence?.trim() || null,
+    outcomeMark: asOutcomeMark(row.outcome_mark),
+    outcomeNote: row.outcome_note?.trim() || null,
+    outcomeMarkedAt: row.outcome_marked_at ?? null,
     home: EMPTY_HOME_CONTEXT,
   };
 }
@@ -397,9 +423,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_FULL)
+    .select(PREP_COLUMNS_WITH_OUTCOME)
     .eq("id", id)
     .maybeSingle();
+  if (error && missingOutcomeColumn(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_FULL)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && /script_id/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
@@ -512,4 +545,63 @@ export async function confirmMeetingPurpose(
 
   revalidatePrep(prepId);
   return { ok: true };
+}
+
+export async function setMeetingOutcomeSentence(
+  prepId: string,
+  sentence: string
+): Promise<PrepResult<{ outcomeSentence: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const text = sentence.trim().replace(/\s+/g, " ");
+  if (text.length > 400) return { ok: false, error: "Keep the outcome sentence under 400 characters." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .update({
+      outcome_sentence: text || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Meeting prep not found." };
+
+  revalidatePrep(id);
+  return { ok: true, outcomeSentence: text || null };
+}
+
+export async function setMeetingOutcomeMark(
+  prepId: string,
+  input: { mark: OutcomeMark | null; note?: string }
+): Promise<PrepResult<{ outcomeMark: OutcomeMark | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  if (input.mark !== null && !OUTCOME_MARKS.has(input.mark)) {
+    return { ok: false, error: "Unknown outcome mark." };
+  }
+  const note = input.note?.trim().replace(/\s+/g, " ") || null;
+  if (note && note.length > 400) return { ok: false, error: "Keep the note under 400 characters." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .update({
+      outcome_mark: input.mark,
+      outcome_note: input.mark ? note : null,
+      outcome_marked_at: input.mark ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Meeting prep not found." };
+
+  revalidatePrep(id);
+  return { ok: true, outcomeMark: input.mark };
 }

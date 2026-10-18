@@ -10,7 +10,11 @@ import {
   setMeetingPointState,
   startLiveMeeting,
 } from "@/lib/server-actions/meeting-points";
-import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
+import {
+  getMeetingPrep,
+  setMeetingOutcomeMark,
+  type OutcomeMark,
+} from "@/lib/server-actions/meeting-prep";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +45,11 @@ export default async function LiveMeetingPage({
   async function end() {
     "use server";
     return endLiveMeeting(id);
+  }
+
+  async function markOutcome(mark: OutcomeMark, note: string) {
+    "use server";
+    return setMeetingOutcomeMark(id, { mark, note });
   }
 
   const [prepResult, pointsResult] = await Promise.all([
@@ -79,9 +88,11 @@ export default async function LiveMeetingPage({
         backHref: `/meetings/${prep.id}`,
         badge: "live",
         startedAt: prep.liveStartedAt,
+        outcomeSentence: prep.outcomeSentence,
+        onDone: "mark",
       }}
       points={pointsResult.points}
-      actions={{ start, setState, setNote, end }}
+      actions={{ start, setState, setNote, end, markOutcome }}
     />
   );
 }

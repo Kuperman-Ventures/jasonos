@@ -160,6 +160,7 @@ export function PointsEditor({
   draft,
   footer,
   note,
+  belowTitle,
   detailBox = false,
 }: {
   points: EditorPoint[];
@@ -171,6 +172,7 @@ export function PointsEditor({
   };
   footer?: ReactNode | ((pointCount: number) => ReactNode);
   note?: ReactNode;
+  belowTitle?: ReactNode;
   detailBox?: boolean;
 }) {
   const router = useRouter();
@@ -292,6 +294,7 @@ export function PointsEditor({
         <div>
           <BlockTitle>Points to make</BlockTitle>
           {note ? <div className="mt-1 text-[13px] text-[var(--jos-muted)]">{note}</div> : null}
+          {belowTitle}
         </div>
         {draft ? (
           <Button type="button" variant="outline" disabled={drafting} onClick={runDraft}>

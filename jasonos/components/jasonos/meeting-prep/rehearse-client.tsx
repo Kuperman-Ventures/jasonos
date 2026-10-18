@@ -49,6 +49,8 @@ export function RehearseClient({
         backHref: `/live/scripts/${script.id}`,
         badge: "rehearsal",
         startedAt: null,
+        outcomeSentence: null,
+        onDone: "none",
       }}
       points={points}
       actions={{

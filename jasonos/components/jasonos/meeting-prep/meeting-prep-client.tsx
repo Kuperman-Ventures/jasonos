@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
-import { PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
+import { InlineField, PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
 import {
   BlockTitle,
   easternClock,
@@ -43,8 +43,11 @@ import {
 } from "@/lib/outreach/types";
 import {
   confirmMeetingPurpose,
+  setMeetingOutcomeMark,
+  setMeetingOutcomeSentence,
   setMeetingPurpose,
   type MeetingPrepDetail,
+  type OutcomeMark,
 } from "@/lib/server-actions/meeting-prep";
 import {
   createMeetingPoint,
@@ -498,6 +501,137 @@ function ThreadRow({ thread }: { thread: OtherThread }) {
 const FIELD =
   "w-full rounded-[2px] border-0 border-b-2 border-[var(--color-neutral-400)] bg-[var(--jos-surface)] px-3.5 text-[16px] text-[var(--jos-ink)] outline-none placeholder:text-[var(--jos-muted)]";
 
+const MARK_PILL: Record<OutcomeMark, { label: string; className: string }> = {
+  hit: {
+    label: "Hit",
+    className: "bg-[var(--color-done-100)] text-[var(--color-done)]",
+  },
+  partial: {
+    label: "Partial",
+    className: "bg-[var(--jos-warn-tint)] text-[var(--jos-ink)]",
+  },
+  missed: {
+    label: "Missed",
+    className: "bg-[var(--color-accent-2-100)] text-[var(--color-accent-2-text)]",
+  },
+};
+
+function MarkPill({ mark }: { mark: OutcomeMark | null }) {
+  if (!mark) {
+    return (
+      <span className="bg-[var(--color-surface)] px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+        Not marked
+      </span>
+    );
+  }
+  const pill = MARK_PILL[mark];
+  return (
+    <span className={`px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.08em] ${pill.className}`}>
+      {pill.label}
+    </span>
+  );
+}
+
+function OutcomeForMeeting({ prep }: { prep: MeetingPrepDetail }) {
+  const router = useRouter();
+  const [changing, setChanging] = useState(false);
+  const [note, setNote] = useState(prep.outcomeNote ?? "");
+  const [seenNote, setSeenNote] = useState(prep.outcomeNote ?? "");
+  const purpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "").trim();
+
+  if ((prep.outcomeNote ?? "") !== seenNote && !changing) {
+    setSeenNote(prep.outcomeNote ?? "");
+    setNote(prep.outcomeNote ?? "");
+  }
+
+  const saveSentence = (next: string) => {
+    void setMeetingOutcomeSentence(prep.id, next).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const saveMark = (mark: OutcomeMark) => {
+    void setMeetingOutcomeMark(prep.id, { mark, note }).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setChanging(false);
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="mt-3 max-w-[62ch] space-y-2">
+      <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+        Outcome for this meeting
+      </p>
+      <InlineField
+        value={prep.outcomeSentence ?? ""}
+        placeholder="One sentence you will score this meeting against"
+        emptyLabel="One sentence you will score this meeting against"
+        maxLength={400}
+        className="text-[16px] font-medium text-[var(--jos-ink)]"
+        onSave={saveSentence}
+      />
+      {!prep.outcomeSentence && purpose ? (
+        <button
+          type="button"
+          className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
+          onClick={() => saveSentence(purpose)}
+        >
+          Use purpose
+        </button>
+      ) : null}
+      {prep.liveEndedAt ? (
+        <div className="space-y-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <MarkPill mark={prep.outcomeMark} />
+            {changing ? null : (
+              <button
+                type="button"
+                className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                onClick={() => {
+                  setNote(prep.outcomeNote ?? "");
+                  setChanging(true);
+                }}
+              >
+                Change
+              </button>
+            )}
+          </div>
+          {prep.outcomeNote && !changing ? (
+            <p className="text-[15px] leading-snug text-[var(--jos-ink)]">{prep.outcomeNote}</p>
+          ) : null}
+          {changing ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(MARK_PILL) as OutcomeMark[]).map((mark) => (
+                  <Button key={mark} type="button" size="sm" variant="outline" onClick={() => saveMark(mark)}>
+                    {MARK_PILL[mark].label}
+                  </Button>
+                ))}
+              </div>
+              <input
+                value={note}
+                maxLength={400}
+                placeholder="Optional note"
+                aria-label="Outcome note"
+                className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none"
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PrepPoints({
   prep,
   points,
@@ -570,6 +704,7 @@ function PrepPoints({
       points={points}
       error={pointsError}
       note={prep.scriptName ? `Started from ${prep.scriptName}` : null}
+      belowTitle={<OutcomeForMeeting prep={prep} />}
       actions={{
         create: async (input) => {
           const result = await createMeetingPoint({ prepId: prep.id, ...input });
