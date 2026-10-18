@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  passkeyErrorMessage,
   registerPlatformPasskey,
   signInWithPlatformPasskey,
 } from "@/lib/auth/passkeys-browser";
@@ -46,7 +47,7 @@ export function PasskeysCard() {
       const supabase = createAuthBrowserClient();
       const { error: registerError } = await registerPlatformPasskey(supabase);
       if (registerError) {
-        setMessage(registerError.message);
+        setMessage(passkeyErrorMessage(registerError));
         return;
       }
       // Refresh the session amr so a later unlock stamp can see passkey.
@@ -58,7 +59,8 @@ export function PasskeysCard() {
       }
       await load();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not add Face ID / Touch ID.");
+      setMessage(passkeyErrorMessage(error));
+    } finally {
       setBusy(false);
     }
   }

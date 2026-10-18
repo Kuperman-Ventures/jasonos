@@ -129,6 +129,37 @@ function parseRequestOptions(options: RequestOptionsJSON): PublicKeyCredentialRe
   } as PublicKeyCredentialRequestOptions;
 }
 
+function errorName(error: unknown): string {
+  if (!error || typeof error !== "object" || !("name" in error)) return "";
+  return String((error as { name?: unknown }).name ?? "");
+}
+
+function errorMessage(error: unknown): string {
+  if (!error || typeof error !== "object" || !("message" in error)) return "";
+  return String((error as { message?: unknown }).message ?? "");
+}
+
+/**
+ * WebAuthn create() throws this when this Mac or phone already has a JasonOS
+ * passkey. excludeCredentials matches, so "Add" cannot register it again.
+ */
+export function passkeyAlreadyOnThisDevice(error: unknown): boolean {
+  if (errorName(error) === "InvalidStateError") return true;
+  return /already registered with the relying party/i.test(errorMessage(error));
+}
+
+export function passkeyErrorMessage(error: unknown): string {
+  if (passkeyAlreadyOnThisDevice(error)) {
+    return "This Mac or phone already has Face ID or Touch ID for JasonOS. Unlock with it instead of adding it again.";
+  }
+  if (errorName(error) === "NotAllowedError") {
+    return "Face ID or Touch ID was cancelled. Try again.";
+  }
+  const message = errorMessage(error).trim();
+  if (message) return message;
+  return "Face ID / Touch ID did not complete.";
+}
+
 function serializeCredential(credential: PublicKeyCredential): Record<string, unknown> {
   const withJson = credential as PublicKeyCredential & {
     toJSON?: () => Record<string, unknown>;
@@ -173,7 +204,15 @@ export async function registerPlatformPasskey(supabase: AuthClient) {
   const publicKey = parseCreationOptions(
     preferPlatformCreationOptions(data.options as CreationOptionsJSON)
   );
-  const credential = await navigator.credentials.create({ publicKey });
+  let credential: Credential | null;
+  try {
+    credential = await navigator.credentials.create({ publicKey });
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Face ID / Touch ID did not complete."),
+    };
+  }
   if (!(credential instanceof PublicKeyCredential)) {
     return { data: null, error: new Error("Face ID / Touch ID did not complete.") };
   }
@@ -191,7 +230,15 @@ export async function signInWithPlatformPasskey(supabase: AuthClient) {
   const publicKey = parseRequestOptions(
     preferPlatformRequestOptions(data.options as RequestOptionsJSON)
   );
-  const credential = await navigator.credentials.get({ publicKey });
+  let credential: Credential | null;
+  try {
+    credential = await navigator.credentials.get({ publicKey });
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error("Face ID / Touch ID did not complete."),
+    };
+  }
   if (!(credential instanceof PublicKeyCredential)) {
     return { data: null, error: new Error("Face ID / Touch ID did not complete.") };
   }

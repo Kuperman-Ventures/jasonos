@@ -6,6 +6,8 @@ import { Logo } from "@/components/jasonos/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  passkeyAlreadyOnThisDevice,
+  passkeyErrorMessage,
   registerPlatformPasskey,
   signInWithPlatformPasskey,
 } from "@/lib/auth/passkeys-browser";
@@ -64,15 +66,26 @@ export function LoginForm({
       const supabase = createAuthBrowserClient();
       const { error } = await signInWithPlatformPasskey(supabase);
       if (error) {
-        setMessage(error.message || "Face ID / Touch ID did not complete.");
+        setMessage(passkeyErrorMessage(error));
         return;
       }
       await stampAndGo();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Face ID / Touch ID did not complete.");
+      setMessage(passkeyErrorMessage(error));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function finishWithExistingPasskey(
+    supabase: ReturnType<typeof createAuthBrowserClient>
+  ) {
+    const { error } = await signInWithPlatformPasskey(supabase);
+    if (error) {
+      setMessage(passkeyErrorMessage(error));
+      return;
+    }
+    await stampAndGo();
   }
 
   async function addPasskey() {
@@ -82,7 +95,13 @@ export function LoginForm({
       const supabase = createAuthBrowserClient();
       const { error: registerError } = await registerPlatformPasskey(supabase);
       if (registerError) {
-        setMessage(registerError.message || "Could not add Face ID / Touch ID.");
+        // This laptop already has the passkey. Sign in with it instead of
+        // showing the browser's "already registered" error.
+        if (passkeyAlreadyOnThisDevice(registerError)) {
+          await finishWithExistingPasskey(supabase);
+          return;
+        }
+        setMessage(passkeyErrorMessage(registerError));
         return;
       }
       // Registration alone leaves the Google/oauth session. Unlock requires a
@@ -90,14 +109,17 @@ export function LoginForm({
       const { error: signInError } = await signInWithPlatformPasskey(supabase);
       if (signInError) {
         setMessage(
-          signInError.message ||
-            "Passkey was added, but Face ID / Touch ID sign-in did not finish. Tap Unlock and try again."
+          "Passkey was added, but Face ID / Touch ID sign-in did not finish. Tap Unlock with Face ID or Touch ID."
         );
         return;
       }
       await stampAndGo();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not add Face ID / Touch ID.");
+      if (passkeyAlreadyOnThisDevice(error)) {
+        await finishWithExistingPasskey(createAuthBrowserClient());
+        return;
+      }
+      setMessage(passkeyErrorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -149,26 +171,28 @@ export function LoginForm({
         <Logo size={28} priority />
         <p className="text-sm font-semibold tracking-tight">JasonOS</p>
       </div>
-      <h1 className="mt-4 text-xl font-semibold tracking-tight">
-        {enroll ? "Add Face ID or Touch ID" : "Unlock JasonOS"}
-      </h1>
+      <h1 className="mt-4 text-xl font-semibold tracking-tight">Unlock JasonOS</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {enroll
-          ? "Add Face ID or Touch ID on this Mac or phone. That unlocks JasonOS for 7 days. Google alone does not."
+          ? "If this Mac or phone already has Face ID or Touch ID, unlock with it. Add it only the first time on this device. Google alone does not unlock JasonOS."
           : "Face ID or Touch ID on this device. Google is only to get you to the passkey screen."}
       </p>
 
       {errorText ? <p className="mt-3 text-sm text-destructive">{errorText}</p> : null}
 
+      <Button className="mt-5 w-full" disabled={busy} onClick={() => void unlockWithPasskey()}>
+        {busy ? "Waiting for this device…" : "Unlock with Face ID or Touch ID"}
+      </Button>
       {enroll ? (
-        <Button className="mt-5 w-full" disabled={busy} onClick={() => void addPasskey()}>
+        <Button
+          className="mt-2 w-full"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void addPasskey()}
+        >
           {busy ? "Waiting for this device…" : "Add Face ID or Touch ID"}
         </Button>
-      ) : (
-        <Button className="mt-5 w-full" disabled={busy} onClick={() => void unlockWithPasskey()}>
-          {busy ? "Waiting for this device…" : "Unlock with Face ID or Touch ID"}
-        </Button>
-      )}
+      ) : null}
 
       <button
         type="button"
