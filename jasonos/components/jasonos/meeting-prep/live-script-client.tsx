@@ -24,6 +24,7 @@ import {
   draftLiveScriptItems,
   reorderLiveScriptItems,
   updateLiveScript,
+  draftScriptItemReactions,
   updateLiveScriptItem,
   type LiveScript,
   type LiveScriptItem,
@@ -303,6 +304,7 @@ export function LiveScriptClient({
             return { ok: true, id: result.item.id };
           },
           update: (id, patch) => updateLiveScriptItem(id, patch),
+          draftReactions: (id) => draftScriptItemReactions(id),
           remove: (id) => deleteLiveScriptItem(id),
           reorder: (ids) => reorderLiveScriptItems(script.id, ids),
         }}

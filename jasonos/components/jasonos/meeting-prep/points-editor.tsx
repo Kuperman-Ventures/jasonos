@@ -6,6 +6,7 @@ import { GripVertical, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { BlockTitle } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { Button } from "@/components/ui/button";
+import { REACTION_LABELS, REACTION_SHAPES, type Reaction } from "@/lib/meeting-prep/reactions";
 import { POINT_KINDS, type PointKind } from "@/lib/meeting-prep/points";
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ export type EditorPoint = {
   headline: string;
   detail: string | null;
   position: number;
+  prepareReactions?: boolean;
+  reactions?: Reaction[];
 };
 
 export type PointsEditorActions = {
@@ -33,8 +36,15 @@ export type PointsEditorActions = {
   }) => Promise<PointResult<{ id: string }>>;
   update: (
     id: string,
-    patch: { kind?: PointKind; headline?: string; detail?: string | null }
+    patch: {
+      kind?: PointKind;
+      headline?: string;
+      detail?: string | null;
+      prepareReactions?: boolean;
+      reactions?: Reaction[];
+    }
   ) => Promise<PointResult<object>>;
+  draftReactions?: (id: string) => Promise<PointResult<{ reactions: Reaction[] }>>;
   remove: (id: string) => Promise<PointResult<object>>;
   reorder: (orderedIds: string[]) => Promise<PointResult<object>>;
 };
@@ -42,7 +52,15 @@ export type PointsEditorActions = {
 function pointSignature(points: EditorPoint[]): string {
   return points
     .map((point) =>
-      [point.id, point.position, point.kind, point.headline, point.detail ?? ""].join("\u001f")
+      [
+        point.id,
+        point.position,
+        point.kind,
+        point.headline,
+        point.detail ?? "",
+        point.prepareReactions ? "1" : "0",
+        JSON.stringify(point.reactions ?? []),
+      ].join("\u001f")
     )
     .join("\u001e");
 }
@@ -153,6 +171,125 @@ function DetailBox({
   );
 }
 
+function ReactionsEditor({
+  point,
+  onPatch,
+  onDraft,
+}: {
+  point: EditorPoint;
+  onPatch: (patch: { prepareReactions?: boolean; reactions?: Reaction[] }) => void;
+  onDraft: () => Promise<PointResult<{ reactions: Reaction[] }>>;
+}) {
+  const reactions = point.reactions ?? [];
+  const prepared = reactions.length === REACTION_SHAPES.length;
+  const show = point.kind === "ask" || Boolean(point.prepareReactions);
+  const [open, setOpen] = useState(false);
+  const [confirmRedo, setConfirmRedo] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+
+  const draft = () => {
+    setDrafting(true);
+    void onDraft().then((result) => {
+      setDrafting(false);
+      setConfirmRedo(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setOpen(true);
+    });
+  };
+
+  const editReaction = (shape: Reaction["shape"], field: "soundsLike" | "pivot", value: string) => {
+    const next = reactions.map((reaction) =>
+      reaction.shape === shape ? { ...reaction, [field]: value } : reaction
+    );
+    onPatch({ reactions: next });
+  };
+
+  return (
+    <div className="space-y-2 pt-1">
+      {point.kind !== "ask" ? (
+        <label className="flex items-center gap-2 text-[13px] text-[var(--jos-muted)]">
+          <input
+            type="checkbox"
+            checked={Boolean(point.prepareReactions)}
+            onChange={(event) => onPatch({ prepareReactions: event.target.checked })}
+          />
+          Prepare reactions for this point
+        </label>
+      ) : null}
+      {show ? (
+        <div>
+          <button
+            type="button"
+            className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Hide reactions" : prepared ? "6 reactions prepared" : "No reactions yet · Prepare"}
+          </button>
+          {open ? (
+            <div className="mt-2 space-y-3">
+              {prepared
+                ? reactions.map((reaction) => (
+                    <div key={reaction.shape} className="space-y-1">
+                      <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                        {REACTION_LABELS[reaction.shape]}
+                      </p>
+                      <InlineField
+                        value={reaction.soundsLike}
+                        placeholder="What they might say"
+                        emptyLabel="What they might say"
+                        maxLength={159}
+                        className="text-[14px] text-[var(--jos-ink)]"
+                        onSave={(next) => editReaction(reaction.shape, "soundsLike", next.trim())}
+                      />
+                      <InlineField
+                        value={reaction.pivot}
+                        placeholder="The line that brings it back"
+                        emptyLabel="The line that brings it back"
+                        maxLength={159}
+                        className="text-[14px] font-semibold text-[var(--jos-ink)]"
+                        onSave={(next) => editReaction(reaction.shape, "pivot", next.trim())}
+                      />
+                    </div>
+                  ))
+                : null}
+              {confirmRedo ? (
+                <p className="text-[13px]">
+                  Replace the six reactions?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                    disabled={drafting}
+                    onClick={draft}
+                  >
+                    Confirm
+                  </button>
+                  {" · "}
+                  <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmRedo(false)}>
+                    Cancel
+                  </button>
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={drafting}
+                  onClick={() => (prepared ? setConfirmRedo(true) : draft())}
+                >
+                  {prepared ? "Redo reactions" : "Prepare reactions"}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PointsEditor({
   points,
   error,
@@ -197,7 +334,13 @@ export function PointsEditor({
 
   const savePatch = (
     point: EditorPoint,
-    patch: { kind?: PointKind; headline?: string; detail?: string | null }
+    patch: {
+      kind?: PointKind;
+      headline?: string;
+      detail?: string | null;
+      prepareReactions?: boolean;
+      reactions?: Reaction[];
+    }
   ) => {
     const previous = rows;
     setRows((current) => current.map((row) => (row.id === point.id ? { ...row, ...patch } : row)));
@@ -401,6 +544,13 @@ export function PointsEditor({
                     onSave={(next) => savePatch(point, { detail: next.trim() ? next : null })}
                   />
                 )}
+                {actions.draftReactions ? (
+                  <ReactionsEditor
+                    point={point}
+                    onPatch={(patch) => savePatch(point, patch)}
+                    onDraft={() => actions.draftReactions!(point.id)}
+                  />
+                ) : null}
               </div>
               <button
                 type="button"

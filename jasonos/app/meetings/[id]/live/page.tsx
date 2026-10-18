@@ -7,9 +7,11 @@ import {
   endLiveMeeting,
   getMeetingPoints,
   setMeetingPointNote,
+  setMeetingPointObservedReaction,
   setMeetingPointState,
   startLiveMeeting,
 } from "@/lib/server-actions/meeting-points";
+import type { ReactionShape } from "@/lib/meeting-prep/reactions";
 import {
   getMeetingPrep,
   setMeetingOutcomeMark,
@@ -52,6 +54,11 @@ export default async function LiveMeetingPage({
     return setMeetingOutcomeMark(id, { mark, note });
   }
 
+  async function setObservedReaction(pointId: string, shape: ReactionShape) {
+    "use server";
+    return setMeetingPointObservedReaction(pointId, shape);
+  }
+
   const [prepResult, pointsResult] = await Promise.all([
     getMeetingPrep(id),
     getMeetingPoints(id),
@@ -92,7 +99,7 @@ export default async function LiveMeetingPage({
         onDone: "mark",
       }}
       points={pointsResult.points}
-      actions={{ start, setState, setNote, end, markOutcome }}
+      actions={{ start, setState, setNote, end, markOutcome, setObservedReaction }}
     />
   );
 }

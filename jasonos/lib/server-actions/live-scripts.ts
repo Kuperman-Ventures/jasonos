@@ -13,7 +13,14 @@ import {
   parseDraftPoints,
   type PointKind,
 } from "@/lib/meeting-prep/points";
-import { REACTION_SHAPES, type Reaction, type ReactionShape } from "@/lib/meeting-prep/reactions";
+import {
+  REACTION_SHAPES,
+  buildReactionsUserMessage,
+  parseReactions,
+  reactionsSystemPrompt,
+  type Reaction,
+  type ReactionShape,
+} from "@/lib/meeting-prep/reactions";
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -393,7 +400,13 @@ export async function createLiveScriptItem(input: {
 
 export async function updateLiveScriptItem(
   id: string,
-  patch: { kind?: PointKind; headline?: string; detail?: string | null; prepareReactions?: boolean }
+  patch: {
+    kind?: PointKind;
+    headline?: string;
+    detail?: string | null;
+    prepareReactions?: boolean;
+    reactions?: Reaction[];
+  }
 ): Promise<PointResult<{ item: LiveScriptItem }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const itemId = id.trim();
@@ -410,6 +423,11 @@ export async function updateLiveScriptItem(
   }
   if (patch.detail !== undefined) update.detail = patch.detail ? clampDetail(patch.detail) : null;
   if (patch.prepareReactions !== undefined) update.prepare_reactions = Boolean(patch.prepareReactions);
+  if (patch.reactions !== undefined) {
+    const stored = parseReactions(JSON.stringify(patch.reactions));
+    if (!stored) return { ok: false, error: "Reactions need all six shapes." };
+    update.reactions = stored;
+  }
   if (!Object.keys(update).length) return { ok: false, error: "Nothing to change." };
 
   const sb = createServiceRoleClient();
@@ -664,4 +682,61 @@ export async function saveMeetingPointsAsScript(input: {
   }
   revalidateScripts(created.script.id, prepId);
   return { ok: true, scriptId: created.script.id };
+}
+
+export async function draftScriptItemReactions(
+  itemId: string
+): Promise<PointResult<{ reactions: Reaction[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = itemId.trim();
+  if (!id) return { ok: false, error: "Point not found." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("live_script_items")
+    .select(ITEM_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Point not found." };
+  const item = toItem(data as ItemRow);
+
+  const loaded = await getLiveScript(item.scriptId);
+  if (!loaded.ok) return loaded;
+
+  let text: string;
+  try {
+    text = await callClaude({
+      model: "claude-sonnet-4-6",
+      maxTokens: 1200,
+      system: reactionsSystemPrompt(NO_AI_SLOP_WRITING_RULES),
+      messages: [
+        {
+          role: "user",
+          content: buildReactionsUserMessage({
+            headline: item.headline,
+            detail: item.detail,
+            kind: item.kind,
+            situation: loaded.script.situation,
+            successSentence: loaded.script.successSentence,
+            person: null,
+          }),
+        },
+      ],
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not draft reactions." };
+  }
+
+  const reactions = parseReactions(text);
+  if (!reactions) return { ok: false, error: "Could not read the reactions." };
+
+  const { error: writeError } = await sb
+    .from("live_script_items")
+    .update({ reactions, prepare_reactions: true })
+    .eq("id", id);
+  if (writeError) return { ok: false, error: writeError.message };
+
+  revalidateScripts(item.scriptId);
+  return { ok: true, reactions };
 }

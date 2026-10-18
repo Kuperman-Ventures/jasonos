@@ -7,6 +7,11 @@ import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import { isJoinBoilerplate } from "@/lib/meeting-prep/text";
 import { REACTION_SHAPES, type Reaction, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import {
+  buildReactionsUserMessage,
+  parseReactions,
+  reactionsSystemPrompt,
+} from "@/lib/meeting-prep/reactions";
+import {
   buildMeetingPointsUserMessage,
   draftContextLines,
   meetingPointsSystemPrompt,
@@ -235,13 +240,22 @@ export async function createMeetingPoint(input: {
 
 export async function updateMeetingPoint(
   id: string,
-  patch: { kind?: PointKind; headline?: string; detail?: string | null }
+  patch: {
+    kind?: PointKind;
+    headline?: string;
+    detail?: string | null;
+    prepareReactions?: boolean;
+    reactions?: Reaction[];
+  }
 ): Promise<PointResult<{ point: MeetingPoint }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const pointId = id.trim();
   if (!pointId) return { ok: false, error: "Point not found." };
 
-  const update: Record<string, unknown> = { edited_by_user: true };
+  const update: Record<string, unknown> = {};
+  if (patch.kind != null || patch.headline != null || patch.detail !== undefined) {
+    update.edited_by_user = true;
+  }
   if (patch.kind != null) {
     if (!KINDS.has(patch.kind)) return { ok: false, error: "Pick a kind." };
     update.kind = patch.kind;
@@ -252,7 +266,13 @@ export async function updateMeetingPoint(
     update.headline = headline;
   }
   if (patch.detail !== undefined) update.detail = cleanDetail(patch.detail);
-  if (Object.keys(update).length === 1) return { ok: false, error: "Nothing to change." };
+  if (patch.prepareReactions !== undefined) update.prepare_reactions = Boolean(patch.prepareReactions);
+  if (patch.reactions !== undefined) {
+    const stored = parseReactions(JSON.stringify(patch.reactions));
+    if (!stored) return { ok: false, error: "Reactions need all six shapes." };
+    update.reactions = stored;
+  }
+  if (!Object.keys(update).length) return { ok: false, error: "Nothing to change." };
 
   const sb = createServiceRoleClient();
   const { data, error } = await sb
@@ -585,5 +605,97 @@ export async function endLiveMeeting(
   if (!data) return { ok: false, error: "Meeting prep not found." };
 
   revalidatePoints(id);
+  return { ok: true };
+}
+
+export async function draftMeetingPointReactions(
+  pointId: string
+): Promise<PointResult<{ reactions: Reaction[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = pointId.trim();
+  if (!id) return { ok: false, error: "Point not found." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_points")
+    .select(POINT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Point not found." };
+  const point = toPoint(data as PointRow);
+
+  const prepResult = await getMeetingPrep(point.prepId);
+  if (!prepResult.ok) return prepResult;
+
+  let context;
+  try {
+    context = await loadMeetingContext(point.prepId);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  const person = context.people[0] ?? null;
+
+  let text: string;
+  try {
+    text = await callClaude({
+      model: "claude-sonnet-4-6",
+      maxTokens: 1200,
+      system: reactionsSystemPrompt(NO_AI_SLOP_WRITING_RULES),
+      messages: [
+        {
+          role: "user",
+          content: buildReactionsUserMessage({
+            headline: point.headline,
+            detail: point.detail,
+            kind: point.kind,
+            situation: null,
+            successSentence: prepResult.prep.outcomeSentence,
+            person: person
+              ? { name: person.name, title: person.title, company: person.company }
+              : null,
+          }),
+        },
+      ],
+    });
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not draft reactions." };
+  }
+
+  const reactions = parseReactions(text);
+  if (!reactions) return { ok: false, error: "Could not read the reactions." };
+
+  const { error: writeError } = await sb
+    .from("meeting_points")
+    .update({ reactions, prepare_reactions: true })
+    .eq("id", id);
+  if (writeError) return { ok: false, error: writeError.message };
+
+  revalidatePoints(point.prepId);
+  return { ok: true, reactions };
+}
+
+export async function setMeetingPointObservedReaction(
+  pointId: string,
+  shape: ReactionShape | null
+): Promise<PointResult<object>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = pointId.trim();
+  if (!id) return { ok: false, error: "Point not found." };
+  if (shape !== null && !REACTION_SHAPE_SET.has(shape)) {
+    return { ok: false, error: "Unknown reaction." };
+  }
+
+  const sb = createServiceRoleClient();
+  const { data: marked, error: markError } = await sb
+    .from("meeting_points")
+    .update({ observed_reaction: shape })
+    .eq("id", id)
+    .select("prep_id")
+    .maybeSingle();
+  if (markError) return { ok: false, error: markError.message };
+  if (!marked) return { ok: false, error: "Point not found." };
+
+  revalidatePoints(marked.prep_id as string);
   return { ok: true };
 }

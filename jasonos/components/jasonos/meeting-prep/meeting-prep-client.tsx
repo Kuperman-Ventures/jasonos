@@ -52,6 +52,7 @@ import {
 import {
   createMeetingPoint,
   deleteMeetingPoint,
+  draftMeetingPointReactions,
   draftMeetingPoints,
   reorderMeetingPoints,
   updateMeetingPoint,
@@ -712,6 +713,7 @@ function PrepPoints({
           return { ok: true, id: result.point.id };
         },
         update: (id, patch) => updateMeetingPoint(id, patch),
+        draftReactions: (id) => draftMeetingPointReactions(id),
         remove: (id) => deleteMeetingPoint(id),
         reorder: (ids) => reorderMeetingPoints(prep.id, ids),
       }}

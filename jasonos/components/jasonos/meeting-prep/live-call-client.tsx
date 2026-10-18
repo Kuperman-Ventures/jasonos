@@ -16,6 +16,7 @@ import {
   type PointKind,
   type PointState,
 } from "@/lib/meeting-prep/points";
+import { REACTION_LABELS, REACTION_SHAPES, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { MeetingPoint, PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +46,16 @@ export type LiveCallActions = {
   setNote: (id: string, note: string) => Promise<PointResult<object>>;
   end: () => Promise<PointResult<object>>;
   markOutcome?: (mark: OutcomeChoice, note: string) => Promise<PointResult<object>>;
+  setObservedReaction?: (id: string, shape: ReactionShape) => Promise<PointResult<object>>;
 };
+
+function stableDrillIndex(id: string): number {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 33 + id.charCodeAt(index)) % REACTION_SHAPES.length;
+  }
+  return hash;
+}
 
 function pointSignature(points: MeetingPoint[]): string {
   return points
@@ -58,6 +68,9 @@ function pointSignature(points: MeetingPoint[]): string {
         point.detail ?? "",
         point.state,
         point.note ?? "",
+        point.sourceHint ?? "",
+        point.observedReaction ?? "",
+        String(point.reactions.length),
       ].join("\u001f")
     )
     .join("\u001e");
@@ -93,7 +106,7 @@ export function LiveCallClient({
   session: LiveSession;
   points: MeetingPoint[];
   actions: LiveCallActions;
-  extraControls?: ReactNode;
+  extraControls?: ReactNode | ((controls: { drill: boolean; setDrill: (on: boolean) => void }) => ReactNode);
 }) {
   const router = useRouter();
   const signature = pointSignature(points);
@@ -118,6 +131,14 @@ export function LiveCallClient({
   const [marking, setMarking] = useState(false);
   const [chosen, setChosen] = useState<OutcomeChoice | null>(null);
   const [outcomeNote, setOutcomeNote] = useState("");
+  const [reactionsOpen, setReactionsOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
+  const [drillOn, setDrillOn] = useState(false);
+  const [drillIndex, setDrillIndex] = useState(0);
+  const [pivotShown, setPivotShown] = useState(false);
+  const reactionsOpenRef = useRef(false);
+  const drillOnRef = useRef(false);
+  const pivotShownRef = useRef(false);
   const hasStart = Boolean(actions.start);
 
   if (signature !== seen) {
@@ -151,6 +172,14 @@ export function LiveCallClient({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStartedAt(new Date().toISOString());
   }, [hasStart, session.startedAt, startedAt]);
+
+  const [panelFor, setPanelFor] = useState(currentId);
+  if (panelFor !== currentId) {
+    setPanelFor(currentId);
+    setReactionsOpen(false);
+    setHintOpen(false);
+    setPivotShown(false);
+  }
 
   useEffect(() => {
     if (!currentId) return;
@@ -207,6 +236,21 @@ export function LiveCallClient({
     });
   };
 
+  const pickReaction = (id: string, shape: ReactionShape) => {
+    setReactionsOpen(false);
+    startTransition(async () => {
+      const record = actionsRef.current.setObservedReaction;
+      if (record) {
+        const result = await record(id, shape);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+      }
+      mark(id, "covered");
+    });
+  };
+
   const leave = () => {
     if (submittingRef.current) return;
     submittingRef.current = true;
@@ -253,6 +297,9 @@ export function LiveCallClient({
     markingRef.current = marking;
     chosenRef.current = chosen;
     outcomeNoteRef.current = outcomeNote;
+    reactionsOpenRef.current = reactionsOpen;
+    drillOnRef.current = drillOn;
+    pivotShownRef.current = pivotShown;
     function onKey(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target;
@@ -301,6 +348,57 @@ export function LiveCallClient({
       }
       if (event.repeat) return;
       const point = index >= 0 ? list[index] : null;
+      if ((event.key === "d" || event.key === "D") && session.badge === "rehearsal") {
+        event.preventDefault();
+        const next = !drillOnRef.current;
+        if (next) {
+          pivotShownRef.current = false;
+          setPivotShown(false);
+          setDrillIndex(Math.floor(Math.random() * REACTION_SHAPES.length));
+        }
+        drillOnRef.current = next;
+        setDrillOn(next);
+        return;
+      }
+      if (drillOnRef.current && point && point.reactions.length === REACTION_SHAPES.length) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          if (!pivotShownRef.current) {
+            pivotShownRef.current = true;
+            setPivotShown(true);
+          } else {
+            pivotShownRef.current = false;
+            setPivotShown(false);
+            setDrillIndex((current) => {
+              const next = Math.floor(Math.random() * REACTION_SHAPES.length);
+              return next === current ? (current + 1) % REACTION_SHAPES.length : next;
+            });
+          }
+        }
+        return;
+      }
+      if (reactionsOpenRef.current && point) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setReactionsOpen(false);
+          return;
+        }
+        if (/^[1-6]$/.test(event.key)) {
+          event.preventDefault();
+          pickReaction(point.id, REACTION_SHAPES[Number(event.key) - 1]);
+        }
+        return;
+      }
+      if ((event.key === "c" || event.key === "C") && point?.sourceHint) {
+        event.preventDefault();
+        setHintOpen((value) => !value);
+        return;
+      }
+      if ((event.key === "r" || event.key === "R") && point && point.reactions.length === REACTION_SHAPES.length) {
+        event.preventDefault();
+        setReactionsOpen(true);
+        return;
+      }
       if (event.key === "Enter" || event.key === " ") {
         if (!point || point.kind === "agenda" || finishedRef.current) return;
         event.preventDefault();
@@ -393,7 +491,16 @@ export function LiveCallClient({
               Join the call
             </a>
           ) : null}
-          {extraControls}
+          {typeof extraControls === "function"
+            ? extraControls({
+                drill: drillOn,
+                setDrill: (on) => {
+                  setPivotShown(false);
+                  if (on) setDrillIndex(stableDrillIndex(currentId ?? ""));
+                  setDrillOn(on);
+                },
+              })
+            : extraControls}
         </div>
       </header>
 
@@ -439,6 +546,12 @@ export function LiveCallClient({
                       >
                         {point.kind === "question" ? "? " : ""}
                         {point.headline}
+                        {point.reactions.length === REACTION_SHAPES.length ? (
+                          <span
+                            className="ml-2 inline-block size-1.5 translate-y-[-1px] rounded-full bg-[var(--color-calendar)]"
+                            aria-label="Reactions prepared"
+                          />
+                        ) : null}
                       </span>
                     </button>
                   </li>
@@ -504,6 +617,17 @@ export function LiveCallClient({
                   onConfirm={confirmOutcome}
                   onSkip={leave}
                 />
+              ) : drillOn && current && current.reactions.length === REACTION_SHAPES.length ? (
+                <DrillPanel
+                  soundsLike={current.reactions[drillIndex]?.soundsLike ?? ""}
+                  pivot={current.reactions[drillIndex]?.pivot ?? ""}
+                  shown={pivotShown}
+                />
+              ) : reactionsOpen && current && current.reactions.length === REACTION_SHAPES.length ? (
+                <ReactionsPanel
+                  reactions={current.reactions}
+                  onPick={(shape) => pickReaction(current.id, shape)}
+                />
               ) : showAllCovered ? (
                 <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
                   <h2 className="text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
@@ -518,6 +642,13 @@ export function LiveCallClient({
                   key={current.id}
                   point={current}
                   noteRef={noteRef}
+                  hintOpen={hintOpen}
+                  onToggleHint={() => setHintOpen((value) => !value)}
+                  onOpenReactions={
+                    current.reactions.length === REACTION_SHAPES.length
+                      ? () => setReactionsOpen(true)
+                      : undefined
+                  }
                   onMark={(state) => mark(current.id, state)}
                   onNote={(note) => {
                     setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
@@ -551,6 +682,7 @@ export function LiveCallClient({
                   <span className="hidden sm:inline">
                     {" "}
                     · j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump
+                    {current && current.reactions.length === REACTION_SHAPES.length ? " · r reactions" : ""}
                   </span>
                 </p>
                 {session.badge === "rehearsal" ? <p>Nothing here is saved.</p> : null}
@@ -663,15 +795,73 @@ function OutcomePanel({
   );
 }
 
+function DrillPanel({
+  soundsLike,
+  pivot,
+  shown,
+}: {
+  soundsLike: string;
+  pivot: string;
+  shown: boolean;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
+      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">They say:</p>
+      <h2 className="mt-4 text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
+        {soundsLike}
+      </h2>
+      {shown ? <p className="mt-8 text-[28px] font-bold leading-snug">{pivot}</p> : null}
+      <p className="mt-6 text-[12px] text-[var(--jos-muted)]">
+        {shown ? "Enter draws another. d leaves the drill." : "Enter shows your pivot. d leaves the drill."}
+      </p>
+    </div>
+  );
+}
+
+function ReactionsPanel({
+  reactions,
+  onPick,
+}: {
+  reactions: MeetingPoint["reactions"];
+  onPick: (shape: ReactionShape) => void;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center gap-3">
+      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">Reactions</p>
+      {reactions.map((reaction, index) => (
+        <button
+          key={reaction.shape}
+          type="button"
+          className="border-l-4 border-[var(--jos-line)] px-4 py-2 text-left hover:border-[var(--color-calendar)]"
+          onClick={() => onPick(reaction.shape)}
+        >
+          <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+            {index + 1} {REACTION_LABELS[reaction.shape]}
+          </span>
+          <p className="mt-1 text-[16px] leading-snug">{reaction.soundsLike}</p>
+          <p className="mt-1 text-[16px] font-bold leading-snug">{reaction.pivot}</p>
+        </button>
+      ))}
+      <p className="text-[12px] text-[var(--jos-muted)]">1-6 records it and marks covered. Escape goes back.</p>
+    </div>
+  );
+}
+
 function CurrentPoint({
   point,
   noteRef,
+  hintOpen,
+  onToggleHint,
+  onOpenReactions,
   onMark,
   onNote,
   saveNote,
 }: {
   point: MeetingPoint;
   noteRef: React.RefObject<HTMLTextAreaElement | null>;
+  hintOpen: boolean;
+  onToggleHint: () => void;
+  onOpenReactions?: () => void;
   onMark: (state: PointState) => void;
   onNote: (note: string | null) => void;
   saveNote: (note: string) => Promise<PointResult<object>>;
@@ -712,6 +902,18 @@ function CurrentPoint({
       <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent-700)]">
         {KIND_LABEL[point.kind]}
       </p>
+      {point.sourceHint ? (
+        <button
+          type="button"
+          className={cn(
+            "mt-3 max-w-[46rem] text-left text-[14px] text-[var(--jos-muted)]",
+            hintOpen ? "whitespace-pre-wrap" : "truncate"
+          )}
+          onClick={onToggleHint}
+        >
+          {point.sourceHint}
+        </button>
+      ) : null}
       {spoken ? (
         <>
           {point.detail ? (
@@ -774,6 +976,11 @@ function CurrentPoint({
         <Button type="button" variant="outline" onClick={() => onMark("skipped")}>
           Skip
         </Button>
+        {onOpenReactions ? (
+          <Button type="button" variant="outline" onClick={onOpenReactions}>
+            Reactions
+          </Button>
+        ) : null}
         {point.state !== "open" ? (
           <Button type="button" variant="ghost" onClick={() => onMark("open")}>
             Reopen

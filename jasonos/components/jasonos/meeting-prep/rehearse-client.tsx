@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
 import { Button } from "@/components/ui/button";
 import type { PointState } from "@/lib/meeting-prep/points";
+import type { ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
 import type { LiveScript, LiveScriptItem } from "@/lib/server-actions/live-scripts";
 
@@ -80,12 +81,28 @@ export function RehearseClient({
           return { ok: true };
         },
         end: async () => ({ ok: true }),
+        setObservedReaction: async (id, shape: ReactionShape) => {
+          setPoints((current) =>
+            current.map((point) => (point.id === id ? { ...point, observedReaction: shape } : point))
+          );
+          return { ok: true };
+        },
       }}
-      extraControls={
-        <Button type="button" variant="outline" size="sm" onClick={reset}>
-          Reset
-        </Button>
-      }
+      extraControls={({ drill, setDrill }) => (
+        <>
+          <Button
+            type="button"
+            variant={drill ? "calendar" : "outline"}
+            size="sm"
+            onClick={() => setDrill(!drill)}
+          >
+            Drill
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={reset}>
+            Reset
+          </Button>
+        </>
+      )}
     />
   );
 }
