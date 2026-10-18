@@ -75,6 +75,81 @@ async function granolaGet(path: string, key: string): Promise<
   return { ok: true, json: await res.json() };
 }
 
+type TranscriptItem = {
+  speaker?: {
+    source?: string;
+    attribution?: string;
+    name?: string | null;
+    diarization_label?: string | null;
+  } | null;
+  text?: string | null;
+};
+
+function transcriptSpeaker(item: TranscriptItem): string {
+  const speaker = item.speaker;
+  if (speaker?.name?.trim()) return speaker.name.trim();
+  if (speaker?.diarization_label?.trim()) return speaker.diarization_label.trim();
+  if (speaker?.attribution === "me") return "Jason";
+  if (speaker?.attribution === "them") return "Them";
+  return "Speaker";
+}
+
+function transcriptLines(items: TranscriptItem[] | null | undefined): string {
+  if (!items?.length) return "";
+  return items
+    .map((item) => {
+      const text = item.text?.trim();
+      if (!text) return null;
+      return `${transcriptSpeaker(item)}: ${text}`;
+    })
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+}
+
+/** Transcript text for a note, or null when Granola has no transcript. */
+export async function getGranolaTranscript(noteId: string): Promise<{ text: string } | null> {
+  const id = noteId.trim();
+  if (!id) return null;
+  const key = await resolveGranolaApiKey();
+  if (!key) return null;
+
+  try {
+    const inline = await granolaGet(
+      `/v1/notes/${encodeURIComponent(id)}?include=transcript`,
+      key
+    );
+    if (inline.ok) {
+      const text = transcriptLines((inline.json as { transcript?: TranscriptItem[] | null }).transcript);
+      if (text) return { text };
+    }
+
+    const lines: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 30; page += 1) {
+      const params = new URLSearchParams({ page_size: "100" });
+      if (cursor) params.set("cursor", cursor);
+      const listed = await granolaGet(
+        `/v1/notes/${encodeURIComponent(id)}/transcript?${params}`,
+        key
+      );
+      if (!listed.ok) return lines.length ? { text: lines.join("\n") } : null;
+      const body = listed.json as {
+        transcript?: TranscriptItem[];
+        hasMore?: boolean;
+        cursor?: string | null;
+      };
+      const pageText = transcriptLines(body.transcript);
+      if (pageText) lines.push(pageText);
+      if (!body.hasMore || !body.cursor) break;
+      cursor = body.cursor;
+    }
+    const text = lines.join("\n").trim();
+    return text ? { text } : null;
+  } catch {
+    return null;
+  }
+}
+
 function keyError(status: number): string {
   if (status === 401 || status === 403) {
     return "Granola rejected the API key. Paste a new key in Settings.";

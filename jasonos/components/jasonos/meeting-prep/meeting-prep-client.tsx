@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { AfterTheCall } from "@/components/jasonos/meeting-prep/after-call";
 import { InlineField, PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
 import {
   BlockTitle,
@@ -49,6 +50,7 @@ import {
   type MeetingPrepDetail,
   type OutcomeMark,
 } from "@/lib/server-actions/meeting-prep";
+import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import {
   createMeetingPoint,
   deleteMeetingPoint,
@@ -638,11 +640,15 @@ function PrepPoints({
   points,
   pointsError,
   scripts,
+  rubric,
+  review,
 }: {
   prep: MeetingPrepDetail;
   points: MeetingPoint[];
   pointsError?: string | null;
   scripts: LiveScript[];
+  rubric: string[];
+  review: MeetingReview | null;
 }) {
   const router = useRouter();
   const [scriptId, setScriptId] = useState("");
@@ -701,6 +707,7 @@ function PrepPoints({
   };
 
   return (
+    <>
     <PointsEditor
       points={points}
       error={pointsError}
@@ -846,6 +853,8 @@ function PrepPoints({
         </div>
       )}
     />
+    <AfterTheCall prep={prep} points={points} rubric={rubric} review={review} />
+    </>
   );
 }
 
@@ -855,12 +864,16 @@ export function MeetingPrepClient({
   points,
   pointsError,
   scripts,
+  rubric,
+  review,
 }: {
   prep: MeetingPrepDetail;
   context: MeetingContext;
   points: MeetingPoint[];
   pointsError?: string | null;
   scripts: LiveScript[];
+  rubric: string[];
+  review: MeetingReview | null;
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
@@ -1052,7 +1065,14 @@ export function MeetingPrepClient({
       ) : null}
 
       {stored || editing ? (
-        <PrepPoints prep={prep} points={points} pointsError={pointsError} scripts={scripts} />
+        <PrepPoints
+          prep={prep}
+          points={points}
+          pointsError={pointsError}
+          scripts={scripts}
+          rubric={rubric}
+          review={review}
+        />
       ) : null}
 
       {context.people.length || context.unmatched.length ? (
@@ -1280,7 +1300,14 @@ export function MeetingPrepClient({
       ) : null}
 
       {!stored && !editing ? (
-        <PrepPoints prep={prep} points={points} pointsError={pointsError} scripts={scripts} />
+        <PrepPoints
+          prep={prep}
+          points={points}
+          pointsError={pointsError}
+          scripts={scripts}
+          rubric={rubric}
+          review={review}
+        />
       ) : null}
 
       {briefing.otherThreads.length ? (

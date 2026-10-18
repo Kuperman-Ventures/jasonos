@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { MeetingPrepClient } from "@/components/jasonos/meeting-prep/meeting-prep-client";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { getLiveScript, listLiveScripts } from "@/lib/server-actions/live-scripts";
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
-import { listLiveScripts } from "@/lib/server-actions/live-scripts";
+import { getMeetingReview } from "@/lib/server-actions/meeting-reviews";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -41,6 +42,11 @@ export default async function MeetingPrepPage({
       </div>
     );
   }
+  const [reviewResult, scriptResult] = await Promise.all([
+    getMeetingReview(result.prep.id),
+    result.prep.scriptId ? getLiveScript(result.prep.scriptId) : Promise.resolve(null),
+  ]);
+  const rubric = scriptResult?.ok ? scriptResult.script.rubric : [];
   return (
     <MeetingPrepClient
       key={result.prep.id}
@@ -49,6 +55,8 @@ export default async function MeetingPrepPage({
       points={pointsResult.ok ? pointsResult.points : []}
       pointsError={pointsResult.ok ? null : pointsResult.error}
       scripts={scriptsResult.ok ? scriptsResult.scripts : []}
+      rubric={rubric}
+      review={reviewResult.ok ? reviewResult.review : null}
     />
   );
 }
