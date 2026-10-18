@@ -65,6 +65,23 @@ export function fillScriptPlaceholders(
   });
 }
 
+/** Fill {{targets}} and {{snapshot}}. Leave the token when that setting is empty. */
+export function fillStrategySettings(
+  value: string | null,
+  settings: { targetCompanies: string[]; snapshot: string | null }
+): string | null {
+  if (!value) return value;
+  const targets = settings.targetCompanies
+    .map((company) => company.trim())
+    .filter(Boolean)
+    .join(", ");
+  const snapshot = settings.snapshot?.trim() ?? "";
+  return value.replace(/\{\{\s*(targets|snapshot)\s*\}\}/gi, (token, key: string) => {
+    if (key.toLowerCase() === "targets") return targets || token;
+    return snapshot || token;
+  });
+}
+
 export function clampDetail(value: string): string {
   const trimmed = value
     .replace(/\r\n/g, "\n")

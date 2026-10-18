@@ -6,6 +6,7 @@ import {
   coveredTally,
   draftContextLines,
   fillScriptPlaceholders,
+  fillStrategySettings,
   firstOpenIndex,
   formatElapsed,
   markableIndexAt,
@@ -111,6 +112,25 @@ describe("fillScriptPlaceholders", () => {
     );
     assert.equal(fillScriptPlaceholders("Hi {{company}}", null), "Hi {{company}}");
     assert.equal(fillScriptPlaceholders(null, { name: "Alex" }), null);
+  });
+});
+
+describe("fillStrategySettings", () => {
+  it("joins target companies and leaves an empty snapshot token in place", () => {
+    assert.equal(
+      fillStrategySettings("{{snapshot}} Target companies: {{targets}}.", {
+        targetCompanies: ["OUTFRONT", "Omnicom"],
+        snapshot: "I run marketing.",
+      }),
+      "I run marketing. Target companies: OUTFRONT, Omnicom."
+    );
+    assert.equal(
+      fillStrategySettings("{{targets}}. Who do you know?", {
+        targetCompanies: [],
+        snapshot: null,
+      }),
+      "{{targets}}. Who do you know?"
+    );
   });
 });
 

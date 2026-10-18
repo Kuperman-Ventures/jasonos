@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { callClaude } from "@/lib/ai/models";
+import { getLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import {
   clampDetail,
   clampHeadline,
   fillScriptPlaceholders,
+  fillStrategySettings,
   meetingPointsSystemPrompt,
   newDrafts,
   parseDraftPoints,
@@ -119,14 +121,25 @@ function asReactions(value: unknown): Reaction[] {
   return out;
 }
 
+const EMPTY_SETTINGS: LiveSettings = { targetCompanies: [], snapshot: null };
+
+function fillAppliedText(
+  value: string | null,
+  person: { name?: string | null; company?: string | null; title?: string | null } | null,
+  settings: LiveSettings
+): string | null {
+  return fillStrategySettings(fillScriptPlaceholders(value, person), settings);
+}
+
 function filledReactions(
   reactions: Reaction[],
-  person: { name?: string | null; company?: string | null; title?: string | null } | null
+  person: { name?: string | null; company?: string | null; title?: string | null } | null,
+  settings: LiveSettings
 ): Reaction[] {
   return reactions.map((reaction) => ({
     shape: reaction.shape,
     soundsLike: fillScriptPlaceholders(reaction.soundsLike, person) || reaction.soundsLike,
-    pivot: fillScriptPlaceholders(reaction.pivot, person) || reaction.pivot,
+    pivot: fillAppliedText(reaction.pivot, person, settings) || reaction.pivot,
   }));
 }
 
@@ -568,6 +581,8 @@ export async function applyLiveScript(input: {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
   const person = context.people[0] ?? null;
+  const settingsResult = await getLiveSettings();
+  const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
 
   const sb = createServiceRoleClient();
   const { data: existing, error: existingError } = await sb
@@ -591,14 +606,14 @@ export async function applyLiveScript(input: {
     prep_id: prepId,
     position: start + index,
     kind: item.kind,
-    headline: fillScriptPlaceholders(item.headline, person) || item.headline,
-    detail: fillScriptPlaceholders(item.detail, person),
+    headline: fillAppliedText(item.headline, person, settings) || item.headline,
+    detail: fillAppliedText(item.detail, person, settings),
     state: "open",
     source: "script",
     script_id: scriptId,
     edited_by_user: false,
     prepare_reactions: item.prepareReactions,
-    reactions: filledReactions(item.reactions, person),
+    reactions: filledReactions(item.reactions, person, settings),
   }));
 
   const { error: insertError } = await sb.from("meeting_points").insert(rows);
@@ -610,7 +625,7 @@ export async function applyLiveScript(input: {
   }
 
   const success = loaded.script.successSentence
-    ? fillScriptPlaceholders(loaded.script.successSentence, person)
+    ? fillAppliedText(loaded.script.successSentence, person, settings)
     : null;
   const { data: prepRow } = await sb
     .from("meeting_preps")

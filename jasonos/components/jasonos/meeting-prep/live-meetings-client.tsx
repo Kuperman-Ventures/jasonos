@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
+import { updateLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import type { MeetingPrepSummary, OutcomeMark, RecentLiveMeeting } from "@/lib/server-actions/meeting-prep";
 import {
   createLiveScript,
@@ -76,6 +77,84 @@ function attendeeLine(attendees: MeetingPrepSummary["attendees"]): string {
   return `${labels.slice(0, 3).join(", ")} +${labels.length - 3}`;
 }
 
+function AboutMe({ settings, error }: { settings: LiveSettings; error: string | null }) {
+  const router = useRouter();
+  const storedSnapshot = settings.snapshot ?? "";
+  const storedCompanies = settings.targetCompanies.join("\n");
+  const [snapshot, setSnapshot] = useState(storedSnapshot);
+  const [companies, setCompanies] = useState(storedCompanies);
+  const [seenSnapshot, setSeenSnapshot] = useState(storedSnapshot);
+  const [seenCompanies, setSeenCompanies] = useState(storedCompanies);
+
+  if (storedSnapshot !== seenSnapshot) {
+    setSeenSnapshot(storedSnapshot);
+    setSnapshot(storedSnapshot);
+  }
+  if (storedCompanies !== seenCompanies) {
+    setSeenCompanies(storedCompanies);
+    setCompanies(storedCompanies);
+  }
+
+  const saveSnapshot = () => {
+    if (snapshot.trim() === storedSnapshot.trim()) return;
+    void updateLiveSettings({ snapshot }).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const saveCompanies = () => {
+    const next = companies
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (next.join("\n") === storedCompanies) return;
+    void updateLiveSettings({ targetCompanies: next }).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">About me</h2>
+      {error ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
+      <label className="block space-y-1">
+        <span className="text-[14px] font-semibold">60-second snapshot</span>
+        <textarea
+          value={snapshot}
+          rows={4}
+          maxLength={2000}
+          placeholder="The snapshot you give once on a first call"
+          className={`${FIELD} py-2`}
+          onChange={(event) => setSnapshot(event.target.value)}
+          onBlur={saveSnapshot}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[14px] font-semibold">Target companies</span>
+        <textarea
+          value={companies}
+          rows={4}
+          placeholder="One company per line"
+          className={`${FIELD} py-2`}
+          onChange={(event) => setCompanies(event.target.value)}
+          onBlur={saveCompanies}
+        />
+      </label>
+      <p className="text-[13px] text-[var(--jos-muted)]">
+        {"Used wherever a strategy says {{snapshot}} or {{targets}}."}
+      </p>
+    </section>
+  );
+}
+
 function usedLine(script: LiveScript): string {
   const points = script.itemCount === 1 ? "1 point" : `${script.itemCount} points`;
   const used = script.useCount === 1 ? "used 1 time" : `used ${script.useCount} times`;
@@ -91,6 +170,8 @@ export function LiveMeetingsClient({
   scriptsError,
   recent,
   recentError,
+  settings,
+  settingsError,
 }: {
   meetings: MeetingPrepSummary[];
   nowIso: string;
@@ -100,6 +181,8 @@ export function LiveMeetingsClient({
   scriptsError: string | null;
   recent: RecentLiveMeeting[];
   recentError: string | null;
+  settings: LiveSettings;
+  settingsError: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -280,6 +363,8 @@ export function LiveMeetingsClient({
           </ul>
         )}
       </section>
+
+      <AboutMe settings={settings} error={settingsError} />
 
       <section className="space-y-3">
         <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Recent</h2>
