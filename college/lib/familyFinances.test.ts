@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  KYLE_FIRST_COLLEGE_YEAR,
   SAMPLE_FAMILY_DRAFT,
   buildFamilyProfile,
   calcCore,
@@ -72,6 +73,10 @@ test("buildFamilyProfile stores school estimates keyed by id", () => {
   assert.ok(profile!.schools.mit);
   assert.equal(profile!.residency, "NJ");
   assert.equal(profile!.incomeBand, "Over $110,000");
+});
+
+test("Kyle's first year in college is 2028-29", () => {
+  assert.equal(KYLE_FIRST_COLLEGE_YEAR, "2028-29");
 });
 
 test("malformed familyProfile normalizes to null", () => {
