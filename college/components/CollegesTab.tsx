@@ -45,6 +45,7 @@ import {
   SUBMISSION_TYPE_LABEL,
 } from "@/lib/school-submissions";
 import { CampusSettingBadge } from "./CampusSettingBadge";
+import { SafetyBadge } from "./SafetyBadge";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
@@ -392,6 +393,7 @@ export function CollegesTab({
               <SchoolMark name={school.name} website={school.website} />
               <span>
                 {school.name}
+                <SafetyBadge school={school} />
                 {school.archived ? <small className="archived-tag">Archived</small> : null}
                 <NeedsResearchLabels school={school} />
               </span>
@@ -1020,6 +1022,7 @@ export function CollegesTab({
                 <SchoolMark name={school.name} website={school.website} />
                 <span>
                   {school.name}
+                  <SafetyBadge school={school} />
                   {school.archived ? <small className="archived-tag">Archived</small> : null}
                   <NeedsResearchLabels school={school} />
                 </span>

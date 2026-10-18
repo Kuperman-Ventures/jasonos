@@ -1,5 +1,6 @@
 "use client";
 
+import { SafetyBadge } from "./SafetyBadge";
 import { SchoolMark } from "./SchoolMark";
 import { websiteHref } from "@/lib/school-photo";
 import {
@@ -34,7 +35,10 @@ export function CollegesMobileList({ schools }: { schools: School[] }) {
               <>
                 <span className="colleges-mobile-name">
                   <SchoolMark name={school.name} website={school.website} />
-                  <span>{school.name}</span>
+                  <span>
+                    {school.name}
+                    <SafetyBadge school={school} />
+                  </span>
                 </span>
                 <span className="colleges-mobile-meta">
                   <span className="colleges-mobile-tier">{selectivity}</span>

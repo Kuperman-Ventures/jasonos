@@ -25,6 +25,7 @@ import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
 import { SchoolFinancials } from "./SchoolFinancials";
 import type { HouseholdFinances } from "@/lib/finances";
+import { SafetyBadge } from "./SafetyBadge";
 import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
@@ -333,6 +334,7 @@ export function CollegeRecord({
                     <SchoolMark name={school.name} website={school.website} />
                   </span>
                   <span className="school-modal-nav-name">{school.name}</span>
+                  <SafetyBadge school={school} />
                 </div>
                 <button
                   type="button"
@@ -387,7 +389,10 @@ export function CollegeRecord({
             <div className="school-hero-identity">
               <SchoolMark name={school.name} website={school.website} />
               <div>
-                <h2>{school.name}</h2>
+                <h2>
+                  {school.name}
+                  <SafetyBadge school={school} />
+                </h2>
                 <p className="school-hero-location">{school.location || "Location not set"}</p>
                 {researchNeeded.length ? (
                   <p className="needs-research school-hero-research">

@@ -12,7 +12,8 @@ import { formatDriveDuration } from "@/lib/drive-matrix";
 import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { memberOwnerId } from "@/lib/project-todos";
 import type { ListPhaseId } from "@/lib/list-phases";
-import type { School } from "@/lib/types";
+import { isSafetySchool, type School } from "@/lib/types";
+import { SafetyBadge } from "./SafetyBadge";
 import {
   VISIT_FILTER_LEVELS,
   anyFilterLevelOn,
@@ -68,8 +69,8 @@ function StopChip({
       data-level={level}
       aria-pressed={selected}
       title={`${school.name} · ${visitInterestLabel(school.interestLevel)}${
-        selected ? " · In trip" : " · Tap to add to trip"
-      }`}
+        isSafetySchool(school) ? " · Safety" : ""
+      }${selected ? " · In trip" : " · Tap to add to trip"}`}
       onClick={onToggle}
     >
       <SchoolMark name={school.name} website={school.website} />
@@ -363,6 +364,7 @@ export function SchoolVisitPlanning({
             <SchoolMark name={school.name} website={school.website} />
           </span>
           <b>{school.name}</b>
+          <SafetyBadge school={school} />
           <span className="school-visit-label">Visit planning</span>
         </div>
       </div>

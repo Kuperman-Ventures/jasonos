@@ -1357,6 +1357,9 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   height: 28px !important;
 }
 .school-modal-nav-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 18px;
   font-weight: 700;
   white-space: nowrap;
@@ -6950,6 +6953,43 @@ body.todos-dragging .todo-project-group.is-over {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-subtle);
+}
+.safety-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: 2px;
+  background: var(--color-accent-tint);
+  color: var(--text-accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.school-hero-copy .safety-badge {
+  color: #f8f4f4;
+  background: color-mix(in srgb, #f8f4f4 16%, transparent);
+  border-color: color-mix(in srgb, #f8f4f4 42%, transparent);
+}
+.school-hero-empty .school-hero-copy .safety-badge {
+  color: var(--text-accent);
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent-border);
+}
+.fin-badges .safety-badge,
+.school-modal-nav-current .safety-badge,
+.colleges-mobile-name .safety-badge,
+.school-visit-kicker .safety-badge {
+  flex: none;
+  margin-left: 0;
+}
+.colleges-mobile-name .safety-badge {
+  margin-left: 2px;
 }
 table.schools tbody tr.archived-row td { opacity: 0.62; }
 .empty-list {
