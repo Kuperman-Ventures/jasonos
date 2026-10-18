@@ -198,8 +198,8 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     setup: "API key (grn_…) from Granola → Settings → Connectors",
     logoDomain: "granola.ai",
     description:
-      "Meeting notes for Browning thank-you drafts. In the Granola app: Settings → Connectors → API keys. Include Personal notes, then paste the key here. It starts with grn_. Settings is used first, then GRANOLA_API_KEY.",
-    features: ["Meeting notes", "Browning thank-you"],
+      "Meeting notes for Live, meeting prep, the morning brief, and Browning thank-you drafts. In the Granola app: Settings → Connectors → API keys. Include Personal notes, then paste the key here. It starts with grn_. Settings is used first, then GRANOLA_API_KEY.",
+    features: ["Live", "Meeting prep", "Morning brief", "Browning thank-you"],
     configurable: true,
     disconnectable: true,
     envVars: ["GRANOLA_API_KEY"],
