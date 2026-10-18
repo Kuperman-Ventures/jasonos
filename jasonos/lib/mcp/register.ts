@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   addActionCard,
+  addProjectLink,
   addTodo,
   completeTodo,
   getMustDos,
@@ -27,6 +28,7 @@ import {
   listMeetings,
   listOutreachPeople,
   listPostMasterProjects,
+  listProjectLinks,
   listProjects,
   listSuggestedContacts,
 } from "./reads";
@@ -40,7 +42,9 @@ export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal co
 
 You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
-Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
+
+File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
 To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch. Do not use a separate Supabase execute_sql connector.
 
@@ -428,6 +432,37 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (args) => runTool(() => listAlerts(args))
+  );
+
+  server.registerTool(
+    "add_project_link",
+    {
+      title: "Add project link",
+      description:
+        "File a plan, artifact or doc under a JasonOS project page, keyed by the project's URL slug, e.g. ski-tracker.",
+      inputSchema: z.object({
+        project_slug: z.string().min(1).max(80),
+        title: z.string().min(1).max(240),
+        url: z.string().url().max(2000),
+        kind: z.enum(["artifact", "doc", "file", "other"]).optional(),
+        description: z.string().max(500).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => addProjectLink(args))
+  );
+
+  server.registerTool(
+    "list_project_links",
+    {
+      title: "List project links",
+      description: "Plans, artifacts, and docs filed under a JasonOS project page.",
+      inputSchema: z.object({
+        project_slug: z.string().min(1).max(80),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listProjectLinks(args))
   );
 
   server.registerTool(

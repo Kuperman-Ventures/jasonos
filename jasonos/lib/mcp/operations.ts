@@ -425,6 +425,67 @@ export async function searchContacts(input: { query: string; limit?: number }) {
   };
 }
 
+const PROJECT_LINK_KINDS = ["artifact", "doc", "file", "other"] as const;
+
+export async function addProjectLink(input: {
+  project_slug: string;
+  title: string;
+  url: string;
+  kind?: string;
+  description?: string;
+}) {
+  const sb = jasonosDb();
+  const project_slug = input.project_slug.trim();
+  const title = input.title.trim();
+  const url = input.url.trim();
+  const requestedKind =
+    input.kind && (PROJECT_LINK_KINDS as readonly string[]).includes(input.kind)
+      ? input.kind
+      : null;
+
+  const { data: existing, error: existingError } = await sb
+    .from("project_links")
+    .select("sort_order, kind, description")
+    .eq("project_slug", project_slug)
+    .eq("url", url)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+
+  let sort_order = existing?.sort_order as number | undefined;
+  if (sort_order == null) {
+    const { data: maxRow, error: maxError } = await sb
+      .from("project_links")
+      .select("sort_order")
+      .eq("project_slug", project_slug)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (maxError) throw new Error(maxError.message);
+    sort_order = ((maxRow?.sort_order as number | undefined) ?? 0) + 1;
+  }
+
+  const { data, error } = await sb
+    .from("project_links")
+    .upsert(
+      {
+        project_slug,
+        title,
+        url,
+        kind: requestedKind ?? (existing?.kind as string | undefined) ?? "artifact",
+        description:
+          input.description === undefined
+            ? ((existing?.description as string | null | undefined) ?? null)
+            : input.description.trim() || null,
+        sort_order,
+      },
+      { onConflict: "project_slug,url" }
+    )
+    .select("id, project_slug, title, url, kind, description, sort_order, created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return { ok: true as const, link: data };
+}
+
 export async function getScoreboard() {
   const db = publicDb();
   const { data, error } = await db
