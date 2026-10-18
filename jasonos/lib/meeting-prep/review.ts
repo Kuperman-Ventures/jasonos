@@ -25,6 +25,8 @@ export interface ParsedMeetingReview {
   suggestedMark: "hit" | "partial" | "missed" | null;
   suggestedReason: string | null;
   talkRatio: number | null;
+  projectGoalNote: string | null;
+  relationshipGoalNote: string | null;
 }
 
 const MARKS = new Set(["hit", "partial", "missed"]);
@@ -49,8 +51,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 export function meetingReviewSystemPrompt(): string {
   return `You are checking a meeting record against Jason's plan. Report only what the text supports. A missing quote means false. Never infer a commitment that is not stated. Return JSON only:
-{"points_spoken":[{"point_id":"...","spoken":true,"quote":"..."}],"rubric_results":[{"item":"...","met":false,"quote":null}],"reactions_observed":[{"point_id":"...","shape":"agree|soft_agree|defer|deflect|counter_ask|decline|null","quote":"..."}],"suggested_mark":"hit|partial|missed","suggested_reason":"...","talk_ratio":0.62}
-Include every point id, every checklist item, and every ask id you were given. spoken and met are true only with a short quote from the text. suggested_reason is two sentences and cites quotes. talk_ratio is Jason's share of the words, from 0 to 1, or null when the text does not show who spoke. Jason is the speaker marked Jason or microphone.`;
+{"points_spoken":[{"point_id":"...","spoken":true,"quote":"..."}],"rubric_results":[{"item":"...","met":false,"quote":null}],"reactions_observed":[{"point_id":"...","shape":"agree|soft_agree|defer|deflect|counter_ask|decline|null","quote":"..."}],"suggested_mark":"hit|partial|missed","suggested_reason":"...","talk_ratio":0.62,"project_goal_note":null,"relationship_goal_note":null}
+Include every point id, every checklist item, and every ask id you were given. spoken and met are true only with a short quote from the text. suggested_reason is two sentences and cites quotes. talk_ratio is Jason's share of the words, from 0 to 1, or null when the text does not show who spoke. Jason is the speaker marked Jason or microphone. project_goal_note and relationship_goal_note are each one sentence, or null, saying what in the text bears on that goal. Do not invent a bearing the text does not support.`;
 }
 
 export function parseMeetingReview(
@@ -130,5 +132,7 @@ export function parseMeetingReview(
     suggestedMark: suggested,
     suggestedReason: reason,
     talkRatio: ratio,
+    projectGoalNote: quoteOf(body.project_goal_note),
+    relationshipGoalNote: quoteOf(body.relationship_goal_note),
   };
 }

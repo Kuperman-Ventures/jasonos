@@ -28,6 +28,8 @@ export interface DraftPromptInput {
   introduction: string | null;
   referrer: string | null;
   personalGoal: string | null;
+  projectGoal: string | null;
+  relationshipGoal: string | null;
   lastNextStep: string | null;
   /** Newest first. Only the first three are sent, each already capped. */
   granolaSummaries: Array<{ title: string | null; date: string | null; summary: string }>;
@@ -255,6 +257,8 @@ export function draftContextLines(input: {
   openCommitments: number;
   referrer: string | null;
   personalGoal: string | null;
+  projectGoal: string | null;
+  relationshipGoal: string | null;
   granolaNotes: number;
   earlierMeetings: number;
   jobSearch: number;
@@ -266,6 +270,8 @@ export function draftContextLines(input: {
     { label: "Open commitments", present: input.openCommitments > 0 },
     { label: "Referrer", present: Boolean(input.referrer?.trim()) },
     { label: "Personal goal", present: Boolean(input.personalGoal?.trim()) },
+    { label: "Project goal", present: Boolean(input.projectGoal?.trim()) },
+    { label: "Goal for this relationship", present: Boolean(input.relationshipGoal?.trim()) },
     {
       label: input.granolaNotes > 0 ? `Granola notes (${input.granolaNotes})` : "Granola notes",
       present: input.granolaNotes > 0,
@@ -300,6 +306,8 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
   sections.push(filed("Outcome sentence", input.outcomeSentence));
   sections.push(filed("Referrer", input.referrer));
   sections.push(filed("Personal goal", input.personalGoal));
+  sections.push(filed("Project goal", input.projectGoal));
+  sections.push(filed("Goal for this relationship", input.relationshipGoal));
 
   const brief = [
     line("Summary", input.summary),

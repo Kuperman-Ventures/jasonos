@@ -46,9 +46,12 @@ import {
   confirmMeetingPurpose,
   setMeetingOutcomeMark,
   setMeetingOutcomeSentence,
+  setMeetingPrimaryContact,
+  setMeetingProject,
   setMeetingPurpose,
   type MeetingPrepDetail,
   type OutcomeMark,
+  type ProjectPickerOption,
 } from "@/lib/server-actions/meeting-prep";
 import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import {
@@ -535,7 +538,15 @@ function MarkPill({ mark }: { mark: OutcomeMark | null }) {
   );
 }
 
-function OutcomeForMeeting({ prep }: { prep: MeetingPrepDetail }) {
+function OutcomeForMeeting({
+  prep,
+  projects,
+  people,
+}: {
+  prep: MeetingPrepDetail;
+  projects: ProjectPickerOption[];
+  people: MeetingContextPerson[];
+}) {
   const router = useRouter();
   const [changing, setChanging] = useState(false);
   const [note, setNote] = useState(prep.outcomeNote ?? "");
@@ -590,6 +601,7 @@ function OutcomeForMeeting({ prep }: { prep: MeetingPrepDetail }) {
           Use purpose
         </button>
       ) : null}
+      <GoalLinks prep={prep} projects={projects} people={people} />
       {prep.liveEndedAt ? (
         <div className="space-y-2 pt-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -635,6 +647,84 @@ function OutcomeForMeeting({ prep }: { prep: MeetingPrepDetail }) {
   );
 }
 
+function GoalLinks({
+  prep,
+  projects,
+  people,
+}: {
+  prep: MeetingPrepDetail;
+  projects: ProjectPickerOption[];
+  people: MeetingContextPerson[];
+}) {
+  const router = useRouter();
+  const personId = prep.primaryContactId ?? people[0]?.contactId ?? "";
+  const person = people.find((item) => item.contactId === personId) ?? null;
+  const project = projects.find((item) => item.id === prep.projectId) ?? null;
+
+  const saveProject = (value: string) => {
+    void setMeetingProject(prep.id, value || null).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const savePerson = (value: string) => {
+    void setMeetingPrimaryContact(prep.id, value || null).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="space-y-2 pt-1">
+      <label className="block space-y-1">
+        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Project</span>
+        <select
+          value={prep.projectId ?? ""}
+          aria-label="Project"
+          className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none"
+          onChange={(event) => saveProject(event.target.value)}
+        >
+          <option value="">No project</option>
+          {projects.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        {project ? <p className="text-[14px] leading-snug text-[var(--jos-ink)]">{project.goalStatement}</p> : null}
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Person</span>
+        <select
+          value={personId}
+          aria-label="Person"
+          className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none"
+          onChange={(event) => savePerson(event.target.value)}
+        >
+          <option value="">No person</option>
+          {people.map((item) => (
+            <option key={item.contactId} value={item.contactId}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        {person?.personalGoal ? (
+          <p className="text-[14px] text-[var(--jos-muted)]">
+            Your goal for {person.name}: {person.personalGoal}
+          </p>
+        ) : null}
+      </label>
+    </div>
+  );
+}
+
 function PrepPoints({
   prep,
   points,
@@ -642,6 +732,8 @@ function PrepPoints({
   scripts,
   rubric,
   review,
+  projects,
+  people,
 }: {
   prep: MeetingPrepDetail;
   points: MeetingPoint[];
@@ -649,6 +741,8 @@ function PrepPoints({
   scripts: LiveScript[];
   rubric: string[];
   review: MeetingReview | null;
+  projects: ProjectPickerOption[];
+  people: MeetingContextPerson[];
 }) {
   const router = useRouter();
   const [scriptId, setScriptId] = useState("");
@@ -712,7 +806,7 @@ function PrepPoints({
       points={points}
       error={pointsError}
       note={prep.scriptName ? `Started from ${prep.scriptName}` : null}
-      belowTitle={<OutcomeForMeeting prep={prep} />}
+      belowTitle={<OutcomeForMeeting prep={prep} projects={projects} people={people} />}
       actions={{
         create: async (input) => {
           const result = await createMeetingPoint({ prepId: prep.id, ...input });
@@ -866,6 +960,7 @@ export function MeetingPrepClient({
   scripts,
   rubric,
   review,
+  projects,
 }: {
   prep: MeetingPrepDetail;
   context: MeetingContext;
@@ -874,6 +969,7 @@ export function MeetingPrepClient({
   scripts: LiveScript[];
   rubric: string[];
   review: MeetingReview | null;
+  projects: ProjectPickerOption[];
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
@@ -1072,6 +1168,8 @@ export function MeetingPrepClient({
           scripts={scripts}
           rubric={rubric}
           review={review}
+          projects={projects}
+          people={context.people}
         />
       ) : null}
 
@@ -1307,6 +1405,8 @@ export function MeetingPrepClient({
           scripts={scripts}
           rubric={rubric}
           review={review}
+          projects={projects}
+          people={context.people}
         />
       ) : null}
 

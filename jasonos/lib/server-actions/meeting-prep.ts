@@ -49,6 +49,12 @@ export interface MeetingPrepSummary {
   outcomeMark: OutcomeMark | null;
   outcomeNote: string | null;
   outcomeMarkedAt: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  projectGoal: string | null;
+  primaryContactId: string | null;
+  primaryContactName: string | null;
+  personalGoal: string | null;
   home: MeetingHomeContext;
 }
 
@@ -82,6 +88,8 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   liveEndedAt: string | null;
   scriptId: string | null;
   scriptName: string | null;
+  adaptedFromScriptId: string | null;
+  adaptedFromScriptName: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -113,6 +121,9 @@ interface PrepRow {
   outcome_mark?: string | null;
   outcome_note?: string | null;
   outcome_marked_at?: string | null;
+  project_id?: string | null;
+  primary_contact_id?: string | null;
+  adapted_from_script_id?: string | null;
 }
 
 const PREP_COLUMNS =
@@ -120,6 +131,7 @@ const PREP_COLUMNS =
 const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`;
 const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
+const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -205,6 +217,12 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     outcomeMark: asOutcomeMark(row.outcome_mark),
     outcomeNote: row.outcome_note?.trim() || null,
     outcomeMarkedAt: row.outcome_marked_at ?? null,
+    projectId: row.project_id ?? null,
+    projectName: null,
+    projectGoal: null,
+    primaryContactId: row.primary_contact_id ?? null,
+    primaryContactName: null,
+    personalGoal: null,
     home: EMPTY_HOME_CONTEXT,
   };
 }
@@ -226,6 +244,8 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     liveEndedAt: row.live_ended_at ?? null,
     scriptId: null,
     scriptName: null,
+    adaptedFromScriptId: row.adapted_from_script_id ?? null,
+    adaptedFromScriptName: null,
     sources,
   };
 }
@@ -423,9 +443,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_WITH_OUTCOME)
+    .select(PREP_COLUMNS_WITH_LINKS)
     .eq("id", id)
     .maybeSingle();
+  if (error && /project_id|primary_contact_id|adapted_from_script_id|adapted_at/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_OUTCOME)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && missingOutcomeColumn(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
@@ -485,6 +512,32 @@ export async function getMeetingPrep(
       .eq("id", scriptId)
       .maybeSingle();
     prep.scriptName = (script?.name as string | undefined)?.trim() || null;
+  }
+  if (prep.adaptedFromScriptId) {
+    const { data: adapted } = await sb
+      .from("live_scripts")
+      .select("name")
+      .eq("id", prep.adaptedFromScriptId)
+      .maybeSingle();
+    prep.adaptedFromScriptName = (adapted?.name as string | undefined)?.trim() || null;
+  }
+  if (prep.projectId) {
+    const { data: project } = await sb
+      .from("projects")
+      .select("name, goal_statement")
+      .eq("id", prep.projectId)
+      .maybeSingle();
+    prep.projectName = (project?.name as string | undefined)?.trim() || null;
+    prep.projectGoal = (project?.goal_statement as string | undefined)?.trim() || null;
+  }
+  if (prep.primaryContactId) {
+    const { data: contact } = await sb
+      .from("contacts")
+      .select("name, personal_goal")
+      .eq("id", prep.primaryContactId)
+      .maybeSingle();
+    prep.primaryContactName = (contact?.name as string | undefined)?.trim() || null;
+    prep.personalGoal = (contact?.personal_goal as string | undefined)?.trim() || null;
   }
 
   return { ok: true, prep };
@@ -685,4 +738,87 @@ export async function getRecentLiveMeetings(
       };
     }),
   };
+}
+
+export interface ProjectPickerOption {
+  id: string;
+  name: string;
+  track: string;
+  goalStatement: string;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function listProjectsForPicker(): Promise<PrepResult<{ projects: ProjectPickerOption[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb.from("projects").select("id, name, track, goal_statement");
+  if (error) return { ok: false, error: error.message };
+  const projects = (data ?? [])
+    .map((row) => ({
+      id: String(row.id),
+      name: String(row.name ?? "").trim(),
+      track: String(row.track ?? ""),
+      goalStatement: String(row.goal_statement ?? "").trim(),
+    }))
+    .filter((row) => row.name && row.goalStatement);
+  const rank = (track: string) => (track === "job_search" || track === "advisors" ? 0 : 1);
+  projects.sort((a, b) => rank(a.track) - rank(b.track) || a.name.localeCompare(b.name));
+  return { ok: true, projects };
+}
+
+export async function setMeetingProject(
+  prepId: string,
+  projectId: string | null
+): Promise<PrepResult<{ projectId: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const next = projectId?.trim() || null;
+  if (next && !UUID_RE.test(next)) return { ok: false, error: "Unknown project." };
+  const sb = createServiceRoleClient();
+  if (next) {
+    const { data: project, error: projectError } = await sb
+      .from("projects")
+      .select("id")
+      .eq("id", next)
+      .maybeSingle();
+    if (projectError) return { ok: false, error: projectError.message };
+    if (!project) return { ok: false, error: "Unknown project." };
+  }
+  const { error } = await sb
+    .from("meeting_preps")
+    .update({ project_id: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePrep(id);
+  return { ok: true, projectId: next };
+}
+
+export async function setMeetingPrimaryContact(
+  prepId: string,
+  contactId: string | null
+): Promise<PrepResult<{ contactId: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const next = contactId?.trim() || null;
+  if (next && !UUID_RE.test(next)) return { ok: false, error: "Unknown person." };
+  const sb = createServiceRoleClient();
+  if (next) {
+    const { data: contact, error: contactError } = await sb
+      .from("contacts")
+      .select("id")
+      .eq("id", next)
+      .maybeSingle();
+    if (contactError) return { ok: false, error: contactError.message };
+    if (!contact) return { ok: false, error: "Unknown person." };
+  }
+  const { error } = await sb
+    .from("meeting_preps")
+    .update({ primary_contact_id: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePrep(id);
+  return { ok: true, contactId: next };
 }

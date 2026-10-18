@@ -153,6 +153,8 @@ describe("draft prompt", () => {
       introduction: null,
       referrer: null,
       personalGoal: "Wants a board seat.",
+      projectGoal: null,
+      relationshipGoal: "Wants a board seat.",
       lastNextStep: null,
       granolaSummaries: [],
       pastMeetings: [
@@ -168,6 +170,8 @@ describe("draft prompt", () => {
     assert.match(message, /Outcome sentence: None on file/);
     assert.match(message, /Referrer: None on file/);
     assert.match(message, /Personal goal: Wants a board seat\./);
+    assert.match(message, /Project goal: None on file/);
+    assert.match(message, /Goal for this relationship: Wants a board seat\./);
     assert.match(message, /theirs \(Alex Chen, due March 3\): Send the deck/);
     assert.match(message, /his \(Alex Chen\): Make the intro/);
     assert.match(message, /Newest/);
@@ -191,6 +195,8 @@ describe("draftContextLines", () => {
       openCommitments: 0,
       referrer: null,
       personalGoal: null,
+      projectGoal: null,
+      relationshipGoal: null,
       granolaNotes: 2,
       earlierMeetings: 1,
       jobSearch: 0,
@@ -206,6 +212,8 @@ describe("draftContextLines", () => {
       "Open commitments",
       "Referrer",
       "Personal goal",
+      "Project goal",
+      "Goal for this relationship",
       "Job search",
     ]);
   });

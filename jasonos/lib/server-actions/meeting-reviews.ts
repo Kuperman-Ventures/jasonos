@@ -77,6 +77,8 @@ function toReview(row: Record<string, unknown>): MeetingReview {
       mark === "hit" || mark === "partial" || mark === "missed" ? mark : null,
     suggestedReason: typeof row.suggested_reason === "string" ? row.suggested_reason : null,
     talkRatio: typeof ratio === "number" ? ratio : null,
+    projectGoalNote: typeof row.project_goal_note === "string" ? row.project_goal_note : null,
+    relationshipGoalNote: typeof row.relationship_goal_note === "string" ? row.relationship_goal_note : null,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : new Date().toISOString(),
   };
 }
@@ -156,6 +158,8 @@ export async function runMeetingReview(
       suggested_mark: null,
       suggested_reason: null,
       talk_ratio: null,
+      project_goal_note: null,
+      relationship_goal_note: null,
       error: "No Granola note found for this meeting.",
     });
     if (!saved.ok) return saved;
@@ -182,6 +186,8 @@ export async function runMeetingReview(
       suggested_mark: null,
       suggested_reason: null,
       talk_ratio: null,
+      project_goal_note: null,
+      relationship_goal_note: null,
       error: "Granola note had no text to review.",
     });
     if (!saved.ok) return saved;
@@ -199,6 +205,8 @@ export async function runMeetingReview(
     })),
     rubric,
     asks: asks.map((point) => point.id),
+    projectGoal: prep.projectGoal,
+    relationshipGoal: prep.personalGoal,
     sourceKind,
     text: sourceText,
   };
@@ -234,6 +242,8 @@ export async function runMeetingReview(
     suggested_mark: parsed.suggestedMark,
     suggested_reason: parsed.suggestedReason,
     talk_ratio: parsed.talkRatio,
+    project_goal_note: parsed.projectGoalNote,
+    relationship_goal_note: parsed.relationshipGoalNote,
     error: null,
   });
   if (!saved.ok) return saved;

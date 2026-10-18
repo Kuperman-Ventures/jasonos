@@ -223,6 +223,18 @@ export function AfterTheCall({
               </div>
             ) : null}
           </div>
+
+          <div className="space-y-2">
+            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+              Against your goals
+            </h3>
+            <p className="text-[15px] leading-relaxed">
+              {current?.projectGoalNote || "Nothing in the record bears on the project goal."}
+            </p>
+            <p className="text-[15px] leading-relaxed">
+              {current?.relationshipGoalNote || "Nothing in the record bears on the goal for this relationship."}
+            </p>
+          </div>
         </>
       ) : null}
     </section>

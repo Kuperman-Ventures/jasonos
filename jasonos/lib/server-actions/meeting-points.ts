@@ -446,6 +446,8 @@ export async function draftMeetingPoints(
     openCommitments: openCommitments.length,
     referrer,
     personalGoal,
+    projectGoal: prep.projectGoal,
+    relationshipGoal: prep.personalGoal || personalGoal,
     granolaNotes: granolaSummaries.length,
     earlierMeetings: context.pastMeetings.length,
     jobSearch: context.jobSearch.length,
@@ -489,6 +491,8 @@ export async function draftMeetingPoints(
             introduction: context.briefing.introduction?.text ?? null,
             referrer,
             personalGoal,
+            projectGoal: prep.projectGoal,
+            relationshipGoal: prep.personalGoal || personalGoal,
             lastNextStep,
             granolaSummaries,
             pastMeetings: context.pastMeetings.map((meeting) => ({

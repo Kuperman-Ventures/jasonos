@@ -3,7 +3,7 @@ import { MeetingPrepClient } from "@/components/jasonos/meeting-prep/meeting-pre
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import { getLiveScript, listLiveScripts } from "@/lib/server-actions/live-scripts";
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
-import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
+import { getMeetingPrep, listProjectsForPicker } from "@/lib/server-actions/meeting-prep";
 import { getMeetingReview } from "@/lib/server-actions/meeting-reviews";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function MeetingPrepPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [result, contextResult, pointsResult, scriptsResult] = await Promise.all([
+  const [result, contextResult, pointsResult, scriptsResult, projectsResult] = await Promise.all([
     getMeetingPrep(id),
     loadMeetingContext(id).then(
       (context) => ({ ok: true as const, context }),
@@ -26,6 +26,7 @@ export default async function MeetingPrepPage({
     ),
     getMeetingPoints(id),
     listLiveScripts(),
+    listProjectsForPicker(),
   ]);
   if (!result.ok) {
     if (result.error === "Meeting prep not found.") notFound();
@@ -57,6 +58,7 @@ export default async function MeetingPrepPage({
       scripts={scriptsResult.ok ? scriptsResult.scripts : []}
       rubric={rubric}
       review={reviewResult.ok ? reviewResult.review : null}
+      projects={projectsResult.ok ? projectsResult.projects : []}
     />
   );
 }
