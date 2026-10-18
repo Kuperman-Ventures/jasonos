@@ -13,7 +13,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const loaded = await getLiveScript(id);
-  const name = loaded.ok ? loaded.script.name : "Script";
+  const name = loaded.ok ? loaded.script.name : "Strategy";
   return { title: `${name} · Live · JasonOS` };
 }
 
@@ -28,7 +28,7 @@ export default async function LiveScriptPage({
     getUpcomingMeetingPreps(2),
   ]);
   if (!loaded.ok) {
-    if (loaded.error === "Script not found.") notFound();
+    if (loaded.error === "Strategy not found.") notFound();
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
         <p className="text-sm text-muted-foreground">{loaded.error}</p>

@@ -671,7 +671,7 @@ function PrepPoints({
   const saveScript = () => {
     const name = saveName.trim();
     if (!name) {
-      toast.error("Name the script.");
+      toast.error("Name the strategy.");
       return;
     }
     setSaving(true);
@@ -690,7 +690,7 @@ function PrepPoints({
       setSaveDescription("");
       toast.success(
         <span>
-          Saved as script.{" "}
+          Saved as strategy.{" "}
           <a className="underline" href={`/live/scripts/${result.scriptId}`}>
             Open it
           </a>
@@ -728,11 +728,11 @@ function PrepPoints({
             </button>
           )}
           <label className="sr-only" htmlFor="start-from-script">
-            Start from a script
+            Start from a strategy
           </label>
           <select
             id="start-from-script"
-            aria-label="Start from a script"
+            aria-label="Start from a strategy"
             value={scriptId}
             className="h-8 max-w-full bg-transparent text-[14px] font-semibold text-[var(--jos-ink)] outline-none"
             onChange={(event) => {
@@ -740,7 +740,7 @@ function PrepPoints({
               setConfirmReplace(false);
             }}
           >
-            <option value="">Start from a script</option>
+            <option value="">Start from a strategy</option>
             {scripts.map((script) => (
               <option key={script.id} value={script.id}>
                 {script.name}
@@ -792,14 +792,14 @@ function PrepPoints({
             disabled={pointCount === 0}
             onClick={() => setSaveOpen(true)}
           >
-            Save as script
+            Save as strategy
           </Button>
           <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
             <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Save as script</DialogTitle>
+                <DialogTitle>Save as strategy</DialogTitle>
                 <DialogDescription>
-                  Copies these points into a script. State and notes stay on this meeting.
+                  Copies these points into a strategy. State and notes stay on this meeting.
                 </DialogDescription>
               </DialogHeader>
               <form

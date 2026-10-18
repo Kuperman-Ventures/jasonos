@@ -13,6 +13,7 @@ import {
   parseDraftPoints,
   type PointKind,
 } from "@/lib/meeting-prep/points";
+import { REACTION_SHAPES, type Reaction, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -20,6 +21,10 @@ export interface LiveScript {
   id: string;
   name: string;
   description: string | null;
+  situation: string | null;
+  successSentence: string | null;
+  rubric: string[];
+  methodologySource: string | null;
   itemCount: number;
   useCount: number;
   lastUsedAt: string | null;
@@ -33,12 +38,18 @@ export interface LiveScriptItem {
   kind: PointKind;
   headline: string;
   detail: string | null;
+  prepareReactions: boolean;
+  reactions: Reaction[];
 }
 
 interface ScriptRow {
   id: string;
   name: string;
   description: string | null;
+  situation?: string | null;
+  success_sentence?: string | null;
+  rubric?: unknown;
+  methodology_source?: string | null;
   use_count: number;
   last_used_at: string | null;
   updated_at: string;
@@ -51,10 +62,66 @@ interface ItemRow {
   kind: string;
   headline: string;
   detail: string | null;
+  prepare_reactions?: boolean | null;
+  reactions?: unknown;
 }
 
 const KINDS = new Set<PointKind>(["agenda", "point", "question", "ask"]);
-const ITEM_COLUMNS = "id, script_id, position, kind, headline, detail";
+const SHAPE_SET = new Set<string>(REACTION_SHAPES);
+const SCRIPT_COLUMNS =
+  "id, name, description, situation, success_sentence, rubric, methodology_source, use_count, last_used_at, updated_at";
+const ITEM_COLUMNS =
+  "id, script_id, position, kind, headline, detail, prepare_reactions, reactions";
+
+function rubricLines(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const lines: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const text = item.trim().replace(/\s+/g, " ");
+    if (!text) continue;
+    lines.push(text.length <= 240 ? text : text.slice(0, 240).trim());
+    if (lines.length === 12) break;
+  }
+  return lines;
+}
+
+function cleanLine(value: string | null | undefined, max = 400): string | null {
+  const text = value?.trim().replace(/\s+/g, " ") ?? "";
+  if (!text) return null;
+  return text.length <= max ? text : text.slice(0, max).trim();
+}
+
+function asReactions(value: unknown): Reaction[] {
+  if (!Array.isArray(value)) return [];
+  const out: Reaction[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const shape = (item as { shape?: unknown }).shape;
+    const soundsLike = (item as { soundsLike?: unknown }).soundsLike;
+    const pivot = (item as { pivot?: unknown }).pivot;
+    if (typeof shape !== "string" || !SHAPE_SET.has(shape) || seen.has(shape)) continue;
+    if (typeof soundsLike !== "string" || typeof pivot !== "string") continue;
+    const sound = soundsLike.trim().replace(/\s+/g, " ");
+    const line = pivot.trim().replace(/\s+/g, " ");
+    if (!sound || !line || sound.length >= 160 || line.length >= 160) continue;
+    seen.add(shape);
+    out.push({ shape: shape as ReactionShape, soundsLike: sound, pivot: line });
+  }
+  return out;
+}
+
+function filledReactions(
+  reactions: Reaction[],
+  person: { name?: string | null; company?: string | null; title?: string | null } | null
+): Reaction[] {
+  return reactions.map((reaction) => ({
+    shape: reaction.shape,
+    soundsLike: fillScriptPlaceholders(reaction.soundsLike, person) || reaction.soundsLike,
+    pivot: fillScriptPlaceholders(reaction.pivot, person) || reaction.pivot,
+  }));
+}
 
 function hasConfig() {
   return Boolean(
@@ -89,6 +156,8 @@ function toItem(row: ItemRow): LiveScriptItem {
     kind: asKind(row.kind),
     headline: row.headline,
     detail: row.detail?.trim() || null,
+    prepareReactions: Boolean(row.prepare_reactions),
+    reactions: asReactions(row.reactions),
   };
 }
 
@@ -97,6 +166,10 @@ function toScript(row: ScriptRow, itemCount: number): LiveScript {
     id: row.id,
     name: row.name,
     description: row.description?.trim() || null,
+    situation: row.situation?.trim() || null,
+    successSentence: row.success_sentence?.trim() || null,
+    rubric: rubricLines(row.rubric),
+    methodologySource: row.methodology_source?.trim() || null,
     itemCount,
     useCount: row.use_count ?? 0,
     lastUsedAt: row.last_used_at,
@@ -118,7 +191,7 @@ export async function listLiveScripts(): Promise<PointResult<{ scripts: LiveScri
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
-    .select("id, name, description, use_count, last_used_at, updated_at")
+    .select(SCRIPT_COLUMNS)
     .order("last_used_at", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true });
   if (error) return { ok: false, error: error.message };
@@ -147,15 +220,15 @@ export async function getLiveScript(
 ): Promise<PointResult<{ script: LiveScript; items: LiveScriptItem[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
-  if (!id) return { ok: false, error: "Script not found." };
+  if (!id) return { ok: false, error: "Strategy not found." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
-    .select("id, name, description, use_count, last_used_at, updated_at")
+    .select(SCRIPT_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Script not found." };
+  if (!data) return { ok: false, error: "Strategy not found." };
 
   const { data: itemRows, error: itemError } = await sb
     .from("live_script_items")
@@ -174,7 +247,7 @@ export async function createLiveScript(input: {
 }): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const name = cleanName(input.name);
-  if (!name) return { ok: false, error: "Name the script." };
+  if (!name) return { ok: false, error: "Name the strategy." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
@@ -182,11 +255,11 @@ export async function createLiveScript(input: {
       name,
       description: input.description?.trim() ? input.description.trim() : null,
     })
-    .select("id, name, description, use_count, last_used_at, updated_at")
+    .select(SCRIPT_COLUMNS)
     .single();
   if (error) {
     if (nameTaken(error.message, error.code)) {
-      return { ok: false, error: "A script with that name already exists." };
+      return { ok: false, error: "A strategy with that name already exists." };
     }
     return { ok: false, error: error.message };
   }
@@ -196,20 +269,33 @@ export async function createLiveScript(input: {
 
 export async function updateLiveScript(
   id: string,
-  patch: { name?: string; description?: string | null }
+  patch: {
+    name?: string;
+    description?: string | null;
+    situation?: string | null;
+    successSentence?: string | null;
+    rubric?: string[];
+    methodologySource?: string | null;
+  }
 ): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = id.trim();
-  if (!scriptId) return { ok: false, error: "Script not found." };
+  if (!scriptId) return { ok: false, error: "Strategy not found." };
   const update: Record<string, unknown> = {};
   if (patch.name != null) {
     const name = cleanName(patch.name);
-    if (!name) return { ok: false, error: "Name the script." };
+    if (!name) return { ok: false, error: "Name the strategy." };
     update.name = name;
   }
   if (patch.description !== undefined) {
     update.description = patch.description?.trim() ? patch.description.trim() : null;
   }
+  if (patch.situation !== undefined) update.situation = cleanLine(patch.situation);
+  if (patch.successSentence !== undefined) update.success_sentence = cleanLine(patch.successSentence);
+  if (patch.methodologySource !== undefined) {
+    update.methodology_source = cleanLine(patch.methodologySource, 200);
+  }
+  if (patch.rubric !== undefined) update.rubric = rubricLines(patch.rubric);
   if (!Object.keys(update).length) return { ok: false, error: "Nothing to change." };
 
   const sb = createServiceRoleClient();
@@ -217,15 +303,15 @@ export async function updateLiveScript(
     .from("live_scripts")
     .update(update)
     .eq("id", scriptId)
-    .select("id, name, description, use_count, last_used_at, updated_at")
+    .select(SCRIPT_COLUMNS)
     .maybeSingle();
   if (error) {
     if (nameTaken(error.message, error.code)) {
-      return { ok: false, error: "A script with that name already exists." };
+      return { ok: false, error: "A strategy with that name already exists." };
     }
     return { ok: false, error: error.message };
   }
-  if (!data) return { ok: false, error: "Script not found." };
+  if (!data) return { ok: false, error: "Strategy not found." };
   const items = await sb
     .from("live_script_items")
     .select("id", { count: "exact", head: true })
@@ -239,7 +325,7 @@ export async function deleteLiveScript(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = id.trim();
-  if (!scriptId) return { ok: false, error: "Script not found." };
+  if (!scriptId) return { ok: false, error: "Strategy not found." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
@@ -248,7 +334,7 @@ export async function deleteLiveScript(
     .select("id")
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Script not found." };
+  if (!data) return { ok: false, error: "Strategy not found." };
   revalidateScripts(scriptId);
   return { ok: true };
 }
@@ -277,7 +363,7 @@ export async function createLiveScriptItem(input: {
 }): Promise<PointResult<{ item: LiveScriptItem }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
-  if (!scriptId) return { ok: false, error: "Script not found." };
+  if (!scriptId) return { ok: false, error: "Strategy not found." };
   if (!KINDS.has(input.kind)) return { ok: false, error: "Pick a kind." };
   const headline = clampHeadline(input.headline);
   if (!headline) return { ok: false, error: "Write a headline." };
@@ -307,7 +393,7 @@ export async function createLiveScriptItem(input: {
 
 export async function updateLiveScriptItem(
   id: string,
-  patch: { kind?: PointKind; headline?: string; detail?: string | null }
+  patch: { kind?: PointKind; headline?: string; detail?: string | null; prepareReactions?: boolean }
 ): Promise<PointResult<{ item: LiveScriptItem }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const itemId = id.trim();
@@ -323,6 +409,7 @@ export async function updateLiveScriptItem(
     update.headline = headline;
   }
   if (patch.detail !== undefined) update.detail = patch.detail ? clampDetail(patch.detail) : null;
+  if (patch.prepareReactions !== undefined) update.prepare_reactions = Boolean(patch.prepareReactions);
   if (!Object.keys(update).length) return { ok: false, error: "Nothing to change." };
 
   const sb = createServiceRoleClient();
@@ -363,10 +450,10 @@ export async function reorderLiveScriptItems(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
-  if (!id) return { ok: false, error: "Script not found." };
+  if (!id) return { ok: false, error: "Strategy not found." };
   const ids = orderedIds.map((item) => item.trim()).filter(Boolean);
   if (new Set(ids).size !== ids.length) {
-    return { ok: false, error: "Point order does not match this script." };
+    return { ok: false, error: "Point order does not match this strategy." };
   }
   const sb = createServiceRoleClient();
   const { error } = await sb.rpc("reorder_live_script_items", {
@@ -385,7 +472,7 @@ export async function draftLiveScriptItems(
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
   const note = brief.trim();
-  if (!id) return { ok: false, error: "Script not found." };
+  if (!id) return { ok: false, error: "Strategy not found." };
   if (!note) return { ok: false, error: "Write a brief first." };
 
   const loaded = await getLiveScript(id);
@@ -397,12 +484,12 @@ export async function draftLiveScriptItems(
       model: "claude-sonnet-4-6",
       maxTokens: 1200,
       system: `${meetingPointsSystemPrompt(NO_AI_SLOP_WRITING_RULES)}
-This is a reusable script, not a specific meeting, so use {{name}}, {{company}} and {{title}} where the line would otherwise name the person or company.`,
+This is a reusable strategy, not a specific meeting, so use {{name}}, {{company}} and {{title}} where the line would otherwise name the person or company.`,
       messages: [
         {
           role: "user",
           content: [
-            `Script: ${loaded.script.name}`,
+            `Strategy: ${loaded.script.name}`,
             loaded.script.description ? `Description: ${loaded.script.description}` : null,
             `Brief: ${note}`,
           ]
@@ -447,14 +534,14 @@ export async function applyLiveScript(input: {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
   const prepId = input.prepId.trim();
-  if (!scriptId || !prepId) return { ok: false, error: "Script or meeting not found." };
+  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
   if (input.mode !== "add" && input.mode !== "replace") {
     return { ok: false, error: "Pick add or replace." };
   }
 
   const loaded = await getLiveScript(scriptId);
   if (!loaded.ok) return loaded;
-  if (!loaded.items.length) return { ok: false, error: "This script has no points." };
+  if (!loaded.items.length) return { ok: false, error: "This strategy has no points." };
 
   let context;
   try {
@@ -492,6 +579,8 @@ export async function applyLiveScript(input: {
     source: "script",
     script_id: scriptId,
     edited_by_user: false,
+    prepare_reactions: item.prepareReactions,
+    reactions: filledReactions(item.reactions, person),
   }));
 
   const { error: insertError } = await sb.from("meeting_points").insert(rows);
@@ -502,10 +591,20 @@ export async function applyLiveScript(input: {
     return { ok: false, error: insertError.message };
   }
 
-  const { error: prepError } = await sb
+  const success = loaded.script.successSentence
+    ? fillScriptPlaceholders(loaded.script.successSentence, person)
+    : null;
+  const { data: prepRow } = await sb
     .from("meeting_preps")
-    .update({ script_id: scriptId })
-    .eq("id", prepId);
+    .select("outcome_sentence")
+    .eq("id", prepId)
+    .maybeSingle();
+  const existingOutcome =
+    typeof prepRow?.outcome_sentence === "string" ? prepRow.outcome_sentence.trim() : "";
+  const prepUpdate: { script_id: string; outcome_sentence?: string } = { script_id: scriptId };
+  if (!existingOutcome && success) prepUpdate.outcome_sentence = success;
+
+  const { error: prepError } = await sb.from("meeting_preps").update(prepUpdate).eq("id", prepId);
   if (prepError) return { ok: false, error: prepError.message };
 
   const { data: scriptRow } = await sb
@@ -534,12 +633,12 @@ export async function saveMeetingPointsAsScript(input: {
   const prepId = input.prepId.trim();
   const name = cleanName(input.name);
   if (!prepId) return { ok: false, error: "Meeting prep not found." };
-  if (!name) return { ok: false, error: "Name the script." };
+  if (!name) return { ok: false, error: "Name the strategy." };
 
   const sb = createServiceRoleClient();
   const { data: points, error: pointError } = await sb
     .from("meeting_points")
-    .select("kind, headline, detail, position")
+    .select("kind, headline, detail, position, prepare_reactions, reactions")
     .eq("prep_id", prepId)
     .order("position", { ascending: true });
   if (pointError) return { ok: false, error: pointError.message };
@@ -555,6 +654,8 @@ export async function saveMeetingPointsAsScript(input: {
       kind: asKind(String(point.kind)),
       headline: clampHeadline(String(point.headline)) || String(point.headline).trim(),
       detail: point.detail ? clampDetail(String(point.detail)) : null,
+      prepare_reactions: Boolean(point.prepare_reactions),
+      reactions: asReactions(point.reactions),
     }))
   );
   if (error) {

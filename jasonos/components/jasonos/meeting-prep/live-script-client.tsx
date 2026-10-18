@@ -32,6 +32,111 @@ import {
 const FIELD =
   "w-full rounded-[2px] border-0 border-b-2 border-[var(--color-neutral-400)] bg-[var(--jos-surface)] px-3.5 text-[16px] text-[var(--jos-ink)] outline-none placeholder:text-[var(--jos-muted)]";
 
+function StrategyFields({ script }: { script: LiveScript }) {
+  const router = useRouter();
+  const save = (patch: {
+    situation?: string | null;
+    successSentence?: string | null;
+    rubric?: string[];
+    methodologySource?: string | null;
+  }) => {
+    void updateLiveScript(script.id, patch).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="space-y-4 pt-2">
+      <label className="block space-y-1">
+        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+          Situation
+        </span>
+        <InlineField
+          value={script.situation ?? ""}
+          placeholder="When this strategy applies, in one sentence"
+          emptyLabel="When this strategy applies, in one sentence"
+          maxLength={400}
+          className="text-[16px] font-medium text-[var(--jos-ink)]"
+          onSave={(next) => save({ situation: next })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+          What success looks like
+        </span>
+        <InlineField
+          value={script.successSentence ?? ""}
+          placeholder="One sentence you can score the meeting against"
+          emptyLabel="One sentence you can score the meeting against"
+          maxLength={400}
+          className="text-[16px] font-medium text-[var(--jos-ink)]"
+          onSave={(next) => save({ successSentence: next })}
+        />
+      </label>
+      <ChecklistField lines={script.rubric} onSave={(rubric) => save({ rubric })} />
+      <label className="block space-y-1">
+        <span className="text-[12px] text-[var(--jos-muted)]">Based on</span>
+        <InlineField
+          value={script.methodologySource ?? ""}
+          placeholder="Where this strategy came from"
+          emptyLabel="Where this strategy came from"
+          maxLength={200}
+          className="text-[13px] text-[var(--jos-muted)]"
+          onSave={(next) => save({ methodologySource: next })}
+        />
+      </label>
+    </div>
+  );
+}
+
+function ChecklistField({
+  lines,
+  onSave,
+}: {
+  lines: string[];
+  onSave: (lines: string[]) => void;
+}) {
+  const stored = lines.join("\n");
+  const [text, setText] = useState(stored);
+  const [seen, setSeen] = useState(stored);
+  if (stored !== seen) {
+    setSeen(stored);
+    setText(stored);
+  }
+
+  return (
+    <label className="block space-y-1">
+      <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+        Checklist
+      </span>
+      <textarea
+        value={text}
+        rows={Math.min(12, Math.max(4, text.split("\n").filter(Boolean).length || 4))}
+        placeholder="One line per item, up to 12"
+        aria-label="Checklist"
+        className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-2 text-[15px] leading-snug outline-none"
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => {
+          const next = text
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .slice(0, 12);
+          if (next.join("\n") === stored) return;
+          onSave(next);
+        }}
+      />
+      <span className="text-[12px] text-[var(--jos-muted)]">
+        One line per item, up to 12. The transcript review checks each one.
+      </span>
+    </label>
+  );
+}
+
 function meetingLabel(meeting: MeetingPrepSummary): string {
   const when = new Date(meeting.startsAt).toLocaleString("en-US", {
     timeZone: "America/New_York",
@@ -70,7 +175,7 @@ export function LiveScriptClient({
   const saveName = (next: string) => {
     const name = next.trim();
     if (!name) {
-      toast.error("Name the script.");
+      toast.error("Name the strategy.");
       return;
     }
     void updateLiveScript(script.id, { name }).then((result) => {
@@ -150,15 +255,15 @@ export function LiveScriptClient({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <InlineField
             value={script.name}
-            placeholder="Script name"
-            emptyLabel="Script name"
+            placeholder="Strategy name"
+            emptyLabel="Strategy name"
             maxLength={120}
             className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]"
             onSave={saveName}
           />
           {confirmDelete ? (
             <p className="text-[13px]">
-              Delete this script?{" "}
+              Delete this strategy?{" "}
               <button
                 type="button"
                 className="font-semibold text-[var(--color-accent-2-text)] hover:underline"
@@ -174,7 +279,7 @@ export function LiveScriptClient({
             </p>
           ) : (
             <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
-              Delete script
+              Delete strategy
             </Button>
           )}
         </div>
@@ -186,6 +291,7 @@ export function LiveScriptClient({
           className="text-[15px] text-[var(--jos-muted)]"
           onSave={saveDescription}
         />
+        <StrategyFields script={script} />
       </header>
 
       <PointsEditor
@@ -214,7 +320,7 @@ export function LiveScriptClient({
 
       <p className="text-[13px] text-[var(--jos-muted)]">
         Placeholders {"{{name}}"}, {"{{company}}"} and {"{{title}}"} are filled in when you apply this
-        script to a meeting.
+        strategy to a meeting.
       </p>
 
       {markable ? (

@@ -82,7 +82,7 @@ export function LiveMeetingsClient({
   const create = () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Name the script.");
+      toast.error("Name the strategy.");
       return;
     }
     setSaving(true);
@@ -106,7 +106,7 @@ export function LiveMeetingsClient({
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
       <PageHeader
         title="Live"
-        description="Open the call agenda for a meeting today, or build a script to reuse."
+        description="Open the call agenda for a meeting today, or build a strategy to reuse."
       />
 
       {error ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
@@ -200,10 +200,10 @@ export function LiveMeetingsClient({
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
-            Scripts
+            Strategies
           </h2>
           <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
-            New script
+            New strategy
           </Button>
         </div>
         {scriptsError ? (
@@ -211,7 +211,7 @@ export function LiveMeetingsClient({
         ) : null}
         {scripts.length === 0 ? (
           <p className="text-[15px] text-[var(--jos-muted)]">
-            No scripts yet. A script is a set of points you can apply to any meeting.
+            No strategies yet. A strategy is a set of points you can apply to any meeting.
           </p>
         ) : (
           <ul className="divide-y divide-[var(--jos-line)] border-t border-b border-[var(--jos-line)]">
@@ -223,7 +223,9 @@ export function LiveMeetingsClient({
                       {script.name}
                     </Link>
                   </p>
-                  {script.description ? (
+                  {script.successSentence ? (
+                    <p className="mt-0.5 line-clamp-2 text-[14px] text-[var(--jos-ink)]">{script.successSentence}</p>
+                  ) : script.description ? (
                     <p className="mt-0.5 line-clamp-2 text-[14px] text-[var(--jos-ink)]">{script.description}</p>
                   ) : null}
                   <p className="mt-0.5 text-[13px] text-[var(--jos-muted)]">{usedLine(script)}</p>
@@ -245,7 +247,7 @@ export function LiveMeetingsClient({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New script</DialogTitle>
+            <DialogTitle>New strategy</DialogTitle>
             <DialogDescription>
               A named set of points you can rehearse, then apply to a meeting.
             </DialogDescription>
