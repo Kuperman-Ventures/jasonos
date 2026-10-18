@@ -13,7 +13,7 @@ import type { InterestLevel } from "@/lib/types";
 
 /** Low → high, matching the Interest cell reference. Empty string = Not set. */
 export const INTEREST_PICKER_LEVELS = [
-  { key: "safety" as const, name: "Safety / backup", short: "Safety" },
+  { key: "safety" as const, name: "Low", short: "Low" },
   { key: "moderate" as const, name: "Moderate interest", short: "Moderate" },
   { key: "high" as const, name: "High interest", short: "High" },
   { key: "top" as const, name: "Top choice", short: "Top choice" },

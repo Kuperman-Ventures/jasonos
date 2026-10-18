@@ -16,7 +16,7 @@ export const TRIP_INTEREST_LABEL: Record<TripInterestKey, string> = {
   top: "Top choice",
   high: "High interest",
   moderate: "Moderate interest",
-  safety: "Safety / backup",
+  safety: "Low",
   none: "Interest not set",
 };
 
