@@ -367,7 +367,12 @@ export function LiveMeetingsClient({
       <AboutMe settings={settings} error={settingsError} />
 
       <section className="space-y-3">
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Recent</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Recent</h2>
+          <Link href="/live/library" className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline">
+            Open library
+          </Link>
+        </div>
         {recentError ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{recentError}</p> : null}
         {recent.length === 0 ? (
           <p className="text-[15px] text-[var(--jos-muted)]">No finished live meetings yet.</p>
