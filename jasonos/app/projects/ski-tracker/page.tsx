@@ -1,3 +1,4 @@
+import { ProjectLinks } from "@/components/jasonos/project-links";
 import { getSkiTrackerStatus } from "@/lib/ski-tracker/status";
 
 export const metadata = {
@@ -46,6 +47,8 @@ export default async function SkiTrackerPage() {
           </div>
         </dl>
       </section>
+
+      <ProjectLinks slug="ski-tracker" />
     </div>
   );
 }
