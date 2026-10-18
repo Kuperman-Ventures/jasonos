@@ -5,7 +5,6 @@ import { FamilyFinancesModal } from "@/components/FamilyFinancesModal";
 import {
   cssNoteForProfile,
   formatEnteredDate,
-  formatRangeK,
   type FamilyProfile,
   type ProgramStatus,
 } from "@/lib/familyFinances";
@@ -19,6 +18,7 @@ import {
   costAfterTypicalMerit,
   financeRecordForSchoolName,
   financesSchoolCount,
+  formatMoneyRange,
   fourYearEstimate,
   interestCssVar,
   interestLevelRank,
@@ -26,6 +26,7 @@ import {
   meetsFullNeedBadge,
   meritShareLabel,
   money,
+  type MoneyPrecision,
   moneyCompact,
   newJerseyGrantsPortable,
   newJerseyStatePrograms,
@@ -35,6 +36,7 @@ import {
   type HouseholdFinances,
 } from "@/lib/finances";
 import type { InterestLevel, School } from "@/lib/types";
+import { MoneyRoundToggle, useMoneyPrecision } from "./MoneyRoundToggle";
 import { SafetyBadge } from "./SafetyBadge";
 import { linkOverrideFor } from "@/lib/link-overrides";
 
@@ -163,6 +165,7 @@ export function FinancesTab({
   const [increaseDraft, setIncreaseDraft] = useState(String(household.costIncreasePct));
   const [openNj, setOpenNj] = useState<string | null>(null);
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
+  const precision = useMoneyPrecision();
 
   const { rows } = useMemo(() => buildFinanceRows(schools, household), [schools, household]);
   const schoolIdByName = useMemo(() => {
@@ -270,8 +273,11 @@ export function FinancesTab({
   return (
     <section className="finances-page">
       <header className="fin-page-head">
-        <div className="dateline accent mono">{dateline}</div>
-        <h1 className="fin-page-title">Finances</h1>
+        <div>
+          <div className="dateline accent mono">{dateline}</div>
+          <h1 className="fin-page-title">Finances</h1>
+        </div>
+        <MoneyRoundToggle />
       </header>
 
       <div className="fin-list-block">
@@ -363,7 +369,7 @@ export function FinancesTab({
             <div className="fin-figures-fig">
               <span className="fin-figures-caption">Student Aid Index</span>
               <span className="fin-figures-value mono">
-                {formatRangeK(familyProfile.saiLow, familyProfile.saiHigh)}
+                {formatMoneyRange(familyProfile.saiLow, familyProfile.saiHigh, precision)}
               </span>
               <span className="fin-figures-sub">
                 From the FAFSA. Schools that use only the FAFSA expect roughly this much per year.
@@ -372,7 +378,7 @@ export function FinancesTab({
             <div className="fin-figures-fig">
               <span className="fin-figures-caption">CSS Profile schools</span>
               <span className="fin-figures-value mono">
-                {formatRangeK(familyProfile.imLow, familyProfile.imHigh)}
+                {formatMoneyRange(familyProfile.imLow, familyProfile.imHigh, precision)}
               </span>
               <span className="fin-figures-sub">
                 {cssSchoolCount} schools on your list use the CSS Profile.
@@ -381,7 +387,7 @@ export function FinancesTab({
             <div className="fin-figures-fig">
               <span className="fin-figures-caption">Pell Grant</span>
               <span className="fin-figures-value mono">
-                {familyProfile.pell > 0 ? money(familyProfile.pell) : "$0"}
+                {familyProfile.pell > 0 ? money(familyProfile.pell, precision) : "$0"}
               </span>
               <span className="fin-figures-sub">
                 {familyProfile.pell > 0
@@ -555,7 +561,7 @@ export function FinancesTab({
                       </div>
                     </div>
                   </td>
-                  <td className="num mono">{money(finance.totalCost)}</td>
+                  <td className="num mono">{money(finance.totalCost, precision)}</td>
                   <td className="num">
                     <div className="fin-merit-cell mono">{meritShareLabel(finance)}</div>
                     {finance.awardsMerit && finance.meritSharePct != null ? (
@@ -569,9 +575,9 @@ export function FinancesTab({
                       ? "—"
                       : finance.cdsAvgNonNeedMerit == null
                         ? "Not published"
-                        : money(finance.cdsAvgNonNeedMerit)}
+                        : money(finance.cdsAvgNonNeedMerit, precision)}
                   </td>
-                  <td className="num mono">{after == null ? "—" : money(after)}</td>
+                  <td className="num mono">{after == null ? "—" : money(after, precision)}</td>
                   <td className={`num mono${famInBudget ? " accent" : ""}`}>
                     {!familyProfile ? (
                       <span className="subtle">Enter finances</span>
@@ -580,7 +586,7 @@ export function FinancesTab({
                     ) : (
                       <>
                         <div className={famInBudget ? "accent" : undefined}>
-                          {formatRangeK(famEst.low, famEst.high)}
+                          {formatMoneyRange(famEst.low, famEst.high, precision)}
                         </div>
                         <div className="fin-sub">
                           {famEst.low === famEst.high
@@ -593,7 +599,7 @@ export function FinancesTab({
                   <td className="num mono">
                     {entry.netPriceEstimate != null ? (
                       <>
-                        {money(entry.netPriceEstimate)}
+                        {money(entry.netPriceEstimate, precision)}
                         {entry.netPriceDate ? (
                           <div className="fin-sub">run {entry.netPriceDate}</div>
                         ) : null}
@@ -612,13 +618,13 @@ export function FinancesTab({
                       "—"
                     )}
                   </td>
-                  <td className="num mono">{four == null ? "Not published" : money(four)}</td>
+                  <td className="num mono">{four == null ? "Not published" : money(four, precision)}</td>
                   <td className="num mono">{finance.costOfLivingIndex} (US avg 100)</td>
                   <td className="num">
                     {status.kind === "within" ? (
                       <span className="fin-within">Within budget</span>
                     ) : status.kind === "over" ? (
-                      <span className="accent">Over by {moneyCompact(status.overBy)}</span>
+                      <span className="accent">Over by {moneyCompact(status.overBy, precision)}</span>
                     ) : (
                       <span className="subtle">Not published</span>
                     )}
@@ -631,7 +637,12 @@ export function FinancesTab({
       </div>
       </div>
 
-      <AdmitCostChart rows={rows} household={household} onOpenSchool={onOpenSchool} />
+      <AdmitCostChart
+        rows={rows}
+        household={household}
+        precision={precision}
+        onOpenSchool={onOpenSchool}
+      />
 
       <section className="fin-nj">
         <h3>New Jersey state aid</h3>
@@ -728,10 +739,12 @@ function ResidencyReclassificationSection() {
 function AdmitCostChart({
   rows,
   household,
+  precision,
   onOpenSchool,
 }: {
   rows: FinanceRow[];
   household: HouseholdFinances;
+  precision: MoneyPrecision;
   onOpenSchool: (id: string) => void;
 }) {
   const [hover, setHover] = useState<string | null>(null);
@@ -884,7 +897,7 @@ function AdmitCostChart({
                 fill="var(--color-bg)"
               />
               <text x={pad.left + plotW + 4} y={budgetY + 4} className="fin-axis accent">
-                Budget {moneyCompact(household.annualBudget)}
+                Budget {moneyCompact(household.annualBudget, precision)}
               </text>
             </g>
           ) : null}
@@ -912,7 +925,7 @@ function AdmitCostChart({
                   strokeWidth={2}
                   tabIndex={0}
                   role="button"
-                  aria-label={`${p.name}, ${p.admit}% admit, ${moneyCompact(p.cost)}`}
+                  aria-label={`${p.name}, ${p.admit}% admit, ${moneyCompact(p.cost, precision)}`}
                   onMouseEnter={() => setHover(p.id)}
                   onMouseLeave={() => setHover(null)}
                   onFocus={() => setHover(p.id)}
@@ -942,7 +955,7 @@ function AdmitCostChart({
                     </text>
                     {hover === p.id ? (
                       <text x={p.x + 18} y={p.y + 2} className="fin-axis">
-                        {Math.round(p.admit)}% · {moneyCompact(p.cost)}
+                        {Math.round(p.admit)}% · {moneyCompact(p.cost, precision)}
                       </text>
                     ) : null}
                   </g>

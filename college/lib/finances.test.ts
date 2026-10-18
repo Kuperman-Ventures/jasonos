@@ -9,6 +9,8 @@ import {
   costAfterTypicalMerit,
   financeRecordForSchoolName,
   financesSchoolCount,
+  formatDollars,
+  formatMoneyRange,
   fourYearTotal,
   listFinanceRecords,
   meritShareLabel,
@@ -64,6 +66,17 @@ test("no-merit schools never subtract CDS average", () => {
 test("money formats null as Not published", () => {
   assert.equal(money(null), "Not published");
   assert.match(money(60000), /\$60,000/);
+});
+
+test("dollar amounts can stay exact or round to the nearest thousand", () => {
+  assert.equal(formatDollars(64328, "exact"), "$64,328");
+  assert.equal(formatDollars(64328, "thousand"), "$64,000");
+  assert.equal(formatDollars(64500, "thousand"), "$65,000");
+  assert.equal(formatDollars(64499, "thousand"), "$64,000");
+  assert.equal(formatDollars(-1500, "exact"), "-$1,500");
+  assert.equal(formatDollars(-1500, "thousand"), "-$2,000");
+  assert.equal(formatMoneyRange(26100, 31840, "exact"), "$26,100–$31,840");
+  assert.equal(formatMoneyRange(26100, 31840, "thousand"), "$26,000–$32,000");
 });
 
 test("four-year total compounds", () => {
