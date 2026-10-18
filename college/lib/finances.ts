@@ -213,21 +213,46 @@ export function schoolFinanceEntry(
   );
 }
 
-export function money(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "Not published";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
+export type MoneyPrecision = "exact" | "thousand";
+
+function roundForPrecision(n: number, precision: MoneyPrecision): number {
+  if (precision === "thousand") {
+    return Math.sign(n) * Math.round(Math.abs(n) / 1000) * 1000;
+  }
+  return Math.round(n);
 }
 
-export function moneyCompact(n: number): string {
+/** Dollar amount. Exact keeps hundreds, tens, and ones. Thousand rounds to the nearest $1,000. */
+export function formatDollars(n: number, precision: MoneyPrecision = "exact"): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
-  }).format(n);
+  }).format(roundForPrecision(n, precision));
+}
+
+export function formatMoneyRange(
+  low: number,
+  high: number,
+  precision: MoneyPrecision = "exact",
+): string {
+  const a = roundForPrecision(low, precision);
+  const b = roundForPrecision(high, precision);
+  if (a <= 0 && b <= 0) return "$0";
+  if (a === b) return formatDollars(a, "exact");
+  return `${formatDollars(a, "exact")}–${formatDollars(b, "exact")}`;
+}
+
+export function money(
+  n: number | null | undefined,
+  precision: MoneyPrecision = "exact",
+): string {
+  if (n == null || !Number.isFinite(n)) return "Not published";
+  return formatDollars(n, precision);
+}
+
+export function moneyCompact(n: number, precision: MoneyPrecision = "exact"): string {
+  return formatDollars(n, precision);
 }
 
 export function residencyLabel(rate: string): string {
@@ -812,13 +837,14 @@ function cdsReportsNoNonNeedMerit(r: FinanceRecord): boolean {
   );
 }
 
-function compareMetrics(): CompareMetric[] {
+function compareMetrics(precision: MoneyPrecision = "exact"): CompareMetric[] {
+  const dollars = (v: number) => formatDollars(v, precision);
   return [
     {
       id: "published",
       label: "Published cost",
       get: (r) => r.totalCost,
-      fmt: (v) => moneyCompact(v),
+      fmt: dollars,
       showBudget: true,
     },
     {
@@ -845,14 +871,14 @@ function compareMetrics(): CompareMetric[] {
         if (r.cdsAvgNonNeedMerit == null || r.cdsAvgNonNeedMerit === 0) return null;
         return r.cdsAvgNonNeedMerit;
       },
-      fmt: (v) => moneyCompact(v),
+      fmt: dollars,
       hideWhenNull: true,
     },
     {
       id: "afterMerit",
       label: "After typical merit",
       get: (r) => costAfterTypicalMerit(r),
-      fmt: (v) => moneyCompact(v),
+      fmt: dollars,
       showBudget: true,
       hideWhenNull: true,
     },
@@ -871,11 +897,12 @@ export function buildFinanceCompareRows(
   focus: FinanceRecord,
   peers: FinanceRecord[],
   annualBudget: number | null,
+  precision: MoneyPrecision = "exact",
 ): FinanceCompareRow[] {
   const list = peers.length ? peers : [focus];
   const rows: FinanceCompareRow[] = [];
 
-  for (const metric of compareMetrics()) {
+  for (const metric of compareMetrics(precision)) {
     const mine = metric.get(focus);
     if (mine == null && metric.hideWhenNull) continue;
 
@@ -932,7 +959,7 @@ export function buildFinanceCompareRows(
       annualBudget < hi
     ) {
       budgetLeftPct = pct(annualBudget);
-      budgetLabel = `budget ${moneyCompact(annualBudget)}`;
+      budgetLabel = `budget ${formatDollars(annualBudget, precision)}`;
     }
 
     rows.push({
@@ -982,6 +1009,7 @@ export type CostBarCallout = {
 
 export function buildCostBar(
   rec: FinanceRecord,
+  precision: MoneyPrecision = "exact",
 ): {
   segments: CostBarSegment[];
   callouts: CostBarCallout[];
@@ -1045,7 +1073,7 @@ export function buildCostBar(
       callouts.push({
         key: part.key,
         label: part.label,
-        valueText: moneyCompact(part.value),
+        valueText: formatDollars(part.value, precision),
         xPct,
         leaderPx: 16 + i * 26,
         topPx: 64 + i * 26,
@@ -1070,16 +1098,16 @@ export function buildCostBar(
 
   const coverTitle =
     rec.totalCost != null
-      ? `What ${money(rec.totalCost)} covers`
+      ? `What ${formatDollars(rec.totalCost, precision)} covers`
       : partsSum > 0
-        ? `Known cost parts · ${moneyCompact(partsSum)}`
+        ? `Known cost parts · ${formatDollars(partsSum, precision)}`
         : "Cost parts";
 
   return {
     segments,
     callouts,
     partsSum,
-    gapNote: gap > 0 ? `+ ${moneyCompact(gap)} other fees in the published total` : null,
+    gapNote: gap > 0 ? `+ ${formatDollars(gap, precision)} other fees in the published total` : null,
     incompleteNote,
     coverTitle,
     barExtraPx: callouts.length ? 16 + callouts.length * 26 : 0,

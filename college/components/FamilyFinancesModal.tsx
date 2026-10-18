@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { FinanceRecord } from "@/lib/finances";
+import {
+  formatDollars,
+  formatMoneyRange,
+  type FinanceRecord,
+  type MoneyPrecision,
+} from "@/lib/finances";
 import {
   EMPTY_FAMILY_DRAFT,
   KYLE_FIRST_COLLEGE_YEAR,
   PARENT_SITUATIONS,
   buildFamilyProfile,
   calcCore,
-  formatRangeK,
   isTwoParentEarners,
   rangeAround,
   stepsForDraft,
@@ -18,6 +22,7 @@ import {
   type ParentSituation,
   type ProgramStatus,
 } from "@/lib/familyFinances";
+import { useMoneyPrecision } from "./MoneyRoundToggle";
 
 type SchoolInput = {
   id: string;
@@ -40,18 +45,18 @@ function money(n: number): string {
   }).format(n);
 }
 
-function formatSaiDisplay(sai: number | null): string {
+function formatSaiDisplay(sai: number | null, precision: MoneyPrecision): string {
   if (sai == null) return "—";
-  if (sai < 0) return money(sai).replace("$-", "−$");
+  if (sai < 0) return formatDollars(sai, precision).replace("$-", "−$");
   if (sai === 0) return "$0";
   const r = rangeAround(sai, 0.1);
-  return formatRangeK(r.low, r.high);
+  return formatMoneyRange(r.low, r.high, precision);
 }
 
-function formatImDisplay(im: number | null): string {
+function formatImDisplay(im: number | null, precision: MoneyPrecision): string {
   if (im == null) return "—";
   const r = rangeAround(Math.max(0, im), 0.15);
-  return formatRangeK(r.low, r.high);
+  return formatMoneyRange(r.low, r.high, precision);
 }
 
 function parseMoneyInput(raw: string): number {
@@ -178,6 +183,7 @@ function ToggleField({
 }
 
 export function FamilyFinancesModal({ open, onClose, onSave, schools }: Props) {
+  const precision = useMoneyPrecision();
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -627,7 +633,7 @@ export function FamilyFinancesModal({ open, onClose, onSave, schools }: Props) {
                     Student Aid Index (FAFSA)
                   </span>
                   <span className="ff-review-value">
-                    {formatSaiDisplay(core.sai)}
+                    {formatSaiDisplay(core.sai, precision)}
                   </span>
                   <span className="ff-review-sub">
                     {core.autoLow
@@ -638,7 +644,7 @@ export function FamilyFinancesModal({ open, onClose, onSave, schools }: Props) {
                 <div className="ff-review-fig">
                   <span className="ff-mono-label">CSS Profile schools</span>
                   <span className="ff-review-value">
-                    {formatImDisplay(core.im)}
+                    {formatImDisplay(core.im, precision)}
                   </span>
                   <span className="ff-review-sub">
                     {cssCount} schools on your list use the CSS Profile. It adds{" "}

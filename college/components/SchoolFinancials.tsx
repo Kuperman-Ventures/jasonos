@@ -5,17 +5,18 @@ import { FamilyFinancesModal } from "@/components/FamilyFinancesModal";
 import {
   cssNoteForProfile,
   formatEnteredDate,
-  formatRangeK,
   incomeBandToScoirKey,
 } from "@/lib/familyFinances";
 import {
   buildCostBar,
   buildFinanceCompareRows,
   financeRecordForSchoolName,
+  formatMoneyRange,
   isNjStateAidSchool,
   listFinanceRecords,
   money,
   moneyCompact,
+  type MoneyPrecision,
   needProgramOpenToNj,
   parsePriorityAidDeadlines,
   residencyLabel,
@@ -25,11 +26,11 @@ import {
   type HouseholdSchoolFinance,
 } from "@/lib/finances";
 import {
-  formatScoirMoney,
   formatScoirPct,
   scoirRecordForSchool,
   type ScoirRecord,
 } from "@/lib/scoir";
+import { MoneyRoundToggle, useMoneyPrecision } from "./MoneyRoundToggle";
 import type { School } from "@/lib/types";
 import { withNpcOverride } from "@/lib/link-overrides";
 
@@ -191,6 +192,7 @@ export function SchoolFinancials({
   const resolvedIncomeBand =
     incomeBand ?? (profile ? incomeBandToScoirKey(profile.incomeBand) : null);
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
+  const precision = useMoneyPrecision();
 
   const modalSchools = useMemo(
     () =>
@@ -219,11 +221,17 @@ export function SchoolFinancials({
   }, [listSchools]);
 
   const compareRows = useMemo(
-    () => (finance ? buildFinanceCompareRows(finance, peerRecords, household.annualBudget) : []),
-    [finance, peerRecords, household.annualBudget],
+    () =>
+      finance
+        ? buildFinanceCompareRows(finance, peerRecords, household.annualBudget, precision)
+        : [],
+    [finance, peerRecords, household.annualBudget, precision],
   );
 
-  const costBar = useMemo(() => (finance ? buildCostBar(finance) : null), [finance]);
+  const costBar = useMemo(
+    () => (finance ? buildCostBar(finance, precision) : null),
+    [finance, precision],
+  );
 
   const deadlines = useMemo(
     () =>
@@ -241,11 +249,13 @@ export function SchoolFinancials({
         <div className="school-overview-head">
           <h3>Financials</h3>
           <p className="section-sub">No published finance record for this school yet.</p>
+          <MoneyRoundToggle />
         </div>
         {scoir ? (
           <NetPriceSection
             scoir={scoir}
             short={short}
+            precision={precision}
             totalCost={null}
             estimate={entry.netPriceEstimate}
             estimateDate={entry.netPriceDate}
@@ -342,6 +352,7 @@ export function SchoolFinancials({
         <span className="fin-school-meta mono">
           {finance.costYear} · {residencyLabel(finance.residencyRate)} · per year
         </span>
+        <MoneyRoundToggle />
       </header>
 
       <section className="fin-lands" aria-label="Where it lands on your list">
@@ -411,7 +422,7 @@ export function SchoolFinancials({
               <div
                 key={seg.key}
                 className="fin-cost-seg"
-                title={`${seg.label} ${moneyCompact(seg.value)}`}
+                title={`${seg.label} ${moneyCompact(seg.value, precision)}`}
                 style={{
                   left: `${seg.leftPct}%`,
                   width: `${seg.widthPct}%`,
@@ -422,7 +433,7 @@ export function SchoolFinancials({
                 {seg.inside ? (
                   <div className="fin-cost-seg-inner">
                     <span className="fin-cost-seg-label">{seg.label}</span>
-                    <span className="fin-cost-seg-val mono">{moneyCompact(seg.value)}</span>
+                    <span className="fin-cost-seg-val mono">{moneyCompact(seg.value, precision)}</span>
                   </div>
                 ) : null}
               </div>
@@ -502,12 +513,14 @@ export function SchoolFinancials({
         finance={finance}
         schoolName={school.name}
         annualBudget={household.annualBudget}
+        precision={precision}
         onOpenModal={() => setFamilyModalOpen(true)}
       />
 
       <NetPriceSection
         scoir={scoir}
         short={short}
+        precision={precision}
         totalCost={finance.totalCost}
         estimate={entry.netPriceEstimate}
         estimateDate={entry.netPriceDate}
@@ -522,7 +535,9 @@ export function SchoolFinancials({
         onSaveEstimate={patchEntry}
       />
 
-      {scoir ? <AidAndDebtSection scoir={scoir} totalCost={finance.totalCost} /> : null}
+      {scoir ? (
+        <AidAndDebtSection scoir={scoir} totalCost={finance.totalCost} precision={precision} />
+      ) : null}
 
       <section className="fin-policies" aria-label="Aid policies">
         <span className="fin-section-kicker mono">Aid policies</span>
@@ -614,6 +629,7 @@ function FamilyEstimateBlock({
   finance,
   schoolName,
   annualBudget,
+  precision,
   onOpenModal,
 }: {
   profile: NonNullable<HouseholdFinances["familyProfile"]> | null;
@@ -621,6 +637,7 @@ function FamilyEstimateBlock({
   finance: NonNullable<ReturnType<typeof financeRecordForSchoolName>>;
   schoolName: string;
   annualBudget: number | null;
+  precision: MoneyPrecision;
   onOpenModal: () => void;
 }) {
   const within =
@@ -628,7 +645,7 @@ function FamilyEstimateBlock({
 
   const applyingPrograms: string[] = [];
   if (profile) {
-    if (profile.pell > 0) applyingPrograms.push(`Pell up to ${money(profile.pell)}`);
+    if (profile.pell > 0) applyingPrograms.push(`Pell up to ${money(profile.pell, precision)}`);
     for (const p of profile.programs) {
       if (p.key === "pell") continue;
       if (p.status === "not-eligible" || p.status === "unlikely") continue;
@@ -672,13 +689,13 @@ function FamilyEstimateBlock({
               <div className={`fin-family-est-amount${within ? " is-within" : ""}`}>
                 {estimate
                   ? estimate.low === estimate.high
-                    ? money(estimate.low)
-                    : formatRangeK(estimate.low, estimate.high)
+                    ? money(estimate.low, precision)
+                    : formatMoneyRange(estimate.low, estimate.high, precision)
                   : "Not published"}
               </div>
               <div className="fin-family-est-per">per year, after grants, before loans</div>
               <div className="fin-family-est-published mono">
-                Published cost {money(finance.totalCost)}
+                Published cost {money(finance.totalCost, precision)}
               </div>
             </div>
             <p className="fin-family-est-basis">
@@ -727,6 +744,7 @@ function FamilyEstimateBlock({
 function NetPriceSection({
   scoir,
   short,
+  precision,
   totalCost,
   estimate,
   estimateDate,
@@ -742,6 +760,7 @@ function NetPriceSection({
 }: {
   scoir: ScoirRecord | null;
   short: string;
+  precision: MoneyPrecision;
   totalCost: number | null;
   estimate: number | null;
   estimateDate: string | null;
@@ -792,7 +811,7 @@ function NetPriceSection({
           <span className="fin-net-cols-mid">
             <span>Net price</span>
             <span>
-              Published cost {totalCost != null ? moneyCompact(totalCost) : "—"}
+              Published cost {totalCost != null ? moneyCompact(totalCost, precision) : "—"}
             </span>
           </span>
           <span className="fin-net-cols-per">Per year</span>
@@ -827,7 +846,7 @@ function NetPriceSection({
                     ) : null}
                   </div>
                   <div className="fin-net-amt-col">
-                    <span className="fin-net-amt mono">{formatScoirMoney(value)}</span>
+                    <span className="fin-net-amt mono">{money(value, precision)}</span>
                     {pctOfCost ? (
                       <span className="fin-net-pct">{pctOfCost}</span>
                     ) : null}
@@ -848,7 +867,7 @@ function NetPriceSection({
             <span />
             <div className="fin-net-avg-track">
               <span className="fin-net-avg-label mono" style={{ left: aidedLeft }}>
-                Average, all aided · {formatScoirMoney(table.average)}
+                Average, all aided · {money(table.average, precision)}
               </span>
             </div>
             <span />
@@ -921,7 +940,7 @@ function NetPriceSection({
 
           <div className="fin-net-amt-col">
             <span className={`fin-net-amt mono${hasEstimate ? "" : " is-empty"}`}>
-              {hasEstimate ? moneyCompact(estimate!) : "—"}
+              {hasEstimate ? moneyCompact(estimate!, precision) : "—"}
             </span>
             {hasEstimate && estPct ? (
               <span className="fin-net-pct">{estPct}</span>
@@ -989,9 +1008,11 @@ function NetPriceSection({
 function AidAndDebtSection({
   scoir,
   totalCost,
+  precision,
 }: {
   scoir: ScoirRecord;
   totalCost: number | null;
+  precision: MoneyPrecision;
 }) {
   const items: {
     value: string;
@@ -1019,7 +1040,7 @@ function AidAndDebtSection({
   if (scoir.medianDebtAtGraduation != null) {
     const againstCost = totalCost && totalCost > 0 ? totalCost : scoir.medianDebtAtGraduation;
     items.push({
-      value: formatScoirMoney(scoir.medianDebtAtGraduation) ?? "—",
+      value: money(scoir.medianDebtAtGraduation, precision),
       label: "Median debt at graduation",
       against: "Against one year at the published cost",
       widthPct: Math.min(100, (scoir.medianDebtAtGraduation / againstCost) * 100),
