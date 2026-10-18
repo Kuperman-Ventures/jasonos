@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { FinanceRecord } from "@/lib/finances";
 import {
   EMPTY_FAMILY_DRAFT,
+  KYLE_FIRST_COLLEGE_YEAR,
   PARENT_SITUATIONS,
   buildFamilyProfile,
   calcCore,
@@ -348,7 +349,7 @@ export function FamilyFinancesModal({ open, onClose, onSave, schools }: Props) {
                 <h3 className="ff-step-title">{current.title}</h3>
                 <p className="ff-step-intro">
                   {current.id === "household"
-                    ? "Who counts for aid in the 2027-28 school year."
+                    ? `Who counts for aid in the ${KYLE_FIRST_COLLEGE_YEAR} school year.`
                     : current.id === "income"
                       ? "From the 2025 federal tax return."
                       : current.id === "assets"
@@ -427,7 +428,7 @@ export function FamilyFinancesModal({ open, onClose, onSave, schools }: Props) {
                       onChange={(n) => patch("hh", n)}
                     />
                     <CountField
-                      label="In college in 2027-28"
+                      label={`In college in ${KYLE_FIRST_COLLEGE_YEAR}`}
                       help="Include Kyle. Don’t count parents."
                       value={draft.nic}
                       onChange={(n) => patch("nic", n)}

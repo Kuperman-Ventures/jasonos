@@ -7,6 +7,12 @@ import type { FinanceRecord, NeedProgram } from "@/lib/finances";
 
 export const MAX_PELL = 7395;
 
+/**
+ * Kyle finishes high school in spring 2028 and starts college in fall 2028.
+ * The first year he is in college is the 2028-29 school year.
+ */
+export const KYLE_FIRST_COLLEGE_YEAR = "2028-29";
+
 function money(n: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
