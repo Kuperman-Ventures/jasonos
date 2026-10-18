@@ -18,6 +18,10 @@ export interface BriefCommitment extends BriefCitedItem {
   direction: BriefCommitmentDirection;
   status: BriefCommitmentStatus;
   due?: string | null;
+  /** Set when the commitment is first written. Older rows have none. */
+  createdAt?: string | null;
+  /** Set when the commitment is marked done. */
+  doneAt?: string | null;
 }
 
 export interface BriefNextMove {

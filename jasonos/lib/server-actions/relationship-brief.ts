@@ -76,7 +76,28 @@ function parseCommitment(raw: unknown): BriefCommitment | null {
       ? rec.status
       : "open";
   const due = typeof rec.due === "string" ? rec.due : null;
-  return { ...base, direction, status, due };
+  const createdRaw = rec.createdAt ?? rec.created_at;
+  const doneRaw = rec.doneAt ?? rec.done_at;
+  const createdAt = typeof createdRaw === "string" && createdRaw.trim() ? createdRaw.trim() : null;
+  const doneAt = typeof doneRaw === "string" && doneRaw.trim() ? doneRaw.trim() : null;
+  return { ...base, direction, status, due, createdAt, doneAt };
+}
+
+/** Dates start at the write. A commitment already on the brief keeps whatever date it had, including none. */
+function stampNewCommitments(
+  items: BriefCommitment[],
+  previous: BriefCommitment[] | null | undefined
+): BriefCommitment[] {
+  const known = new Set((previous ?? []).map((item) => item.text.trim().toLowerCase()));
+  const now = new Date().toISOString();
+  return items.map((item) => {
+    if (known.has(item.text.trim().toLowerCase())) return item;
+    return {
+      ...item,
+      createdAt: item.createdAt || now,
+      doneAt: item.status === "done" ? item.doneAt || now : item.doneAt ?? null,
+    };
+  });
 }
 
 function parseNextMove(raw: unknown): BriefNextMove | null {
@@ -247,9 +268,10 @@ export async function markBriefCommitmentDone(input: {
   if (!hasConfig()) return { ok: false, error: "Not configured." };
   const brief = await loadBriefRow(input.contactId);
   if (!brief) return { ok: false, error: "No brief to update." };
+  const doneAt = new Date().toISOString();
   const next = brief.commitments.map((item) =>
     item.text.trim() === input.text.trim()
-      ? { ...item, status: "done" as const }
+      ? { ...item, status: "done" as const, doneAt: item.doneAt || doneAt }
       : item
   );
   const sb = createServiceRoleClient();
@@ -508,8 +530,8 @@ Sections to fill: ${Object.entries(sections)
   filtered.remember = dropUnknown(filtered.remember);
 
   const previous = await loadBriefRow(contactId);
-  filtered.commitments = mergeDoneCommitments(
-    filtered.commitments,
+  filtered.commitments = stampNewCommitments(
+    mergeDoneCommitments(filtered.commitments, previous?.commitments),
     previous?.commitments
   );
 

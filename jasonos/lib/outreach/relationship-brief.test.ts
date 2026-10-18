@@ -41,6 +41,16 @@ describe("relationship brief prompt", () => {
     assert.equal(next[1]?.status, "awaiting");
   });
 
+  it("keeps commitment dates when the same line is regenerated", () => {
+    const next = mergeDoneCommitments(
+      [{ text: "Intro to Tracy", status: "open", createdAt: null, doneAt: null }],
+      [{ text: "Intro to Tracy", status: "done", createdAt: "2026-01-02T00:00:00.000Z", doneAt: "2026-02-02T00:00:00.000Z" }]
+    );
+    assert.equal(next[0]?.status, "done");
+    assert.equal(next[0]?.createdAt, "2026-01-02T00:00:00.000Z");
+    assert.equal(next[0]?.doneAt, "2026-02-02T00:00:00.000Z");
+  });
+
   it("labels a source as KIND + date", () => {
     assert.equal(
       briefSourceLinkLabel({ type: "meeting", date: "2026-09-30" }),

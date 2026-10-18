@@ -113,20 +113,20 @@ export function fillBriefPrompt(
 }
 
 export function mergeDoneCommitments<
-  T extends { text: string; status: string },
+  T extends { text: string; status: string; createdAt?: string | null; doneAt?: string | null },
 >(generated: T[], previous: T[] | null | undefined): T[] {
   if (!previous?.length) return generated;
-  const done = new Set(
-    previous
-      .filter((item) => item.status === "done")
-      .map((item) => item.text.trim().toLowerCase())
-  );
-  if (!done.size) return generated;
-  return generated.map((item) =>
-    done.has(item.text.trim().toLowerCase())
-      ? { ...item, status: "done" as T["status"] }
-      : item
-  );
+  const priorByText = new Map(previous.map((item) => [item.text.trim().toLowerCase(), item]));
+  return generated.map((item) => {
+    const prior = priorByText.get(item.text.trim().toLowerCase());
+    if (!prior) return item;
+    return {
+      ...item,
+      status: prior.status === "done" ? ("done" as T["status"]) : item.status,
+      createdAt: prior.createdAt ?? item.createdAt ?? null,
+      doneAt: prior.doneAt ?? item.doneAt ?? null,
+    };
+  });
 }
 
 export function briefSourceLinkLabel(source: {

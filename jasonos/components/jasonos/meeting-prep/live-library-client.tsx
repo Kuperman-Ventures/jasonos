@@ -171,6 +171,9 @@ export function LiveLibraryClient({
       </Link>
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]">Library</h1>
+        <Link href="/live/metrics" className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline">
+          Metrics
+        </Link>
       </header>
 
       <div className="flex flex-wrap items-end gap-3">
