@@ -35,6 +35,7 @@ import {
   type HouseholdFinances,
 } from "@/lib/finances";
 import type { InterestLevel, School } from "@/lib/types";
+import { SafetyBadge } from "./SafetyBadge";
 import { linkOverrideFor } from "@/lib/link-overrides";
 
 type SortKey =
@@ -529,7 +530,10 @@ export function FinancesTab({
                         aria-hidden="true"
                       />
                       <div>
-                        <div className="fin-school-name">{school.name}</div>
+                        <div className="fin-school-name">
+                          {school.name}
+                          <SafetyBadge school={school} />
+                        </div>
                         <div className="fin-badges">
                           {meetsFullNeedBadge(finance) ? (
                             <span className="fin-badge">Meets full need</span>

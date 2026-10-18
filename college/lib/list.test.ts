@@ -4,6 +4,7 @@ import test from "node:test";
 import { compareSchools, nextAction, nextDate, nextOpenStep } from "./list";
 import {
   fromSeed,
+  isSafetySchool,
   selectivityTierFromContext,
   selectivityTierFromRate,
   type School,
@@ -185,4 +186,20 @@ test("adjacentInList walks previous and next in display order", async () => {
     next: null,
     total: 3,
   });
+});
+
+test("safety badge is less competitive at medium interest or higher", () => {
+  const less = { selectivityTier: "less_competitive" as const };
+  assert.equal(isSafetySchool({ ...less, interestLevel: "moderate" }), true);
+  assert.equal(isSafetySchool({ ...less, interestLevel: "high" }), true);
+  assert.equal(isSafetySchool({ ...less, interestLevel: "top" }), true);
+  assert.equal(isSafetySchool({ ...less, interestLevel: "safety" }), false);
+  assert.equal(isSafetySchool({ ...less, interestLevel: "" }), false);
+  assert.equal(isSafetySchool({ selectivityTier: "competitive", interestLevel: "top" }), false);
+  assert.equal(isSafetySchool({ selectivityTier: "very_selective", interestLevel: "high" }), false);
+  assert.equal(
+    isSafetySchool({ selectivityTier: "extremely_selective", interestLevel: "top" }),
+    false,
+  );
+  assert.equal(isSafetySchool({ selectivityTier: "", interestLevel: "moderate" }), false);
 });

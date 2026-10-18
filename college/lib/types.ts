@@ -452,6 +452,17 @@ export function interestRank(id: InterestLevel): number {
   return INTEREST_RANK[id] ?? 99;
 }
 
+/** Safety is a result of selectivity and interest, not an interest label. */
+export function isSafetySchool(school: {
+  selectivityTier: SelectivityTier;
+  interestLevel: InterestLevel;
+}): boolean {
+  return (
+    school.selectivityTier === "less_competitive" &&
+    interestRank(school.interestLevel) <= interestRank("moderate")
+  );
+}
+
 export function selectivityRank(value: string): number {
   const idx = SELECTIVITY_RANK.indexOf(value);
   return idx === -1 ? 99 : idx;
