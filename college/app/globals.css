@@ -758,7 +758,7 @@ table.schools tbody tr:hover td {
   background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
 table.schools td.school-name { font-weight: 600; }
-table.schools td.school-name small {
+table.schools td.school-name small:not(.safety-badge) {
   display: block;
   font-weight: 500;
   color: var(--text-subtle);
@@ -6956,19 +6956,20 @@ body.todos-dragging .todo-project-group.is-over {
 }
 .safety-badge {
   display: inline-block;
+  width: fit-content;
   margin-left: 8px;
-  padding: 2px 6px;
-  border: 1px solid var(--color-accent-border);
+  padding: 0 3px;
+  border: 1px solid var(--color-border);
   border-radius: 2px;
-  background: var(--color-accent-tint);
-  color: var(--text-accent);
+  background: var(--color-surface-2);
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.12em;
-  line-height: 1.4;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
   text-transform: uppercase;
-  vertical-align: middle;
+  vertical-align: 1px;
   white-space: nowrap;
 }
 .school-hero-copy .safety-badge {
@@ -6977,9 +6978,9 @@ body.todos-dragging .todo-project-group.is-over {
   border-color: color-mix(in srgb, #f8f4f4 42%, transparent);
 }
 .school-hero-empty .school-hero-copy .safety-badge {
-  color: var(--text-accent);
-  background: var(--color-accent-tint);
-  border-color: var(--color-accent-border);
+  color: var(--text-muted);
+  background: var(--color-surface-2);
+  border-color: var(--color-border);
 }
 .fin-badges .safety-badge,
 .school-modal-nav-current .safety-badge,
