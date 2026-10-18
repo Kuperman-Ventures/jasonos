@@ -35,6 +35,18 @@ const FIELD =
 
 function StrategyFields({ script }: { script: LiveScript }) {
   const router = useRouter();
+  const serverKey = `${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}`;
+  const [situation, setSituation] = useState(script.situation ?? "");
+  const [success, setSuccess] = useState(script.successSentence ?? "");
+  const [rubric, setRubric] = useState(script.rubric);
+  const [seen, setSeen] = useState(serverKey);
+  if (serverKey !== seen) {
+    setSeen(serverKey);
+    setSituation(script.situation ?? "");
+    setSuccess(script.successSentence ?? "");
+    setRubric(script.rubric);
+  }
+
   const save = (patch: {
     situation?: string | null;
     successSentence?: string | null;
@@ -46,18 +58,32 @@ function StrategyFields({ script }: { script: LiveScript }) {
         toast.error(result.error);
         return;
       }
+      if (patch.situation !== undefined) setSituation(patch.situation ?? "");
+      if (patch.successSentence !== undefined) setSuccess(patch.successSentence ?? "");
+      if (patch.rubric !== undefined) setRubric(patch.rubric);
       router.refresh();
     });
   };
 
+  const situationEmpty = !situation.trim();
+  const successEmpty = !success.trim();
+  const rubricEmpty = rubric.length === 0;
+  const emptyClass = "border-l-4 border-[var(--color-accent-2-text)] pl-3";
+
   return (
     <div className="space-y-4 pt-2">
-      <label className="block space-y-1">
+      {situationEmpty && successEmpty && rubricEmpty ? (
+        <p className="text-[14px] text-[var(--color-accent-2-text)]">
+          This strategy has no success sentence or checklist yet. Applying it will not seed an outcome
+          sentence, and the transcript review will have nothing to check.
+        </p>
+      ) : null}
+      <label className={`block space-y-1 ${situationEmpty ? emptyClass : ""}`}>
         <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          Situation
+          Situation{situationEmpty ? " (not set)" : ""}
         </span>
         <InlineField
-          value={script.situation ?? ""}
+          value={situation}
           placeholder="When this strategy applies, in one sentence"
           emptyLabel="When this strategy applies, in one sentence"
           maxLength={400}
@@ -65,12 +91,12 @@ function StrategyFields({ script }: { script: LiveScript }) {
           onSave={(next) => save({ situation: next })}
         />
       </label>
-      <label className="block space-y-1">
+      <label className={`block space-y-1 ${successEmpty ? emptyClass : ""}`}>
         <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          What success looks like
+          What success looks like{successEmpty ? " (not set)" : ""}
         </span>
         <InlineField
-          value={script.successSentence ?? ""}
+          value={success}
           placeholder="One sentence you can score the meeting against"
           emptyLabel="One sentence you can score the meeting against"
           maxLength={400}
@@ -78,7 +104,11 @@ function StrategyFields({ script }: { script: LiveScript }) {
           onSave={(next) => save({ successSentence: next })}
         />
       </label>
-      <ChecklistField lines={script.rubric} onSave={(rubric) => save({ rubric })} />
+      <ChecklistField
+        lines={rubric}
+        empty={rubricEmpty}
+        onSave={(next) => save({ rubric: next })}
+      />
       <label className="block space-y-1">
         <span className="text-[12px] text-[var(--jos-muted)]">Based on</span>
         <InlineField
@@ -96,9 +126,11 @@ function StrategyFields({ script }: { script: LiveScript }) {
 
 function ChecklistField({
   lines,
+  empty,
   onSave,
 }: {
   lines: string[];
+  empty: boolean;
   onSave: (lines: string[]) => void;
 }) {
   const stored = lines.join("\n");
@@ -110,9 +142,9 @@ function ChecklistField({
   }
 
   return (
-    <label className="block space-y-1">
+    <label className={`block space-y-1 ${empty ? "border-l-4 border-[var(--color-accent-2-text)] pl-3" : ""}`}>
       <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-        Checklist
+        Checklist{empty ? " (not set)" : ""}
       </span>
       <textarea
         value={text}
@@ -292,6 +324,9 @@ export function LiveScriptClient({
           className="text-[15px] text-[var(--jos-muted)]"
           onSave={saveDescription}
         />
+        {script.methodologySource ? (
+          <p className="text-[13px] text-[var(--jos-muted)]">Based on: {script.methodologySource}</p>
+        ) : null}
         <StrategyFields script={script} />
       </header>
 
