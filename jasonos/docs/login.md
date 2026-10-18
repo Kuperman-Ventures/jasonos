@@ -27,8 +27,8 @@ Touch ID / iPhone Face ID is offered instead of a QR security-key sheet.
 ## First time on a computer
 
 1. Open JasonOS. You land on `/login`.
-2. Continue with Google (Jason emails only). That only creates a session and sends you back to JasonOS on “Add Face ID or Touch ID.”
-3. Add Face ID or Touch ID when asked (this Mac’s Touch ID, not a phone QR). That is what writes the signed 7-day unlock cookie.
+2. Continue with Google (Jason emails only). That only creates a session and sends you back to the unlock screen. Google alone does not unlock JasonOS.
+3. If this Mac or phone already has Face ID or Touch ID, tap **Unlock with Face ID or Touch ID**. Add it only the first time on this device. If Add is tapped and this device already has the passkey, JasonOS signs in with the existing one instead of stopping on the browser's "already registered" error.
 4. That browser stays unlocked for 7 days.
 
 Allowed emails (app-level, not a Supabase dashboard allowlist): `jason@kupermanadvisors.com`, `jskuperman@gmail.com`, `jason.kuperman@outlook.com`.

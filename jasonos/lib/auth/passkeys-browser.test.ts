@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  passkeyAlreadyOnThisDevice,
+  passkeyErrorMessage,
   preferPlatformCreationOptions,
   preferPlatformRequestOptions,
 } from "./passkeys-browser.ts";
@@ -36,5 +38,25 @@ describe("platform passkey option overrides", () => {
     });
     assert.deepEqual(next.hints, ["client-device"]);
     assert.equal(next.userVerification, "required");
+  });
+});
+
+describe("passkey already on this device", () => {
+  const already = new Error(
+    "The user attempted to register an authenticator that contains one of the credentials already registered with the relying party."
+  );
+  already.name = "InvalidStateError";
+
+  it("recognizes the browser already-registered error", () => {
+    assert.equal(passkeyAlreadyOnThisDevice(already), true);
+    assert.match(passkeyErrorMessage(already), /already has Face ID or Touch ID/);
+    assert.doesNotMatch(passkeyErrorMessage(already), /relying party/);
+  });
+
+  it("leaves other failures alone", () => {
+    const cancelled = new Error("The operation either timed out or was not allowed.");
+    cancelled.name = "NotAllowedError";
+    assert.equal(passkeyAlreadyOnThisDevice(cancelled), false);
+    assert.match(passkeyErrorMessage(cancelled), /cancelled/);
   });
 });

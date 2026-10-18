@@ -40,6 +40,7 @@ export function listJasonosAreas() {
       { area: "today", tools: ["get_today", "get_status"] },
       { area: "must_dos_and_cards", tools: ["get_must_dos", "list_action_cards"] },
       { area: "todos_and_projects", tools: ["list_todos", "list_projects"] },
+      { area: "project_links", tools: ["list_project_links", "add_project_link"] },
       { area: "morning_brief", tools: ["get_morning_brief", "publish_morning_brief"] },
       { area: "inbox", tools: ["get_inbox_dispatch", "publish_inbox_dispatch"] },
       {
@@ -386,7 +387,7 @@ export async function listProjects() {
   const { data, error } = await sb
     .from("projects")
     .select("id,track,name,goal_statement,status,target_date,updated_at")
-    .neq("status", "archived")
+    .in("status", ["active", "paused"])
     .order("updated_at", { ascending: false })
     .limit(40);
   if (error) throw new Error(error.message);
@@ -405,6 +406,18 @@ export async function listProjects() {
       open_todos: openByProject.get(project.id) ?? 0,
     })),
   };
+}
+
+export async function listProjectLinks(input: { project_slug: string }) {
+  const sb = jasonosDb();
+  const { data, error } = await sb
+    .from("project_links")
+    .select("id, title, url, kind, description, sort_order")
+    .eq("project_slug", input.project_slug)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return { project_slug: input.project_slug, links: data ?? [] };
 }
 
 export async function listPostMasterProjects() {

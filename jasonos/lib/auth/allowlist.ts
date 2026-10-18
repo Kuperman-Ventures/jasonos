@@ -30,7 +30,7 @@ export function loginErrorMessage(code: string | null | undefined): string | nul
     case "passkey_required":
       return "Face ID / Touch ID did not complete. Try again, or use Google to add a passkey.";
     case "enroll_required":
-      return "Add Face ID or Touch ID to unlock JasonOS. Google alone is not enough.";
+      return "Google signed you in. If this Mac or phone already has Face ID or Touch ID, unlock with it. Add it only the first time on this device.";
     default:
       return null;
   }
