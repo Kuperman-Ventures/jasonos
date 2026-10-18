@@ -11,7 +11,9 @@ test("interest picker levels run low to high with reference labels", () => {
     INTEREST_PICKER_LEVELS.map((level) => level.key),
     ["safety", "moderate", "high", "top"],
   );
-  assert.equal(INTEREST_PICKER_LEVELS[0]?.name, "Safety / backup");
+  assert.equal(INTEREST_PICKER_LEVELS[0]?.name, "Low");
+  assert.equal(INTEREST_PICKER_LEVELS[0]?.short, "Low");
+  assert.equal(interestLabel("safety"), "Low");
   assert.equal(INTEREST_PICKER_LEVELS[3]?.short, "Top choice");
 });
 

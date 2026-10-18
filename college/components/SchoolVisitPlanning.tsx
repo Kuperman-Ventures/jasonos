@@ -45,7 +45,7 @@ const LEGEND: { key: VisitInterestKey; label: string }[] = [
   { key: "top", label: "Top choice" },
   { key: "high", label: "High interest" },
   { key: "moderate", label: "Moderate interest" },
-  { key: "safety", label: "Safety / backup" },
+  { key: "safety", label: "Low" },
   { key: "none", label: "Interest not set" },
 ];
 

@@ -446,7 +446,7 @@ export function FinancesTab({
             <option value="top">Top choice</option>
             <option value="high">High</option>
             <option value="moderate">Moderate</option>
-            <option value="safety">Safety</option>
+            <option value="safety">Low</option>
           </select>
         </label>
         <span className="fin-shown mono">
@@ -799,7 +799,7 @@ function AdmitCostChart({
           <i style={{ background: "var(--lvl-2)" }} /> Moderate interest
         </span>
         <span>
-          <i style={{ background: "var(--lvl-1)" }} /> Safety / backup
+          <i style={{ background: "var(--lvl-1)" }} /> Low
         </span>
       </div>
       <div className="fin-chart-scroll">

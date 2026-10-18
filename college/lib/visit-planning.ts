@@ -108,7 +108,7 @@ const INTEREST_CHIP_LABEL: Record<VisitInterestKey, string> = {
   top: "Top choice",
   high: "High interest",
   moderate: "Moderate interest",
-  safety: "Safety / backup",
+  safety: "Low",
   none: "Interest not set",
 };
 
