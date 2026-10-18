@@ -20,6 +20,10 @@ function toPoints(items: LiveScriptItem[]): MeetingPoint[] {
     note: null,
     source: "script",
     editedByUser: false,
+    sourceHint: null,
+    prepareReactions: item.prepareReactions,
+    reactions: item.reactions,
+    observedReaction: null,
   }));
 }
 

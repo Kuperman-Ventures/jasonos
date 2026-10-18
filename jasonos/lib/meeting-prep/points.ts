@@ -6,25 +6,32 @@ export interface DraftPoint {
   kind: PointKind;
   headline: string;
   detail: string | null;
+  sourceHint: string | null;
 }
 
 export interface DraftPromptInput {
   title: string;
   attendees: Array<{ name: string; title: string | null; company: string | null }>;
   purpose: string | null;
+  outcomeSentence: string | null;
   summary: string | null;
   nextMove: string | null;
-  commitments: Array<{
+  openCommitments: Array<{
     text: string;
     direction: "mine" | "theirs";
-    status: string;
+    due: string | null;
     personName: string;
   }>;
   topics: string[];
   whereItStands: string | null;
   yourStake: string | null;
   introduction: string | null;
-  /** Newest first. Only the first two are sent. */
+  referrer: string | null;
+  personalGoal: string | null;
+  lastNextStep: string | null;
+  /** Newest first. Only the first three are sent, each already capped. */
+  granolaSummaries: Array<{ title: string | null; date: string | null; summary: string }>;
+  /** Newest first. Only the first four are sent. */
   pastMeetings: Array<{
     title: string | null;
     debriefNotes: string | null;
@@ -113,7 +120,12 @@ export function parseDraftPoints(text: string): DraftPoint[] | null {
     if (!clean) continue;
     const cleanDetail =
       typeof detail === "string" && detail.trim() ? clampDetail(detail) : null;
-    drafts.push({ kind: kind as PointKind, headline: clean, detail: cleanDetail });
+    const sourceHint = (item as { sourceHint?: unknown }).sourceHint;
+    const hint =
+      typeof sourceHint === "string" && sourceHint.trim()
+        ? sourceHint.trim().replace(/\s+/g, " ").slice(0, 160)
+        : null;
+    drafts.push({ kind: kind as PointKind, headline: clean, detail: cleanDetail, sourceHint: hint });
     if (drafts.length === 9) break;
   }
   return drafts.length ? drafts : null;
@@ -209,8 +221,48 @@ function line(label: string, value: string | null | undefined): string | null {
 }
 
 export function meetingPointsSystemPrompt(writingRules: string): string {
-  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Return JSON only.
+  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. Return JSON only.
 ${writingRules}`;
+}
+
+function filed(label: string, value: string | null | undefined): string {
+  const text = value?.trim();
+  return `${label}: ${text || "None on file"}`;
+}
+
+/** Labels shown under Draft after a run. Counts are included only when something was found. */
+export function draftContextLines(input: {
+  purpose: string | null;
+  outcomeSentence: string | null;
+  relationshipBrief: string | null;
+  openCommitments: number;
+  referrer: string | null;
+  personalGoal: string | null;
+  granolaNotes: number;
+  earlierMeetings: number;
+  jobSearch: number;
+}): { contextUsed: string[]; contextMissing: string[] } {
+  const rows: Array<{ label: string; present: boolean }> = [
+    { label: "Purpose", present: Boolean(input.purpose?.trim()) },
+    { label: "Outcome sentence", present: Boolean(input.outcomeSentence?.trim()) },
+    { label: "Relationship brief", present: Boolean(input.relationshipBrief?.trim()) },
+    { label: "Open commitments", present: input.openCommitments > 0 },
+    { label: "Referrer", present: Boolean(input.referrer?.trim()) },
+    { label: "Personal goal", present: Boolean(input.personalGoal?.trim()) },
+    {
+      label: input.granolaNotes > 0 ? `Granola notes (${input.granolaNotes})` : "Granola notes",
+      present: input.granolaNotes > 0,
+    },
+    {
+      label: input.earlierMeetings > 0 ? `Earlier meetings (${input.earlierMeetings})` : "Earlier meetings",
+      present: input.earlierMeetings > 0,
+    },
+    { label: "Job search", present: input.jobSearch > 0 },
+  ];
+  return {
+    contextUsed: rows.filter((row) => row.present).map((row) => row.label),
+    contextMissing: rows.filter((row) => !row.present).map((row) => row.label),
+  };
 }
 
 export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
@@ -228,21 +280,28 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
       ? `What Jason wants out of this: ${input.purpose.trim()}`
       : "What Jason wants out of this: Not written yet. Do not include an ask."
   );
+  sections.push(filed("Outcome sentence", input.outcomeSentence));
+  sections.push(filed("Referrer", input.referrer));
+  sections.push(filed("Personal goal", input.personalGoal));
 
   const brief = [
     line("Summary", input.summary),
     line("Next move", input.nextMove),
     input.topics.length ? `Topics: ${input.topics.join("; ")}` : null,
   ].filter(Boolean);
-  if (brief.length) sections.push(brief.join("\n"));
+  sections.push(brief.length ? `Relationship brief:\n${brief.join("\n")}` : "Relationship brief: None on file");
 
-  if (input.commitments.length) {
-    const rows = input.commitments.map((item) => {
+  if (input.openCommitments.length) {
+    const rows = input.openCommitments.map((item) => {
       const who = item.direction === "mine" ? "his" : "theirs";
-      return `- ${who} (${item.personName}, ${item.status}): ${item.text}`;
+      const due = item.due?.trim() ? `, due ${item.due.trim()}` : "";
+      return `- ${who} (${item.personName}${due}): ${item.text}`;
     });
-    sections.push(`Commitments:\n${rows.join("\n")}`);
+    sections.push(`Open commitments:\n${rows.join("\n")}`);
+  } else {
+    sections.push("Open commitments: None on file");
   }
+  sections.push(filed("Last next step", input.lastNextStep));
 
   const briefing = [
     line("Where it stands", input.whereItStands),
@@ -251,7 +310,19 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
   ].filter(Boolean);
   if (briefing.length) sections.push(briefing.join("\n"));
 
-  const past = input.pastMeetings.slice(0, 2).filter((meeting) => {
+  const granola = input.granolaSummaries.slice(0, 3).filter((note) => note.summary.trim());
+  if (granola.length) {
+    const rows = granola.map((note) => {
+      const title = note.title?.trim() || "Note";
+      const when = note.date?.trim() ? ` (${note.date.trim()})` : "";
+      return `- ${title}${when}: ${note.summary.trim()}`;
+    });
+    sections.push(`Granola notes:\n${rows.join("\n")}`);
+  } else {
+    sections.push("Granola notes: None on file");
+  }
+
+  const past = input.pastMeetings.slice(0, 4).filter((meeting) => {
     return meeting.debriefNotes?.trim() || meeting.nextStep?.trim();
   });
   if (past.length) {
@@ -263,7 +334,9 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
       ].filter(Boolean);
       return bits.join("\n");
     });
-    sections.push(`Last meetings:\n${rows.join("\n\n")}`);
+    sections.push(`Earlier meetings:\n${rows.join("\n\n")}`);
+  } else {
+    sections.push("Earlier meetings: None on file");
   }
 
   if (input.jobSearch.length) {
@@ -272,6 +345,8 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
       return `- ${job.kind}: ${job.title}${company}`;
     });
     sections.push(`Job search:\n${rows.join("\n")}`);
+  } else {
+    sections.push("Job search: None on file");
   }
 
   return sections.join("\n\n");

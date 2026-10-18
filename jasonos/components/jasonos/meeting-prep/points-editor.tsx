@@ -168,7 +168,9 @@ export function PointsEditor({
   actions: PointsEditorActions;
   draft?: {
     label: string;
-    run: () => Promise<PointResult<{ added: number; quiet?: boolean }>>;
+    run: () => Promise<
+      PointResult<{ added: number; quiet?: boolean; contextUsed?: string[]; contextMissing?: string[] }>
+    >;
   };
   footer?: ReactNode | ((pointCount: number) => ReactNode);
   note?: ReactNode;
@@ -184,6 +186,8 @@ export function PointsEditor({
   const [dragId, setDragId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drafting, setDrafting] = useState(false);
+  const [contextUsed, setContextUsed] = useState<string[] | null>(null);
+  const [contextMissing, setContextMissing] = useState<string[] | null>(null);
   const addId = useId();
 
   if (signature !== seen) {
@@ -279,6 +283,8 @@ export function PointsEditor({
         toast.error(result.error);
         return;
       }
+      if (result.contextUsed) setContextUsed(result.contextUsed);
+      if (result.contextMissing) setContextMissing(result.contextMissing);
       if (result.quiet) return;
       toast.success(result.added === 1 ? "Added 1 point" : `Added ${result.added} points`);
       router.refresh();
@@ -297,10 +303,18 @@ export function PointsEditor({
           {belowTitle}
         </div>
         {draft ? (
-          <Button type="button" variant="outline" disabled={drafting} onClick={runDraft}>
-            <Sparkles />
-            {draftLabel}
-          </Button>
+          <div className="space-y-1 text-right">
+            <Button type="button" variant="outline" disabled={drafting} onClick={runDraft}>
+              <Sparkles />
+              {draftLabel}
+            </Button>
+            {contextUsed ? (
+              <p className="text-[13px] text-[var(--jos-muted)]">Used: {contextUsed.join(" · ")}</p>
+            ) : null}
+            {contextMissing?.length ? (
+              <p className="text-[13px] text-[var(--jos-muted)]">Missing: {contextMissing.join(" · ")}</p>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

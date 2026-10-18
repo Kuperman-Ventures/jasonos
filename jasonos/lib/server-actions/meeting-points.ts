@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { callClaude } from "@/lib/ai/models";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { isJoinBoilerplate } from "@/lib/meeting-prep/text";
+import { REACTION_SHAPES, type Reaction, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import {
   buildMeetingPointsUserMessage,
+  draftContextLines,
   meetingPointsSystemPrompt,
   newDrafts,
   parseDraftPoints,
@@ -27,6 +30,10 @@ export interface MeetingPoint {
   note: string | null;
   source: "user" | "ai" | "script";
   editedByUser: boolean;
+  sourceHint: string | null;
+  prepareReactions: boolean;
+  reactions: Reaction[];
+  observedReaction: ReactionShape | null;
 }
 
 export type PointResult<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -43,6 +50,10 @@ interface PointRow {
   note: string | null;
   source: string;
   edited_by_user: boolean;
+  source_hint?: string | null;
+  prepare_reactions?: boolean | null;
+  reactions?: unknown;
+  observed_reaction?: string | null;
 }
 
 const KINDS = new Set<PointKind>(["agenda", "point", "question", "ask"]);
@@ -83,6 +94,10 @@ function toPoint(row: PointRow): MeetingPoint {
     note: row.note?.trim() || null,
     source: row.source === "ai" || row.source === "script" ? row.source : "user",
     editedByUser: Boolean(row.edited_by_user),
+    sourceHint: row.source_hint?.trim() || null,
+    prepareReactions: Boolean(row.prepare_reactions),
+    reactions: asReactions(row.reactions),
+    observedReaction: asObserved(row.observed_reaction),
   };
 }
 
@@ -105,7 +120,34 @@ function missingPointsTable(message: string): boolean {
 }
 
 const POINT_COLUMNS =
-  "id, prep_id, position, kind, headline, detail, state, state_changed_at, note, source, edited_by_user";
+  "id, prep_id, position, kind, headline, detail, state, state_changed_at, note, source, edited_by_user, source_hint, prepare_reactions, reactions, observed_reaction";
+
+const REACTION_SHAPE_SET = new Set<string>(REACTION_SHAPES);
+
+function asReactions(value: unknown): Reaction[] {
+  if (!Array.isArray(value)) return [];
+  const out: Reaction[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const shape = (item as { shape?: unknown }).shape;
+    const soundsLike = (item as { soundsLike?: unknown }).soundsLike;
+    const pivot = (item as { pivot?: unknown }).pivot;
+    if (typeof shape !== "string" || !REACTION_SHAPE_SET.has(shape) || seen.has(shape)) continue;
+    if (typeof soundsLike !== "string" || typeof pivot !== "string") continue;
+    const sound = soundsLike.trim();
+    const line = pivot.trim();
+    if (!sound || !line) continue;
+    seen.add(shape);
+    out.push({ shape: shape as ReactionShape, soundsLike: sound, pivot: line });
+  }
+  return out;
+}
+
+function asObserved(value: string | null | undefined): ReactionShape | null {
+  if (value && REACTION_SHAPE_SET.has(value)) return value as ReactionShape;
+  return null;
+}
 
 export async function getMeetingPoints(
   prepId: string
@@ -322,7 +364,7 @@ export async function deleteMeetingPoint(
 
 export async function draftMeetingPoints(
   prepId: string
-): Promise<PointResult<{ added: number }>> {
+): Promise<PointResult<{ added: number; contextUsed: string[]; contextMissing: string[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = prepId.trim();
   if (!id) return { ok: false, error: "Meeting prep not found." };
@@ -338,7 +380,57 @@ export async function draftMeetingPoints(
   }
 
   const prep = prepResult.prep;
-  const knownEmails = new Set(context.people.map((person) => person.email.toLowerCase()));
+  const purpose = prep.purpose && !isJoinBoilerplate(prep.purpose) ? prep.purpose : null;
+  const person = context.people[0] ?? null;
+  const referrer =
+    context.people.find((item) => item.referredByName?.trim())?.referredByName?.trim() ||
+    context.connections.find((item) => item.who?.trim())?.who?.trim() ||
+    null;
+  const personalGoal = person?.personalGoal?.trim() || null;
+  const openCommitments = context.brief.commitments
+    .filter((item) => item.status === "open")
+    .map((item) => ({
+      text: item.text,
+      direction: item.direction,
+      due: item.due,
+      personName: item.personName,
+    }));
+  const granolaSummaries = [
+    ...context.pastMeetings
+      .filter((meeting) => meeting.granolaSummary?.trim())
+      .map((meeting) => ({
+        title: meeting.title,
+        date: meeting.when,
+        summary: meeting.granolaSummary!.trim().slice(0, 1500),
+        sort: meeting.when ? Date.parse(meeting.when) : 0,
+      })),
+    ...context.granolaNotes
+      .filter((note) => note.summary.trim())
+      .map((note) => ({
+        title: note.title,
+        date: note.when,
+        summary: note.summary.trim().slice(0, 1500),
+        sort: note.when ? Date.parse(note.when) : 0,
+      })),
+  ]
+    .sort((a, b) => (Number.isNaN(b.sort) ? 0 : b.sort) - (Number.isNaN(a.sort) ? 0 : a.sort))
+    .filter((note, index, list) => list.findIndex((item) => item.summary === note.summary) === index)
+    .slice(0, 3)
+    .map(({ title, date, summary }) => ({ title, date, summary }));
+  const lastNextStep =
+    context.pastMeetings.find((meeting) => meeting.nextStep?.trim())?.nextStep?.trim() || null;
+  const contextLines = draftContextLines({
+    purpose,
+    outcomeSentence: prep.outcomeSentence,
+    relationshipBrief: context.brief.summary,
+    openCommitments: openCommitments.length,
+    referrer,
+    personalGoal,
+    granolaNotes: granolaSummaries.length,
+    earlierMeetings: context.pastMeetings.length,
+    jobSearch: context.jobSearch.length,
+  });
+  const knownEmails = new Set(context.people.map((item) => item.email.toLowerCase()));
   const attendees = [
     ...context.people.map((person) => ({
       name: person.name,
@@ -366,14 +458,19 @@ export async function draftMeetingPoints(
           content: buildMeetingPointsUserMessage({
             title: prep.title,
             attendees,
-            purpose: prep.purpose,
+            purpose,
+            outcomeSentence: prep.outcomeSentence,
             summary: context.brief.summary,
             nextMove: context.brief.nextMove,
-            commitments: context.brief.commitments,
+            openCommitments,
             topics: context.brief.topics,
             whereItStands: context.briefing.whereItStands?.text ?? null,
             yourStake: context.briefing.yourStake?.text ?? null,
             introduction: context.briefing.introduction?.text ?? null,
+            referrer,
+            personalGoal,
+            lastNextStep,
+            granolaSummaries,
             pastMeetings: context.pastMeetings.map((meeting) => ({
               title: meeting.title,
               debriefNotes: meeting.debriefNotes,
@@ -402,7 +499,7 @@ export async function draftMeetingPoints(
     existing.points.map((point) => point.headline),
     drafted
   );
-  if (!fresh.length) return { ok: true, added: 0 };
+  if (!fresh.length) return { ok: true, added: 0, ...contextLines };
 
   const start =
     existing.points.reduce((max, point) => Math.max(max, point.position), 0) + 1;
@@ -417,12 +514,13 @@ export async function draftMeetingPoints(
       state: "open",
       source: "ai",
       edited_by_user: false,
+      source_hint: point.sourceHint,
     }))
   );
   if (error) return { ok: false, error: error.message };
 
   revalidatePoints(id);
-  return { ok: true, added: fresh.length };
+  return { ok: true, added: fresh.length, ...contextLines };
 }
 
 export async function startLiveMeeting(

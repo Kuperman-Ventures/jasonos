@@ -4,6 +4,7 @@ import {
   buildMeetingPointsUserMessage,
   clampDetail,
   coveredTally,
+  draftContextLines,
   fillScriptPlaceholders,
   firstOpenIndex,
   formatElapsed,
@@ -114,36 +115,78 @@ describe("fillScriptPlaceholders", () => {
 });
 
 describe("draft prompt", () => {
-  it("labels the purpose, his and their commitments, and only the last two meetings", () => {
+  it("labels open commitments, keeps four earlier meetings, and says when a field is empty", () => {
     const message = buildMeetingPointsUserMessage({
       title: "Pilot check-in",
       attendees: [{ name: "Alex Chen", title: "VP Sales", company: "Northwind" }],
       purpose: "Leave with a yes on the pilot.",
+      outcomeSentence: null,
       summary: "They asked for a scoped pilot.",
       nextMove: "Send the one-pager.",
-      commitments: [
-        { text: "Send the deck", direction: "theirs", status: "open", personName: "Alex Chen" },
-        { text: "Make the intro", direction: "mine", status: "awaiting", personName: "Alex Chen" },
+      openCommitments: [
+        { text: "Send the deck", direction: "theirs", due: "March 3", personName: "Alex Chen" },
+        { text: "Make the intro", direction: "mine", due: null, personName: "Alex Chen" },
       ],
       topics: ["pilot scope"],
       whereItStands: "Waiting on their security review.",
       yourStake: "Jason wants the pilot started this month.",
       introduction: null,
+      referrer: null,
+      personalGoal: "Wants a board seat.",
+      lastNextStep: null,
+      granolaSummaries: [],
       pastMeetings: [
         { title: "Newest", debriefNotes: "They liked the demo.", nextStep: "Send pricing." },
-        { title: "Middle", debriefNotes: "Agreed to regroup.", nextStep: null },
+        { title: "Second", debriefNotes: "Agreed to regroup.", nextStep: null },
+        { title: "Third", debriefNotes: "Talked scope.", nextStep: null },
+        { title: "Fourth", debriefNotes: "Still in.", nextStep: null },
         { title: "Oldest", debriefNotes: "Should not be included.", nextStep: "Ignore." },
       ],
       jobSearch: [],
     });
     assert.match(message, /What Jason wants out of this: Leave with a yes on the pilot\./);
-    assert.match(message, /theirs \(Alex Chen, open\): Send the deck/);
-    assert.match(message, /his \(Alex Chen, awaiting\): Make the intro/);
+    assert.match(message, /Outcome sentence: None on file/);
+    assert.match(message, /Referrer: None on file/);
+    assert.match(message, /Personal goal: Wants a board seat\./);
+    assert.match(message, /theirs \(Alex Chen, due March 3\): Send the deck/);
+    assert.match(message, /his \(Alex Chen\): Make the intro/);
     assert.match(message, /Newest/);
-    assert.match(message, /Middle/);
+    assert.match(message, /Fourth/);
     assert.equal(message.includes("Oldest"), false);
+    assert.match(message, /Granola notes: None on file/);
+    assert.match(message, /Job search: None on file/);
     const system = meetingPointsSystemPrompt("NO AI SLOP");
+    assert.match(system, /sourceHint/);
     assert.match(system, /Return JSON only/);
     assert.match(system, /NO AI SLOP/);
+  });
+});
+
+describe("draftContextLines", () => {
+  it("splits what was on file from what was missing", () => {
+    const lines = draftContextLines({
+      purpose: "Leave with a yes.",
+      outcomeSentence: null,
+      relationshipBrief: "They asked for a pilot.",
+      openCommitments: 0,
+      referrer: null,
+      personalGoal: null,
+      granolaNotes: 2,
+      earlierMeetings: 1,
+      jobSearch: 0,
+    });
+    assert.deepEqual(lines.contextUsed, [
+      "Purpose",
+      "Relationship brief",
+      "Granola notes (2)",
+      "Earlier meetings (1)",
+    ]);
+    assert.deepEqual(lines.contextMissing, [
+      "Outcome sentence",
+      "Open commitments",
+      "Referrer",
+      "Personal goal",
+      "Job search",
+    ]);
   });
 });
