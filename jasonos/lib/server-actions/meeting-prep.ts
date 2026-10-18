@@ -605,3 +605,84 @@ export async function setMeetingOutcomeMark(
   revalidatePrep(id);
   return { ok: true, outcomeMark: input.mark };
 }
+
+export interface RecentLiveMeeting {
+  id: string;
+  startsAt: string;
+  title: string;
+  attendeeName: string | null;
+  strategyName: string | null;
+  outcomeMark: OutcomeMark | null;
+  reviewed: boolean;
+}
+
+interface RecentPrepRow {
+  id: string;
+  title: string | null;
+  starts_at: string;
+  attendees: unknown;
+  script_id: string | null;
+  outcome_mark: string | null;
+}
+
+export async function getRecentLiveMeetings(
+  limit = 10
+): Promise<PrepResult<{ meetings: RecentLiveMeeting[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const take = Math.min(Math.max(Math.floor(limit) || 10, 1), 50);
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .select("id, title, starts_at, attendees, script_id, outcome_mark")
+    .not("live_ended_at", "is", null)
+    .order("live_ended_at", { ascending: false })
+    .limit(take);
+  if (error) {
+    if (missingLiveColumn(error.message)) return { ok: true, meetings: [] };
+    return { ok: false, error: error.message };
+  }
+
+  const rows = (data ?? []) as RecentPrepRow[];
+  const prepIds = rows.map((row) => row.id);
+  const scriptIds = [
+    ...new Set(rows.map((row) => row.script_id).filter((id): id is string => Boolean(id))),
+  ];
+  const [scriptsResult, reviewsResult] = await Promise.all([
+    scriptIds.length
+      ? sb.from("live_scripts").select("id, name").in("id", scriptIds)
+      : Promise.resolve({ data: [] as { id: string; name: string | null }[], error: null }),
+    prepIds.length
+      ? sb.from("meeting_reviews").select("prep_id").in("prep_id", prepIds)
+      : Promise.resolve({ data: [] as { prep_id: string }[], error: null }),
+  ]);
+
+  const names = new Map<string, string>();
+  if (!scriptsResult.error) {
+    for (const row of scriptsResult.data ?? []) {
+      const name = row.name?.trim();
+      if (row.id && name) names.set(row.id, name);
+    }
+  }
+  const reviewedIds = new Set<string>();
+  if (!reviewsResult.error) {
+    for (const row of reviewsResult.data ?? []) {
+      if (row.prep_id) reviewedIds.add(row.prep_id);
+    }
+  }
+
+  return {
+    ok: true,
+    meetings: rows.map((row) => {
+      const first = asAttendees(row.attendees)[0];
+      return {
+        id: row.id,
+        startsAt: row.starts_at,
+        title: row.title?.trim() || "Meeting",
+        attendeeName: first ? first.name || first.email.split("@")[0] || null : null,
+        strategyName: row.script_id ? (names.get(row.script_id) ?? null) : null,
+        outcomeMark: asOutcomeMark(row.outcome_mark),
+        reviewed: reviewedIds.has(row.id),
+      };
+    }),
+  };
+}

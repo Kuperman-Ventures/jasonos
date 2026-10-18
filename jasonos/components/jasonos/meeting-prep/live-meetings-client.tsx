@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
-import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
+import type { MeetingPrepSummary, OutcomeMark, RecentLiveMeeting } from "@/lib/server-actions/meeting-prep";
 import {
   createLiveScript,
   draftLiveScriptItems,
@@ -31,6 +31,39 @@ function easternTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function easternDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const MARK_PILL: Record<OutcomeMark, { label: string; className: string }> = {
+  hit: { label: "Hit", className: "bg-[var(--color-done-100)] text-[var(--color-done)]" },
+  partial: { label: "Partial", className: "bg-[var(--jos-warn-tint)] text-[var(--jos-ink)]" },
+  missed: {
+    label: "Missed",
+    className: "bg-[var(--color-accent-2-100)] text-[var(--color-accent-2-text)]",
+  },
+};
+
+function OutcomePill({ mark }: { mark: OutcomeMark | null }) {
+  if (!mark) {
+    return (
+      <span className="bg-[var(--color-surface)] px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+        Not marked
+      </span>
+    );
+  }
+  const pill = MARK_PILL[mark];
+  return (
+    <span className={`px-2 py-0.5 text-[12px] font-bold uppercase tracking-[0.08em] ${pill.className}`}>
+      {pill.label}
+    </span>
+  );
 }
 
 function attendeeLabel(attendee: MeetingPrepSummary["attendees"][number]): string {
@@ -56,6 +89,8 @@ export function LiveMeetingsClient({
   warnings,
   scripts,
   scriptsError,
+  recent,
+  recentError,
 }: {
   meetings: MeetingPrepSummary[];
   nowIso: string;
@@ -63,6 +98,8 @@ export function LiveMeetingsClient({
   warnings: string[];
   scripts: LiveScript[];
   scriptsError: string | null;
+  recent: RecentLiveMeeting[];
+  recentError: string | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -238,6 +275,37 @@ export function LiveMeetingsClient({
                     Rehearse
                   </Link>
                 ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Recent</h2>
+        {recentError ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{recentError}</p> : null}
+        {recent.length === 0 ? (
+          <p className="text-[15px] text-[var(--jos-muted)]">No finished live meetings yet.</p>
+        ) : (
+          <ul className="divide-y divide-[var(--jos-line)] border-t border-b border-[var(--jos-line)]">
+            {recent.map((row) => (
+              <li key={row.id}>
+                <Link href={`/meetings/${row.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 hover:underline">
+                  <span className="text-[13px] text-[var(--jos-muted)]">{easternDate(row.startsAt)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[16px] font-semibold tracking-tight">{row.title}</span>
+                  {row.attendeeName ? (
+                    <span className="truncate text-[14px] text-[var(--jos-ink)]">{row.attendeeName}</span>
+                  ) : null}
+                  {row.strategyName ? (
+                    <span className="truncate text-[13px] text-[var(--jos-muted)]">{row.strategyName}</span>
+                  ) : null}
+                  <OutcomePill mark={row.outcomeMark} />
+                  {row.reviewed ? (
+                    <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                      Reviewed
+                    </span>
+                  ) : null}
+                </Link>
               </li>
             ))}
           </ul>
