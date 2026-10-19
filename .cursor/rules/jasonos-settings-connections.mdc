@@ -1,0 +1,23 @@
+---
+description: Use JasonOS Settings connections before saying a key or mailbox is missing
+alwaysApply: true
+---
+
+# JasonOS Settings is the connection store
+
+JasonOS Settings already holds the APIs, OAuth mailboxes, and MCP connections Live needs. Do not tell Kupe that a key, mailbox, or MCP is missing until these have been checked.
+
+## Where to look
+
+1. `public.service_connections` — status and `config`. Settings is the source of truth ahead of `process.env` for Granola, Firecrawl, Beeper, and LeadDelta (`config.access_token`). Firecrawl is the web-search key. Granola is the meeting-notes key.
+2. `jasonos.user_integrations` — Google (Advisors), personal Gmail, and Outlook. `access_token` and `refresh_token` are stored here. Gmail and Calendar show as connected in Settings because of these rows, not because a key was pasted into the form.
+3. Vercel production env for the `jasonos` project. Cloud agents have `VERCEL_TOKEN`. Pull production env (`AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, Microsoft client secrets) with the Vercel API or CLI. Do not print the values.
+4. MCP servers already attached to the agent session, including Supabase and Granola. Supabase MCP can read the tables above. Granola MCP can read meeting notes.
+
+`vercel_ai_gateway` and `supabase` are `env_var` connections. They are connected when those Vercel env vars exist. An empty shell environment is not evidence that JasonOS is disconnected.
+
+## How to use them
+
+- Live research, email context, and drafts run through the app code, which reads Settings first and Vercel env second. To run that code from an agent, pull production env into a gitignored file and run the existing helpers. Do not invent a research brief or an email summary.
+- Never print access tokens, refresh tokens, API keys, or service-role keys. Query status and masked prefixes only.
+- If a connection row is `connected` and the call still fails, say which service failed and the error. Do not collapse that into "no keys."
