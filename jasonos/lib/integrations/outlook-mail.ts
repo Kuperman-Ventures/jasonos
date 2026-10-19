@@ -2,6 +2,7 @@
 // so sync and unit tests can share folder rules and address formatting.
 
 import { createHash } from "node:crypto";
+import type { ParticipantMailThread, ParticipantSearch } from "@/lib/meeting-prep/email-threads";
 
 export const OUTLOOK_FOLDER_CAP = 12;
 export const OUTLOOK_PAGE_SIZE = 40;
@@ -232,6 +233,13 @@ export function dedupeOutlookMessages(messages: OutlookMessage[]): OutlookMessag
 }
 
 /** Graph $filter wants `2026-01-01T00:00:00Z`, not milliseconds. */
+export async function searchThreadsByParticipants(
+  input: ParticipantSearch
+): Promise<ParticipantMailThread[]> {
+  const { searchThreadsByParticipants: search } = await import("@/lib/integrations/outlook");
+  return search(input);
+}
+
 export function graphSinceTimestamp(sinceIso: string): string {
   const parsed = new Date(sinceIso);
   if (Number.isNaN(parsed.getTime())) return sinceIso;

@@ -94,6 +94,7 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   track: Track | null;
   researchRanAt: string | null;
   emailContext: string | null;
+  emailContextAt: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -131,6 +132,7 @@ interface PrepRow {
   track?: string | null;
   research_ran_at?: string | null;
   email_context?: string | null;
+  email_context_at?: string | null;
 }
 
 const PREP_COLUMNS =
@@ -139,7 +141,7 @@ const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`
 const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
 const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
-const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_LINKS}, track, research_ran_at, email_context`;
+const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_LINKS}, track, research_ran_at, email_context, email_context_at`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -257,6 +259,7 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     track: asTrack(row.track),
     researchRanAt: row.research_ran_at ?? null,
     emailContext: row.email_context?.trim() || null,
+    emailContextAt: row.email_context_at ?? null,
     sources,
   };
 }
@@ -462,7 +465,7 @@ export async function getMeetingPrep(
     .select(PREP_COLUMNS_WITH_RESEARCH)
     .eq("id", id)
     .maybeSingle();
-  if (error && /track|research_ran_at|email_context/.test(error.message)) {
+  if (error && /research_ran_at|email_context|column meeting_preps.track/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
       .select(PREP_COLUMNS_WITH_LINKS)

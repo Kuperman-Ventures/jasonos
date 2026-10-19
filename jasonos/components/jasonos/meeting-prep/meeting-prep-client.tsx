@@ -1563,6 +1563,14 @@ export function MeetingPrepClient({
       <section className="space-y-4">
         <BlockTitle>Before the call</BlockTitle>
         <AttendeeResearch people={context.people} />
+        {prep.emailContext ? (
+          <div className="max-w-[65ch]">
+            <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+              How this meeting came about
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed">{prep.emailContext}</p>
+          </div>
+        ) : null}
         {hasRead ? (
           <div className="space-y-6 bg-[var(--color-surface)] px-4 py-5 sm:px-5">
             {context.brief.summary ? (

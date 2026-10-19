@@ -13,6 +13,7 @@ import {
 } from "@/lib/meeting-prep/adapt";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
+import { ensureEmailContext } from "@/lib/meeting-prep/email-context";
 import {
   clampDetail,
   clampHeadline,
@@ -934,6 +935,11 @@ export async function proposeAdaptation(input: {
   }
   const settingsResult = await getLiveSettings();
   const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  try {
+    prepResult.prep.emailContext = await ensureEmailContext(prepResult.prep);
+  } catch (err) {
+    console.error("[proposeAdaptation] email context", err);
+  }
   const assembled = assembleDraftPrompt(prepResult.prep, context);
 
   let text: string;

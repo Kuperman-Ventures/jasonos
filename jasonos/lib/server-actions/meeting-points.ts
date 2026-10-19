@@ -11,6 +11,7 @@ import {
   reactionsSystemPrompt,
 } from "@/lib/meeting-prep/reactions";
 import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
+import { ensureEmailContext } from "@/lib/meeting-prep/email-context";
 import {
   buildMeetingPointsUserMessage,
   meetingPointsSystemPrompt,
@@ -396,6 +397,12 @@ export async function draftMeetingPoints(
     context = await loadMeetingContext(id);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+
+  try {
+    prepResult.prep.emailContext = await ensureEmailContext(prepResult.prep);
+  } catch (err) {
+    console.error("[draftMeetingPoints] email context", err);
   }
 
   const assembled = assembleDraftPrompt(prepResult.prep, context);

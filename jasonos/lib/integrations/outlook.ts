@@ -2,6 +2,7 @@ import "server-only";
 
 import type { CalendarApiEvent } from "@/lib/integrations/google-calendar";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
+import type { ParticipantMailThread, ParticipantSearch } from "@/lib/meeting-prep/email-threads";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import type { SentRecipientTouch } from "@/lib/outreach/meeting-followups";
 import {
@@ -337,6 +338,62 @@ export async function searchOutlookMessages(
   }
 
   return [...byId.values()];
+}
+
+function messageInvolves(text: string, input: ParticipantSearch): boolean {
+  const haystack = text.toLowerCase();
+  if (input.addresses.some((address) => haystack.includes(address))) return true;
+  return input.domains.some((domain) => haystack.includes(`@${domain}`));
+}
+
+/** Conversations from the last window that include these people or their domains. */
+export async function searchThreadsByParticipants(
+  input: ParticipantSearch
+): Promise<ParticipantMailThread[]> {
+  if (!input.addresses.length && !input.domains.length) return [];
+  const account = await getOutlookAccountAccess();
+  if (!account.token) return [];
+  const queries = [
+    ...input.addresses.slice(0, 6).map((address) => `"${address}"`),
+    ...input.domains.slice(0, 3).map((domain) => `"@${domain}"`),
+  ];
+  const messages = await searchOutlookMessages(account.token, queries, input.since, 2);
+  const groups = new Map<string, OutlookSearchedMessage[]>();
+  for (const message of messages) {
+    const blob = `${message.from} ${message.to} ${message.cc} ${message.subject ?? ""}`;
+    if (!messageInvolves(blob, input)) continue;
+    const key = message.conversationId || message.id;
+    const list = groups.get(key) ?? [];
+    list.push(message);
+    groups.set(key, list);
+  }
+  return [...groups.entries()]
+    .map(([id, list]) => {
+      const sorted = [...list].sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt));
+      const participants = [
+        ...new Set(
+          sorted.flatMap((message) =>
+            `${message.from} ${message.to} ${message.cc}`
+              .toLowerCase()
+              .match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) ?? []
+          )
+        ),
+      ];
+      return {
+        id,
+        subject: sorted[0]?.subject ?? null,
+        participants,
+        messages: sorted.map((message) => ({
+          from: message.from,
+          to: message.to,
+          cc: message.cc,
+          date: message.receivedAt,
+          text: message.body,
+        })),
+      };
+    })
+    .sort((a, b) => Date.parse(b.messages[0]?.date ?? "") - Date.parse(a.messages[0]?.date ?? ""))
+    .slice(0, 5);
 }
 
 /**

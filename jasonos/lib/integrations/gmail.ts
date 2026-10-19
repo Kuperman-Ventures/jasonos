@@ -12,7 +12,8 @@ import {
   unwrapOutlookForward,
 } from "@/lib/integrations/unwrap-forwarded-mail";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
-import { gmailAfterSlashDate } from "@/lib/dates";
+import { etYmd, gmailAfterSlashDate } from "@/lib/dates";
+import type { ParticipantMailThread, ParticipantSearch } from "@/lib/meeting-prep/email-threads";
 import {
   getGoogleAccessToken,
   listGoogleAccessTokens,
@@ -729,6 +730,66 @@ export async function searchGmailThreads({
     console.error("[gmail] thread search failed:", err);
     return [];
   }
+}
+
+function gmailParticipantQuery(input: ParticipantSearch): string {
+  const parts: string[] = [];
+  for (const address of input.addresses.slice(0, 8)) {
+    parts.push(`from:${address}`, `to:${address}`, `cc:${address}`);
+  }
+  for (const domain of input.domains.slice(0, 4)) {
+    parts.push(`from:${domain}`, `to:${domain}`);
+  }
+  const after = etYmd(input.since).replace(/-/g, "/");
+  return `(${parts.join(" OR ")}) after:${after} -in:spam -in:trash`;
+}
+
+function participantAddresses(value: string): string[] {
+  return (value.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) ?? []).filter(
+    (email, index, list) => list.indexOf(email) === index
+  );
+}
+
+/** Threads from the last window that include these people or their domains. */
+export async function searchThreadsByParticipants(
+  input: ParticipantSearch
+): Promise<ParticipantMailThread[]> {
+  if (!input.addresses.length && !input.domains.length) return [];
+  const tokens = await listGoogleAccessTokens();
+  if (!tokens.length) return [];
+  const query = gmailParticipantQuery(input);
+  const seen = new Set<string>();
+  const threads: ParticipantMailThread[] = [];
+  for (const account of tokens) {
+    const found = await searchGmailThreads({
+      query,
+      pageSize: 8,
+      accessToken: account.token,
+    });
+    for (const item of found) {
+      if (seen.has(item.id) || threads.length >= 5) continue;
+      seen.add(item.id);
+      const full = await getGmailThread(item.id, account.token);
+      if (!full?.messages.length) continue;
+      const messages = full.messages.map((message) => ({
+        from: message.from ?? "",
+        to: message.to ?? "",
+        cc: message.cc ?? "",
+        date: messageCommunicationIso(message),
+        text: (message.plaintextBody || message.snippet || "").trim(),
+      }));
+      const participants = [
+        ...new Set(messages.flatMap((message) => participantAddresses(`${message.from} ${message.to} ${message.cc}`))),
+      ];
+      threads.push({
+        id: full.id,
+        subject: full.messages[0]?.subject ?? null,
+        participants,
+        messages,
+      });
+    }
+  }
+  return threads;
 }
 
 export async function getGmailThread(
