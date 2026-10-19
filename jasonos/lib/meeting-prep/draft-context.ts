@@ -1,6 +1,19 @@
 import type { MeetingContext } from "./context-model";
 import { draftContextLines, type DraftPromptInput } from "./points";
 import { isJoinBoilerplate } from "./text";
+import { TRACKS, type Track } from "@/lib/types";
+
+export function meetingTrack(
+  stored: string | null | undefined,
+  people: Array<{ tracks?: string[] }>
+): Track | null {
+  if (stored && (TRACKS as string[]).includes(stored)) return stored as Track;
+  for (const person of people) {
+    const track = person.tracks?.find((item): item is Track => (TRACKS as string[]).includes(item));
+    if (track) return track;
+  }
+  return null;
+}
 
 export interface DraftMeetingSource {
   title: string;
@@ -9,12 +22,15 @@ export interface DraftMeetingSource {
   projectGoal: string | null;
   personalGoal: string | null;
   attendees: Array<{ email: string; name: string | null }>;
+  emailContext?: string | null;
+  track?: string | null;
 }
 
 /** The person context Draft and Adapt both send. */
 export function assembleDraftPrompt(
   prep: DraftMeetingSource,
-  context: MeetingContext
+  context: MeetingContext,
+  narratives: Array<{ title: string; body: string }> = []
 ): { input: DraftPromptInput; contextUsed: string[]; contextMissing: string[] } {
   const purpose = prep.purpose && !isJoinBoilerplate(prep.purpose) ? prep.purpose : null;
   const person = context.people[0] ?? null;
@@ -68,6 +84,14 @@ export function assembleDraftPrompt(
     granolaNotes: granolaSummaries.length,
     earlierMeetings: context.pastMeetings.length,
     jobSearch: context.jobSearch.length,
+    personResearch: context.people.some(
+      (person) => person.researchLead || person.researchBullets.length
+    ),
+    companyResearch: context.people.some(
+      (person) => person.companyResearch?.lead || person.companyResearch?.bullets.length
+    ),
+    emailContext: prep.emailContext ?? null,
+    narrativeCount: narratives.filter((item) => item.body.trim()).length,
   });
   const knownEmails = new Set(context.people.map((item) => item.email.toLowerCase()));
   const attendees = [
@@ -75,6 +99,17 @@ export function assembleDraftPrompt(
       name: item.name,
       title: item.title,
       company: item.company,
+      personResearch:
+        item.researchLead || item.researchBullets.length
+          ? { lead: item.researchLead, bullets: item.researchBullets.slice(0, 4) }
+          : null,
+      companyResearch: item.companyResearch
+        ? {
+            name: item.companyResearch.name,
+            lead: item.companyResearch.lead,
+            bullets: item.companyResearch.bullets.slice(0, 4),
+          }
+        : null,
     })),
     ...prep.attendees
       .filter((attendee) => !knownEmails.has(attendee.email.toLowerCase()))
@@ -82,6 +117,8 @@ export function assembleDraftPrompt(
         name: attendee.name || attendee.email,
         title: null,
         company: null,
+        personResearch: null,
+        companyResearch: null,
       })),
   ];
   return {
@@ -114,6 +151,9 @@ export function assembleDraftPrompt(
         company: job.company,
         kind: job.kind,
       })),
+      emailContext: prep.emailContext?.trim() || null,
+      narratives: narratives.filter((item) => item.body.trim()),
+      track: meetingTrack(prep.track, context.people),
     },
   };
 }

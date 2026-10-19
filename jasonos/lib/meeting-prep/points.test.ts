@@ -138,7 +138,15 @@ describe("draft prompt", () => {
   it("labels open commitments, keeps four earlier meetings, and says when a field is empty", () => {
     const message = buildMeetingPointsUserMessage({
       title: "Pilot check-in",
-      attendees: [{ name: "Alex Chen", title: "VP Sales", company: "Northwind" }],
+      attendees: [
+        {
+          name: "Alex Chen",
+          title: "VP Sales",
+          company: "Northwind",
+          personResearch: null,
+          companyResearch: null,
+        },
+      ],
       purpose: "Leave with a yes on the pilot.",
       outcomeSentence: null,
       summary: "They asked for a scoped pilot.",
@@ -165,6 +173,9 @@ describe("draft prompt", () => {
         { title: "Oldest", debriefNotes: "Should not be included.", nextStep: "Ignore." },
       ],
       jobSearch: [],
+      emailContext: null,
+      narratives: [],
+      track: null,
     });
     assert.match(message, /What Jason wants out of this: Leave with a yes on the pilot\./);
     assert.match(message, /Outcome sentence: None on file/);
@@ -179,10 +190,62 @@ describe("draft prompt", () => {
     assert.equal(message.includes("Oldest"), false);
     assert.match(message, /Granola notes: None on file/);
     assert.match(message, /Job search: None on file/);
+    assert.match(message, /Who they are: None on file/);
+    assert.match(message, /Their company: None on file/);
+    assert.match(message, /How this meeting came about: None on file/);
+    assert.match(message, /Jason's narratives for this meeting: None on file/);
     const system = meetingPointsSystemPrompt("NO AI SLOP");
     assert.match(system, /sourceHint/);
+    assert.match(system, /Never summarize a narrative as "explain what you do."/);
     assert.match(system, /Return JSON only/);
     assert.match(system, /NO AI SLOP/);
+  });
+
+  it("sends research, the email thread, and the narratives for the track", () => {
+    const message = buildMeetingPointsUserMessage({
+      title: "Trident Intro Call",
+      attendees: [
+        {
+          name: "John Ghiorso",
+          title: "Founder",
+          company: "VantaFive",
+          personResearch: {
+            lead: "John founded Orca Pacific and now runs VantaFive.",
+            bullets: ["VantaFive launches a specialist agency every quarter."],
+          },
+          companyResearch: {
+            name: "VantaFive",
+            lead: "An agency venture studio.",
+            bullets: ["Recruits operator-founders."],
+          },
+        },
+      ],
+      purpose: "Explain Kuperman Advisors and AgencyToolBox.ai.",
+      outcomeSentence: null,
+      summary: null,
+      nextMove: null,
+      openCommitments: [],
+      topics: [],
+      whereItStands: null,
+      yourStake: null,
+      introduction: null,
+      referrer: null,
+      personalGoal: null,
+      projectGoal: null,
+      relationshipGoal: null,
+      lastNextStep: null,
+      granolaSummaries: [],
+      pastMeetings: [],
+      jobSearch: [],
+      emailContext: "Cynthia Maluni scheduled the call after a LinkedIn chat.",
+      narratives: [{ title: "Kuperman Advisors", body: "Fractional CMO engagements." }],
+      track: "advisors",
+    });
+    assert.match(message, /Who they are:[\s\S]*Orca Pacific/);
+    assert.match(message, /Their company:[\s\S]*agency venture studio/);
+    assert.match(message, /How this meeting came about:[\s\S]*Cynthia Maluni/);
+    assert.match(message, /Jason's narratives for this meeting:[\s\S]*Fractional CMO/);
+    assert.match(message, /Track: advisors/);
   });
 });
 
@@ -200,6 +263,10 @@ describe("draftContextLines", () => {
       granolaNotes: 2,
       earlierMeetings: 1,
       jobSearch: 0,
+      personResearch: false,
+      companyResearch: false,
+      emailContext: null,
+      narrativeCount: 0,
     });
     assert.deepEqual(lines.contextUsed, [
       "Purpose",
@@ -215,6 +282,10 @@ describe("draftContextLines", () => {
       "Project goal",
       "Goal for this relationship",
       "Job search",
+      "Person research",
+      "Company research",
+      "Email thread",
+      "Narratives",
     ]);
   });
 });

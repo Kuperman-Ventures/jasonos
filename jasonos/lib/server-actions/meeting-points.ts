@@ -10,7 +10,8 @@ import {
   parseReactions,
   reactionsSystemPrompt,
 } from "@/lib/meeting-prep/reactions";
-import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
+import { assembleDraftPrompt, meetingTrack } from "@/lib/meeting-prep/draft-context";
+import { narrativesForTrack } from "@/lib/server-actions/narratives";
 import { ensureEmailContext } from "@/lib/meeting-prep/email-context";
 import {
   buildMeetingPointsUserMessage,
@@ -405,7 +406,12 @@ export async function draftMeetingPoints(
     console.error("[draftMeetingPoints] email context", err);
   }
 
-  const assembled = assembleDraftPrompt(prepResult.prep, context);
+  const track = meetingTrack(prepResult.prep.track, context.people);
+  const narrativeResult = await narrativesForTrack(track);
+  const narratives = narrativeResult.ok
+    ? narrativeResult.narratives.map((item) => ({ title: item.title, body: item.body }))
+    : [];
+  const assembled = assembleDraftPrompt(prepResult.prep, context, narratives);
 
   let text: string;
   try {

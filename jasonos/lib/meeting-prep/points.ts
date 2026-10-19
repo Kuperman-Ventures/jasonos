@@ -11,8 +11,17 @@ export interface DraftPoint {
 
 export interface DraftPromptInput {
   title: string;
-  attendees: Array<{ name: string; title: string | null; company: string | null }>;
+  attendees: Array<{
+    name: string;
+    title: string | null;
+    company: string | null;
+    personResearch: { lead: string | null; bullets: string[] } | null;
+    companyResearch: { name: string | null; lead: string | null; bullets: string[] } | null;
+  }>;
   purpose: string | null;
+  emailContext: string | null;
+  narratives: Array<{ title: string; body: string }>;
+  track: string | null;
   outcomeSentence: string | null;
   summary: string | null;
   nextMove: string | null;
@@ -240,7 +249,7 @@ function line(label: string, value: string | null | undefined): string | null {
 }
 
 export function meetingPointsSystemPrompt(writingRules: string): string {
-  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. Return JSON only.
+  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. When what Jason wants asks him to explain something about himself or his work, write those points from the narratives, in his voice, and keep each detail under 400 characters. Never summarize a narrative as "explain what you do." Return JSON only.
 ${writingRules}`;
 }
 
@@ -262,6 +271,10 @@ export function draftContextLines(input: {
   granolaNotes: number;
   earlierMeetings: number;
   jobSearch: number;
+  personResearch: boolean;
+  companyResearch: boolean;
+  emailContext: string | null;
+  narrativeCount: number;
 }): { contextUsed: string[]; contextMissing: string[] } {
   const rows: Array<{ label: string; present: boolean }> = [
     { label: "Purpose", present: Boolean(input.purpose?.trim()) },
@@ -281,6 +294,13 @@ export function draftContextLines(input: {
       present: input.earlierMeetings > 0,
     },
     { label: "Job search", present: input.jobSearch > 0 },
+    { label: "Person research", present: input.personResearch },
+    { label: "Company research", present: input.companyResearch },
+    { label: "Email thread", present: Boolean(input.emailContext?.trim()) },
+    {
+      label: input.narrativeCount > 0 ? `Narratives (${input.narrativeCount})` : "Narratives",
+      present: input.narrativeCount > 0,
+    },
   ];
   return {
     contextUsed: rows.filter((row) => row.present).map((row) => row.label),
@@ -297,6 +317,48 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
       .filter(Boolean);
     if (people.length) sections.push(`Attendees:\n${people.map((person) => `- ${person}`).join("\n")}`);
   }
+
+  const who = input.attendees.filter(
+    (person) => person.personResearch?.lead || person.personResearch?.bullets.length
+  );
+  if (who.length) {
+    const blocks = who.map((person) => {
+      const lines = [person.personResearch?.lead, ...(person.personResearch?.bullets ?? []).slice(0, 4)].filter(Boolean);
+      return `- ${person.name}\n${lines.join("\n")}`;
+    });
+    sections.push(`Who they are:\n${blocks.join("\n\n")}`);
+  } else {
+    sections.push("Who they are: None on file");
+  }
+
+  const companies = input.attendees.filter(
+    (person) => person.companyResearch?.lead || person.companyResearch?.bullets.length
+  );
+  if (companies.length) {
+    const blocks = companies.map((person) => {
+      const research = person.companyResearch!;
+      const lines = [research.lead, ...research.bullets.slice(0, 4)].filter(Boolean);
+      return `- ${research.name || person.company || "Company"}\n${lines.join("\n")}`;
+    });
+    sections.push(`Their company:\n${blocks.join("\n\n")}`);
+  } else {
+    sections.push("Their company: None on file");
+  }
+
+  sections.push(
+    input.emailContext?.trim()
+      ? `How this meeting came about:\n${input.emailContext.trim()}`
+      : "How this meeting came about: None on file"
+  );
+  if (input.narratives.some((item) => item.body.trim())) {
+    const blocks = input.narratives
+      .filter((item) => item.body.trim())
+      .map((item) => `${item.title}\n${item.body.trim()}`);
+    sections.push(`Jason's narratives for this meeting:\n${blocks.join("\n\n")}`);
+  } else {
+    sections.push("Jason's narratives for this meeting: None on file");
+  }
+  if (input.track?.trim()) sections.push(`Track: ${input.track.trim()}`);
 
   sections.push(
     input.purpose?.trim()

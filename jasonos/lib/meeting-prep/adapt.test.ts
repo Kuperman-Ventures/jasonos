@@ -231,7 +231,15 @@ describe("buildAdaptUserMessage", () => {
       },
       liveSettings: { snapshot: "Operator looking for a COO seat.", targetCompanies: ["Trident"] },
       title: "Trident",
-      attendees: [{ name: "John", title: "Partner", company: "Trident" }],
+      attendees: [
+        {
+          name: "John",
+          title: "Partner",
+          company: "Trident",
+          personResearch: null,
+          companyResearch: null,
+        },
+      ],
       purpose: "Learn the market",
       outcomeSentence: null,
       summary: "John landed at Trident.",
@@ -249,6 +257,9 @@ describe("buildAdaptUserMessage", () => {
       granolaSummaries: [],
       pastMeetings: [],
       jobSearch: [],
+      emailContext: null,
+      narratives: [],
+      track: null,
     };
     const message = buildAdaptUserMessage(input);
     assert.match(message, /Browning Networking - First Call/);

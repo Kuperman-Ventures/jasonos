@@ -12,7 +12,8 @@ import {
   type AdaptedItem,
 } from "@/lib/meeting-prep/adapt";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
-import { assembleDraftPrompt } from "@/lib/meeting-prep/draft-context";
+import { assembleDraftPrompt, meetingTrack } from "@/lib/meeting-prep/draft-context";
+import { narrativesForTrack } from "@/lib/server-actions/narratives";
 import { ensureEmailContext } from "@/lib/meeting-prep/email-context";
 import {
   clampDetail,
@@ -940,7 +941,12 @@ export async function proposeAdaptation(input: {
   } catch (err) {
     console.error("[proposeAdaptation] email context", err);
   }
-  const assembled = assembleDraftPrompt(prepResult.prep, context);
+  const track = meetingTrack(prepResult.prep.track, context.people);
+  const narrativeResult = await narrativesForTrack(track);
+  const narratives = narrativeResult.ok
+    ? narrativeResult.narratives.map((item) => ({ title: item.title, body: item.body }))
+    : [];
+  const assembled = assembleDraftPrompt(prepResult.prep, context, narratives);
 
   let text: string;
   try {
