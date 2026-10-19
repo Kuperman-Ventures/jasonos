@@ -3,21 +3,25 @@ import { getStripeRevenue } from "@/lib/integrations/stripe";
 import { getLemonSqueezyMetrics } from "@/lib/integrations/lemon-squeezy";
 import { getSettingsPayload } from "@/lib/settings/data";
 import { SettingsClient } from "@/components/jasonos/settings/settings-client";
+import { listNarratives } from "@/lib/server-actions/narratives";
 
 export const metadata = { title: "Settings · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [stripe, ls, settings] = await Promise.all([
+  const [stripe, ls, settings, narrativesResult] = await Promise.all([
     getStripeRevenue(),
     getLemonSqueezyMetrics(),
     getSettingsPayload(),
+    listNarratives(),
   ]);
 
   return (
     <Suspense>
       <SettingsClient
         initialSettings={settings}
+        narratives={narrativesResult.ok ? narrativesResult.narratives : []}
+        narrativesError={narrativesResult.ok ? null : narrativesResult.error}
         billing={{
           stripe: {
             configured: stripe.configured,

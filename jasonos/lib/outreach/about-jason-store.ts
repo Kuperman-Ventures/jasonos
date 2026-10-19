@@ -1,6 +1,10 @@
 import "server-only";
 
-import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicClient,
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import { normalizeAboutJason } from "@/lib/outreach/about-jason";
 
 async function candidateUserIds(
@@ -34,8 +38,22 @@ async function candidateUserIds(
   return ids;
 }
 
-/** Stored About Jason blurb, or empty string when unset. */
+/** About me narrative, then the older About Jason field when that table is missing. */
 export async function loadStoredAboutJason(): Promise<string> {
+  try {
+    const jasonos = createServiceRoleClient();
+    const { data, error } = await jasonos
+      .from("narratives")
+      .select("body")
+      .eq("key", "about_me")
+      .maybeSingle();
+    if (!error && data) {
+      return normalizeAboutJason((data as { body?: string | null }).body) ?? "";
+    }
+  } catch (err) {
+    console.error("[about-jason] narrative load failed", err);
+  }
+
   try {
     const supabase = createPublicServiceRoleClient();
     const userIds = await candidateUserIds(supabase);
