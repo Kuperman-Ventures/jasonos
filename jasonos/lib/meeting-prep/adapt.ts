@@ -40,7 +40,7 @@ export interface AdaptedItem {
 }
 
 const KIND_SET = new Set<string>(POINT_KINDS);
-const PLACEHOLDER = /\{\{\s*(?:name|company|title|targets|snapshot)\s*\}\}/i;
+const PLACEHOLDER = /\{\{\s*(?:name|company|title|targets|snapshot|narrative:[a-z0-9_]+)\s*\}\}/i;
 
 export function adaptSystemPrompt(writingRules: string): string {
   return `Jason has a strategy for this kind of meeting and is about to have it with a specific person. Rewrite each item's detail so it is what Jason would say to this person, using facts from the context and nothing invented. Keep kind, order and headline. If a headline contains {{name}}, {{company}}, {{title}}, {{targets}} or {{snapshot}}, fill that placeholder from the context and leave the token when the value is missing. For items with prepare_reactions true, rewrite the six reactions for this person: [{"shape":"agree|soft_agree|defer|deflect|counter_ask|decline","soundsLike":"...","pivot":"..."}]. Drop an item only when the context makes it moot, set dropped true, and give the reason in dropped_reason and source_hint. Add at most two items from the context, each with a source_hint. Every rewritten detail that uses a fact gets a one-line source_hint naming that fact. Return JSON only: {"items":[{"kind":"agenda|point|question|ask","headline":"...","detail":"...","prepare_reactions":false,"reactions":[],"source_hint":"...","dropped":false,"dropped_reason":null}]} in the strategy's order, dropped items included and flagged, then any added items.
@@ -102,7 +102,7 @@ function headlinesMatch(strategyHeadline: string, returned: string): boolean {
   const right = returned.trim().replace(/\s+/g, " ").toLowerCase();
   if (left === right) return true;
   if (!PLACEHOLDER.test(strategyHeadline)) return false;
-  const parts = left.split(/\{\{\s*(?:name|company|title|targets|snapshot)\s*\}\}/);
+  const parts = left.split(/\{\{\s*(?:name|company|title|targets|snapshot|narrative:[a-z0-9_]+)\s*\}\}/);
   const pattern = parts.map(escapeRegExp).join("(?:\\{\\{[^}]+\\}\\}|.+)");
   return new RegExp(`^${pattern}$`).test(right);
 }

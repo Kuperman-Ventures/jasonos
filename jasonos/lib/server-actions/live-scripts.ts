@@ -13,11 +13,12 @@ import {
 } from "@/lib/meeting-prep/adapt";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import { assembleDraftPrompt, meetingTrack } from "@/lib/meeting-prep/draft-context";
-import { narrativesForTrack } from "@/lib/server-actions/narratives";
+import { listNarratives, narrativesForTrack } from "@/lib/server-actions/narratives";
 import { ensureEmailContext } from "@/lib/meeting-prep/email-context";
 import {
   clampDetail,
   clampHeadline,
+  fillNarrativePlaceholders,
   fillScriptPlaceholders,
   fillStrategySettings,
   meetingPointsSystemPrompt,
@@ -136,21 +137,32 @@ const EMPTY_SETTINGS: LiveSettings = { targetCompanies: [], snapshot: null };
 function fillAppliedText(
   value: string | null,
   person: { name?: string | null; company?: string | null; title?: string | null } | null,
-  settings: LiveSettings
+  settings: LiveSettings,
+  narratives: Array<{ key: string; body: string }>
 ): string | null {
-  return fillStrategySettings(fillScriptPlaceholders(value, person), settings);
+  return fillNarrativePlaceholders(
+    fillStrategySettings(fillScriptPlaceholders(value, person), settings),
+    narratives
+  );
 }
 
 function filledReactions(
   reactions: Reaction[],
   person: { name?: string | null; company?: string | null; title?: string | null } | null,
-  settings: LiveSettings
+  settings: LiveSettings,
+  narratives: Array<{ key: string; body: string }>
 ): Reaction[] {
   return reactions.map((reaction) => ({
     shape: reaction.shape,
-    soundsLike: fillScriptPlaceholders(reaction.soundsLike, person) || reaction.soundsLike,
-    pivot: fillAppliedText(reaction.pivot, person, settings) || reaction.pivot,
+    soundsLike: fillAppliedText(reaction.soundsLike, person, settings, narratives) || reaction.soundsLike,
+    pivot: fillAppliedText(reaction.pivot, person, settings, narratives) || reaction.pivot,
   }));
+}
+
+async function narrativeBodies(): Promise<Array<{ key: string; body: string }>> {
+  const listed = await listNarratives();
+  if (!listed.ok) return [];
+  return listed.narratives.map((item) => ({ key: item.key, body: item.body }));
 }
 
 function hasConfig() {
@@ -593,6 +605,7 @@ export async function applyLiveScript(input: {
   const person = context.people[0] ?? null;
   const settingsResult = await getLiveSettings();
   const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  const narratives = await narrativeBodies();
 
   const sb = createServiceRoleClient();
   const { data: existing, error: existingError } = await sb
@@ -616,14 +629,14 @@ export async function applyLiveScript(input: {
     prep_id: prepId,
     position: start + index,
     kind: item.kind,
-    headline: fillAppliedText(item.headline, person, settings) || item.headline,
-    detail: fillAppliedText(item.detail, person, settings),
+    headline: fillAppliedText(item.headline, person, settings, narratives) || item.headline,
+    detail: fillAppliedText(item.detail, person, settings, narratives),
     state: "open",
     source: "script",
     script_id: scriptId,
     edited_by_user: false,
     prepare_reactions: item.prepareReactions,
-    reactions: filledReactions(item.reactions, person, settings),
+    reactions: filledReactions(item.reactions, person, settings, narratives),
   }));
 
   const { error: insertError } = await sb.from("meeting_points").insert(rows);
@@ -635,7 +648,7 @@ export async function applyLiveScript(input: {
   }
 
   const success = loaded.script.successSentence
-    ? fillAppliedText(loaded.script.successSentence, person, settings)
+    ? fillAppliedText(loaded.script.successSentence, person, settings, narratives)
     : null;
   const { data: prepRow } = await sb
     .from("meeting_preps")
@@ -936,6 +949,11 @@ export async function proposeAdaptation(input: {
   }
   const settingsResult = await getLiveSettings();
   const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  const narrativeRows = await narrativeBodies();
+  const person =
+    context.people.find((item) => item.contactId === prepResult.prep.primaryContactId) ??
+    context.people[0] ??
+    null;
   try {
     prepResult.prep.emailContext = await ensureEmailContext(prepResult.prep);
   } catch (err) {
@@ -962,14 +980,19 @@ export async function proposeAdaptation(input: {
             strategy: {
               name: loaded.script.name,
               situation: loaded.script.situation,
-              successSentence: loaded.script.successSentence,
+              successSentence: fillAppliedText(
+                loaded.script.successSentence,
+                person,
+                settings,
+                narrativeRows
+              ),
               rubric: loaded.script.rubric,
               items: loaded.items.map((item) => ({
                 kind: item.kind,
-                headline: item.headline,
-                detail: item.detail,
+                headline: fillAppliedText(item.headline, person, settings, narrativeRows) || item.headline,
+                detail: fillAppliedText(item.detail, person, settings, narrativeRows),
                 prepareReactions: item.prepareReactions,
-                reactions: item.reactions,
+                reactions: filledReactions(item.reactions, person, settings, narrativeRows),
               })),
             },
             liveSettings: settings,
@@ -981,8 +1004,13 @@ export async function proposeAdaptation(input: {
     return { ok: false, error: err instanceof Error ? err.message : "Could not adapt the strategy." };
   }
 
-  const items = parseAdaptation(text, loaded.items);
-  if (!items) return { ok: false, error: "Could not read the adaptation." };
+  const parsed = parseAdaptation(text, loaded.items);
+  if (!parsed) return { ok: false, error: "Could not read the adaptation." };
+  const items = parsed.map((item) => ({
+    ...item,
+    headline: fillAppliedText(item.headline, person, settings, narrativeRows) || item.headline,
+    detail: fillAppliedText(item.detail, person, settings, narrativeRows),
+  }));
 
   const payload = {
     prep_id: prepId,
@@ -1034,6 +1062,7 @@ export async function acceptAdaptation(input: {
   }
   const settingsResult = await getLiveSettings();
   const settings = settingsResult.ok ? settingsResult : EMPTY_SETTINGS;
+  const narratives = await narrativeBodies();
   const person =
     context.people.find((item) => item.contactId === prepResult.prep.primaryContactId) ??
     context.people[0] ??
@@ -1061,15 +1090,15 @@ export async function acceptAdaptation(input: {
     prep_id: row.prep_id,
     position: start + index,
     kind: item.kind,
-    headline: fillAppliedText(item.headline, person, settings) || item.headline,
-    detail: fillAppliedText(item.detail, person, settings),
+    headline: fillAppliedText(item.headline, person, settings, narratives) || item.headline,
+    detail: fillAppliedText(item.detail, person, settings, narratives),
     state: "open",
     source: "script",
     script_id: row.script_id,
     edited_by_user: false,
     source_hint: item.sourceHint,
     prepare_reactions: item.prepareReactions,
-    reactions: filledReactions(item.reactions, person, settings),
+    reactions: filledReactions(item.reactions, person, settings, narratives),
   }));
 
   if (pointRows.length) {
@@ -1083,7 +1112,7 @@ export async function acceptAdaptation(input: {
   }
 
   const success = loaded.script.successSentence
-    ? fillAppliedText(loaded.script.successSentence, person, settings)
+    ? fillAppliedText(loaded.script.successSentence, person, settings, narratives)
     : null;
   const existingOutcome = prepResult.prep.outcomeSentence?.trim() ?? "";
   const prepUpdate: {

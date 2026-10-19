@@ -76,6 +76,24 @@ export function fillScriptPlaceholders(
   });
 }
 
+/** Fill {{narrative:key}} from Settings. Leave the token when that narrative is empty. */
+export function fillNarrativePlaceholders(
+  value: string | null,
+  narratives: Array<{ key: string; body: string }>,
+  limit = 400
+): string | null {
+  if (!value) return value;
+  const byKey = new Map(
+    narratives.map((item) => [item.key.trim().toLowerCase(), item.body.trim()])
+  );
+  return value.replace(/\{\{\s*narrative:([a-z0-9_]+)\s*\}\}/gi, (token, key: string) => {
+    const body = byKey.get(key.toLowerCase()) ?? "";
+    if (!body) return token;
+    if (body.length <= limit) return body;
+    return `${body.slice(0, Math.max(1, limit - 1)).trimEnd()}…`;
+  });
+}
+
 /** Fill {{targets}} and {{snapshot}}. Leave the token when that setting is empty. */
 export function fillStrategySettings(
   value: string | null,

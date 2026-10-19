@@ -5,6 +5,7 @@ import {
   clampDetail,
   coveredTally,
   draftContextLines,
+  fillNarrativePlaceholders,
   fillScriptPlaceholders,
   fillStrategySettings,
   firstOpenIndex,
@@ -112,6 +113,25 @@ describe("fillScriptPlaceholders", () => {
     );
     assert.equal(fillScriptPlaceholders("Hi {{company}}", null), "Hi {{company}}");
     assert.equal(fillScriptPlaceholders(null, { name: "Alex" }), null);
+  });
+});
+
+describe("fillNarrativePlaceholders", () => {
+  it("fills a narrative and shortens one that is over the detail limit", () => {
+    const long = "word ".repeat(120);
+    const filled = fillNarrativePlaceholders(
+      "Say this: {{narrative:kuperman_advisors}} and {{narrative:missing}}",
+      [
+        { key: "kuperman_advisors", body: long },
+        { key: "agencytoolbox", body: "How it came to be." },
+      ]
+    );
+    assert.ok(filled);
+    assert.match(filled, /Say this: word/);
+    assert.match(filled, /… and \{\{narrative:missing\}\}/);
+    assert.ok(filled.length < long.length);
+    const cut = filled.slice(filled.indexOf("word"), filled.indexOf("…") + 1);
+    assert.ok(cut.length <= 400);
   });
 });
 
