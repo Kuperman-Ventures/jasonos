@@ -201,3 +201,99 @@ export function buildResearchBriefModel(input: {
     empty: false,
   };
 }
+
+export interface PersonCompanyResearch {
+  person: ResearchBriefModel;
+  company: ResearchBriefModel;
+  companyName: string | null;
+  title: string | null;
+  website: string | null;
+  linkedinUrl: string | null;
+}
+
+function asShortText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return text.slice(0, max);
+}
+
+function asBulletList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.replace(/\s+/g, " ").trim() : ""))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+function asSourceList(value: unknown): ResearchSource[] {
+  if (!Array.isArray(value)) return [];
+  const out: ResearchSource[] = [];
+  for (const item of value) {
+    if (typeof item === "string") {
+      const url = item.match(/https?:\/\/[^\s)]+/i)?.[0]?.replace(/[.,;]+$/, "") ?? "";
+      if (/^https?:\/\//i.test(url)) out.push({ title: null, url });
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const urlRaw = (item as { url?: unknown }).url;
+    const url = typeof urlRaw === "string" ? urlRaw.trim().replace(/[.,;]+$/, "") : "";
+    if (!/^https?:\/\//i.test(url)) continue;
+    const title = asShortText((item as { title?: unknown }).title, 200);
+    out.push({ title, url });
+  }
+  return out.slice(0, 8);
+}
+
+function asHttpUrl(value: unknown): string | null {
+  const text = asShortText(value, 300);
+  if (!text) return null;
+  const withScheme = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function briefFromParts(lead: string | null, bullets: string[], sources: ResearchSource[]): ResearchBriefModel {
+  return {
+    lead,
+    bullets,
+    notes: [],
+    sources,
+    empty: !lead && bullets.length === 0 && sources.length === 0,
+  };
+}
+
+/** Parse the JSON returned by the person-and-company research pass. */
+export function parsePersonCompanyResearch(raw: string): PersonCompanyResearch | null {
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  let data: unknown;
+  try {
+    data = JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const row = data as Record<string, unknown>;
+  const person = row.person && typeof row.person === "object" ? (row.person as Record<string, unknown>) : {};
+  const company = row.company && typeof row.company === "object" ? (row.company as Record<string, unknown>) : {};
+  const linkedin = asHttpUrl(row.linkedinUrl);
+  return {
+    person: briefFromParts(asShortText(person.lead, 600), asBulletList(person.bullets), asSourceList(person.sources)),
+    company: briefFromParts(
+      asShortText(company.lead, 600),
+      asBulletList(company.bullets),
+      asSourceList(company.sources)
+    ),
+    companyName: asShortText(company.name, 200),
+    title: asShortText(row.title, 160),
+    website: asHttpUrl(company.website),
+    linkedinUrl: linkedin && /linkedin\.com\//i.test(linkedin) ? linkedin : null,
+  };
+}

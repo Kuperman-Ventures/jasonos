@@ -42,6 +42,7 @@ import {
   NETWORK_ROLE_LABELS,
   RELATIONSHIP_TYPE_LABELS,
 } from "@/lib/outreach/types";
+import { runMeetingResearch } from "@/lib/server-actions/meeting-research";
 import {
   confirmMeetingPurpose,
   setMeetingOutcomeMark,
@@ -49,10 +50,12 @@ import {
   setMeetingPrimaryContact,
   setMeetingProject,
   setMeetingPurpose,
+  setMeetingTrack,
   type MeetingPrepDetail,
   type OutcomeMark,
   type ProjectPickerOption,
 } from "@/lib/server-actions/meeting-prep";
+import { TRACK_META, TRACKS, type Track } from "@/lib/types";
 import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import {
   createMeetingPoint,
@@ -685,8 +688,19 @@ function GoalLinks({
     });
   };
 
+  const inferred = inferredMeetingTrack(people);
+  const saveTrack = (value: string) => {
+    void setMeetingTrack(prep.id, value || null).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
   return (
-    <div className="space-y-2 pt-1">
+    <div className="grid gap-3 pt-1 sm:grid-cols-3">
       <label className="block space-y-1">
         <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Project</span>
         <select
@@ -725,6 +739,144 @@ function GoalLinks({
           </p>
         ) : null}
       </label>
+      <label className="block space-y-1">
+        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Track</span>
+        <select
+          value={prep.track ?? ""}
+          aria-label="Track"
+          className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none"
+          onChange={(event) => saveTrack(event.target.value)}
+        >
+          <option value="">
+            {inferred ? `From contact (${TRACK_META[inferred].short})` : "No track"}
+          </option>
+          {MEETING_TRACKS.map((track) => (
+            <option key={track} value={track}>
+              {TRACK_META[track].short}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+const MEETING_TRACKS: Track[] = ["job_search", "advisors", "venture", "personal"];
+
+function inferredMeetingTrack(people: MeetingContextPerson[]): Track | null {
+  for (const person of people) {
+    const track = person.tracks.find((item): item is Track => (TRACKS as string[]).includes(item));
+    if (track) return track;
+  }
+  return null;
+}
+
+function ResearchStatus({ prepId, researchRanAt }: { prepId: string; researchRanAt: string | null }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const run = () => {
+    startTransition(async () => {
+      const result = await runMeetingResearch(prepId, { force: true });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.errors.length && result.researched.length === 0) {
+        toast.error(result.errors[0]);
+      } else if (result.researched.length) {
+        toast.success(`Researched ${result.researched.join(", ")}`);
+      } else {
+        toast.success("Research is current");
+      }
+      router.refresh();
+    });
+  };
+  return (
+    <p className="text-[14px] text-[var(--jos-muted)]">
+      {pending ? (
+        "Researching attendees"
+      ) : researchRanAt ? (
+        <>
+          Researched {easternDateLong(researchRanAt)}
+          {" · "}
+          <button type="button" className="font-semibold text-[var(--color-accent-700)] hover:underline" onClick={run}>
+            Redo
+          </button>
+        </>
+      ) : (
+        <>
+          Not researched
+          {" · "}
+          <button type="button" className="font-semibold text-[var(--color-accent-700)] hover:underline" onClick={run}>
+            Research now
+          </button>
+        </>
+      )}
+    </p>
+  );
+}
+
+function SourceLinks({ sources }: { sources: Array<{ title: string | null; url: string }> }) {
+  if (!sources.length) return null;
+  return (
+    <p className="mt-1 text-[13px] leading-relaxed">
+      {sources.slice(0, 4).map((source, index) => (
+        <span key={source.url}>
+          {index ? " · " : null}
+          <ExternalLink href={source.url}>{source.title || "Source"}</ExternalLink>
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function AttendeeResearch({ people }: { people: MeetingContextPerson[] }) {
+  const shown = people.filter(
+    (person) => person.researchLead || person.researchBullets.length || person.companyResearch
+  );
+  if (!shown.length) return null;
+  return (
+    <div className="space-y-5">
+      {shown.map((person) => (
+        <div key={person.contactId} className="max-w-[65ch]">
+          <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+            Who {person.name} is
+          </p>
+          {person.researchLead ? (
+            <p className="mt-1 text-[15px] leading-relaxed">
+              <Prose text={person.researchLead} />
+            </p>
+          ) : null}
+          {person.researchBullets.length ? (
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-[15px] leading-relaxed">
+              {person.researchBullets.slice(0, 4).map((bullet) => (
+                <li key={bullet}>{bullet}</li>
+              ))}
+            </ul>
+          ) : null}
+          <SourceLinks sources={person.researchSources} />
+          {person.companyResearch ? (
+            <div className="mt-3">
+              <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                {person.companyResearch.name || "Their company"}
+              </p>
+              {person.companyResearch.lead ? (
+                <p className="mt-1 text-[15px] leading-relaxed">
+                  <Prose text={person.companyResearch.lead} />
+                </p>
+              ) : null}
+              {person.companyResearch.bullets.length ? (
+                <ul className="mt-1 list-disc space-y-1 pl-5 text-[15px] leading-relaxed">
+                  {person.companyResearch.bullets.slice(0, 4).map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <SourceLinks sources={person.companyResearch.sources} />
+            </div>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -1404,11 +1556,13 @@ export function MeetingPrepClient({
               </li>
             ))}
           </ul>
+          <ResearchStatus prepId={prep.id} researchRanAt={prep.researchRanAt} />
         </section>
       ) : null}
 
       <section className="space-y-4">
         <BlockTitle>Before the call</BlockTitle>
+        <AttendeeResearch people={context.people} />
         {hasRead ? (
           <div className="space-y-6 bg-[var(--color-surface)] px-4 py-5 sm:px-5">
             {context.brief.summary ? (

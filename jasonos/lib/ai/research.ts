@@ -12,6 +12,7 @@ import "server-only";
 import { gateway } from "@ai-sdk/gateway";
 import { generateText, stepCountIs } from "ai";
 import { heavyModel } from "@/lib/ai/models";
+import { parsePersonCompanyResearch, type PersonCompanyResearch } from "@/lib/ai/research-brief";
 import { cleanResearchBrief } from "@/lib/ai/research-clean";
 
 export { cleanResearchBrief } from "@/lib/ai/research-clean";
@@ -176,6 +177,64 @@ OUTPUT RULES (hard):
       sources,
       searched: sources.length > 0,
     };
+  } catch (err) {
+    throw new Error(cleanErrorMessage(err));
+  }
+}
+
+export async function researchPersonAndCompany(input: {
+  name: string;
+  email: string | null;
+  company: string | null;
+  linkedinUrl: string | null;
+}): Promise<PersonCompanyResearch> {
+  const who = [input.name, input.company ? `(${input.company})` : "", input.email ? `<${input.email}>` : ""]
+    .filter(Boolean)
+    .join(" ");
+  const system = `You are researching someone before Jason Kuperman's meeting. Use perplexity_search at most 8 times. Establish, with sources:
+- who this person is (current role, company, what they built before, what they are known for)
+- what the company does and how it makes money, who it serves, size and stage
+- anything material from the last 90 days
+
+Report only what was found. Every bullet needs a source URL in the sources array. If the email domain identifies the company, start there. Do not invent a role, company, or URL.
+
+Return ONLY JSON:
+{"person":{"lead":"","bullets":[],"sources":[{"title":"","url":""}]},"company":{"name":null,"website":null,"lead":"","bullets":[],"sources":[{"title":"","url":""}]},"title":null,"linkedinUrl":null}`;
+  const prompt = `Research ${who}.${
+    input.linkedinUrl ? ` LinkedIn on file: ${input.linkedinUrl}.` : ""
+  }${
+    input.email ? " If the email domain is a company, start there." : ""
+  } Return the JSON object and nothing else.`;
+
+  try {
+    const result = await generateText({
+      model: heavyModel(),
+      tools: {
+        perplexity_search: gateway.tools.perplexitySearch({
+          maxResults: 5,
+          searchLanguageFilter: ["en"],
+          country: "US",
+        }),
+      },
+      stopWhen: stepCountIs(9),
+      maxOutputTokens: 1800,
+      system,
+      prompt,
+      providerOptions: {
+        anthropic: {
+          thinking: { type: "disabled" },
+        },
+      },
+    });
+    const parsed = parsePersonCompanyResearch(result.text ?? "");
+    if (!parsed) {
+      throw new Error("Web search did not return a usable profile.");
+    }
+    if (parsed.person.sources.length === 0 && parsed.company.sources.length === 0) {
+      const found = collectResearchSources(result);
+      if (found.length) parsed.person.sources = found.slice(0, 8);
+    }
+    return parsed;
   } catch (err) {
     throw new Error(cleanErrorMessage(err));
   }

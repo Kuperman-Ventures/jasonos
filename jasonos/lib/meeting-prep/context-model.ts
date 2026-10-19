@@ -284,7 +284,15 @@ export interface MeetingContextPerson {
   referredByName: string | null;
   researchLead: string | null;
   researchBullets: string[];
+  researchSources: Array<{ title: string | null; url: string }>;
   researchEmpty: boolean;
+  companyResearch: {
+    name: string | null;
+    lead: string | null;
+    bullets: string[];
+    sources: Array<{ title: string | null; url: string }>;
+  } | null;
+  tracks: string[];
   browningPrep: string | null;
   /** Open / overdue / awaiting commitments from the relationship brief. */
   openCommitments: Array<{

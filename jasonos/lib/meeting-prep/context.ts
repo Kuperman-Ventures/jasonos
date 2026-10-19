@@ -71,10 +71,26 @@ function quoteFilter(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-function companyName(row: { companies?: unknown }): string | null {
-  const company = row.companies as { name?: string } | { name?: string }[] | null;
-  if (Array.isArray(company)) return text(company[0]?.name);
-  return text(company?.name);
+function companyRecord(row: { companies?: unknown }): {
+  name: string | null;
+  description: string | null;
+  researchBrief: string | null;
+} {
+  const company = row.companies as
+    | { name?: string; description?: string | null; research_brief?: string | null }
+    | { name?: string; description?: string | null; research_brief?: string | null }[]
+    | null;
+  const one = Array.isArray(company) ? company[0] : company;
+  return {
+    name: text(one?.name),
+    description: text(one?.description),
+    researchBrief: typeof one?.research_brief === "string" ? one.research_brief : null,
+  };
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
 }
 
 function briefFields(value: unknown): {
@@ -411,7 +427,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     ? await sb
         .from("contacts")
         .select(
-          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, browning_prep, emails, companies(name)"
+          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, tracks, browning_prep, emails, companies(name, description, research_brief)"
         )
         .in("id", contactIds)
     : { data: [], error: null };
@@ -441,7 +457,20 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     const contactId = String(row.id);
     const attendee = attendees.find((item) => item.contactId === contactId);
     const research = parseResearchBrief(typeof row.research_brief === "string" ? row.research_brief : "");
-    const company = companyName(row);
+    const companyRow = companyRecord(row);
+    const company = companyRow.name;
+    const companyBrief = parseResearchBrief(companyRow.researchBrief ?? "");
+    const companyLead = companyBrief.empty ? null : companyBrief.lead;
+    const companyBullets = companyBrief.empty ? [] : companyBrief.bullets;
+    const companyResearch =
+      companyLead || companyBullets.length || companyRow.description
+        ? {
+            name: company,
+            lead: companyLead || companyRow.description,
+            bullets: companyBullets,
+            sources: companyBrief.empty ? [] : companyBrief.sources,
+          }
+        : null;
     const handoff = handoffs.find(
       (item) =>
         item.existing_contact_id === contactId ||
@@ -482,7 +511,10 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       referredByName: referrerId ? referrerNames.get(referrerId) ?? null : null,
       researchLead: research.empty ? null : research.lead,
       researchBullets: research.empty ? [] : research.bullets,
+      researchSources: research.empty ? [] : research.sources,
       researchEmpty: research.empty,
+      companyResearch,
+      tracks: stringList(row.tracks),
       browningPrep: text(row.browning_prep),
       openCommitments,
       remember: (relBrief?.remember ?? []).map((item) => item.text),

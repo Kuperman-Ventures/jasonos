@@ -12,6 +12,7 @@ import {
 } from "@/lib/meeting-prep/today";
 import { purposeFromCalendarDescription } from "@/lib/meeting-prep/text";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { TRACKS, type Track } from "@/lib/types";
 
 export type MeetingPrepStatus =
   | "new"
@@ -90,6 +91,9 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   scriptName: string | null;
   adaptedFromScriptId: string | null;
   adaptedFromScriptName: string | null;
+  track: Track | null;
+  researchRanAt: string | null;
+  emailContext: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -124,6 +128,9 @@ interface PrepRow {
   project_id?: string | null;
   primary_contact_id?: string | null;
   adapted_from_script_id?: string | null;
+  track?: string | null;
+  research_ran_at?: string | null;
+  email_context?: string | null;
 }
 
 const PREP_COLUMNS =
@@ -132,6 +139,7 @@ const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`
 const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
 const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
+const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_LINKS}, track, research_ran_at, email_context`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -246,8 +254,16 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     scriptName: null,
     adaptedFromScriptId: row.adapted_from_script_id ?? null,
     adaptedFromScriptName: null,
+    track: asTrack(row.track),
+    researchRanAt: row.research_ran_at ?? null,
+    emailContext: row.email_context?.trim() || null,
     sources,
   };
+}
+
+function asTrack(value: string | null | undefined): Track | null {
+  if (value && (TRACKS as string[]).includes(value)) return value as Track;
+  return null;
 }
 
 function attendeePayload(meeting: TodaysMeeting) {
@@ -443,9 +459,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_WITH_LINKS)
+    .select(PREP_COLUMNS_WITH_RESEARCH)
     .eq("id", id)
     .maybeSingle();
+  if (error && /track|research_ran_at|email_context/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_LINKS)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && /project_id|primary_contact_id|adapted_from_script_id|adapted_at/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
@@ -821,4 +844,23 @@ export async function setMeetingPrimaryContact(
   if (error) return { ok: false, error: error.message };
   revalidatePrep(id);
   return { ok: true, contactId: next };
+}
+
+export async function setMeetingTrack(
+  prepId: string,
+  track: string | null
+): Promise<PrepResult<{ track: Track | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const next = asTrack(track?.trim() || null);
+  if (track?.trim() && !next) return { ok: false, error: "Unknown track." };
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("meeting_preps")
+    .update({ track: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePrep(id);
+  return { ok: true, track: next };
 }
