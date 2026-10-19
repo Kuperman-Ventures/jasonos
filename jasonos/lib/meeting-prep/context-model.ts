@@ -285,6 +285,7 @@ export interface MeetingContextPerson {
   researchLead: string | null;
   researchBullets: string[];
   researchSources: Array<{ title: string | null; url: string }>;
+  researchAt: string | null;
   researchEmpty: boolean;
   companyResearch: {
     name: string | null;

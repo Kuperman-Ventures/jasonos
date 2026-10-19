@@ -427,7 +427,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     ? await sb
         .from("contacts")
         .select(
-          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, tracks, browning_prep, emails, companies(name, description, research_brief)"
+          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, research_at, tracks, browning_prep, emails, companies(name, description, research_brief)"
         )
         .in("id", contactIds)
     : { data: [], error: null };
@@ -512,6 +512,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       researchLead: research.empty ? null : research.lead,
       researchBullets: research.empty ? [] : research.bullets,
       researchSources: research.empty ? [] : research.sources,
+      researchAt: text(row.research_at),
       researchEmpty: research.empty,
       companyResearch,
       tracks: stringList(row.tracks),

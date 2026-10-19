@@ -19,6 +19,8 @@ export interface MeetingResearchResult {
 
 type ActionResult = ({ ok: true } & MeetingResearchResult) | { ok: false; error: string };
 
+const researchInflight = new Set<string>();
+
 interface ContactRow {
   id: string;
   name: string | null;
@@ -152,6 +154,11 @@ export async function runMeetingResearch(
   const id = prepId.trim();
   if (!id) return { ok: false, error: "Meeting prep not found." };
   const force = Boolean(options?.force);
+  if (!force && researchInflight.has(id)) {
+    return { ok: true, researched: [], skipped: [], errors: [] };
+  }
+  researchInflight.add(id);
+  try {
   const sb = createServiceRoleClient();
   const { data: prep, error: prepError } = await sb
     .from("meeting_preps")
@@ -243,15 +250,17 @@ export async function runMeetingResearch(
     }
   }
 
-  if (researched.length || skipped.length || errors.length === 0) {
-    const { error } = await sb
-      .from("meeting_preps")
-      .update({ research_ran_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq("id", id);
-    if (error) return { ok: false, error: error.message };
-  }
+  const finishedAt = new Date().toISOString();
+  const { error } = await sb
+    .from("meeting_preps")
+    .update({ research_ran_at: finishedAt, updated_at: finishedAt })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/");
   revalidatePath(`/meetings/${id}`);
   return { ok: true, researched, skipped, errors };
+  } finally {
+    researchInflight.delete(id);
+  }
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { loadHomeContextsForPreps } from "@/lib/meeting-prep/context";
 import {
   EMPTY_HOME_CONTEXT,
@@ -11,6 +12,7 @@ import {
   type TodaysMeeting,
 } from "@/lib/meeting-prep/today";
 import { purposeFromCalendarDescription } from "@/lib/meeting-prep/text";
+import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { TRACKS, type Track } from "@/lib/types";
 
@@ -336,6 +338,65 @@ async function pointCounts(
   return { counts, missing: false };
 }
 
+function startsWithinWeek(startsAt: string, now = Date.now()): boolean {
+  const start = Date.parse(startsAt);
+  if (Number.isNaN(start)) return false;
+  return start >= now - 12 * 60 * 60 * 1000 && start <= now + 7 * 24 * 60 * 60 * 1000;
+}
+
+async function queueResearchForThinAttendees(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  eventIds: string[]
+): Promise<void> {
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .select("id, starts_at, research_ran_at, attendees")
+    .in("gcal_event_id", eventIds);
+  if (error || !data?.length) return;
+
+  const due = (data as Array<{ id: string; starts_at: string; research_ran_at: string | null; attendees: unknown }>).filter(
+    (row) => !row.research_ran_at && startsWithinWeek(row.starts_at)
+  );
+  const contactIds = [
+    ...new Set(due.flatMap((row) => asAttendees(row.attendees).map((attendee) => attendee.contactId).filter(Boolean))),
+  ] as string[];
+  if (!contactIds.length) return;
+
+  const { data: contacts, error: contactError } = await sb
+    .from("contacts")
+    .select("id, title, company_id, linkedin_url, research_at")
+    .in("id", contactIds);
+  if (contactError || !contacts) return;
+  const thin = new Set(
+    (contacts as Array<{ id: string; title: string | null; company_id: string | null; linkedin_url: string | null; research_at: string | null }>)
+      .filter((contact) =>
+        isContactThin({
+          title: contact.title,
+          companyId: contact.company_id,
+          linkedinUrl: contact.linkedin_url,
+          researchAt: contact.research_at,
+        })
+      )
+      .map((contact) => contact.id)
+  );
+  const prepIds = due
+    .filter((row) => asAttendees(row.attendees).some((attendee) => attendee.contactId && thin.has(attendee.contactId)))
+    .map((row) => row.id);
+  if (!prepIds.length) return;
+
+  after(() => {
+    void import("@/lib/server-actions/meeting-research").then(({ runMeetingResearch }) =>
+      Promise.all(
+        prepIds.map((prepId) =>
+          runMeetingResearch(prepId).catch((err) => {
+            console.error("[meeting-research]", prepId, err);
+          })
+        )
+      )
+    );
+  });
+}
+
 export async function getTodaysMeetingPreps(): Promise<
   PrepResult<{ meetings: MeetingPrepSummary[]; warnings: string[] }>
 > {
@@ -402,6 +463,8 @@ async function getMeetingPrepsForDays(
           .eq("id", id);
         if (updateError) return { ok: false, error: updateError.message };
       }
+
+      await queueResearchForThinAttendees(sb, eventIds);
     }
 
     const { data, error } = eventIds.length
@@ -564,6 +627,15 @@ export async function getMeetingPrep(
       .maybeSingle();
     prep.primaryContactName = (contact?.name as string | undefined)?.trim() || null;
     prep.personalGoal = (contact?.personal_goal as string | undefined)?.trim() || null;
+  }
+  if (!prep.researchRanAt && startsWithinWeek(prep.startsAt)) {
+    after(() => {
+      void import("@/lib/server-actions/meeting-research").then(({ runMeetingResearch }) =>
+        runMeetingResearch(prep.id).catch((err) => {
+          console.error("[meeting-research]", prep.id, err);
+        })
+      );
+    });
   }
 
   return { ok: true, prep };

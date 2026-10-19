@@ -42,6 +42,7 @@ import {
   NETWORK_ROLE_LABELS,
   RELATIONSHIP_TYPE_LABELS,
 } from "@/lib/outreach/types";
+import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import { runMeetingResearch } from "@/lib/server-actions/meeting-research";
 import {
   confirmMeetingPurpose,
@@ -771,9 +772,38 @@ function inferredMeetingTrack(people: MeetingContextPerson[]): Track | null {
   return null;
 }
 
-function ResearchStatus({ prepId, researchRanAt }: { prepId: string; researchRanAt: string | null }) {
+function meetingIsSoon(startsAt: string): boolean {
+  const start = Date.parse(startsAt);
+  if (Number.isNaN(start)) return false;
+  const now = Date.now();
+  return start >= now - 12 * 60 * 60 * 1000 && start <= now + 7 * 24 * 60 * 60 * 1000;
+}
+
+function personNeedsResearch(person: MeetingContextPerson): boolean {
+  return isContactThin({
+    title: person.title,
+    companyId: person.company ? "linked" : null,
+    linkedinUrl: person.linkedinUrl,
+    researchAt: person.researchAt,
+  });
+}
+
+function ResearchStatus({
+  prepId,
+  researchRanAt,
+  researching,
+}: {
+  prepId: string;
+  researchRanAt: string | null;
+  researching: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    if (!researching) return;
+    const timer = window.setInterval(() => router.refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [researching, router]);
   const run = () => {
     startTransition(async () => {
       const result = await runMeetingResearch(prepId, { force: true });
@@ -793,7 +823,7 @@ function ResearchStatus({ prepId, researchRanAt }: { prepId: string; researchRan
   };
   return (
     <p className="text-[14px] text-[var(--jos-muted)]">
-      {pending ? (
+      {pending || researching ? (
         "Researching attendees"
       ) : researchRanAt ? (
         <>
@@ -1556,7 +1586,15 @@ export function MeetingPrepClient({
               </li>
             ))}
           </ul>
-          <ResearchStatus prepId={prep.id} researchRanAt={prep.researchRanAt} />
+          <ResearchStatus
+            prepId={prep.id}
+            researchRanAt={prep.researchRanAt}
+            researching={
+              !prep.researchRanAt &&
+              meetingIsSoon(prep.startsAt) &&
+              context.people.some(personNeedsResearch)
+            }
+          />
         </section>
       ) : null}
 
