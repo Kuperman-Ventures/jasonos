@@ -253,6 +253,20 @@ describe("tentative holds", () => {
     );
   });
 
+  it("does not let an all-day event block a timed offer", () => {
+    assert.equal(
+      placementBlockReason("2026-10-08T18:00:00.000Z", "2026-10-08T18:30:00.000Z", [
+        {
+          title: "Out of office",
+          start: "2026-10-08",
+          end: "2026-10-09",
+          allDay: true,
+        },
+      ]),
+      null
+    );
+  });
+
   it("does not treat a tentative hold as the meeting being booked", () => {
     const now = new Date("2026-10-01T15:00:00.000Z");
     const onlyHold = findBookedCall(

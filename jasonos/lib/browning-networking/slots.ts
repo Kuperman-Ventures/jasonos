@@ -97,7 +97,7 @@ export function proposeSlots(input: {
       }
       const start = wallToUtc(ymd, startMin);
       const end = new Date(start.getTime() + SLOT_MINUTES * 60_000);
-      if (overlapsBusy(start, end, input.busy ?? [], ymd)) continue;
+      if (overlapsBusy(start, end, input.busy ?? [])) continue;
       const slot = {
         id: `slot-${start.toISOString()}`,
         start: start.toISOString(),
@@ -137,14 +137,10 @@ export function slotOverlaps(
   });
 }
 
-function overlapsBusy(
-  start: Date,
-  end: Date,
-  busy: BusyInterval[],
-  ymd: string
-): boolean {
+function overlapsBusy(start: Date, end: Date, busy: BusyInterval[]): boolean {
   for (const block of busy) {
-    if (block.allDay && etYmd(block.start) === ymd) return true;
+    // All-day events (travel, birthdays, reminders) do not block call times.
+    if (block.allDay) continue;
     const blockStart = Date.parse(block.start);
     const blockEnd = Date.parse(block.end);
     if (!Number.isFinite(blockStart) || !Number.isFinite(blockEnd)) continue;

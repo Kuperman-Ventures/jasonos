@@ -2,7 +2,6 @@
 // They stay grey on the calendar until a meeting is set, so the next
 // handoff does not take the same slot.
 
-import { etYmd } from "@/lib/dates";
 import type { BusyBlock, HandoffSlot, HandoffStatus } from "./types";
 
 const OPEN_HOLD_STATUSES = new Set<HandoffStatus>([
@@ -213,14 +212,9 @@ export function placementBlockReason(
   const start = Date.parse(startIso);
   const end = Date.parse(endIso);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-  const day = etYmd(startIso);
   for (const block of busy) {
-    if (block.allDay) {
-      if (!allDayHits(block, day)) continue;
-      return block.tentativeHold || block.holdHandoffId
-        ? `${block.title} is a tentative hold. Pick another time.`
-        : `${block.title} blocks that day.`;
-    }
+    // All-day events stay visible but do not block a timed offer.
+    if (block.allDay) continue;
     const blockStart = Date.parse(block.start);
     const blockEnd = Date.parse(block.end);
     if (!Number.isFinite(blockStart) || !Number.isFinite(blockEnd)) continue;
@@ -231,13 +225,6 @@ export function placementBlockReason(
     }
   }
   return null;
-}
-
-function allDayHits(block: BusyBlock, ymd: string): boolean {
-  const start = block.start.slice(0, 10);
-  const end = block.end.slice(0, 10);
-  if (!block.start.includes("T")) return ymd >= start && ymd < end;
-  return etYmd(block.start) === ymd;
 }
 
 function sameTime(left: string, right: string): boolean {
