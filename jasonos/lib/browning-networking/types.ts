@@ -14,6 +14,10 @@ export type BusyBlock = {
   title: string;
   /** Google Calendar event id when this block is a real meeting (not free/busy). */
   eventId?: string | null;
+  /** Grey tentative hold for a time offered on another Browning reply. */
+  tentativeHold?: boolean;
+  /** Handoff that owns this hold, when it came from a Browning reply. */
+  holdHandoffId?: string | null;
 };
 
 export type HandoffBrief = {

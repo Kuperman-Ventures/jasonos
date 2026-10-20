@@ -7,6 +7,7 @@ import { canEditOfferedTimes } from "@/lib/browning-networking/lanes";
 import { connectMeetingTitle } from "@/lib/browning-networking/draft";
 import { composeThankYouDraft } from "@/lib/browning-networking/thank-you-compose";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
+import { syncHandoffHolds, syncOpenHandoffHolds } from "@/lib/browning-networking/hold-sync";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
 import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
@@ -17,7 +18,17 @@ import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { CadenceInterval } from "@/lib/outreach/types";
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult = { ok: true; holdWarning?: string } | { ok: false; error: string };
+
+async function syncHolds(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  handoffId: string,
+  force = false
+): Promise<string | undefined> {
+  const result = await syncHandoffHolds(sb, handoffId, { force });
+  if (!result.ok) return result.error;
+  return result.warning;
+}
 
 function configured(): { ok: false; error: string } | null {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -90,8 +101,9 @@ export async function saveHandoffSlots(
     .update({ slots: cleaned.slots })
     .eq("id", handoffId);
   if (error) return { ok: false, error: error.message };
+  const holdWarning = await syncHolds(sb, handoffId);
   revalidate();
-  return { ok: true };
+  return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
 
 export async function openHandoffReply(
@@ -133,8 +145,9 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
   if (data.card_id) {
     await sb.from("cards").update({ state: "actioned" }).eq("id", data.card_id as string);
   }
+  const holdWarning = await syncHolds(sb, handoffId);
   revalidate();
-  return { ok: true };
+  return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
 
 /** Remove a false-positive handoff. Stays dismissed so Check will not add them again. */
@@ -165,8 +178,9 @@ export async function dismissHandoff(handoffId: string): Promise<ActionResult> {
   if (data.card_id) {
     await sb.from("cards").update({ state: "dismissed" }).eq("id", data.card_id as string);
   }
+  const holdWarning = await syncHolds(sb, handoffId, true);
   revalidate();
-  return { ok: true };
+  return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
 
 export async function saveHandoffContactEmail(
@@ -265,8 +279,9 @@ export async function associateHandoffMeeting(
     })
     .eq("id", handoffId);
   if (updateError) return { ok: false, error: updateError.message };
+  const holdWarning = await syncHolds(sb, handoffId, true);
   revalidate();
-  return { ok: true };
+  return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
 
 export async function setHandoffCadence(
@@ -413,8 +428,19 @@ export async function sendMeetInvite(
     })
     .eq("id", handoffId);
   if (updateError) return { ok: false, error: updateError.message };
+  await syncHolds(sb, handoffId, true);
   revalidate();
   return { ok: true, meetUrl: created.meetUrl };
+}
+
+export async function syncBrowningTentativeHolds(): Promise<
+  { ok: true; changed: number; warning?: string } | { ok: false; error: string }
+> {
+  const guard = configured();
+  if (guard) return guard;
+  const result = await syncOpenHandoffHolds(createServiceRoleClient());
+  if (result.ok && result.changed > 0) revalidate();
+  return result;
 }
 
 export async function loadCalendarBusy(fromYmd: string, toYmd: string) {

@@ -167,11 +167,19 @@ function eventToBusy(event: CalendarApiEvent): BusyBlock | null {
     };
   }
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
+  const tagged = event.extendedProperties?.private?.browningHold === "1";
+  const titledHold = title.toLowerCase().startsWith("hold ·");
   return {
     title,
     start: event.start.dateTime,
     end: event.end.dateTime,
     eventId,
+    ...(tagged || titledHold
+      ? {
+          tentativeHold: true,
+          holdHandoffId: tagged ? event.extendedProperties?.private?.handoffId || null : null,
+        }
+      : {}),
   };
 }
 

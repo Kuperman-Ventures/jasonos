@@ -532,6 +532,190 @@ export async function createGoogleMeetInvite(input: {
   return { ok: true, eventId: json.id, meetUrl };
 }
 
+const HOLD_COLOR_ID = "8";
+
+function tentativeHoldBody(
+  input: {
+    summary: string;
+    startIso: string;
+    endIso: string;
+    handoffId: string;
+    slotId: string;
+    organizerEmail: string;
+  },
+  withAttendee: boolean
+) {
+  return {
+    summary: input.summary,
+    description:
+      "Tentative hold for a time offered in a Browning networking reply. It stays on the calendar until a meeting is set.",
+    status: "tentative",
+    transparency: "opaque",
+    colorId: HOLD_COLOR_ID,
+    start: { dateTime: input.startIso, timeZone: "America/New_York" },
+    end: { dateTime: input.endIso, timeZone: "America/New_York" },
+    ...(withAttendee
+      ? { attendees: [{ email: input.organizerEmail, responseStatus: "tentative" }] }
+      : {}),
+    reminders: { useDefault: false },
+    extendedProperties: {
+      private: {
+        browningHold: "1",
+        handoffId: input.handoffId,
+        slotId: input.slotId,
+      },
+    },
+  };
+}
+
+function holdWriteError(status: number, text: string): { error: string; needsReconnect: boolean } {
+  const needsReconnect = status === 403 || /insufficient/i.test(text);
+  return {
+    needsReconnect,
+    error: needsReconnect
+      ? "Reconnect Advisors Google in Settings and allow adding events. This connection can only read the calendar."
+      : `Google Calendar could not save a tentative hold (${status}).`,
+  };
+}
+
+type HoldWriteResult = { ok: true; eventId?: string } | { ok: false; error: string; needsReconnect: boolean };
+
+async function writeTentativeHold(
+  input: {
+    token: string;
+    summary: string;
+    startIso: string;
+    endIso: string;
+    handoffId: string;
+    slotId: string;
+    organizerEmail: string;
+  },
+  method: "POST" | "PATCH",
+  eventId?: string
+): Promise<HoldWriteResult> {
+  const params = new URLSearchParams({ sendUpdates: "none" });
+  const path = eventId ? `/${encodeURIComponent(eventId)}` : "";
+  const attempts = [true, false];
+  let last: HoldWriteResult = {
+    ok: false,
+    needsReconnect: false,
+    error: "Google Calendar could not save a tentative hold.",
+  };
+  for (const withAttendee of attempts) {
+    const body = tentativeHoldBody(input, withAttendee);
+    const res = await fetch(`${CAL_BASE}/calendars/primary/events${path}?${params}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    const text = await res.text();
+    if (res.ok) {
+      if (method === "PATCH") return { ok: true };
+      try {
+        const json = JSON.parse(text) as { id?: string };
+        if (!json.id) {
+          return { ok: false, needsReconnect: false, error: "Google Calendar did not return the hold." };
+        }
+        return { ok: true, eventId: json.id };
+      } catch {
+        return { ok: false, needsReconnect: false, error: "Google Calendar returned an unreadable hold." };
+      }
+    }
+    console.error(`[google-calendar hold ${method}]`, res.status, text.slice(0, 300));
+    last = { ok: false, ...holdWriteError(res.status, text) };
+    if (last.needsReconnect) return last;
+  }
+  return last;
+}
+
+/** Grey tentative block on the Advisors calendar. No guest is invited. */
+export async function createTentativeHold(input: {
+  token: string;
+  summary: string;
+  startIso: string;
+  endIso: string;
+  handoffId: string;
+  slotId: string;
+  organizerEmail: string;
+}): Promise<{ ok: true; eventId: string } | { ok: false; error: string; needsReconnect: boolean }> {
+  const result = await writeTentativeHold(input, "POST");
+  if (!result.ok) return result;
+  if (!result.eventId) {
+    return { ok: false, needsReconnect: false, error: "Google Calendar did not return the hold." };
+  }
+  return { ok: true, eventId: result.eventId };
+}
+
+export async function updateTentativeHold(input: {
+  token: string;
+  eventId: string;
+  summary: string;
+  startIso: string;
+  endIso: string;
+  handoffId: string;
+  slotId: string;
+  organizerEmail: string;
+}): Promise<{ ok: true } | { ok: false; error: string; needsReconnect: boolean }> {
+  const result = await writeTentativeHold(input, "PATCH", input.eventId);
+  if (!result.ok) return result;
+  return { ok: true };
+}
+
+export async function deletePrimaryCalendarEvent(
+  token: string,
+  eventId: string
+): Promise<{ ok: true } | { ok: false; error: string; needsReconnect: boolean }> {
+  const res = await fetch(
+    `${CAL_BASE}/calendars/primary/events/${encodeURIComponent(eventId)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+  if (res.ok || res.status === 404 || res.status === 410) return { ok: true };
+  const text = await res.text();
+  console.error("[google-calendar hold delete]", res.status, text.slice(0, 300));
+  return { ok: false, ...holdWriteError(res.status, text) };
+}
+
+export async function listHandoffHoldEvents(input: {
+  token: string;
+  handoffId: string;
+}): Promise<
+  { ok: true; events: CalendarApiEvent[] } | { ok: false; error: string; needsReconnect: boolean }
+> {
+  const now = Date.now();
+  const params = new URLSearchParams({
+    singleEvents: "true",
+    maxResults: "50",
+    timeMin: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    timeMax: new Date(now + 80 * 24 * 60 * 60 * 1000).toISOString(),
+    orderBy: "startTime",
+  });
+  params.append("privateExtendedProperty", "browningHold=1");
+  params.append("privateExtendedProperty", `handoffId=${input.handoffId}`);
+  const res = await fetch(`${CAL_BASE}/calendars/primary/events?${params}`, {
+    headers: { Authorization: `Bearer ${input.token}` },
+    cache: "no-store",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    console.error("[google-calendar hold list]", res.status, text.slice(0, 300));
+    return { ok: false, ...holdWriteError(res.status, text) };
+  }
+  try {
+    const json = JSON.parse(text) as { items?: CalendarApiEvent[] };
+    return { ok: true, events: json.items ?? [] };
+  } catch {
+    return { ok: false, needsReconnect: false, error: "Google Calendar returned an unreadable hold list." };
+  }
+}
+
 export async function renameGoogleCalendarEvent(input: {
   token: string;
   eventId: string;

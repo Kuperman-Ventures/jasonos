@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import {
   schedulingDraft,
 } from "@/lib/browning-networking/draft";
 import { displayHandoffName } from "@/lib/browning-networking/dedupe";
+import { busyForHandoff } from "@/lib/browning-networking/holds";
 import { handoffLane, isFollowUp, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL } from "@/lib/browning-networking/types";
@@ -39,6 +40,7 @@ import {
   saveHandoffSlots,
   sendMeetInvite,
   setHandoffCadence,
+  syncBrowningTentativeHolds,
 } from "@/lib/server-actions/browning-networking";
 import { etYmd } from "@/lib/dates";
 import { SlotCalendar, mondayOf } from "./slot-calendar";
@@ -79,6 +81,28 @@ export function BrowningNetworkingClient({
   const waitingRows = page.handoffs.filter((row) => laneFor(row) === "waiting");
   const scheduledRows = page.handoffs.filter((row) => laneFor(row) === "scheduled");
   const router = useRouter();
+  const [slotOverrides, setSlotOverrides] = useState<Record<string, HandoffSlot[]>>({});
+  const handoffs = useMemo(
+    () =>
+      page.handoffs.map((row) =>
+        slotOverrides[row.id] ? { ...row, slots: slotOverrides[row.id]! } : row
+      ),
+    [page.handoffs, slotOverrides]
+  );
+  const syncedHolds = useRef(false);
+
+  useEffect(() => {
+    if (syncedHolds.current) return;
+    syncedHolds.current = true;
+    void syncBrowningTentativeHolds().then((result) => {
+      if (!result.ok) {
+        toast(result.error);
+        return;
+      }
+      if (result.warning) toast(result.warning);
+      if (result.changed > 0) router.refresh();
+    });
+  }, [router]);
 
   return (
     <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -178,6 +202,7 @@ export function BrowningNetworkingClient({
         <WaitingAssociatePanel
           key={selected.id}
           handoff={selected}
+          handoffs={handoffs}
           busy={page.busy}
           eligibleYmd={page.eligibleYmd}
           onLinked={() => {
@@ -193,8 +218,12 @@ export function BrowningNetworkingClient({
         <HandoffDetail
           key={selected.id}
           handoff={selected}
+          handoffs={handoffs}
           busy={page.busy}
           eligibleYmd={page.eligibleYmd}
+          onSlotsChange={(id, slots) =>
+            setSlotOverrides((current) => ({ ...current, [id]: slots }))
+          }
           onActedOn={() => {
             setActedIds((ids) => (ids.includes(selected.id) ? ids : [...ids, selected.id]));
             setSelectedId("");
@@ -218,12 +247,14 @@ export function BrowningNetworkingClient({
 
 function WaitingAssociatePanel({
   handoff,
+  handoffs,
   busy,
   eligibleYmd,
   onLinked,
   onCleared,
 }: {
   handoff: HandoffRecord;
+  handoffs: HandoffRecord[];
   busy: BrowningNetworkingPage["busy"];
   eligibleYmd: string;
   onLinked: () => void;
@@ -240,6 +271,10 @@ function WaitingAssociatePanel({
   const followUp = isFollowUp(handoff);
   const followBody = followUp ? followUpDraft(handoff.contactName) : null;
   const followSubject = replySubject(handoff.lastOutreachSubject || handoff.subject);
+  const shownBusy = useMemo(
+    () => busyForHandoff(weekBusy, handoffs, handoff.id),
+    [weekBusy, handoffs, handoff.id]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -266,9 +301,9 @@ function WaitingAssociatePanel({
         <div>
           <h2 className="text-lg font-semibold">{displayHandoffName(handoff)}</h2>
           <p className="text-xs text-muted-foreground">
-            Amber blocks are the times you offered. Gray is already on your calendar — past or
-            future. Click a gray meeting to link it to {displayHandoffName(handoff)} and clear
-            Waiting. Nothing else on this calendar can be changed.
+            Amber blocks are the times you offered. Gray is already on your calendar, including
+            tentative holds for times offered on other replies. Click a gray meeting that is not
+            a hold to link it to {displayHandoffName(handoff)} and clear Waiting.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -335,7 +370,7 @@ function WaitingAssociatePanel({
 
       <SlotCalendar
         slots={handoff.slots}
-        busy={weekBusy}
+        busy={shownBusy}
         eligibleYmd={eligibleYmd}
         weekMonday={weekMonday}
         readOnly
@@ -383,18 +418,26 @@ function WaitingAssociatePanel({
 
 function HandoffDetail({
   handoff,
+  handoffs,
   busy,
   eligibleYmd,
+  onSlotsChange,
   onActedOn,
   onCleared,
 }: {
   handoff: HandoffRecord;
+  handoffs: HandoffRecord[];
   busy: BrowningNetworkingPage["busy"];
   eligibleYmd: string;
+  onSlotsChange: (id: string, slots: HandoffSlot[]) => void;
   onActedOn: () => void;
   onCleared: () => void;
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
+  const shownBusy = useMemo(
+    () => busyForHandoff(busy, handoffs, handoff.id),
+    [busy, handoffs, handoff.id]
+  );
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
   const router = useRouter();
   const [notes, setNotes] = useState("");
@@ -418,9 +461,11 @@ function HandoffDetail({
 
   function persist(next: HandoffSlot[]) {
     setSlots(next);
+    onSlotsChange(handoff.id, next);
     start(async () => {
       const result = await saveHandoffSlots(handoff.id, next);
       if (!result.ok) toast.error(result.error);
+      else if (result.holdWarning) toast(result.holdWarning);
     });
   }
 
@@ -453,6 +498,7 @@ function HandoffDetail({
                     toast(
                       "Acted on. They're in the waiting list until the meeting is on your calendar."
                     );
+                    if (result.holdWarning) toast(result.holdWarning);
                   }
                 })
               }
@@ -511,7 +557,7 @@ function HandoffDetail({
             <p className="text-xs text-muted-foreground">
               {isPacket
                 ? "Optional. If you email them, these times go in the note."
-                : `Amber blocks are the times in the reply. Gray is already on your calendar. Nothing before ${eligibleYmd}. Click an open spot to add a time. Drag a time to move it. The X removes it.`}
+                : `Amber blocks are the times in this reply. Gray is already on your calendar, including tentative holds for times you offered on other replies. Nothing before ${eligibleYmd}. Click an open spot to add a time. Drag a time to move it. The X removes it.`}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -529,10 +575,11 @@ function HandoffDetail({
         <SlotCalendar
           key={slots.map((slot) => `${slot.id}:${slot.start}`).join("|")}
           slots={slots}
-          busy={busy}
+          busy={shownBusy}
           eligibleYmd={eligibleYmd}
           weekMonday={weekMonday}
           onChange={persist}
+          onBlocked={(message) => toast(message)}
         />
       </section>
 

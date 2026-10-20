@@ -11,8 +11,17 @@ export type CalendarGuestEvent = {
   start?: string;
   end?: string;
   status?: string;
+  browningHold?: boolean;
   attendees?: { email?: string; responseStatus?: string; self?: boolean }[];
 };
+
+export function isBrowningHoldEvent(event: {
+  summary?: string;
+  browningHold?: boolean;
+}): boolean {
+  if (event.browningHold) return true;
+  return (event.summary ?? "").trim().toLowerCase().startsWith("hold ·");
+}
 
 export type BookedCall = {
   id: string;
@@ -69,6 +78,7 @@ export function findBookedCall(
   for (const event of events) {
     if (!event.id || !event.start) continue;
     if (event.status === "cancelled") continue;
+    if (isBrowningHoldEvent(event)) continue;
     const starts = Date.parse(event.start);
     if (!Number.isFinite(starts)) continue;
     if (!includePast && starts < now.getTime() - 12 * 60 * 60 * 1000) continue;
