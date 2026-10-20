@@ -444,8 +444,8 @@ function blockPosition(block: BusyBlock, ymd: string): { top: number; height: nu
   return { top, height: bottom - top };
 }
 
-function rangesOverlap(start: string, end: string, block: BusyBlock, ymd: string): boolean {
-  if (block.allDay && blockHitsDay(block, ymd)) return true;
+function rangesOverlap(start: string, end: string, block: BusyBlock, _ymd: string): boolean {
+  if (block.allDay) return false;
   const a1 = Date.parse(start);
   const a2 = Date.parse(end);
   const b1 = Date.parse(block.start);

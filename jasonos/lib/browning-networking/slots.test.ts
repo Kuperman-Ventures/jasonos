@@ -56,7 +56,7 @@ describe("slot proposal", () => {
     }
   });
 
-  it("skips a busy block and an all-day hold", () => {
+  it("skips a timed busy block but ignores all-day events", () => {
     const busyStart = wallToUtc("2026-10-01", 10 * 60).toISOString();
     const busyEnd = wallToUtc("2026-10-01", 12 * 60).toISOString();
     const slots = proposeSlots({
@@ -71,7 +71,7 @@ describe("slot proposal", () => {
       ],
     });
     const days = slots.map((slot) => etYmd(slot.start));
-    assert.equal(days.includes("2026-10-02"), false);
+    assert.equal(days.includes("2026-10-02"), true);
     const thursday = slots.find((slot) => etYmd(slot.start) === "2026-10-01");
     assert.ok(thursday);
     const hour = Number(
