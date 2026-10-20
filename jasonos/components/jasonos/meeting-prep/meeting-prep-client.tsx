@@ -3,10 +3,19 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { CalendarBlank, CheckCircle, Play } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
+import {
+  CollapsibleSection,
+  LIVE_SECTION_LABEL,
+  UnfinishedField,
+  deriveMeetingMode,
+  readModeOverride,
+  writeModeOverride,
+  type MeetingPageMode,
+} from "@/components/jasonos/live";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +45,7 @@ import {
   type MeetingContextPerson,
   type OtherThread,
 } from "@/lib/meeting-prep/context-model";
-import { isJoinBoilerplate, plainTextFromHtml } from "@/lib/meeting-prep/text";
+import { isJoinBoilerplate } from "@/lib/meeting-prep/text";
 import {
   CONTACT_INTENT_LABELS,
   NETWORK_ROLE_LABELS,
@@ -45,7 +54,6 @@ import {
 import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import { runMeetingResearch } from "@/lib/server-actions/meeting-research";
 import {
-  confirmMeetingPurpose,
   setMeetingOutcomeMark,
   setMeetingOutcomeSentence,
   setMeetingPrimaryContact,
@@ -103,16 +111,25 @@ function durationLabel(startsAt: string, endsAt: string): string {
 }
 
 function meetingKicker(startsAt: string, endsAt: string, now: number | null): string {
-  const date = easternDay(startsAt);
+  const clock = easternClock(startsAt);
   const length = durationLabel(startsAt, endsAt);
-  let when = date;
+  let when = easternDay(startsAt);
   if (now != null) {
     const day = etDateKey(Date.parse(startsAt));
     if (day === etDateKey(now)) when = "Today";
     else if (day === etDateKey(now + 86_400_000)) when = "Tomorrow";
   }
-  const dated = when === date ? date : `${when} · ${date}`;
-  return length ? `${dated} · ${length}` : dated;
+  const parts = [`${when} ${clock}`];
+  if (now != null) {
+    const relative = relativeStart(startsAt, endsAt, now);
+    if (relative?.startsWith("Starts in")) {
+      parts.push(relative.replace(/^Starts in /i, "IN ").toUpperCase());
+    } else if (relative === "Happening now") {
+      parts.push("NOW");
+    }
+  }
+  if (length) parts.push(length);
+  return parts.join(" · ");
 }
 
 function relativeStart(startsAt: string, endsAt: string, now: number): string | null {
@@ -131,11 +148,6 @@ function relativeStart(startsAt: string, endsAt: string, now: number): string | 
   return null;
 }
 
-function humanPlace(location: string | null): string | null {
-  const value = location?.trim();
-  if (!value || /^https?:/i.test(value)) return null;
-  return value;
-}
 
 function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -1065,9 +1077,6 @@ function PrepPoints({
   points,
   pointsError,
   scripts,
-  rubric,
-  review,
-  projects,
   people,
   adaptation,
 }: {
@@ -1075,20 +1084,18 @@ function PrepPoints({
   points: MeetingPoint[];
   pointsError?: string | null;
   scripts: LiveScript[];
-  rubric: string[];
-  review: MeetingReview | null;
-  projects: ProjectPickerOption[];
   people: MeetingContextPerson[];
   adaptation: MeetingAdaptation | null;
 }) {
   const router = useRouter();
-  const [scriptId, setScriptId] = useState("");
+  const [scriptId, setScriptId] = useState(prep.scriptId ?? "");
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [applying, setApplying] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saveDescription, setSaveDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const signature = adaptation ? `${adaptation.id}:${adaptation.updatedAt}` : "";
   const [seenAdaptation, setSeenAdaptation] = useState(signature);
   const [proposal, setProposal] = useState<MeetingAdaptation | null>(adaptation);
@@ -1101,6 +1108,19 @@ function PrepPoints({
     people.find((person) => person.contactId === prep.primaryContactId)?.name ||
     people[0]?.name ||
     "This person";
+  const first = firstName(personName);
+
+  const markable = points.filter((point) => point.kind !== "agenda");
+  const asks = markable.filter((point) => point.kind === "ask");
+  const asksMissing = asks.filter((point) => point.reactions.length !== 6);
+  const reactionsReady = asks.length > 0 && asksMissing.length === 0;
+  const adaptedLabel = prep.builtAt
+    ? new Date(prep.builtAt).toLocaleTimeString("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : null;
 
   const adapt = () => {
     if (!scriptId) return;
@@ -1163,175 +1183,219 @@ function PrepPoints({
     });
   };
 
+  const selectedScript = scripts.find((script) => script.id === scriptId) ?? null;
+
   return (
     <>
-    {proposal ? (
-      <AdaptedPlan
-        proposal={proposal}
-        personName={personName}
-        pointCount={points.length}
-        onProposal={setProposal}
-        onClose={() => setProposal(null)}
-      />
-    ) : null}
-    <PointsEditor
-      points={points}
-      error={pointsError}
-      note={
-        prep.adaptedFromScriptName
-          ? `Adapted from ${prep.adaptedFromScriptName}`
-          : prep.scriptName
-            ? `Started from ${prep.scriptName}`
-            : null
-      }
-      belowTitle={<OutcomeForMeeting prep={prep} projects={projects} people={people} />}
-      actions={{
-        create: async (input) => {
-          const result = await createMeetingPoint({ prepId: prep.id, ...input });
-          if (!result.ok) return result;
-          return { ok: true, id: result.point.id };
-        },
-        update: (id, patch) => updateMeetingPoint(id, patch),
-        draftReactions: (id) => draftMeetingPointReactions(id),
-        remove: (id) => deleteMeetingPoint(id),
-        reorder: (ids) => reorderMeetingPoints(prep.id, ids),
-      }}
-      draft={{ label: "Draft points", run: () => draftMeetingPoints(prep.id) }}
-      footer={(pointCount) => (
-        <div className="flex flex-wrap items-center gap-2">
-          {pointCount ? (
-            <Link href={`/meetings/${prep.id}/live`} className={buttonVariants({ variant: "calendar" })}>
-              Start live
-            </Link>
+      {proposal ? (
+        <AdaptedPlan
+          proposal={proposal}
+          personName={personName}
+          pointCount={points.length}
+          onProposal={setProposal}
+          onClose={() => setProposal(null)}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[24px] font-extrabold tracking-tight">The plan</h2>
+        <label className="sr-only" htmlFor="plan-strategy">
+          Strategy
+        </label>
+        <select
+          id="plan-strategy"
+          aria-label="Strategy"
+          value={scriptId}
+          className="h-8 max-w-[14rem] border-0 border-b-2 border-[#b5b2b2] bg-[var(--jos-surface)] px-2 text-[13px] font-bold outline-none"
+          onChange={(event) => {
+            setScriptId(event.target.value);
+            setConfirmReplace(false);
+          }}
+        >
+          <option value="">{prep.scriptName || "Strategy"}</option>
+          {scripts.map((script) => (
+            <option key={script.id} value={script.id}>
+              {script.name}
+            </option>
+          ))}
+        </select>
+        {scriptId ? (
+          confirmReplace ? (
+            <span className="text-[13px]">
+              Replace {points.length} existing points?{" "}
+              <button
+                type="button"
+                className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                disabled={applying}
+                onClick={() => apply("replace")}
+              >
+                Confirm
+              </button>
+              {" · "}
+              <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmReplace(false)}>
+                Cancel
+              </button>
+            </span>
           ) : (
-            <button type="button" disabled className={buttonVariants({ variant: "calendar" })}>
-              Add at least one point
-            </button>
-          )}
-          <label className="sr-only" htmlFor="start-from-script">
-            Start from a strategy
-          </label>
-          <select
-            id="start-from-script"
-            aria-label="Start from a strategy"
-            value={scriptId}
-            className="h-8 max-w-full bg-transparent text-[14px] font-semibold text-[var(--jos-ink)] outline-none"
-            onChange={(event) => {
-              setScriptId(event.target.value);
-              setConfirmReplace(false);
-            }}
+            <>
+              <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={() => apply("add")}>
+                Add
+              </Button>
+              <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={() => setConfirmReplace(true)}>
+                Replace
+              </Button>
+              <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={adapt}>
+                Adapt to {first}
+              </Button>
+            </>
+          )
+        ) : (
+          <Button type="button" size="sm" variant="secondary" disabled={!scripts.length} onClick={() => scripts[0] && setScriptId(scripts[0].id)}>
+            Adapt to {first}
+          </Button>
+        )}
+        {selectedScript ? (
+          <Link
+            href={`/live/scripts/${selectedScript.id}`}
+            className="ml-auto text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
           >
-            <option value="">Start from a strategy</option>
-            {scripts.map((script) => (
-              <option key={script.id} value={script.id}>
-                {script.name}
-              </option>
-            ))}
-          </select>
-          {scriptId ? (
-            confirmReplace ? (
-              <span className="text-[13px] text-[var(--jos-ink)]">
-                Replace {pointCount} existing points?{" "}
-                <button
-                  type="button"
-                  className="font-semibold text-[var(--color-accent-700)] hover:underline"
-                  disabled={applying}
-                  onClick={() => apply("replace")}
-                >
-                  Confirm
-                </button>
+            Edit plan
+          </Link>
+        ) : prep.scriptId ? (
+          <Link
+            href={`/live/scripts/${prep.scriptId}`}
+            className="ml-auto text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+          >
+            Edit plan
+          </Link>
+        ) : null}
+      </div>
+
+      <p className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[var(--jos-muted)]">
+        <span>
+          {markable.length} points · {asks.length} asks
+          {reactionsReady ? " · reactions ready" : ""}
+          {adaptedLabel ? ` · adapted ${adaptedLabel}` : ""}
+        </span>
+        {reactionsReady ? (
+          <CheckCircle size={16} weight="duotone" className="text-[var(--color-done)]" style={{ color: "#006925" }} aria-hidden />
+        ) : asksMissing.length ? (
+          <span className="rounded-[2px] bg-[var(--jos-warn-tint)] px-2 py-0.5 text-[13px] font-semibold text-[var(--jos-ink)]">
+            {asksMissing.length === 1
+              ? "1 ask has no reactions"
+              : `${asksMissing.length} asks have no reactions`}
+            {asksMissing[0] ? (
+              <>
                 {" · "}
                 <button
                   type="button"
-                  className="font-semibold hover:underline"
-                  onClick={() => setConfirmReplace(false)}
+                  className="underline"
+                  onClick={() => setSelectedPointId(asksMissing[0].id)}
                 >
-                  Cancel
+                  Open card
                 </button>
-              </span>
-            ) : (
-              <>
-                <Button type="button" size="sm" variant="outline" disabled={applying} onClick={() => apply("add")}>
-                  Add
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={applying}
-                  onClick={() => setConfirmReplace(true)}
-                >
-                  Replace
-                </Button>
-                <Button type="button" size="sm" variant="outline" disabled={applying} onClick={adapt}>
-                  Adapt
-                </Button>
               </>
-            )
-          ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={pointCount === 0}
-            onClick={() => setSaveOpen(true)}
+            ) : null}
+          </span>
+        ) : null}
+      </p>
+
+      <div className="mt-4">
+        <PointsEditor
+          layout="outline"
+          points={points}
+          error={pointsError}
+          selectedId={selectedPointId}
+          onSelectedIdChange={setSelectedPointId}
+          actions={{
+            create: async (input) => {
+              const result = await createMeetingPoint({ prepId: prep.id, ...input });
+              if (!result.ok) return result;
+              return { ok: true, id: result.point.id };
+            },
+            update: (id, patch) => updateMeetingPoint(id, patch),
+            draftReactions: (id) => draftMeetingPointReactions(id),
+            remove: (id) => deleteMeetingPoint(id),
+            reorder: (ids) => reorderMeetingPoints(prep.id, ids),
+          }}
+          draft={{ label: "Draft points", run: () => draftMeetingPoints(prep.id) }}
+        />
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        {markable.length ? (
+          <Link
+            href={`/meetings/${prep.id}/live`}
+            className={cn(buttonVariants({ variant: "default" }), "h-12 gap-2 px-5 text-[15px]")}
           >
-            Save as strategy
-          </Button>
-          <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-            <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Save as strategy</DialogTitle>
-                <DialogDescription>
-                  Copies these points into a strategy. State and notes stay on this meeting.
-                </DialogDescription>
-              </DialogHeader>
-              <form
-                className="space-y-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  saveScript();
-                }}
-              >
-                <label className="block space-y-1">
-                  <span className="text-[14px] font-semibold">
-                    Name <span className="text-[var(--jos-danger)]">*</span>
-                  </span>
-                  <input
-                    required
-                    value={saveName}
-                    maxLength={120}
-                    className={`${FIELD} h-11`}
-                    onChange={(event) => setSaveName(event.target.value)}
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-[14px] font-semibold">Description</span>
-                  <textarea
-                    value={saveDescription}
-                    rows={3}
-                    className={`${FIELD} py-2`}
-                    onChange={(event) => setSaveDescription(event.target.value)}
-                  />
-                </label>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setSaveOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="calendar" disabled={saving}>
-                    Save
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
-    />
-    <AfterTheCall prep={prep} points={points} rubric={rubric} review={review} />
+            <Play size={18} weight="fill" aria-hidden />
+            Start live
+          </Link>
+        ) : (
+          <button type="button" disabled className={cn(buttonVariants({ variant: "default" }), "h-12 px-5")}>
+            Add at least one point
+          </button>
+        )}
+        <Button type="button" size="sm" variant="secondary" disabled={markable.length === 0} onClick={() => setSaveOpen(true)}>
+          Save as strategy
+        </Button>
+      </div>
+
+      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save as strategy</DialogTitle>
+            <DialogDescription>
+              Copies these points into a strategy. State and notes stay on this meeting.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveScript();
+            }}
+          >
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">
+                Name <span className="text-[var(--jos-danger)]">*</span>
+              </span>
+              <input
+                required
+                value={saveName}
+                maxLength={120}
+                className={`${FIELD} h-11`}
+                onChange={(event) => setSaveName(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">Description</span>
+              <textarea
+                value={saveDescription}
+                rows={3}
+                className={`${FIELD} py-2`}
+                onChange={(event) => setSaveDescription(event.target.value)}
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setSaveOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="default" disabled={saving}>
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+
+void ReadBeat;
+void threadFootnote;
+void FocusEditor;
 
 export function MeetingPrepClient({
   prep,
@@ -1356,13 +1420,15 @@ export function MeetingPrepClient({
 }) {
   const router = useRouter();
   const usablePurpose = isJoinBoilerplate(prep.purpose) ? "" : (prep.purpose ?? "");
-  const [text, setText] = useState(usablePurpose);
+  const [, setText] = useState(usablePurpose);
   const [seenPurpose, setSeenPurpose] = useState(usablePurpose);
-  const [editing, setEditing] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [now, setNow] = useState<number | null>(null);
   const [showAllThreads, setShowAllThreads] = useState(false);
   const [addTarget, setAddTarget] = useState<{ email: string; name: string | null } | null>(null);
+  const [modeOverride, setModeOverride] = useState<MeetingPageMode | null>(() =>
+    readModeOverride(prep.id)
+  );
 
   useEffect(() => {
     // Clock starts after mount so the server HTML does not depend on the current minute.
@@ -1373,48 +1439,11 @@ export function MeetingPrepClient({
   if (usablePurpose !== seenPurpose) {
     setSeenPurpose(usablePurpose);
     setText(usablePurpose);
-    setEditing(false);
   }
 
   const stored = usablePurpose.trim();
-  const dirty = text.trim() !== stored;
-  const canConfirm =
-    !dirty &&
-    !prep.purposeConfirmed &&
-    Boolean(stored) &&
-    (prep.purposeSource === "calendar" || prep.purposeSource === "suggested");
-  const description = prep.description ? plainTextFromHtml(prep.description) : "";
-  const showDescription = Boolean(description) && !isJoinBoilerplate(description);
   const join = joinHref(prep);
-  const place = humanPlace(prep.location);
-  const starts = relativeStart(prep.startsAt, prep.endsAt, now ?? Number.NaN);
   const briefing = context.briefing;
-
-  const save = () => {
-    startTransition(async () => {
-      const result = await setMeetingPurpose(prep.id, text);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Focus saved");
-      setEditing(false);
-      router.refresh();
-    });
-  };
-
-  const confirm = () => {
-    startTransition(async () => {
-      const result = await confirmMeetingPurpose(prep.id);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("Focus confirmed");
-      setEditing(false);
-      router.refresh();
-    });
-  };
 
   const standBody =
     context.recentEmail &&
@@ -1446,466 +1475,412 @@ export function MeetingPrepClient({
   const visibleThreads = showAllThreads ? briefing.otherThreads : briefing.otherThreads.slice(0, 4);
   const hiddenThreadCount = briefing.otherThreads.length - visibleThreads.length;
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-10 px-4 py-8">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+  const hasTranscript = context.granolaNotes.some((note) => note.kind === "this_meeting");
+  const derived = deriveMeetingMode(prep, review, now ?? 0, hasTranscript);
+  const mode = modeOverride ?? derived;
+  const setMode = (next: MeetingPageMode) => {
+    setModeOverride(next);
+    writeModeOverride(prep.id, next);
+  };
+
+  const primary =
+    context.people.find((person) => person.contactId === prep.primaryContactId) ??
+    context.people[0] ??
+    null;
+  const extraPeople = Math.max(0, context.people.length + context.unmatched.length - (primary ? 1 : 0));
+  const researchLine = primary?.researchLead?.trim() || null;
+  const metaLine = [
+    primary?.company,
+    primary?.referredByName
+      ? `introduced by ${primary.referredByName}`
+      : null,
+    context.pastMeetings.length
+      ? `${context.pastMeetings.length} earlier meeting${context.pastMeetings.length === 1 ? "" : "s"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const initials = (primary?.name || "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  const duration = durationLabel(prep.startsAt, prep.endsAt);
+  const kicker = meetingKicker(prep.startsAt, prep.endsAt, now);
+  const commitments = context.brief.commitments.map((item) => ({
+    text: item.text,
+    direction: item.direction,
+    due: item.due,
+    personName: item.personName,
+    status: item.status,
+  }));
+
+  const modeToggle = (
+    <div className="flex items-center gap-1 text-[12px] font-bold uppercase tracking-[0.08em]">
+      <button
+        type="button"
+        className={mode === "before" ? "text-[var(--jos-ink)]" : "text-[var(--jos-muted)]"}
+        onClick={() => setMode("before")}
       >
-        <ChevronLeft className="h-4 w-4" />
-        Home
-      </Link>
+        Before
+      </button>
+      <span className="text-[var(--jos-muted)]">/</span>
+      <button
+        type="button"
+        className={mode === "after" ? "text-[var(--jos-ink)]" : "text-[var(--jos-muted)]"}
+        onClick={() => setMode("after")}
+      >
+        After
+      </button>
+    </div>
+  );
 
-      <header className="space-y-3">
-        <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
-          {meetingKicker(prep.startsAt, prep.endsAt, now)}
-        </p>
-        <h1 className="text-[34px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[var(--color-text)] break-words">
-          {prep.title}
-        </h1>
-        <p className="text-[18px] font-medium tracking-tight text-[var(--color-text)]">
-          {easternClock(prep.startsAt)}–{easternClock(prep.endsAt)} ET
-          {starts ? (
-            <span className="ml-2 text-[15px] font-semibold text-[var(--color-calendar-700)]">
-              {starts}
-            </span>
-          ) : null}
-        </p>
-        {place ? <p className="text-[15px] text-[var(--jos-muted)]">{place}</p> : null}
-        {prep.error ? (
-          <p className="text-[14px] font-medium text-[var(--color-accent-2-text)]">{prep.error}</p>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-4 pt-1">
-          {join ? (
-            <a
-              href={join}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonVariants({ variant: "calendar" })}
-            >
-              Join the call
-            </a>
-          ) : null}
-          {prep.calendarUrl ? (
-            <ExternalLink href={prep.calendarUrl}>Calendar</ExternalLink>
-          ) : null}
-        </div>
-        {showDescription ? (
-          description.length > 320 ? (
-            <details className="max-w-[65ch]">
-              <summary className="cursor-pointer text-[14px] font-semibold text-[var(--jos-muted)]">
-                Note on the invite
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--color-text)]">
-                {description}
-              </p>
-            </details>
-          ) : (
-            <p className="max-w-[65ch] whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--jos-muted)]">
-              {description}
+  if (mode === "after") {
+    return (
+      <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
+        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--jos-ink)] px-10 py-6">
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
+              <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+              {kicker}
+              {duration ? ` · ${duration}` : ""}
             </p>
-          )
-        ) : null}
-      </header>
-
-      {stored || editing ? (
-        <section className="space-y-2">
-          <BlockTitle>What you want out of this</BlockTitle>
-          {stored && !editing ? (
-            <>
-              <p className="max-w-[62ch] text-[22px] font-medium leading-snug tracking-tight text-[var(--color-text)]">
-                {stored}
-              </p>
-              <button
-                type="button"
-                className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-                onClick={() => setEditing(true)}
-              >
-                Edit
-              </button>
-            </>
-          ) : (
-            <FocusEditor
-              text={text}
-              stored={stored}
-              dirty={dirty}
-              pending={pending}
-              canConfirm={canConfirm}
-              onChange={setText}
-              onSave={save}
-              onConfirm={confirm}
-              onCancel={() => {
-                setText(stored);
-                setEditing(false);
-              }}
+            <h1 className="mt-2 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em] break-words">
+              {prep.title}
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {modeToggle}
+          </div>
+        </header>
+        <div className="flex flex-col gap-8 min-[1100px]:flex-row">
+          <div className="min-w-0 flex-[1.5]">
+            <AfterTheCall
+              prep={prep}
+              points={points}
+              rubric={rubric}
+              review={review}
+              commitments={commitments}
+              nextTouch={null}
             />
-          )}
-        </section>
-      ) : null}
-
-      {stored || editing ? (
-        <PrepPoints
-          prep={prep}
-          points={points}
-          pointsError={pointsError}
-          scripts={scripts}
-          rubric={rubric}
-          review={review}
-          projects={projects}
-          people={context.people}
-          adaptation={adaptation}
-        />
-      ) : null}
-
-      {context.people.length || context.unmatched.length ? (
-        <section className="space-y-3">
-          <BlockTitle>In the room</BlockTitle>
-          <ul>
-            {context.people.map((person) => (
-              <PersonRow key={person.contactId} person={person} />
-            ))}
-            {context.unmatched.map((person) => (
-              <li
-                key={person.email}
-                className="border-t border-[var(--jos-line)] py-4 first:border-t-0 first:pt-1"
-              >
-                <p className="text-[18px] font-semibold tracking-tight">
-                  {person.name || person.email}
-                </p>
-                {person.name ? (
-                  <p className="mt-0.5 text-[13px] text-[var(--jos-muted)]">{person.email}</p>
-                ) : null}
-                <p className="mt-1 text-[13px] text-[var(--jos-muted)]">Not a contact yet</p>
-                <button
-                  type="button"
-                  className="mt-2 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-                  onClick={() => setAddTarget(person)}
-                >
-                  Add to contacts
-                </button>
-              </li>
-            ))}
-          </ul>
-          <ResearchStatus
-            prepId={prep.id}
-            researchRanAt={prep.researchRanAt}
-            researching={
-              !prep.researchRanAt &&
-              meetingIsSoon(prep.startsAt) &&
-              context.people.some(personNeedsResearch)
-            }
-          />
-        </section>
-      ) : null}
-
-      <section className="space-y-4">
-        <BlockTitle>Before the call</BlockTitle>
-        <AttendeeResearch people={context.people} />
-        {prep.emailContext ? (
-          <div className="max-w-[65ch]">
-            <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-              How this meeting came about
-            </p>
-            <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed">{prep.emailContext}</p>
           </div>
-        ) : null}
-        {hasRead ? (
-          <div className="space-y-6 bg-[var(--color-surface)] px-4 py-5 sm:px-5">
-            {context.brief.summary ? (
-              <div className="max-w-[65ch] text-[17px] leading-relaxed">
-                <Expandable text={context.brief.summary} />
-              </div>
-            ) : null}
-            {context.brief.nextMove ? (
-              <p className="max-w-[65ch] text-[16px] leading-relaxed">
-                <span className="font-semibold">Next. </span>
-                {context.brief.nextMove}
-              </p>
-            ) : null}
-            {context.brief.topics.length ? (
-              <p className="text-[14px] leading-relaxed text-[var(--jos-muted)]">
-                <span className="font-semibold text-[var(--color-text)]">In play. </span>
-                {context.brief.topics.join(" · ")}
-              </p>
-            ) : null}
-            {context.brief.commitments.length ||
-            context.brief.remember.length ||
-            context.brief.helped.length ? (
-              <div className="grid gap-5 sm:grid-cols-2">
-                {context.brief.commitments.length ? (
-                  <div>
-                    <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                      Open
-                    </p>
-                    <ul className="mt-2 space-y-2 text-[15px] leading-snug">
-                      {context.brief.commitments.map((item) => (
-                        <li
-                          key={`${item.personName}-${item.text}`}
-                          className={item.status === "overdue" ? "text-[var(--color-accent-2-text)]" : undefined}
-                        >
-                          <span className="font-semibold">
-                            {item.direction === "mine" ? "You" : item.personName}
-                          </span>
-                          {" · "}
-                          {item.text}
-                          {item.due ? ` · due ${item.due}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {context.brief.remember.length || context.brief.helped.length ? (
-                  <div className="space-y-4">
-                    {context.brief.remember.length ? (
-                      <div>
-                        <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                          Remember
-                        </p>
-                        <ul className="mt-2 space-y-1.5 text-[15px] leading-snug">
-                          {context.brief.remember.map((line) => (
-                            <li key={line}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {context.brief.helped.length ? (
-                      <div>
-                        <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                          You&apos;ve already
-                        </p>
-                        <ul className="mt-2 space-y-1.5 text-[15px] leading-snug">
-                          {context.brief.helped.map((line) => (
-                            <li key={line}>{line}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {context.connections.map((connection) => (
-              <ConnectionRead key={connection.id} connection={connection} />
-            ))}
-
-            {briefing.whereItStands ? (
-              <ReadBeat
-                label="Where it stands"
-                beat={briefing.whereItStands}
-                meetingTitle={prep.title}
-                primary
-                body={standBody}
-              />
-            ) : null}
-            {briefing.introduction ? (
-              <ReadBeat
-                label="How you got in the room"
-                beat={briefing.introduction}
-                meetingTitle={prep.title}
-              />
-            ) : null}
-            {briefing.yourStake ? (
-              <ReadBeat
-                label="What you said you'd cover"
-                beat={briefing.yourStake}
-                meetingTitle={prep.title}
-              />
-            ) : null}
-
-            {context.granolaNotes.map((note) => (
-              <div key={note.id} className="border-l-4 border-[var(--color-neutral-300)] pl-4">
-                <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--color-calendar-700)]">
-                  {note.kind === "this_meeting" ? "Granola on this meeting" : "Recent Granola"}
-                </p>
-                {note.when ? (
-                  <p className="mt-1 text-[13px] font-semibold text-[var(--jos-muted)]">
-                    {easternDateLong(note.when)}
-                    {note.title ? ` · ${note.title}` : ""}
-                  </p>
-                ) : null}
-                <div className="mt-2 max-w-[65ch]">
-                  <Expandable text={note.summary} />
-                </div>
-                {note.url ? (
-                  <p className="mt-2 text-[14px]">
-                    <ExternalLink href={note.url}>Open in Granola</ExternalLink>
-                  </p>
-                ) : null}
-              </div>
-            ))}
-
-            {emailIsNew && context.recentEmail ? (
-              <div className="border-l-4 border-[var(--color-neutral-300)] pl-4">
-                <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--color-calendar-700)]">
-                  Latest email with {context.recentEmail.personName}
-                </p>
-                <div className="mt-2 max-w-[65ch]">
-                  <Expandable text={context.recentEmail.summary} />
-                </div>
-                {context.recentEmail.threadUrl ? (
-                  <p className="mt-2 text-[14px]">
-                    <ExternalLink href={context.recentEmail.threadUrl}>Open email</ExternalLink>
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {briefing.meetingThread && briefing.meetingThread.messageCount > 1 ? (
-              <p className="text-[13px] leading-relaxed text-[var(--jos-muted)]">
-                {threadFootnote(briefing.meetingThread)}
-                {briefing.meetingThread.url ? (
-                  <>
-                    {" "}
-                    <ExternalLink href={briefing.meetingThread.url}>Open the thread</ExternalLink>
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-            {context.brief.provenance.length ? (
-              <p className="text-[12px] text-[var(--jos-muted)]">
-                From {context.brief.provenance.join(" · ")}
-                {context.granolaNotes.length ? " · Granola" : ""}
-                {context.recentEmail ? " · Gmail" : ""}.
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-[15px] leading-relaxed text-[var(--jos-muted)]">
-            {briefing.otherThreads.length
-              ? "No intro or open loops for this meeting. Earlier email is below."
-              : "Nothing stored yet on the people in this meeting. Add them as contacts and sync, or write a relationship brief on their People card."}
-          </p>
-        )}
-      </section>
-
-      {!stored && !editing ? (
-        <section className="space-y-3">
-          <BlockTitle>What you want out of this</BlockTitle>
-          <FocusEditor
-            text={text}
-            stored={stored}
-            dirty={dirty}
-            pending={pending}
-            canConfirm={canConfirm}
-            onChange={setText}
-            onSave={save}
-            onConfirm={confirm}
-            onCancel={() => {
-              setText(stored);
-              setEditing(false);
+          <aside className="w-full shrink-0 space-y-5 px-10 pb-10 min-[1100px]:w-[360px] min-[1100px]:px-0 min-[1100px]:pr-10 min-[1100px]:pt-6">
+            <CollapsibleSection id={`${prep.id}-after-brief`} label="Before the call" defaultOpen={false}>
+              {context.brief.summary ? <Expandable text={context.brief.summary} /> : (
+                <p className="text-[14px] text-[var(--jos-muted)]">No brief on file.</p>
+              )}
+            </CollapsibleSection>
+            <CollapsibleSection id={`${prep.id}-after-research`} label="Research" defaultOpen={false}>
+              <AttendeeResearch people={context.people} />
+            </CollapsibleSection>
+          </aside>
+        </div>
+        {addTarget ? (
+          <ContactCreateModal
+            key={addTarget.email}
+            open
+            initial={{ name: addTarget.name ?? "", email: addTarget.email }}
+            onOpenChange={(open) => {
+              if (!open) setAddTarget(null);
             }}
           />
-        </section>
-      ) : null}
+        ) : null}
+      </div>
+    );
+  }
 
-      {!stored && !editing ? (
-        <PrepPoints
-          prep={prep}
-          points={points}
-          pointsError={pointsError}
-          scripts={scripts}
-          rubric={rubric}
-          review={review}
-          projects={projects}
-          people={context.people}
-          adaptation={adaptation}
-        />
-      ) : null}
-
-      {briefing.otherThreads.length ? (
-        <section className="space-y-2">
-          <BlockTitle>Earlier email</BlockTitle>
-          <ul>
-            {visibleThreads.map((thread) => (
-              <ThreadRow key={thread.id} thread={thread} />
-            ))}
-          </ul>
-          {hiddenThreadCount > 0 ? (
-            <button
-              type="button"
-              className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-              onClick={() => setShowAllThreads(true)}
-            >
-              {hiddenThreadCount === 1 ? "1 earlier thread" : `${hiddenThreadCount} earlier threads`}
-            </button>
-          ) : null}
-        </section>
-      ) : null}
-
-      {context.pastMeetings.length ? (
-        <section className="space-y-3">
-          <BlockTitle>Earlier meetings</BlockTitle>
-          <ul className="space-y-5">
-            {context.pastMeetings.map((meeting) => (
-              <li key={meeting.id} className="border-t border-[var(--jos-line)] pt-4">
-                <p className="text-[13px] font-semibold text-[var(--jos-muted)]">
-                  {meeting.when ? easternDateLong(meeting.when) : "Past meeting"}
+  return (
+    <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
+      <header className="grid gap-6 border-b border-[var(--jos-ink)] px-10 py-7 min-[1100px]:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
+              <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+              {kicker}
+              {duration ? ` · ${duration}` : ""}
+            </p>
+            {modeToggle}
+          </div>
+          <h1 className="mt-3 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em] break-words">
+            {prep.title}
+          </h1>
+          {primary ? (
+            <div className="mt-4 flex items-start gap-3">
+              <div className="flex size-16 shrink-0 items-center justify-center bg-[var(--jos-surface)] text-[18px] font-bold">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[18px] font-bold leading-snug">
+                  {primary.name}
+                  {primary.title ? (
+                    <span className="font-semibold text-[var(--jos-muted)]"> · {primary.title}</span>
+                  ) : null}
+                  {extraPeople > 0 ? (
+                    <button
+                      type="button"
+                      className="ml-2 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                      onClick={() => {
+                        document.getElementById("in-the-room")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                    >
+                      +{extraPeople}
+                    </button>
+                  ) : null}
                 </p>
-                {meeting.title ? (
-                  <p className="mt-0.5 text-[16px] font-semibold">{meeting.title}</p>
+                {metaLine ? <p className="mt-0.5 text-[15px] text-[var(--jos-muted)]">{metaLine}</p> : null}
+                {researchLine ? (
+                  <p className="mt-1 line-clamp-1 text-[15px] text-[var(--jos-ink)]">{researchLine}</p>
                 ) : null}
-                <div className="mt-2 max-w-[65ch] space-y-2 text-[15px] leading-relaxed">
-                  {meeting.nextStep ? (
-                    <p>
-                      <span className="font-semibold">Next. </span>
-                      {meeting.nextStep}
+              </div>
+            </div>
+          ) : null}
+          {prep.error ? (
+            <p className="mt-3 text-[14px] font-medium text-[var(--color-accent-2-text)]">{prep.error}</p>
+          ) : null}
+        </div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap gap-2">
+            {join ? (
+              <a
+                href={join}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
+              >
+                Join the call
+              </a>
+            ) : null}
+            {prep.calendarUrl ? (
+              <a
+                href={prep.calendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
+              >
+                Calendar
+              </a>
+            ) : null}
+          </div>
+          <p className={cn(LIVE_SECTION_LABEL, "mt-5")}>What you want out of this</p>
+          <div className="mt-2">
+            <UnfinishedField
+              value={stored}
+              emptyLabel="Add a sentence"
+              inputClassName="text-[20px] font-semibold"
+              onSave={(next) => {
+                setText(next);
+                startTransition(async () => {
+                  const result = await setMeetingPurpose(prep.id, next);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("Focus saved");
+                  router.refresh();
+                });
+              }}
+            />
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-col gap-8 px-10 py-8 min-[1100px]:flex-row">
+        <div className="min-w-0 flex-[1.5]">
+          <PrepPoints
+            prep={prep}
+            points={points}
+            pointsError={pointsError}
+            scripts={scripts}
+            people={context.people}
+            adaptation={adaptation}
+          />
+          <div className="mt-8">
+            <OutcomeForMeeting prep={prep} projects={projects} people={context.people} />
+          </div>
+        </div>
+
+        <aside className="w-full shrink-0 space-y-5 min-[1100px]:w-[360px]">
+          <div id="in-the-room">
+            <CollapsibleSection
+              id={`${prep.id}-room`}
+              label="In the room"
+              meta={String(context.people.length + context.unmatched.length) || undefined}
+              defaultOpen
+            >
+              <ul>
+                {context.people.map((person) => (
+                  <PersonRow key={person.contactId} person={person} />
+                ))}
+                {context.unmatched.map((person) => (
+                  <li key={person.email} className="border-t border-[var(--jos-line)] py-3">
+                    <p className="text-[16px] font-semibold">{person.name || person.email}</p>
+                    <button
+                      type="button"
+                      className="mt-1 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                      onClick={() => setAddTarget(person)}
+                    >
+                      Add to contacts
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <ResearchStatus
+                prepId={prep.id}
+                researchRanAt={prep.researchRanAt}
+                researching={
+                  !prep.researchRanAt &&
+                  meetingIsSoon(prep.startsAt) &&
+                  context.people.some(personNeedsResearch)
+                }
+              />
+            </CollapsibleSection>
+          </div>
+
+          <CollapsibleSection id={`${prep.id}-research`} label="Research" defaultOpen>
+            <AttendeeResearch people={context.people} />
+          </CollapsibleSection>
+
+          <CollapsibleSection id={`${prep.id}-brief`} label="Before the call" defaultOpen>
+            {hasRead ? (
+              <div className="space-y-4">
+                {context.brief.summary ? <Expandable text={context.brief.summary} /> : null}
+                {context.brief.nextMove ? (
+                  <p className="text-[15px] leading-relaxed">
+                    <span className="font-semibold">Next. </span>
+                    {context.brief.nextMove}
+                  </p>
+                ) : null}
+                {context.connections.map((connection) => (
+                  <ConnectionRead key={connection.id} connection={connection} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-[14px] text-[var(--jos-muted)]">Nothing stored yet on the people in this meeting.</p>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            id={`${prep.id}-came-about`}
+            label="How this came about"
+            defaultOpen={false}
+          >
+            {prep.emailContext ? (
+              <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{prep.emailContext}</p>
+            ) : (
+              <p className="text-[14px] text-[var(--jos-muted)]">No email context yet.</p>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection
+            id={`${prep.id}-earlier-meetings`}
+            label="Earlier meetings"
+            meta={context.pastMeetings.length || undefined}
+            defaultOpen={false}
+          >
+            {context.pastMeetings.length ? (
+              <ul className="space-y-4">
+                {context.pastMeetings.map((meeting) => (
+                  <li key={meeting.id}>
+                    <p className="text-[13px] font-semibold text-[var(--jos-muted)]">
+                      {meeting.when ? easternDateLong(meeting.when) : "Past meeting"}
                     </p>
-                  ) : null}
-                  {meeting.debriefNotes ? <Expandable text={meeting.debriefNotes} /> : null}
-                  {meeting.prepGoal && meeting.prepGoal !== meeting.title ? (
-                    <p>{meeting.prepGoal}</p>
-                  ) : null}
-                  {meeting.prepShortAsk ? <p>{meeting.prepShortAsk}</p> : null}
-                  {meeting.granolaSummary ? <Expandable text={meeting.granolaSummary} /> : null}
-                  {meeting.introAsks.length ? (
-                    <p className="text-[var(--jos-muted)]">Intros: {meeting.introAsks.join("; ")}</p>
-                  ) : null}
-                  {meeting.granolaUrl ? (
-                    <ExternalLink href={meeting.granolaUrl}>Open in Granola</ExternalLink>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+                    {meeting.title ? <p className="text-[15px] font-semibold">{meeting.title}</p> : null}
+                    {meeting.nextStep ? (
+                      <p className="mt-1 text-[14px]">
+                        <span className="font-semibold">Next. </span>
+                        {meeting.nextStep}
+                      </p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-[var(--jos-muted)]">No earlier meetings on file.</p>
+            )}
+          </CollapsibleSection>
 
-      {context.documents.length ? (
-        <section className="space-y-2">
-          <BlockTitle>Documents</BlockTitle>
-          <ul className="space-y-2 text-[15px]">
-            {context.documents.map((document) => (
-              <li key={document.id}>
-                {document.url ? (
-                  <ExternalLink href={document.url}>{document.label}</ExternalLink>
-                ) : (
-                  document.label
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+          <CollapsibleSection
+            id={`${prep.id}-email`}
+            label="Latest email"
+            meta={briefing.otherThreads.length || undefined}
+            defaultOpen={false}
+          >
+            {emailIsNew && context.recentEmail ? (
+              <div className="space-y-2">
+                <p className="text-[13px] font-semibold text-[var(--jos-muted)]">
+                  With {context.recentEmail.personName}
+                </p>
+                <Expandable text={context.recentEmail.summary} />
+                {context.recentEmail.threadUrl ? (
+                  <ExternalLink href={context.recentEmail.threadUrl}>Open email</ExternalLink>
+                ) : null}
+              </div>
+            ) : briefing.otherThreads.length ? (
+              <ul>
+                {visibleThreads.map((thread) => (
+                  <ThreadRow key={thread.id} thread={thread} />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-[var(--jos-muted)]">No recent email.</p>
+            )}
+            {hiddenThreadCount > 0 ? (
+              <button
+                type="button"
+                className="mt-2 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                onClick={() => setShowAllThreads(true)}
+              >
+                {hiddenThreadCount} earlier threads
+              </button>
+            ) : null}
+          </CollapsibleSection>
 
-      {context.jobSearch.length ? (
-        <section className="space-y-2">
-          <BlockTitle>Job search</BlockTitle>
-          <ul className="space-y-2">
-            {context.jobSearch.map((job) => (
-              <li key={`${job.kind}-${job.id}`} className="text-[15px]">
-                <Link href={job.href} className="font-semibold text-[var(--color-accent-700)] hover:underline">
-                  {job.title}
-                  {job.company ? ` · ${job.company}` : ""}
-                </Link>
-                <span className="ml-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--jos-muted)]">
-                  {job.kind === "interview" ? "Interview" : "Job"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+          <CollapsibleSection
+            id={`${prep.id}-docs`}
+            label="Documents"
+            meta={context.documents.length || undefined}
+            defaultOpen={false}
+          >
+            {context.documents.length ? (
+              <ul className="space-y-2 text-[15px]">
+                {context.documents.map((document) => (
+                  <li key={document.id}>
+                    {document.url ? (
+                      <ExternalLink href={document.url}>{document.label}</ExternalLink>
+                    ) : (
+                      document.label
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-[var(--jos-muted)]">No documents linked.</p>
+            )}
+          </CollapsibleSection>
+
+          {context.jobSearch.length ? (
+            <CollapsibleSection id={`${prep.id}-jobs`} label="Job search" defaultOpen={false}>
+              <ul className="space-y-2">
+                {context.jobSearch.map((job) => (
+                  <li key={`${job.kind}-${job.id}`} className="text-[15px]">
+                    <Link href={job.href} className="font-semibold text-[var(--color-accent-700)] hover:underline">
+                      {job.title}
+                      {job.company ? ` · ${job.company}` : ""}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </CollapsibleSection>
+          ) : null}
+
+          <div className="border-t-2 border-[var(--jos-ink)] pt-3">
+            <GoalLinks prep={prep} projects={projects} people={context.people} />
+          </div>
+        </aside>
+      </div>
 
       {addTarget ? (
         <ContactCreateModal

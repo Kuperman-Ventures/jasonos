@@ -2,24 +2,38 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckSquare, Sparkle } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { BlockTitle, ExternalLink } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
-import { Button } from "@/components/ui/button";
+import {
+  LIVE_SECTION_LABEL,
+  OutcomeMarkButton,
+  ReviewStatusChip,
+  UnfinishedField,
+  type ReviewStatusKey,
+} from "@/components/jasonos/live";
+import { ExternalLink } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { REACTION_LABELS, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import { runMeetingReview, type MeetingReview } from "@/lib/server-actions/meeting-reviews";
-import { setMeetingOutcomeMark, type MeetingPrepDetail, type OutcomeMark } from "@/lib/server-actions/meeting-prep";
+import {
+  setMeetingOutcomeMark,
+  setMeetingOutcomeSentence,
+  type MeetingPrepDetail,
+  type OutcomeMark,
+} from "@/lib/server-actions/meeting-prep";
 import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
+import { cn } from "@/lib/utils";
 
-const MARK_LABEL: Record<OutcomeMark, string> = {
-  hit: "Hit",
-  partial: "Partial",
-  missed: "Missed",
-};
-
-function stateLabel(state: MeetingPoint["state"]): string {
-  if (state === "covered") return "Covered";
-  if (state === "skipped") return "Skipped";
-  return "Open";
+function reviewStatusFor(
+  point: MeetingPoint,
+  spoken: boolean | undefined
+): ReviewStatusKey {
+  if (point.state === "skipped" && !spoken) return "skipped";
+  if (point.state === "covered" && spoken) return "covered";
+  if (spoken && point.state !== "covered") return "said_differently";
+  if (point.state === "covered" && !spoken) return "said_differently";
+  if (point.state === "skipped") return "skipped";
+  return "skipped";
 }
 
 export function AfterTheCall({
@@ -27,11 +41,21 @@ export function AfterTheCall({
   points,
   rubric,
   review,
+  commitments,
+  nextTouch,
 }: {
   prep: MeetingPrepDetail;
   points: MeetingPoint[];
   rubric: string[];
   review: MeetingReview | null;
+  commitments?: Array<{
+    text: string;
+    direction: "mine" | "theirs";
+    due: string | null;
+    personName: string;
+    status?: string;
+  }>;
+  nextTouch?: { date: string | null; reason: string | null } | null;
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(review);
@@ -42,13 +66,23 @@ export function AfterTheCall({
     setCurrent(review);
   }
 
-  if (!prep.liveEndedAt) return null;
-
   const markable = points.filter((point) => point.kind !== "agenda");
   const spokenById = new Map((current?.pointsSpoken ?? []).map((row) => [row.pointId, row]));
   const reactionById = new Map((current?.reactionsObserved ?? []).map((row) => [row.pointId, row]));
-  const covered = markable.filter((point) => point.state === "covered").length;
-  const spoken = markable.filter((point) => spokenById.get(point.id)?.spoken).length;
+  const covered = markable.filter((point) => {
+    const found = spokenById.get(point.id);
+    return reviewStatusFor(point, found?.spoken) === "covered";
+  }).length;
+  const saidDiff = markable.filter((point) => {
+    const found = spokenById.get(point.id);
+    return reviewStatusFor(point, found?.spoken) === "said_differently";
+  }).length;
+  const skipped = markable.filter((point) => {
+    const found = spokenById.get(point.id);
+    return reviewStatusFor(point, found?.spoken) === "skipped";
+  }).length;
+  const checklistMet = (current?.rubricResults ?? []).filter((row) => row.met).length;
+  const checklistTotal = rubric.length;
   const analyzed = current && current.sourceKind !== "none" && !current.error;
 
   const run = () => {
@@ -64,19 +98,6 @@ export function AfterTheCall({
     });
   };
 
-  const useSuggested = () => {
-    if (!current?.suggestedMark) return;
-    void setMeetingOutcomeMark(prep.id, { mark: current.suggestedMark, note: prep.outcomeNote ?? "" }).then(
-      (result) => {
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
-        router.refresh();
-      }
-    );
-  };
-
   const mark = (value: OutcomeMark) => {
     void setMeetingOutcomeMark(prep.id, { mark: value, note: prep.outcomeNote ?? "" }).then((result) => {
       if (!result.ok) {
@@ -87,156 +108,204 @@ export function AfterTheCall({
     });
   };
 
+  const saveNote = (note: string) => {
+    void setMeetingOutcomeMark(prep.id, {
+      mark: prep.outcomeMark,
+      note,
+    }).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const saveSentence = (sentence: string) => {
+    void setMeetingOutcomeSentence(prep.id, sentence).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
   return (
-    <section className="space-y-4">
-      <BlockTitle>After the call</BlockTitle>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" disabled={running} onClick={run}>
-          {running ? "Reviewing…" : "Review the transcript"}
-        </Button>
-        {current?.sourceKind === "transcript" ? (
-          <p className="text-[13px] text-[var(--jos-muted)]">Reviewed from Granola transcript</p>
+    <div className="space-y-8">
+      <div className="bg-[var(--jos-surface)] px-10 py-6">
+        <div className="grid gap-6 min-[1100px]:grid-cols-3">
+          <div>
+            <p className={LIVE_SECTION_LABEL}>You wanted</p>
+            {prep.outcomeSentence?.trim() ? (
+              <p className="mt-2 text-[17px] font-medium leading-snug">{prep.outcomeSentence}</p>
+            ) : (
+              <div className="mt-2">
+                <UnfinishedField
+                  value=""
+                  emptyLabel="Add a sentence"
+                  onSave={saveSentence}
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <p className={LIVE_SECTION_LABEL}>Outcome</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(["hit", "partial", "missed"] as const).map((value) => (
+                <OutcomeMarkButton
+                  key={value}
+                  mark={value}
+                  selected={prep.outcomeMark === value}
+                  onClick={() => mark(value)}
+                />
+              ))}
+            </div>
+            {current?.suggestedMark ? (
+              <p className="mt-3 flex items-start gap-1.5 text-[14px] leading-snug text-[var(--jos-ink)]">
+                <Sparkle size={14} weight="duotone" className="mt-0.5 shrink-0 text-[var(--color-accent-700)]" aria-hidden />
+                <span>
+                  Review suggests {current.suggestedMark === "hit" ? "Hit" : current.suggestedMark === "partial" ? "Partial" : "Missed"}
+                  {current.suggestedReason ? `. ${current.suggestedReason}` : "."}
+                </span>
+              </p>
+            ) : !analyzed ? (
+              <button
+                type="button"
+                className="mt-3 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                disabled={running}
+                onClick={run}
+              >
+                {running ? "Reviewing…" : "Review the transcript"}
+              </button>
+            ) : null}
+          </div>
+          <div>
+            <p className={LIVE_SECTION_LABEL}>Outcome note</p>
+            <div className="mt-2">
+              <UnfinishedField
+                value={prep.outcomeNote}
+                emptyLabel="Add a sentence"
+                multiline
+                onSave={saveNote}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {current?.sourceUrl ? (
+            <a href={current.sourceUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+              Transcript
+            </a>
+          ) : (
+            <Button type="button" variant="secondary" size="sm" disabled={running} onClick={run}>
+              {running ? "Reviewing…" : "Transcript"}
+            </Button>
+          )}
+          <a href={`/live/library/${prep.id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            Record page
+          </a>
+        </div>
+      </div>
+
+      <div className="px-10">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-[24px] font-extrabold tracking-tight">Planned against said</h2>
+          <p className="text-[14px] text-[var(--jos-muted)]">
+            {covered} covered · {saidDiff} said differently · {skipped} skipped
+            {checklistTotal ? ` · checklist ${checklistMet} of ${checklistTotal}` : ""}
+          </p>
+        </div>
+        <ul className="mt-4">
+          {markable.map((point) => {
+            const found = spokenById.get(point.id);
+            const status = reviewStatusFor(point, found?.spoken);
+            const note = found?.quote ?? null;
+            return (
+              <li
+                key={point.id}
+                className="flex flex-wrap items-start gap-3 border-t border-[var(--jos-line)] py-3"
+              >
+                <ReviewStatusChip status={status} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[16px] font-semibold leading-snug">{point.headline}</p>
+                  {note ? <p className="mt-1 text-[14px] text-[var(--jos-muted)]">{note}</p> : null}
+                  {point.kind === "ask" ? (
+                    <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
+                      Recorded{" "}
+                      {point.observedReaction
+                        ? REACTION_LABELS[point.observedReaction as ReactionShape]
+                        : "nothing"}
+                      {" · "}
+                      Review found{" "}
+                      {reactionById.get(point.id)?.shape
+                        ? REACTION_LABELS[reactionById.get(point.id)!.shape as ReactionShape]
+                        : "nothing"}
+                    </p>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {current?.error ? (
+          <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{current.error}</p>
         ) : null}
-        {current?.sourceKind === "summary" ? (
-          <p className="text-[13px] text-[var(--jos-muted)]">
-            Reviewed from Granola summary (no transcript available)
+      </div>
+
+      <div className="space-y-6 px-10 pb-10">
+        <section>
+          <p className={LIVE_SECTION_LABEL}>Commitments from the call</p>
+          {commitments && commitments.length ? (
+            <ul className="mt-3 space-y-3">
+              {commitments.map((item) => (
+                <li key={`${item.personName}-${item.text}`} className="flex items-start gap-2">
+                  <CheckSquare
+                    size={18}
+                    weight="duotone"
+                    className="mt-0.5 shrink-0 text-[var(--color-todo)]"
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <p
+                      className={cn(
+                        "text-[15px] leading-snug",
+                        item.status === "overdue" && "text-[var(--color-accent-2-text)]"
+                      )}
+                    >
+                      {item.text}
+                    </p>
+                    <p className="text-[13px] text-[var(--jos-muted)]">
+                      {item.direction === "mine" ? "Yours" : "Theirs"}
+                      {item.due ? ` · due ${item.due}` : " · this week"}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-[14px] text-[var(--jos-muted)]">No open commitments on the record yet.</p>
+          )}
+        </section>
+
+        <section>
+          <p className={LIVE_SECTION_LABEL}>Next touch</p>
+          {nextTouch?.date ? (
+            <p className="mt-2 text-[15px]">
+              {nextTouch.date}
+              {nextTouch.reason ? ` · ${nextTouch.reason}` : ""}
+            </p>
+          ) : (
+            <p className="mt-2 text-[14px] text-[var(--jos-muted)]">No next touch set on this person.</p>
+          )}
+        </section>
+
+        {current?.sourceUrl ? (
+          <p className="text-[14px]">
+            <ExternalLink href={current.sourceUrl}>Open in Granola</ExternalLink>
           </p>
         ) : null}
-        {current?.sourceUrl ? <ExternalLink href={current.sourceUrl}>Open in Granola</ExternalLink> : null}
       </div>
-      {current?.error ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{current.error}</p> : null}
-      {current?.talkRatio != null ? (
-        <p className="text-[14px] text-[var(--jos-ink)]">
-          You spoke {Math.round(current.talkRatio * 100)}% of the words.
-        </p>
-      ) : null}
-
-      {analyzed ? (
-        <>
-          <div className="space-y-2">
-            <p className="text-[13px] text-[var(--jos-muted)]">
-              {markable.length} points · {covered} covered · {spoken} spoken
-            </p>
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-              Planned vs said
-            </h3>
-            <ul>
-              {markable.map((point) => {
-                const found = spokenById.get(point.id);
-                const wasSpoken = Boolean(found?.spoken);
-                const plannedCovered = point.state === "covered";
-                const plannedSkipped = point.state === "skipped";
-                const disagree =
-                  (plannedCovered && !wasSpoken) || (plannedSkipped && wasSpoken) || (point.state === "open" && wasSpoken);
-                return (
-                  <li
-                    key={point.id}
-                    className={
-                      disagree
-                        ? "border-l-4 border-[var(--color-accent-2)] py-2 pl-3"
-                        : "border-t border-[var(--jos-line)] py-2"
-                    }
-                  >
-                    <p className="text-[15px] font-semibold">{point.headline}</p>
-                    <p className="text-[13px] text-[var(--jos-muted)]">
-                      {stateLabel(point.state)} · {wasSpoken ? "Spoken" : "Not found"}
-                    </p>
-                    {found?.quote ? <p className="mt-1 text-[14px] leading-snug">{found.quote}</p> : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Checklist</h3>
-            {rubric.length === 0 ? (
-              <p className="text-[14px] text-[var(--jos-muted)]">This strategy has no checklist.</p>
-            ) : (
-              <ul>
-                {(current?.rubricResults.length ? current.rubricResults : rubric.map((item) => ({ item, met: false, quote: null }))).map(
-                  (row) => (
-                    <li key={row.item} className="border-t border-[var(--jos-line)] py-2">
-                      <p className="text-[15px]">
-                        <span className="font-semibold">{row.met ? "Met" : "Not met"}. </span>
-                        {row.item}
-                      </p>
-                      {row.quote ? <p className="mt-1 text-[14px] leading-snug">{row.quote}</p> : null}
-                    </li>
-                  )
-                )}
-              </ul>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Reactions</h3>
-            {markable.filter((point) => point.kind === "ask").length === 0 ? (
-              <p className="text-[14px] text-[var(--jos-muted)]">No asks on this meeting.</p>
-            ) : (
-              <ul>
-                {markable
-                  .filter((point) => point.kind === "ask")
-                  .map((point) => {
-                    const found = reactionById.get(point.id);
-                    const recorded = point.observedReaction
-                      ? REACTION_LABELS[point.observedReaction as ReactionShape]
-                      : "Not recorded";
-                    const heard = found?.shape ? REACTION_LABELS[found.shape] : "Not found";
-                    return (
-                      <li key={point.id} className="border-t border-[var(--jos-line)] py-2">
-                        <p className="text-[15px] font-semibold">{point.headline}</p>
-                        <p className="text-[13px] text-[var(--jos-muted)]">
-                          You recorded {recorded}. Review found {heard}.
-                        </p>
-                        {found?.quote ? <p className="mt-1 text-[14px] leading-snug">{found.quote}</p> : null}
-                      </li>
-                    );
-                  })}
-              </ul>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-              Suggested outcome
-            </h3>
-            <p className="text-[15px]">
-              Suggested {current?.suggestedMark ? MARK_LABEL[current.suggestedMark] : "nothing"}. Yours is{" "}
-              {prep.outcomeMark ? MARK_LABEL[prep.outcomeMark] : "not marked"}.
-            </p>
-            {current?.suggestedReason ? (
-              <p className="max-w-[65ch] text-[15px] leading-relaxed">{current.suggestedReason}</p>
-            ) : null}
-            {current?.suggestedMark ? (
-              <Button type="button" size="sm" variant="outline" onClick={useSuggested}>
-                Use suggested
-              </Button>
-            ) : null}
-            {!prep.outcomeMark ? (
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(MARK_LABEL) as OutcomeMark[]).map((value) => (
-                  <Button key={value} type="button" size="sm" variant="outline" onClick={() => mark(value)}>
-                    {MARK_LABEL[value]}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-              Against your goals
-            </h3>
-            <p className="text-[15px] leading-relaxed">
-              {current?.projectGoalNote || "Nothing in the record bears on the project goal."}
-            </p>
-            <p className="text-[15px] leading-relaxed">
-              {current?.relationshipGoalNote || "Nothing in the record bears on the goal for this relationship."}
-            </p>
-          </div>
-        </>
-      ) : null}
-    </section>
+    </div>
   );
 }
