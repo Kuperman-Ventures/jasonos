@@ -3,9 +3,14 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { InlineField, PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
+import {
+  LIVE_FIELD,
+  LIVE_FIELD_UNFINISHED,
+  LIVE_SECTION_LABEL,
+  UnfinishedField,
+} from "@/components/jasonos/live";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,22 +35,22 @@ import {
   type LiveScript,
   type LiveScriptItem,
 } from "@/lib/server-actions/live-scripts";
-
-const FIELD =
-  "w-full rounded-[2px] border-0 border-b-2 border-[var(--color-neutral-400)] bg-[var(--jos-surface)] px-3.5 text-[16px] text-[var(--jos-ink)] outline-none placeholder:text-[var(--jos-muted)]";
+import { cn } from "@/lib/utils";
 
 function StrategyFields({ script }: { script: LiveScript }) {
   const router = useRouter();
-  const serverKey = `${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}`;
+  const serverKey = `${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}\u0000${script.methodologySource ?? ""}`;
   const [situation, setSituation] = useState(script.situation ?? "");
   const [success, setSuccess] = useState(script.successSentence ?? "");
   const [rubric, setRubric] = useState(script.rubric);
+  const [basedOn, setBasedOn] = useState(script.methodologySource ?? "");
   const [seen, setSeen] = useState(serverKey);
   if (serverKey !== seen) {
     setSeen(serverKey);
     setSituation(script.situation ?? "");
     setSuccess(script.successSentence ?? "");
     setRubric(script.rubric);
+    setBasedOn(script.methodologySource ?? "");
   }
 
   const save = (patch: {
@@ -62,112 +67,93 @@ function StrategyFields({ script }: { script: LiveScript }) {
       if (patch.situation !== undefined) setSituation(patch.situation ?? "");
       if (patch.successSentence !== undefined) setSuccess(patch.successSentence ?? "");
       if (patch.rubric !== undefined) setRubric(patch.rubric);
+      if (patch.methodologySource !== undefined) setBasedOn(patch.methodologySource ?? "");
       router.refresh();
     });
   };
 
-  const situationEmpty = !situation.trim();
-  const successEmpty = !success.trim();
-  const rubricEmpty = rubric.length === 0;
-  const emptyClass = "border-l-4 border-[var(--color-accent-2-text)] pl-3";
-
-  return (
-    <div className="space-y-4 pt-2">
-      {situationEmpty && successEmpty && rubricEmpty ? (
-        <p className="text-[14px] text-[var(--color-accent-2-text)]">
-          This strategy has no success sentence or checklist yet. Applying it will not seed an outcome
-          sentence, and the transcript review will have nothing to check.
-        </p>
-      ) : null}
-      <label className={`block space-y-1 ${situationEmpty ? emptyClass : ""}`}>
-        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          Situation{situationEmpty ? " (not set)" : ""}
-        </span>
-        <InlineField
-          value={situation}
-          placeholder="When this strategy applies, in one sentence"
-          emptyLabel="When this strategy applies, in one sentence"
-          maxLength={400}
-          className="text-[16px] font-medium text-[var(--jos-ink)]"
-          onSave={(next) => save({ situation: next })}
-        />
-      </label>
-      <label className={`block space-y-1 ${successEmpty ? emptyClass : ""}`}>
-        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          What success looks like{successEmpty ? " (not set)" : ""}
-        </span>
-        <InlineField
-          value={success}
-          placeholder="One sentence you can score the meeting against"
-          emptyLabel="One sentence you can score the meeting against"
-          maxLength={400}
-          className="text-[16px] font-medium text-[var(--jos-ink)]"
-          onSave={(next) => save({ successSentence: next })}
-        />
-      </label>
-      <ChecklistField
-        lines={rubric}
-        empty={rubricEmpty}
-        onSave={(next) => save({ rubric: next })}
-      />
-      <label className="block space-y-1">
-        <span className="text-[12px] text-[var(--jos-muted)]">Based on</span>
-        <InlineField
-          value={script.methodologySource ?? ""}
-          placeholder="Where this strategy came from"
-          emptyLabel="Where this strategy came from"
-          maxLength={200}
-          className="text-[13px] text-[var(--jos-muted)]"
-          onSave={(next) => save({ methodologySource: next })}
-        />
-      </label>
-    </div>
-  );
-}
-
-function ChecklistField({
-  lines,
-  empty,
-  onSave,
-}: {
-  lines: string[];
-  empty: boolean;
-  onSave: (lines: string[]) => void;
-}) {
-  const stored = lines.join("\n");
-  const [text, setText] = useState(stored);
-  const [seen, setSeen] = useState(stored);
-  if (stored !== seen) {
-    setSeen(stored);
-    setText(stored);
+  const [editingChecklist, setEditingChecklist] = useState(false);
+  const [checklistText, setChecklistText] = useState(rubric.join("\n"));
+  const rubricKey = rubric.join("\n");
+  const [seenRubric, setSeenRubric] = useState(rubricKey);
+  if (rubricKey !== seenRubric) {
+    setSeenRubric(rubricKey);
+    setChecklistText(rubricKey);
   }
 
   return (
-    <label className={`block space-y-1 ${empty ? "border-l-4 border-[var(--color-accent-2-text)] pl-3" : ""}`}>
-      <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-        Checklist{empty ? " (not set)" : ""}
-      </span>
-      <textarea
-        value={text}
-        rows={Math.min(12, Math.max(4, text.split("\n").filter(Boolean).length || 4))}
-        placeholder="One line per item, up to 12"
-        aria-label="Checklist"
-        className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-2 text-[15px] leading-snug outline-none"
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => {
-          const next = text
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .slice(0, 12);
-          if (next.join("\n") === stored) return;
-          onSave(next);
-        }}
-      />
-      <span className="text-[12px] text-[var(--jos-muted)]">
-        One line per item, up to 12. The transcript review checks each one.
-      </span>
-    </label>
+    <div className="mt-5 grid gap-5 min-[900px]:grid-cols-2">
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Situation</span>
+        <UnfinishedField
+          value={situation}
+          emptyLabel="Add a sentence"
+          placeholder="When this strategy applies"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ situation: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Success looks like</span>
+        <UnfinishedField
+          value={success}
+          emptyLabel="Add a sentence"
+          placeholder="One sentence you can score the meeting against"
+          inputClassName="text-[17px] font-semibold"
+          onSave={(next) => save({ successSentence: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Checklist</span>
+        {editingChecklist ? (
+          <textarea
+            autoFocus
+            value={checklistText}
+            rows={Math.min(8, Math.max(3, checklistText.split("\n").filter(Boolean).length || 3))}
+            placeholder="One item per line"
+            aria-label="Checklist"
+            className={cn(LIVE_FIELD, !rubric.length && LIVE_FIELD_UNFINISHED, "min-h-24 py-2 text-[16px]")}
+            onChange={(event) => setChecklistText(event.target.value)}
+            onBlur={() => {
+              setEditingChecklist(false);
+              const next = checklistText
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .slice(0, 12);
+              if (next.join("\n") === rubricKey) return;
+              save({ rubric: next });
+            }}
+          />
+        ) : rubric.length === 0 ? (
+          <button
+            type="button"
+            className={cn(LIVE_FIELD, LIVE_FIELD_UNFINISHED, "min-h-11 text-left text-[17px] font-medium text-[var(--color-accent-2-text)]")}
+            onClick={() => setEditingChecklist(true)}
+          >
+            Add a sentence
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="block w-full text-left text-[17px] font-medium leading-snug text-[var(--jos-ink)]"
+            onClick={() => setEditingChecklist(true)}
+          >
+            {rubric.join(" · ")}
+          </button>
+        )}
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Based on</span>
+        <UnfinishedField
+          value={basedOn}
+          emptyLabel="Add a sentence"
+          placeholder="Where this strategy came from"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ methodologySource: next || null })}
+        />
+      </label>
+    </div>
   );
 }
 
@@ -178,7 +164,8 @@ function meetingLabel(meeting: MeetingPrepSummary): string {
     hour: "numeric",
     minute: "2-digit",
   });
-  return `${when} · ${meeting.title}`;
+  const person = meeting.primaryContactName?.trim() || meeting.title;
+  return `${person} · ${when}`;
 }
 
 export function LiveScriptClient({
@@ -205,6 +192,10 @@ export function LiveScriptClient({
 
   const markable = items.some((item) => item.kind !== "agenda");
   const selected = meetings.find((meeting) => meeting.id === prepId) ?? null;
+  const adaptName =
+    selected?.primaryContactName?.trim().split(/\s+/)[0] ||
+    selected?.title.split(/[:·-]/)[0]?.trim() ||
+    "them";
 
   const saveName = (next: string) => {
     const name = next.trim();
@@ -213,16 +204,6 @@ export function LiveScriptClient({
       return;
     }
     void updateLiveScript(script.id, { name }).then((result) => {
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
-  };
-
-  const saveDescription = (next: string) => {
-    void updateLiveScript(script.id, { description: next }).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -288,121 +269,103 @@ export function LiveScriptClient({
     });
   };
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-      <Link
-        href="/live"
-        className="inline-flex items-center gap-1 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-      >
-        <ChevronLeft className="size-4" />
-        Live
-      </Link>
+  const usedLabel =
+    script.useCount === 1 ? "USED 1 TIME" : `USED ${script.useCount} TIMES`;
 
-      <header className="space-y-2">
+  return (
+    <div className="flex min-h-[calc(100vh-var(--jos-nav-h))] flex-col">
+      <header className="shrink-0 border-b border-[var(--jos-ink)] px-10 py-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <InlineField
-            value={script.name}
-            placeholder="Strategy name"
-            emptyLabel="Strategy name"
-            maxLength={120}
-            className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]"
-            onSave={saveName}
-          />
-          {confirmDelete ? (
-            <p className="text-[13px]">
-              Delete this strategy?{" "}
-              <button
-                type="button"
-                className="font-semibold text-[var(--color-accent-2-text)] hover:underline"
-                disabled={deleting}
-                onClick={remove}
-              >
-                Confirm
-              </button>
-              {" · "}
-              <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmDelete(false)}>
-                Cancel
-              </button>
+          <div className="min-w-0 flex-1">
+            <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>
+              Strategy · {usedLabel}
             </p>
-          ) : (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
-              Delete strategy
-            </Button>
-          )}
+            <InlineField
+              value={script.name}
+              placeholder="Strategy name"
+              emptyLabel="Strategy name"
+              maxLength={120}
+              className="mt-1 text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
+              onSave={saveName}
+            />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {markable ? (
+              <Link
+                href={`/live/scripts/${script.id}/rehearse`}
+                className={buttonVariants({ variant: "secondary", size: "sm" })}
+              >
+                Rehearse
+              </Link>
+            ) : (
+              <button type="button" disabled className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                Rehearse
+              </button>
+            )}
+            {confirmDelete ? (
+              <p className="text-[13px]">
+                Delete?{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-[var(--color-accent-2-text)] hover:underline"
+                  disabled={deleting}
+                  onClick={remove}
+                >
+                  Confirm
+                </button>
+                {" · "}
+                <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </button>
+              </p>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
+                Delete
+              </Button>
+            )}
+          </div>
         </div>
-        <InlineField
-          value={script.description ?? ""}
-          placeholder="Description"
-          emptyLabel="Add a description"
-          maxLength={400}
-          className="text-[15px] text-[var(--jos-muted)]"
-          onSave={saveDescription}
-        />
-        {script.methodologySource ? (
-          <p className="text-[13px] text-[var(--jos-muted)]">Based on: {script.methodologySource}</p>
-        ) : null}
         <StrategyFields script={script} />
       </header>
 
-      <PointsEditor
-        points={items}
-        actions={{
-          create: async (input) => {
-            const result = await createLiveScriptItem({ scriptId: script.id, ...input });
-            if (!result.ok) return result;
-            return { ok: true, id: result.item.id };
-          },
-          update: (id, patch) => updateLiveScriptItem(id, patch),
-          draftReactions: (id) => draftScriptItemReactions(id),
-          remove: (id) => deleteLiveScriptItem(id),
-          reorder: (ids) => reorderLiveScriptItems(script.id, ids),
-        }}
-        detailBox
-        draft={{
-          label: "Draft points",
-          run: () =>
-            new Promise((resolve) => {
-              draftDone.current = resolve;
-              setBrief("");
-              setBriefOpen(true);
-            }),
-        }}
-      />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <PointsEditor
+          layout="split"
+          points={items}
+          detailBox
+          actions={{
+            create: async (input) => {
+              const result = await createLiveScriptItem({ scriptId: script.id, ...input });
+              if (!result.ok) return result;
+              return { ok: true, id: result.item.id };
+            },
+            update: (id, patch) => updateLiveScriptItem(id, patch),
+            draftReactions: (id) => draftScriptItemReactions(id),
+            remove: (id) => deleteLiveScriptItem(id),
+            reorder: (ids) => reorderLiveScriptItems(script.id, ids),
+          }}
+          draft={{
+            label: "Draft points",
+            run: () =>
+              new Promise((resolve) => {
+                draftDone.current = resolve;
+                setBrief("");
+                setBriefOpen(true);
+              }),
+          }}
+        />
+      </div>
 
-      <p className="text-[13px] text-[var(--jos-muted)]">
-        Placeholders {"{{name}}"}, {"{{company}}"} and {"{{title}}"} are filled in when you apply this
-        strategy to a meeting.
-      </p>
-
-      {markable ? (
-        <Link
-          href={`/live/scripts/${script.id}/rehearse`}
-          className={buttonVariants({ variant: "calendar" })}
-        >
-          Rehearse
-        </Link>
-      ) : (
-        <button type="button" disabled className={buttonVariants({ variant: "calendar" })}>
-          Add at least one point
-        </button>
-      )}
-
-      <section className="space-y-3">
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
-          Apply to a meeting
-        </h2>
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t-2 border-[var(--jos-ink)] bg-[var(--jos-surface)] px-10 py-3">
+        <p className={LIVE_SECTION_LABEL}>Apply to a meeting</p>
         {meetings.length === 0 ? (
-          <p className="text-[15px] text-[var(--jos-muted)]">No meetings today or tomorrow.</p>
+          <p className="text-[14px] text-[var(--jos-muted)]">No meetings today or tomorrow.</p>
         ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor="apply-meeting">
-              Meeting
-            </label>
+          <>
             <select
-              id="apply-meeting"
               aria-label="Meeting"
               value={prepId}
-              className="h-8 max-w-full bg-transparent text-[14px] font-semibold outline-none"
+              className="h-9 min-w-[14rem] border-0 border-b-2 border-[#b5b2b2] bg-transparent text-[14px] font-semibold outline-none"
               onChange={(event) => {
                 setPrepId(event.target.value);
                 setConfirmReplace(false);
@@ -415,50 +378,56 @@ export function LiveScriptClient({
                 </option>
               ))}
             </select>
-            {prepId && selected ? (
-              confirmReplace ? (
-                <span className="text-[13px]">
-                  Replace {selected.pointCount} existing points?{" "}
-                  <button
-                    type="button"
-                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
-                    disabled={applying}
-                    onClick={() => apply("replace")}
-                  >
-                    Confirm
-                  </button>
-                  {" · "}
-                  <button
-                    type="button"
-                    className="font-semibold hover:underline"
-                    onClick={() => setConfirmReplace(false)}
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <>
-                  <Button type="button" size="sm" variant="outline" disabled={applying} onClick={() => apply("add")}>
-                    Add
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={applying}
-                    onClick={() => setConfirmReplace(true)}
-                  >
-                    Replace
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" disabled={applying} onClick={adapt}>
-                    Adapt
-                  </Button>
-                </>
-              )
-            ) : null}
-          </div>
+            {confirmReplace && selected ? (
+              <span className="text-[13px]">
+                Replace {selected.pointCount} existing points?{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                  disabled={applying}
+                  onClick={() => apply("replace")}
+                >
+                  Confirm
+                </button>
+                {" · "}
+                <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmReplace(false)}>
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!prepId || applying}
+                  onClick={() => apply("add")}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!prepId || applying}
+                  onClick={() => setConfirmReplace(true)}
+                >
+                  Replace
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="default"
+                  disabled={!prepId || applying}
+                  onClick={adapt}
+                >
+                  Adapt to {adaptName}
+                </Button>
+              </>
+            )}
+          </>
         )}
-      </section>
+      </div>
 
       <Dialog
         open={briefOpen}
@@ -496,7 +465,7 @@ export function LiveScriptClient({
                 required
                 value={brief}
                 rows={5}
-                className={`${FIELD} py-2`}
+                className={cn(LIVE_FIELD, "py-2")}
                 onChange={(event) => setBrief(event.target.value)}
               />
             </label>
@@ -508,7 +477,7 @@ export function LiveScriptClient({
               >
                 Cancel
               </Button>
-              <Button type="submit" variant="calendar" disabled={drafting}>
+              <Button type="submit" variant="default" disabled={drafting}>
                 Draft
               </Button>
             </div>
