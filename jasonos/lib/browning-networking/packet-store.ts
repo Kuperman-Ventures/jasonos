@@ -71,10 +71,7 @@ export async function storeHandoffPacket(
       input.threadId
     );
     if (fallback) {
-      resumeText = await extractAttachmentText({
-        ...fallback,
-        messageId,
-      });
+      resumeText = await extractAttachmentText(fallback);
       resumeFilename = fallback.filename;
     }
   }
