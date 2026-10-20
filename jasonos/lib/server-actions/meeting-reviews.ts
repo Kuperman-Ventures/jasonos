@@ -160,7 +160,7 @@ export async function runMeetingReview(
       talk_ratio: null,
       project_goal_note: null,
       relationship_goal_note: null,
-      error: "No Granola note found for this meeting.",
+      error: note.error?.trim() || "No Granola note found for this meeting.",
     });
     if (!saved.ok) return saved;
     revalidateReview(id);
