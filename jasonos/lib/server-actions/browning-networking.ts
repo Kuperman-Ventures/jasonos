@@ -43,7 +43,16 @@ function revalidate() {
 }
 
 export async function checkBrowningHandoffs(runId?: string): Promise<
-  { ok: true; created: number; found: number; followUps: number; olderFound: number; preps: number } | { ok: false; error: string }
+  | {
+      ok: true;
+      created: number;
+      found: number;
+      followUps: number;
+      olderFound: number;
+      preps: number;
+      sentReplies: number;
+    }
+  | { ok: false; error: string }
 > {
   const result = await runBrowningNetworking();
   await appendSyncLog(
@@ -54,6 +63,7 @@ export async function checkBrowningHandoffs(runId?: string): Promise<
       followUps: result.followUps,
       preps: result.preps,
       found: result.found,
+      sentReplies: result.sentReplies,
       error: result.error,
     },
     runId
@@ -67,6 +77,7 @@ export async function checkBrowningHandoffs(runId?: string): Promise<
     followUps: result.followUps,
     olderFound: result.olderFound,
     preps: result.preps,
+    sentReplies: result.sentReplies,
   };
 }
 

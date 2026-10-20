@@ -113,9 +113,15 @@ export function formatSyncSummary(
     const created = num(payload, "created");
     const followUps = num(payload, "followUps");
     const preps = num(payload, "preps");
+    const sentReplies = num(payload, "sentReplies");
     const parts = [`+${created} handoff${created === 1 ? "" : "s"}`];
     if (followUps) parts.push(`${followUps} follow-up${followUps === 1 ? "" : "s"}`);
     if (preps) parts.push(`${preps} meeting prep`);
+    if (sentReplies) {
+      parts.push(
+        `${sentReplies} moved to waiting`
+      );
+    }
     if (issues.length) parts.push(issues.join(" · "));
     return parts.join(" · ");
   }
