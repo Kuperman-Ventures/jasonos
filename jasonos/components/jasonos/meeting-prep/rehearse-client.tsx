@@ -49,6 +49,9 @@ export function RehearseClient({
       key={clockKey}
       session={{
         title: script.name,
+        strategyName: script.name,
+        personLabel: null,
+        companyLabel: null,
         timeLabel: null,
         joinHref: null,
         backHref: `/live/scripts/${script.id}`,
@@ -58,6 +61,7 @@ export function RehearseClient({
         onDone: "none",
       }}
       points={points}
+      onReset={reset}
       actions={{
         setState: async (id, state: PointState) => {
           setPoints((current) =>
@@ -81,7 +85,7 @@ export function RehearseClient({
           return { ok: true };
         },
         end: async () => ({ ok: true }),
-        setObservedReaction: async (id, shape: ReactionShape) => {
+        setObservedReaction: async (id, shape: ReactionShape | null) => {
           setPoints((current) =>
             current.map((point) => (point.id === id ? { ...point, observedReaction: shape } : point))
           );
@@ -89,19 +93,14 @@ export function RehearseClient({
         },
       }}
       extraControls={({ drill, setDrill }) => (
-        <>
-          <Button
-            type="button"
-            variant={drill ? "calendar" : "outline"}
-            size="sm"
-            onClick={() => setDrill(!drill)}
-          >
-            Drill
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={reset}>
-            Reset
-          </Button>
-        </>
+        <Button
+          type="button"
+          variant={drill ? "default" : "secondary"}
+          size="sm"
+          onClick={() => setDrill(!drill)}
+        >
+          Drill
+        </Button>
       )}
     />
   );

@@ -54,7 +54,7 @@ export default async function LiveMeetingPage({
     return setMeetingOutcomeMark(id, { mark, note });
   }
 
-  async function setObservedReaction(pointId: string, shape: ReactionShape) {
+  async function setObservedReaction(pointId: string, shape: ReactionShape | null) {
     "use server";
     return setMeetingPointObservedReaction(pointId, shape);
   }
@@ -86,10 +86,18 @@ export default async function LiveMeetingPage({
   }
 
   const prep = prepResult.prep;
+  const personLabel =
+    prep.primaryContactName?.trim() ||
+    prep.attendees.find((person) => person.name?.trim())?.name?.trim() ||
+    prep.attendees[0]?.email ||
+    null;
   return (
     <LiveCallClient
       session={{
         title: prep.title,
+        strategyName: prep.scriptName ?? prep.title,
+        personLabel,
+        companyLabel: null,
         timeLabel: `${easternClock(prep.startsAt)}–${easternClock(prep.endsAt)} ET`,
         joinHref: joinHref(prep),
         backHref: `/meetings/${prep.id}`,

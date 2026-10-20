@@ -1,36 +1,54 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, Minus } from "lucide-react";
+import { ArrowSquareOut, Check, NotePencil } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  coveredTally,
+  KindLabel,
+  LIVE_HEADER_H,
+  LIVE_RAIL_W,
+  LIVE_SECTION_LABEL,
+  OutcomeMarkButton,
+  PointStateIcon,
+  UnfinishedField,
+  railRowClass,
+  railStateFor,
+  type OutcomeChoice,
+} from "@/components/jasonos/live";
+import {
   firstOpenIndex,
   formatElapsed,
   markableIndexAt,
   moveMarkableIndex,
   nextOpenIndex,
-  type PointKind,
   type PointState,
 } from "@/lib/meeting-prep/points";
 import { REACTION_LABELS, REACTION_SHAPES, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { MeetingPoint, PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
-const KIND_LABEL: Record<PointKind, string> = {
-  agenda: "Agenda",
-  point: "Point",
-  question: "Question",
-  ask: "Ask",
-};
-
-export type OutcomeChoice = "hit" | "partial" | "missed";
-
 export type LiveSession = {
   title: string;
+  /** Strategy name in the header; falls back to title. */
+  strategyName?: string | null;
+  personLabel?: string | null;
+  companyLabel?: string | null;
   timeLabel: string | null;
   joinHref: string | null;
   backHref: string;
@@ -46,7 +64,7 @@ export type LiveCallActions = {
   setNote: (id: string, note: string) => Promise<PointResult<object>>;
   end: () => Promise<PointResult<object>>;
   markOutcome?: (mark: OutcomeChoice, note: string) => Promise<PointResult<object>>;
-  setObservedReaction?: (id: string, shape: ReactionShape) => Promise<PointResult<object>>;
+  setObservedReaction?: (id: string, shape: ReactionShape | null) => Promise<PointResult<object>>;
 };
 
 function stableDrillIndex(id: string): number {
@@ -76,14 +94,10 @@ function pointSignature(points: MeetingPoint[]): string {
     .join("\u001e");
 }
 
-function StateMark({ state }: { state: PointState }) {
-  if (state === "covered") {
-    return <Check className="mt-0.5 size-4 shrink-0 text-[var(--color-done)]" aria-hidden />;
-  }
-  if (state === "skipped") {
-    return <Minus className="mt-0.5 size-4 shrink-0" aria-hidden />;
-  }
-  return <span className="mt-0.5 size-3.5 shrink-0 rounded-full border-2 border-current" aria-hidden />;
+function hasReactionTray(point: MeetingPoint | null): boolean {
+  if (!point) return false;
+  if (point.kind === "ask") return point.reactions.length === REACTION_SHAPES.length;
+  return point.reactions.length === REACTION_SHAPES.length;
 }
 
 function Elapsed({ startedAt }: { startedAt: string | null }) {
@@ -102,11 +116,13 @@ export function LiveCallClient({
   points,
   actions,
   extraControls,
+  onReset,
 }: {
   session: LiveSession;
   points: MeetingPoint[];
   actions: LiveCallActions;
   extraControls?: ReactNode | ((controls: { drill: boolean; setDrill: (on: boolean) => void }) => ReactNode);
+  onReset?: () => void;
 }) {
   const router = useRouter();
   const signature = pointSignature(points);
@@ -120,6 +136,7 @@ export function LiveCallClient({
   const [startedAt, setStartedAt] = useState(session.startedAt);
   const [, startTransition] = useTransition();
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef(rows);
   const currentRef = useRef(currentId);
   const finishedRef = useRef(finished);
@@ -131,12 +148,12 @@ export function LiveCallClient({
   const [marking, setMarking] = useState(false);
   const [chosen, setChosen] = useState<OutcomeChoice | null>(null);
   const [outcomeNote, setOutcomeNote] = useState("");
-  const [reactionsOpen, setReactionsOpen] = useState(false);
-  const [hintOpen, setHintOpen] = useState(false);
+  const [selectedReaction, setSelectedReaction] = useState<ReactionShape | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
   const [drillOn, setDrillOn] = useState(false);
   const [drillIndex, setDrillIndex] = useState(0);
   const [pivotShown, setPivotShown] = useState(false);
-  const reactionsOpenRef = useRef(false);
+  const selectedReactionRef = useRef<ReactionShape | null>(null);
   const drillOnRef = useRef(false);
   const pivotShownRef = useRef(false);
   const hasStart = Boolean(actions.start);
@@ -176,8 +193,9 @@ export function LiveCallClient({
   const [panelFor, setPanelFor] = useState(currentId);
   if (panelFor !== currentId) {
     setPanelFor(currentId);
-    setReactionsOpen(false);
-    setHintOpen(false);
+    const point = rows.find((row) => row.id === currentId);
+    setSelectedReaction(point?.observedReaction ?? null);
+    setNoteOpen(false);
     setPivotShown(false);
   }
 
@@ -186,12 +204,12 @@ export function LiveCallClient({
     document.getElementById(`live-point-${currentId}`)?.scrollIntoView({ block: "nearest" });
   }, [currentId]);
 
-  const tally = coveredTally(rows);
   const currentIndex = rows.findIndex((point) => point.id === currentId);
   const current = currentIndex >= 0 ? rows[currentIndex] : null;
   const markable = rows.filter((point) => point.kind !== "agenda");
   const openLeft = markable.some((point) => point.state === "open");
   const showAllCovered = finished && !openLeft && markable.length > 0;
+  const trayActive = hasReactionTray(current);
   const select = (id: string) => {
     setFinished(false);
     setCurrentId(id);
@@ -236,19 +254,26 @@ export function LiveCallClient({
     });
   };
 
-  const pickReaction = (id: string, shape: ReactionShape) => {
-    setReactionsOpen(false);
+  const pickReaction = (id: string, shape: ReactionShape | null) => {
+    setSelectedReaction(shape);
+    selectedReactionRef.current = shape;
     startTransition(async () => {
       const record = actionsRef.current.setObservedReaction;
-      if (record) {
-        const result = await record(id, shape);
-        if (!result.ok) {
-          toast.error(result.error);
-          return;
-        }
+      if (!record) return;
+      const result = await record(id, shape);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
-      mark(id, "covered");
+      setRows((list) =>
+        list.map((row) => (row.id === id ? { ...row, observedReaction: shape } : row))
+      );
     });
+  };
+
+  const toggleReaction = (id: string, shape: ReactionShape) => {
+    const next = selectedReactionRef.current === shape ? null : shape;
+    pickReaction(id, next);
   };
 
   const leave = () => {
@@ -266,13 +291,13 @@ export function LiveCallClient({
   };
 
   const confirmOutcome = () => {
-    const mark = chosenRef.current;
-    if (!mark || submittingRef.current) return;
+    const markChoice = chosenRef.current;
+    if (!markChoice || submittingRef.current) return;
     submittingRef.current = true;
     startTransition(async () => {
       const marker = actionsRef.current.markOutcome;
       if (marker) {
-        const result = await marker(mark, outcomeNoteRef.current);
+        const result = await marker(markChoice, outcomeNoteRef.current);
         if (!result.ok) {
           submittingRef.current = false;
           toast.error(result.error);
@@ -297,7 +322,7 @@ export function LiveCallClient({
     markingRef.current = marking;
     chosenRef.current = chosen;
     outcomeNoteRef.current = outcomeNote;
-    reactionsOpenRef.current = reactionsOpen;
+    selectedReactionRef.current = selectedReaction;
     drillOnRef.current = drillOn;
     pivotShownRef.current = pivotShown;
     function onKey(event: KeyboardEvent) {
@@ -320,7 +345,7 @@ export function LiveCallClient({
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          leave();
+          setMarking(false);
           return;
         }
         if (event.key === "Enter") {
@@ -360,7 +385,7 @@ export function LiveCallClient({
         setDrillOn(next);
         return;
       }
-      if (drillOnRef.current && point && point.reactions.length === REACTION_SHAPES.length) {
+      if (drillOnRef.current && point && hasReactionTray(point)) {
         if (event.key === "Enter") {
           event.preventDefault();
           if (!pivotShownRef.current) {
@@ -369,34 +394,22 @@ export function LiveCallClient({
           } else {
             pivotShownRef.current = false;
             setPivotShown(false);
-            setDrillIndex((current) => {
+            setDrillIndex((currentDrill) => {
               const next = Math.floor(Math.random() * REACTION_SHAPES.length);
-              return next === current ? (current + 1) % REACTION_SHAPES.length : next;
+              return next === currentDrill ? (currentDrill + 1) % REACTION_SHAPES.length : next;
             });
           }
         }
         return;
       }
-      if (reactionsOpenRef.current && point) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          setReactionsOpen(false);
-          return;
-        }
-        if (/^[1-6]$/.test(event.key)) {
-          event.preventDefault();
-          pickReaction(point.id, REACTION_SHAPES[Number(event.key) - 1]);
-        }
+      if ((event.key === "r" || event.key === "R") && point && hasReactionTray(point)) {
+        event.preventDefault();
+        trayRef.current?.focus();
         return;
       }
-      if ((event.key === "c" || event.key === "C") && point?.sourceHint) {
+      if (point && hasReactionTray(point) && /^[1-6]$/.test(event.key) && !event.shiftKey) {
         event.preventDefault();
-        setHintOpen((value) => !value);
-        return;
-      }
-      if ((event.key === "r" || event.key === "R") && point && point.reactions.length === REACTION_SHAPES.length) {
-        event.preventDefault();
-        setReactionsOpen(true);
+        toggleReaction(point.id, REACTION_SHAPES[Number(event.key) - 1]);
         return;
       }
       if (event.key === "Enter" || event.key === " ") {
@@ -419,15 +432,30 @@ export function LiveCallClient({
       }
       if (event.key === "n" || event.key === "N") {
         event.preventDefault();
-        noteRef.current?.focus();
+        setNoteOpen(true);
+        window.setTimeout(() => noteRef.current?.focus(), 0);
         return;
       }
-      if (/^[1-9]$/.test(event.key)) {
-        const jump = markableIndexAt(list, Number(event.key));
-        if (jump < 0) return;
-        event.preventDefault();
-        setFinished(false);
-        setCurrentId(list[jump].id);
+      const digitMatch = event.code.match(/^Digit([1-9])$/);
+      if (digitMatch) {
+        const digit = Number(digitMatch[1]);
+        const tray = Boolean(point && hasReactionTray(point));
+        if (tray && !event.shiftKey) return;
+        if (tray && event.shiftKey) {
+          const jump = markableIndexAt(list, digit);
+          if (jump < 0) return;
+          event.preventDefault();
+          setFinished(false);
+          setCurrentId(list[jump].id);
+          return;
+        }
+        if (!tray) {
+          const jump = markableIndexAt(list, digit);
+          if (jump < 0) return;
+          event.preventDefault();
+          setFinished(false);
+          setCurrentId(list[jump].id);
+        }
       }
     }
     window.addEventListener("keydown", onKey);
@@ -448,49 +476,48 @@ export function LiveCallClient({
     return [{ point, number, index }];
   });
   const currentSlot = pills.find((item) => item.point.id === currentId) ?? null;
-  const previousPoint = currentSlot
-    ? (pills[pills.findIndex((item) => item.point.id === currentId) - 1]?.point ?? null)
-    : null;
   const followingPoint = currentSlot
     ? (pills[pills.findIndex((item) => item.point.id === currentId) + 1]?.point ?? null)
     : null;
-  const progress =
-    currentSlot && pills.length ? Math.round((currentSlot.number / pills.length) * 100) : 0;
+
+  const headerTitle = session.strategyName?.trim() || session.title;
+  const personLine =
+    session.badge === "rehearsal"
+      ? "Rehearsal"
+      : [session.personLabel, session.companyLabel].filter(Boolean).join(" · ") || session.timeLabel;
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]">
-      <header className="grid shrink-0 grid-cols-1 items-center gap-2 border-b border-[var(--jos-line)] px-4 py-2 min-[900px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] min-[900px]:gap-4">
-        <div className="min-w-0">
-          <h1 className="truncate text-[14px] font-medium text-[var(--jos-muted)]">{session.title}</h1>
-          {session.badge === "rehearsal" ? (
-            <p className="text-[12px] font-semibold text-[var(--color-accent-2-text)]">Rehearsal</p>
-          ) : session.timeLabel ? (
-            <p className="text-[12px] font-medium text-[var(--jos-muted)]">{session.timeLabel}</p>
-          ) : null}
+      <header
+        className="flex shrink-0 items-center gap-4 border-b border-[var(--jos-line)] px-5"
+        style={{ height: LIVE_HEADER_H }}
+      >
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight">
+            {headerTitle}
+          </h1>
+          <div className="flex items-center gap-3">
+            <p className="truncate text-[15px] text-[var(--jos-muted)]">{personLine}</p>
+            {session.badge === "rehearsal" && onReset ? (
+              <button
+                type="button"
+                onClick={onReset}
+                className="shrink-0 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+              >
+                Reset
+              </button>
+            ) : null}
+          </div>
         </div>
-        <p className="justify-self-start bg-[var(--color-done-100)] px-4 py-1 text-[32px] font-semibold leading-none tracking-tight text-[var(--color-done)] tabular-nums min-[900px]:justify-self-center">
+        <p className="shrink-0 text-[15px] text-[var(--jos-muted)] tabular-nums">
           <Elapsed startedAt={startedAt} />
         </p>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {pills.length ? (
-            <p className="text-[13px] font-medium text-[var(--jos-muted)]">
-              <span className="font-semibold text-[var(--color-accent-700)]">
-                {currentSlot ? currentSlot.number : 0}
-              </span>
-              {" of "}
-              {pills.length}
-            </p>
-          ) : null}
-          {session.joinHref ? (
-            <a
-              href={session.joinHref}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonVariants({ variant: "calendar", size: "sm" })}
-            >
-              Join the call
-            </a>
-          ) : null}
+        {pills.length ? (
+          <p className="shrink-0 text-[15px] text-[var(--jos-muted)]">
+            {currentSlot ? currentSlot.number : 0} of {pills.length}
+          </p>
+        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
           {typeof extraControls === "function"
             ? extraControls({
                 drill: drillOn,
@@ -501,210 +528,358 @@ export function LiveCallClient({
                 },
               })
             : extraControls}
+          {session.joinHref ? (
+            <a
+              href={session.joinHref}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+            >
+              Join the call
+            </a>
+          ) : null}
+          <Button type="button" variant="done" size="sm" onClick={finish}>
+            Done
+          </Button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col min-[900px]:flex-row">
-        <aside className="flex shrink-0 flex-col border-[var(--jos-line)] max-[900px]:border-b min-[900px]:w-[var(--jos-rail-w)] min-[900px]:border-r">
-          <div className="flex min-h-0 flex-1 flex-col max-[900px]:hidden">
-            <p className="px-4 py-3 text-[13px] font-semibold">
-              {tally.covered} of {tally.total} covered
-            </p>
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-              {rows.map((point) => {
-                if (point.kind === "agenda") {
-                  return (
-                    <li key={point.id}>
-                      <p className="px-4 pt-4 pb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
-                        {point.headline}
-                      </p>
-                    </li>
-                  );
-                }
-                const active = point.id === currentId;
-                const muted = point.state !== "open";
+      <div className="flex min-h-0 flex-1">
+        <aside
+          className="hidden shrink-0 flex-col border-r border-[var(--jos-line)] min-[1100px]:flex"
+          style={{ width: LIVE_RAIL_W }}
+        >
+          <ul className="min-h-0 flex-1 overflow-y-auto py-2">
+            {rows.map((point) => {
+              if (point.kind === "agenda") {
                 return (
-                  <li key={point.id} id={`live-point-${point.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => select(point.id)}
-                      className={cn(
-                        "flex w-full items-start gap-2 border-l-4 px-3 py-2 text-left",
-                        active
-                          ? "border-[var(--color-calendar-700)] bg-[var(--jos-surface)]"
-                          : "border-transparent",
-                        muted ? "text-[var(--jos-muted)]" : "text-[var(--jos-ink)]"
-                      )}
-                    >
-                      <StateMark state={point.state} />
-                      <span
-                        className={cn(
-                          "text-[14px] font-semibold leading-snug",
-                          muted && "line-through",
-                          point.kind === "ask" && !muted && "text-[var(--color-accent-700)]"
-                        )}
-                      >
-                        {point.kind === "question" ? "? " : ""}
-                        {point.headline}
-                        {point.reactions.length === REACTION_SHAPES.length ? (
-                          <span
-                            className="ml-2 inline-block size-1.5 translate-y-[-1px] rounded-full bg-[var(--color-calendar)]"
-                            aria-label="Reactions prepared"
-                          />
-                        ) : null}
-                      </span>
-                    </button>
+                  <li key={point.id}>
+                    <p className={cn(LIVE_SECTION_LABEL, "px-4 pt-4 pb-1")}>{point.headline}</p>
                   </li>
                 );
-              })}
-            </ul>
-            <div className="p-3">
-              <Button type="button" variant="outline" className="w-full" onClick={finish}>
-                Done
-              </Button>
-            </div>
-          </div>
-
-          <div className="hidden items-center gap-2 px-3 py-2 max-[900px]:flex">
-            <p className="shrink-0 text-[12px] font-semibold">
-              {tally.covered} of {tally.total} covered
-            </p>
-            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
-              {pills.map(({ point, number }) => {
-                const active = point.id === currentId;
-                const muted = point.state !== "open";
-                return (
+              }
+              const active = point.id === currentId;
+              const rail = railStateFor(point, active && !finished);
+              return (
+                <li key={point.id} id={`live-point-${point.id}`}>
                   <button
-                    key={point.id}
                     type="button"
                     onClick={() => select(point.id)}
+                    title={point.headline}
                     className={cn(
-                      "max-w-[180px] shrink-0 truncate rounded-full border px-3 py-1 text-[13px] font-semibold",
-                      active
-                        ? "border-[var(--color-calendar-700)] bg-[var(--jos-surface)]"
-                        : "border-[var(--jos-line)]",
-                      muted && "text-[var(--jos-muted)] line-through",
-                      point.kind === "ask" && !muted && "text-[var(--color-accent-700)]"
+                      "flex w-full items-start gap-2 px-3 py-2.5 text-left text-[15px] leading-snug",
+                      railRowClass(rail)
                     )}
                   >
-                    {number} {point.kind === "question" ? "?" : ""} {point.headline}
+                    <PointStateIcon kind={point.kind} state={point.state} current={rail === "current"} size={18} />
+                    <span className="min-w-0">{point.headline}</span>
                   </button>
-                );
-              })}
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={finish}>
-              Done
-            </Button>
-          </div>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+
+        {/* Narrow rail: icon strip below 1100px */}
+        <aside className="flex w-14 shrink-0 flex-col border-r border-[var(--jos-line)] min-[1100px]:hidden">
+          <ul className="min-h-0 flex-1 overflow-y-auto py-2">
+            {rows.map((point) => {
+              if (point.kind === "agenda") return null;
+              const active = point.id === currentId;
+              const rail = railStateFor(point, active && !finished);
+              return (
+                <li key={point.id}>
+                  <button
+                    type="button"
+                    onClick={() => select(point.id)}
+                    title={point.headline}
+                    className={cn(
+                      "flex w-full items-center justify-center py-2.5",
+                      rail === "current" && "bg-[var(--jos-surface)] border-l-4 border-[var(--color-accent-2)]"
+                    )}
+                  >
+                    <PointStateIcon kind={point.kind} state={point.state} current={rail === "current"} size={20} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </aside>
 
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="flex min-h-full flex-col px-5 py-6 min-[900px]:px-14 min-[900px]:py-8">
-              {marking ? (
-                <OutcomePanel
-                  sentence={session.outcomeSentence}
-                  chosen={chosen}
-                  note={outcomeNote}
-                  onChoose={(mark) => {
-                    chosenRef.current = mark;
-                    setChosen(mark);
-                  }}
-                  onNote={(value) => {
-                    outcomeNoteRef.current = value;
-                    setOutcomeNote(value);
-                  }}
-                  onConfirm={confirmOutcome}
-                  onSkip={leave}
-                />
-              ) : drillOn && current && current.reactions.length === REACTION_SHAPES.length ? (
-                <DrillPanel
-                  soundsLike={current.reactions[drillIndex]?.soundsLike ?? ""}
-                  pivot={current.reactions[drillIndex]?.pivot ?? ""}
-                  shown={pivotShown}
-                />
-              ) : reactionsOpen && current && current.reactions.length === REACTION_SHAPES.length ? (
-                <ReactionsPanel
-                  reactions={current.reactions}
-                  onPick={(shape) => pickReaction(current.id, shape)}
-                />
-              ) : showAllCovered ? (
-                <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
-                  <h2 className="text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
-                    All points covered
-                  </h2>
-                  <Button type="button" variant="ok" className="mt-8" onClick={finish}>
-                    Done
-                  </Button>
-                </div>
-              ) : current && current.kind !== "agenda" ? (
-                <CurrentPoint
-                  key={current.id}
-                  point={current}
-                  noteRef={noteRef}
-                  hintOpen={hintOpen}
-                  onToggleHint={() => setHintOpen((value) => !value)}
-                  onOpenReactions={
-                    current.reactions.length === REACTION_SHAPES.length
-                      ? () => setReactionsOpen(true)
-                      : undefined
-                  }
-                  onMark={(state) => mark(current.id, state)}
-                  onNote={(note) => {
-                    setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
-                  }}
-                  saveNote={(note) => actions.setNote(current.id, note)}
-                />
-              ) : (
-                <h2 className="my-auto text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
-                  No points to mark
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8 min-[1100px]:px-12">
+            {showAllCovered ? (
+              <div className="flex h-full max-w-[780px] flex-col justify-center">
+                <h2 className="text-[46px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+                  All points covered
                 </h2>
-              )}
-            </div>
-          </div>
-          <div>
-            <div className="h-1 bg-[var(--jos-line)]">
-              <div className="h-full bg-[var(--color-accent)]" style={{ width: `${progress}%` }} />
-            </div>
-            <div className="flex items-center gap-3 px-4 py-3">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!previousPoint}
-                onClick={() => previousPoint && select(previousPoint.id)}
-              >
-                <ChevronLeft />
-                Previous
-              </Button>
-              <div className="min-w-0 flex-1 text-center text-[12px] text-[var(--jos-muted)]">
-                <p>
-                  {currentSlot ? `${currentSlot.number} of ${pills.length}` : "No points"}
-                  <span className="hidden sm:inline">
-                    {" "}
-                    · j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump
-                    {current && current.reactions.length === REACTION_SHAPES.length ? " · r reactions" : ""}
-                  </span>
-                </p>
-                {session.badge === "rehearsal" ? <p>Nothing here is saved.</p> : null}
+                <Button type="button" variant="default" className="mt-8 h-12 w-fit" onClick={finish}>
+                  Done
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="calendar"
-                disabled={!followingPoint}
-                onClick={() => followingPoint && select(followingPoint.id)}
-              >
-                Next
-                <ChevronRight />
-              </Button>
-            </div>
+            ) : current && current.kind !== "agenda" ? (
+              <StagePoint
+                point={current}
+                trayActive={trayActive}
+                selectedReaction={selectedReaction}
+                drillOn={drillOn && session.badge === "rehearsal"}
+                drillIndex={drillIndex}
+                pivotShown={pivotShown}
+                trayRef={trayRef}
+                onSelectReaction={(shape) => toggleReaction(current.id, shape)}
+              />
+            ) : (
+              <h2 className="text-[46px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+                No points to mark
+              </h2>
+            )}
           </div>
+
+          {current && current.kind !== "agenda" && !showAllCovered ? (
+            <ActionRow
+              point={current}
+              nextHeadline={followingPoint?.headline ?? null}
+              noteOpen={noteOpen}
+              noteRef={noteRef}
+              onCovered={() => mark(current.id, current.state === "covered" ? "open" : "covered")}
+              onSkip={() => mark(current.id, "skipped")}
+              onToggleNote={() => {
+                setNoteOpen((value) => !value);
+                window.setTimeout(() => noteRef.current?.focus(), 0);
+              }}
+              onNote={(note) => {
+                setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
+              }}
+              saveNote={(note) => actions.setNote(current.id, note)}
+            />
+          ) : null}
         </section>
+      </div>
+
+      <Dialog open={marking} onOpenChange={(open) => !open && setMarking(false)}>
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
+              Outcome
+            </DialogTitle>
+          </DialogHeader>
+          <OutcomeDialogBody
+            sentence={session.outcomeSentence}
+            chosen={chosen}
+            note={outcomeNote}
+            onChoose={(markChoice) => {
+              chosenRef.current = markChoice;
+              setChosen(markChoice);
+            }}
+            onNote={(value) => {
+              outcomeNoteRef.current = value;
+              setOutcomeNote(value);
+            }}
+            onConfirm={confirmOutcome}
+            onSkip={leave}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function StagePoint({
+  point,
+  trayActive,
+  selectedReaction,
+  drillOn,
+  drillIndex,
+  pivotShown,
+  trayRef,
+  onSelectReaction,
+}: {
+  point: MeetingPoint;
+  trayActive: boolean;
+  selectedReaction: ReactionShape | null;
+  drillOn: boolean;
+  drillIndex: number;
+  pivotShown: boolean;
+  trayRef: RefObject<HTMLDivElement | null>;
+  onSelectReaction: (shape: ReactionShape) => void;
+}) {
+  const selected = selectedReaction
+    ? point.reactions.find((reaction) => reaction.shape === selectedReaction) ?? null
+    : null;
+  const drill = drillOn ? point.reactions[drillIndex] ?? null : null;
+
+  return (
+    <div className="flex min-h-full flex-col">
+      <KindLabel kind={point.kind} />
+      <h2 className="mt-3 max-w-[780px] text-[46px] font-extrabold leading-[1.05] tracking-[-0.02em]">
+        {point.headline}
+      </h2>
+      {point.detail ? (
+        <p className="mt-4 max-w-[760px] whitespace-pre-wrap text-[22px] leading-[1.45] text-[#4a4747]">
+          {point.detail}
+        </p>
+      ) : null}
+      {point.sourceHint ? (
+        <p className="mt-3 inline-flex max-w-[760px] items-start gap-1.5 text-[14px] text-[var(--jos-muted)]">
+          <ArrowSquareOut size={14} weight="duotone" className="mt-0.5 shrink-0" aria-hidden />
+          <span>{point.sourceHint}</span>
+        </p>
+      ) : null}
+
+      {trayActive ? (
+        <div
+          ref={trayRef}
+          tabIndex={-1}
+          className="mt-auto outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--jos-focus)]"
+        >
+          <p className={cn(LIVE_SECTION_LABEL, "mt-10")}>If they say</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 min-[900px]:grid-cols-6">
+            {REACTION_SHAPES.map((shape, index) => {
+              const active = selectedReaction === shape;
+              return (
+                <button
+                  key={shape}
+                  type="button"
+                  onClick={() => onSelectReaction(shape)}
+                  className={cn(
+                    "flex min-h-14 flex-col items-start justify-center gap-0.5 px-2.5 py-2 text-left",
+                    active
+                      ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+                      : "bg-[var(--jos-surface)] text-[var(--jos-ink)]"
+                  )}
+                >
+                  <span className="text-[15px] font-extrabold tabular-nums">{index + 1}</span>
+                  <span className="text-[12px] font-bold uppercase tracking-[0.06em] leading-tight">
+                    {REACTION_LABELS[shape]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 bg-[var(--jos-surface)] px-5 py-4">
+            {drillOn && drill ? (
+              <div className="grid gap-4 min-[900px]:grid-cols-2">
+                <div>
+                  <p className={LIVE_SECTION_LABEL}>Sounds like</p>
+                  <p className="mt-2 text-[16px] leading-snug">{drill.soundsLike}</p>
+                </div>
+                <div>
+                  <p className={LIVE_SECTION_LABEL}>Bring it back</p>
+                  {pivotShown ? (
+                    <p className="mt-2 text-[16px] font-bold leading-snug">{drill.pivot}</p>
+                  ) : (
+                    <p className="mt-2 text-[16px] text-[var(--jos-muted)]">Press Enter</p>
+                  )}
+                </div>
+              </div>
+            ) : selected ? (
+              <div className="grid gap-4 min-[900px]:grid-cols-2">
+                <div>
+                  <p className={LIVE_SECTION_LABEL}>Sounds like</p>
+                  <p className="mt-2 text-[16px] leading-snug">{selected.soundsLike}</p>
+                </div>
+                <div>
+                  <p className={LIVE_SECTION_LABEL}>Bring it back</p>
+                  <p className="mt-2 text-[16px] font-bold leading-snug">{selected.pivot}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[16px] text-[var(--jos-muted)]">Press 1 to 6</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-auto" />
+      )}
+    </div>
+  );
+}
+
+function ActionRow({
+  point,
+  nextHeadline,
+  noteOpen,
+  noteRef,
+  onCovered,
+  onSkip,
+  onToggleNote,
+  onNote,
+  saveNote,
+}: {
+  point: MeetingPoint;
+  nextHeadline: string | null;
+  noteOpen: boolean;
+  noteRef: RefObject<HTMLTextAreaElement | null>;
+  onCovered: () => void;
+  onSkip: () => void;
+  onToggleNote: () => void;
+  onNote: (note: string | null) => void;
+  saveNote: (note: string) => Promise<PointResult<object>>;
+}) {
+  const [text, setText] = useState(point.note ?? "");
+  const stored = point.note ?? "";
+  const isDone = point.state === "covered";
+
+  const save = () => {
+    const next = text.trim() ? text.trim() : null;
+    const previous = stored.trim() ? stored.trim() : null;
+    if (next === previous) return;
+    void saveNote(text).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        setText(stored);
+        return;
+      }
+      onNote(next);
+    });
+  };
+
+  return (
+    <div className="shrink-0 border-t border-[var(--jos-line)] px-8 py-3 min-[1100px]:px-12">
+      {noteOpen ? (
+        <Textarea
+          ref={noteRef}
+          value={text}
+          placeholder="What they said"
+          className="mb-3 min-h-16 rounded-[2px] text-[16px]"
+          onChange={(event) => setText(event.target.value)}
+          onBlur={save}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant={isDone ? "secondary" : "default"}
+          className="h-12 gap-2 px-5"
+          onClick={onCovered}
+        >
+          <Check size={18} weight="bold" aria-hidden />
+          {isDone ? "Reopen" : "Covered"}
+          {!isDone ? <span className="ml-1 text-[12px] font-semibold opacity-80">Enter</span> : null}
+        </Button>
+        <Button type="button" variant="secondary" className="h-12 px-4" onClick={onSkip}>
+          Skip
+          <span className="ml-1 text-[12px] font-semibold opacity-70">s</span>
+        </Button>
+        <Button type="button" variant="secondary" className="h-12 gap-2 px-4" onClick={onToggleNote}>
+          <NotePencil size={18} weight="duotone" aria-hidden />
+          Note
+          <span className="ml-1 text-[12px] font-semibold opacity-70">n</span>
+        </Button>
+        <p className="ml-auto max-w-[40%] truncate text-[14px] text-[var(--jos-muted)]">
+          {nextHeadline ? `Next: ${nextHeadline}` : ""}
+        </p>
       </div>
     </div>
   );
 }
 
-function OutcomePanel({
+function OutcomeDialogBody({
   sentence,
   chosen,
   note,
@@ -721,49 +896,21 @@ function OutcomePanel({
   onConfirm: () => void;
   onSkip: () => void;
 }) {
-  const choices: { mark: OutcomeChoice; label: string; selected: string }[] = [
-    {
-      mark: "hit",
-      label: "Hit",
-      selected: "border-[var(--color-done)] bg-[var(--color-done-100)] text-[var(--color-done)]",
-    },
-    {
-      mark: "partial",
-      label: "Partial",
-      selected: "border-[var(--color-process-yellow)] bg-[var(--jos-warn-tint)] text-[var(--jos-ink)]",
-    },
-    {
-      mark: "missed",
-      label: "Missed",
-      selected: "border-[var(--color-accent-2)] bg-[var(--color-accent-2-100)] text-[var(--color-accent-2-text)]",
-    },
-  ];
-
   return (
-    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
-      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">Outcome</p>
-      {sentence ? (
-        <h2 className="mt-4 text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
-          {sentence}
-        </h2>
+    <div className="space-y-5">
+      {sentence?.trim() ? (
+        <p className="text-[22px] font-semibold leading-snug">{sentence}</p>
       ) : (
-        <p className="mt-4 text-[28px] font-medium text-[var(--jos-muted)]">No outcome sentence was set</p>
+        <UnfinishedField value="" readOnly emptyLabel="Add a sentence" />
       )}
-      <div className="mt-8 flex flex-wrap gap-2">
-        {choices.map((choice) => (
-          <button
-            key={choice.mark}
-            type="button"
-            className={cn(
-              "border-2 px-4 py-2 text-[16px] font-bold",
-              chosen === choice.mark
-                ? choice.selected
-                : "border-[var(--jos-line)] bg-transparent text-[var(--jos-ink)]"
-            )}
-            onClick={() => onChoose(choice.mark)}
-          >
-            {choice.label}
-          </button>
+      <div className="flex flex-wrap gap-2">
+        {(["hit", "partial", "missed"] as const).map((mark) => (
+          <OutcomeMarkButton
+            key={mark}
+            mark={mark}
+            selected={chosen === mark}
+            onClick={() => onChoose(mark)}
+          />
         ))}
       </div>
       <input
@@ -771,7 +918,7 @@ function OutcomePanel({
         maxLength={400}
         placeholder="Optional note"
         aria-label="Optional note"
-        className="mt-6 w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-2 text-[16px] outline-none"
+        className="w-full border-0 border-b-2 border-[#b5b2b2] bg-[var(--jos-surface)] px-3.5 py-2 text-[16px] outline-none"
         onChange={(event) => onNote(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
@@ -780,213 +927,17 @@ function OutcomePanel({
           }
         }}
       />
-      <div className="mt-6 flex flex-wrap gap-2">
-        <Button type="button" variant="ok" disabled={!chosen} onClick={onConfirm}>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="default" disabled={!chosen} onClick={onConfirm}>
           Confirm
         </Button>
         <Button type="button" variant="ghost" onClick={onSkip}>
           Skip for now
         </Button>
       </div>
-      <p className="mt-4 text-[12px] text-[var(--jos-muted)]">
-        h hit · p partial · m missed · Enter confirms · Escape skips
+      <p className="text-[12px] text-[var(--jos-muted)]">
+        h hit · p partial · m missed · Enter confirms · Escape closes
       </p>
-    </div>
-  );
-}
-
-function DrillPanel({
-  soundsLike,
-  pivot,
-  shown,
-}: {
-  soundsLike: string;
-  pivot: string;
-  shown: boolean;
-}) {
-  return (
-    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
-      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">They say:</p>
-      <h2 className="mt-4 text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
-        {soundsLike}
-      </h2>
-      {shown ? <p className="mt-8 text-[28px] font-bold leading-snug">{pivot}</p> : null}
-      <p className="mt-6 text-[12px] text-[var(--jos-muted)]">
-        {shown ? "Enter draws another. d leaves the drill." : "Enter shows your pivot. d leaves the drill."}
-      </p>
-    </div>
-  );
-}
-
-function ReactionsPanel({
-  reactions,
-  onPick,
-}: {
-  reactions: MeetingPoint["reactions"];
-  onPick: (shape: ReactionShape) => void;
-}) {
-  return (
-    <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center gap-3">
-      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--jos-muted)]">Reactions</p>
-      {reactions.map((reaction, index) => (
-        <button
-          key={reaction.shape}
-          type="button"
-          className="border-l-4 border-[var(--jos-line)] px-4 py-2 text-left hover:border-[var(--color-calendar)]"
-          onClick={() => onPick(reaction.shape)}
-        >
-          <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-            {index + 1} {REACTION_LABELS[reaction.shape]}
-          </span>
-          <p className="mt-1 text-[16px] leading-snug">{reaction.soundsLike}</p>
-          <p className="mt-1 text-[16px] font-bold leading-snug">{reaction.pivot}</p>
-        </button>
-      ))}
-      <p className="text-[12px] text-[var(--jos-muted)]">1-6 records it and marks covered. Escape goes back.</p>
-    </div>
-  );
-}
-
-function CurrentPoint({
-  point,
-  noteRef,
-  hintOpen,
-  onToggleHint,
-  onOpenReactions,
-  onMark,
-  onNote,
-  saveNote,
-}: {
-  point: MeetingPoint;
-  noteRef: React.RefObject<HTMLTextAreaElement | null>;
-  hintOpen: boolean;
-  onToggleHint: () => void;
-  onOpenReactions?: () => void;
-  onMark: (state: PointState) => void;
-  onNote: (note: string | null) => void;
-  saveNote: (note: string) => Promise<PointResult<object>>;
-}) {
-  const [text, setText] = useState(point.note ?? "");
-  const [saved, setSaved] = useState(false);
-  const savedTimer = useRef<number | null>(null);
-  const stored = point.note ?? "";
-
-  useEffect(() => {
-    return () => {
-      if (savedTimer.current != null) window.clearTimeout(savedTimer.current);
-    };
-  }, []);
-
-  const save = () => {
-    const next = text.trim() ? text.trim() : null;
-    const previous = stored.trim() ? stored.trim() : null;
-    if (next === previous) return;
-    void saveNote(text).then((result) => {
-      if (!result.ok) {
-        toast.error(result.error);
-        setText(stored);
-        return;
-      }
-      onNote(next);
-      setSaved(true);
-      if (savedTimer.current != null) window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(false), 2000);
-    });
-  };
-
-  const spoken = point.kind === "question" || point.kind === "ask";
-
-  return (
-    <div className="mx-auto flex w-full max-w-[52rem] flex-1 flex-col">
-      <div className="flex flex-1 flex-col justify-center">
-      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent-700)]">
-        {KIND_LABEL[point.kind]}
-      </p>
-      {point.sourceHint ? (
-        <button
-          type="button"
-          className={cn(
-            "mt-3 max-w-[46rem] text-left text-[14px] text-[var(--jos-muted)]",
-            hintOpen ? "whitespace-pre-wrap" : "truncate"
-          )}
-          onClick={onToggleHint}
-        >
-          {point.sourceHint}
-        </button>
-      ) : null}
-      {spoken ? (
-        <>
-          {point.detail ? (
-            <p className="mt-5 max-w-[46rem] whitespace-pre-wrap text-[22px] leading-snug text-[var(--color-accent-800)] italic min-[900px]:text-[26px]">
-              {point.detail}
-            </p>
-          ) : null}
-          <div
-            className={cn(
-              "mt-8 border-l-4 px-6 py-5",
-              point.kind === "ask"
-                ? "border-[var(--color-calendar)] bg-[var(--color-calendar-100)]"
-                : "border-[var(--color-accent)] bg-[var(--color-accent-100)]"
-            )}
-          >
-            <h2 className="text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
-              {point.kind === "question" ? `? ${point.headline}` : point.headline}
-            </h2>
-          </div>
-        </>
-      ) : (
-        <>
-          <h2 className="mt-3 text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
-            {point.headline}
-          </h2>
-          {point.detail ? (
-            <p className="mt-8 max-w-[46rem] whitespace-pre-wrap text-[24px] leading-snug text-[var(--jos-ink)] min-[900px]:text-[30px]">
-              {point.detail}
-            </p>
-          ) : null}
-        </>
-      )}
-      </div>
-      <label className="mt-6 block max-w-[40rem]">
-        <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--jos-muted)]">Note</span>
-        <Textarea
-          ref={noteRef}
-          value={text}
-          placeholder="What they said"
-          className="mt-2 min-h-16 rounded-[2px] text-[16px]"
-          onChange={(event) => setText(event.target.value)}
-          onBlur={save}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.currentTarget.blur();
-              return;
-            }
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              save();
-            }
-          }}
-        />
-      </label>
-      <p className="mt-1 h-4 text-[12px] font-semibold text-[var(--color-done)]">{saved ? "Saved" : ""}</p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button type="button" variant="ok" onClick={() => onMark("covered")}>
-          Covered
-        </Button>
-        <Button type="button" variant="outline" onClick={() => onMark("skipped")}>
-          Skip
-        </Button>
-        {onOpenReactions ? (
-          <Button type="button" variant="outline" onClick={onOpenReactions}>
-            Reactions
-          </Button>
-        ) : null}
-        {point.state !== "open" ? (
-          <Button type="button" variant="ghost" onClick={() => onMark("open")}>
-            Reopen
-          </Button>
-        ) : null}
-      </div>
     </div>
   );
 }
