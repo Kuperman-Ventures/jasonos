@@ -310,16 +310,8 @@ export async function testServiceConnection(
     let granolaKey = stringCredential(credentials.api_key);
     if (!granolaKey) {
       try {
-        const publicDb = createPublicServiceRoleClient();
-        const { data } = await publicDb
-          .from("service_connections")
-          .select("config")
-          .eq("service_name", "granola")
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const cfg = (data?.config ?? {}) as { access_token?: string };
-        granolaKey = cfg.access_token?.trim() || undefined;
+        const { resolveGranolaApiKey } = await import("@/lib/integrations/granola");
+        granolaKey = (await resolveGranolaApiKey()) || undefined;
       } catch {
         // ignore
       }

@@ -66,6 +66,32 @@ const simon: GranolaNoteCandidate = {
 };
 
 describe("pickGranolaNote", () => {
+  it("picks Tim/Jason Connect by calendar event id when attendee name is missing", () => {
+    const tim: GranolaNoteCandidate = {
+      id: "not_nbd1vcv20j32so",
+      title: "Tim/Jason Connect",
+      createdAt: "2026-10-20T18:59:26.048Z",
+      summaryText: "Timothy Serewicz fractional CTO work and next steps.",
+      attendeeEmails: [
+        "jason@kupermanadvisors.com",
+        "timothy.serewicz@gmail.com",
+      ],
+      attendeeNames: ["Jason Kuperman", "Timothy Serewicz"],
+      scheduledStart: "2026-10-20T15:00:00-04:00",
+      calendarEventId:
+        "_84okcc9m8gqjgb9i68o4cb9k8d332b9p70p30b9n6kok8e9p652jgcq388",
+    };
+    const hit = pickGranolaNote([other, tim], {
+      name: "Tim/Jason Connect",
+      email: "timothy.serewicz@gmail.com",
+      aroundIso: "2026-10-20T19:00:00.000Z",
+      calendarEventId:
+        "_84okcc9m8gqjgb9i68o4cb9k8d332b9p70p30b9n6kok8e9p652jgcq388",
+      meetingTitle: "Tim/Jason Connect",
+    });
+    assert.equal(hit?.id, tim.id);
+  });
+
   it("picks the note whose title and email match the call", () => {
     const hit = pickGranolaNote([other, matthew], {
       name: "Matthew Deutsch",

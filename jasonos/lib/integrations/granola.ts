@@ -45,19 +45,57 @@ type NoteDetail = NoteSummary & {
 
 type ConnectionConfig = { access_token?: string };
 
-async function resolveGranolaApiKey(): Promise<string | null> {
+type GranolaConnectionRow = {
+  user_id?: string | null;
+  status?: string | null;
+  config?: ConnectionConfig | null;
+};
+
+function tokenFromRow(row: GranolaConnectionRow | null | undefined): string | null {
+  const token = row?.config?.access_token?.trim();
+  return token || null;
+}
+
+/**
+ * Settings key first, then GRANOLA_API_KEY.
+ * Skip empty / disconnected rows — a newer not_configured row must not
+ * hide an older connected token on another Auth user in the same project.
+ */
+export async function resolveGranolaApiKey(): Promise<string | null> {
   try {
     const { createPublicServiceRoleClient } = await import("@/lib/supabase/server");
     const sb = createPublicServiceRoleClient();
     const { data } = await sb
       .from("service_connections")
-      .select("config")
+      .select("user_id, status, config, updated_at")
       .eq("service_name", "granola")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const fromSettings = ((data?.config ?? {}) as ConnectionConfig).access_token?.trim();
-    if (fromSettings) return fromSettings;
+      .order("updated_at", { ascending: false });
+
+    const withToken = ((data ?? []) as GranolaConnectionRow[])
+      .map((row) => ({
+        userId: row.user_id ?? null,
+        status: row.status ?? null,
+        token: tokenFromRow(row),
+      }))
+      .filter((row): row is { userId: string | null; status: string | null; token: string } =>
+        Boolean(row.token)
+      );
+
+    if (withToken.length) {
+      let ownerId: string | null = null;
+      try {
+        const { resolveJasonosOwnerUserId } = await import("@/lib/integrations/owner");
+        ownerId = await resolveJasonosOwnerUserId();
+      } catch {
+        ownerId = null;
+      }
+      const ownerHit = ownerId
+        ? withToken.find((row) => row.userId === ownerId)
+        : null;
+      if (ownerHit) return ownerHit.token;
+      const connected = withToken.find((row) => row.status === "connected");
+      return (connected ?? withToken[0])!.token;
+    }
   } catch {
     // Settings may be unreachable. Fall through to the env key.
   }
@@ -247,10 +285,11 @@ export async function searchGranolaForContact({
       calendarEventIds: eventIds,
       meetingTitle,
     });
-    const summary = match?.summaryText?.trim();
-    if (!match || !summary) {
+    if (!match) {
       return { found: false, error: "No Granola note for this call yet." };
     }
+    // Summary may lag; callers can still pull the transcript by note id.
+    const summary = match.summaryText?.trim() || undefined;
     return {
       found: true,
       summary,
