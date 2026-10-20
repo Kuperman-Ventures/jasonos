@@ -9,6 +9,7 @@ import {
   slotOverlaps,
   weekdayIndex,
 } from "@/lib/browning-networking/slots";
+import { placementBlockReason } from "@/lib/browning-networking/holds";
 import type { BusyBlock } from "@/lib/browning-networking/types";
 import { SLOT_MINUTES, type HandoffSlot } from "@/lib/browning-networking/types";
 
@@ -23,6 +24,7 @@ type Props = {
   eligibleYmd: string;
   weekMonday: string;
   onChange?: (slots: HandoffSlot[]) => void;
+  onBlocked?: (message: string) => void;
   /** Offered times stay visible; no add/move/remove. Click a meeting to associate. */
   readOnly?: boolean;
   onSelectMeeting?: (block: BusyBlock) => void;
@@ -35,12 +37,14 @@ export function SlotCalendar({
   eligibleYmd,
   weekMonday,
   onChange,
+  onBlocked,
   readOnly = false,
   onSelectMeeting,
   selectedEventId = null,
 }: Props) {
   const days = useMemo(() => weekdaysOf(weekMonday), [weekMonday]);
   const [local, setLocal] = useState(slots);
+  const blockWarning = useRef<string | null>(null);
 
   function commit(next: HandoffSlot[]) {
     if (readOnly || !onChange) return;
@@ -54,6 +58,11 @@ export function SlotCalendar({
     const start = etIso(ymd, startMin);
     const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
     if (slotOverlaps(start, end, local)) return;
+    const reason = placementBlockReason(start, end, busy);
+    if (reason) {
+      onBlocked?.(reason);
+      return;
+    }
     commit([...local, { id: `slot-${start}`, start, end }]);
   }
 
@@ -64,6 +73,12 @@ export function SlotCalendar({
     const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
     const others = local.filter((slot) => slot.id !== id);
     if (slotOverlaps(start, end, others)) return;
+    const reason = placementBlockReason(start, end, busy);
+    if (reason) {
+      blockWarning.current = reason;
+      return;
+    }
+    blockWarning.current = null;
     setLocal(local.map((slot) => (slot.id === id ? { ...slot, start, end } : slot)));
   }
 
@@ -103,7 +118,12 @@ export function SlotCalendar({
             onAdd={(min) => addAt(day.ymd, min)}
             onPreviewMove={(id, min) => previewMove(id, day.ymd, min)}
             onCommitMove={() => {
-              if (!readOnly && onChange) onChange(local);
+              if (readOnly || !onChange) return;
+              if (blockWarning.current) {
+                onBlocked?.(blockWarning.current);
+                blockWarning.current = null;
+              }
+              onChange(local);
             }}
             onRemove={(id) => commit(local.filter((slot) => slot.id !== id))}
             onSelectMeeting={onSelectMeeting}
@@ -177,7 +197,9 @@ function DayColumn({
           readOnly &&
           Boolean(onSelectMeeting) &&
           Boolean(block.eventId) &&
-          !block.allDay;
+          !block.allDay &&
+          !block.tentativeHold &&
+          !block.holdHandoffId;
         const selected = Boolean(block.eventId && block.eventId === selectedEventId);
         return (
           <button
@@ -195,13 +217,17 @@ function DayColumn({
                 ? selected
                   ? "border border-foreground bg-foreground text-background"
                   : "cursor-pointer border border-transparent bg-muted text-muted-foreground hover:border-foreground/40 hover:bg-muted/80"
-                : "pointer-events-none border border-transparent bg-muted text-muted-foreground"
+                : block.tentativeHold || block.holdHandoffId
+                  ? "pointer-events-none border border-dashed border-muted-foreground/40 bg-muted text-muted-foreground"
+                  : "pointer-events-none border border-transparent bg-muted text-muted-foreground"
             }`}
             style={{ top: pos.top, height: pos.height }}
             title={
               canPick
                 ? `Link “${block.title}” to this person`
-                : block.title
+                : block.tentativeHold || block.holdHandoffId
+                  ? `${block.title}. Tentative hold until a meeting is set.`
+                  : block.title
             }
           >
             {block.title}

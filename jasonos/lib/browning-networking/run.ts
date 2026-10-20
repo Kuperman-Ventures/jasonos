@@ -25,7 +25,8 @@ import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { findBookedCall, type CalendarGuestEvent } from "./booking";
+import { findBookedCall, isBrowningHoldEvent, type CalendarGuestEvent } from "./booking";
+import { syncHandoffHolds, syncOpenHandoffHolds } from "./hold-sync";
 import { hasResumeFile, pickResumeHandoff, type ResumeHandoffRow } from "./resume-source";
 import {
   planDuplicateDismissals,
@@ -128,6 +129,12 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     await collapseDuplicateHandoffs(sb);
     await linkBrowningReferrals(sb);
     await detectChosenTimes(sb);
+    try {
+      const holds = await syncOpenHandoffHolds(sb, 30);
+      if (!holds.ok) console.error("[browning-networking] tentative holds", holds.error);
+    } catch (err) {
+      console.error("[browning-networking] tentative holds", err);
+    }
     result.ok = true;
     return result;
   } catch (err) {
@@ -848,16 +855,7 @@ async function calendarEventsBetween(start: Date, end: Date): Promise<CalendarGu
   );
   const out: CalendarGuestEvent[] = [];
   for (const list of lists) {
-    for (const event of list.events) {
-      out.push({
-        id: event.id,
-        summary: event.summary,
-        start: event.start?.dateTime || event.start?.date,
-        end: event.end?.dateTime || event.end?.date,
-        status: event.status,
-        attendees: event.attendees,
-      });
-    }
+    for (const event of list.events) out.push(toGuestEvent(event));
   }
   return out;
 }
@@ -1037,18 +1035,23 @@ async function upcomingEvents(): Promise<CalendarGuestEvent[]> {
   );
   const out: CalendarGuestEvent[] = [];
   for (const list of lists) {
-    for (const event of list.events) {
-      out.push({
-        id: event.id,
-        summary: event.summary,
-        start: event.start?.dateTime || event.start?.date,
-        end: event.end?.dateTime || event.end?.date,
-        status: event.status,
-        attendees: event.attendees,
-      });
-    }
+    for (const event of list.events) out.push(toGuestEvent(event));
   }
   return out;
+}
+
+function toGuestEvent(event: CalendarApiEvent): CalendarGuestEvent {
+  const summary = event.summary;
+  return {
+    id: event.id,
+    summary,
+    start: event.start?.dateTime || event.start?.date,
+    end: event.end?.dateTime || event.end?.date,
+    status: event.status,
+    browningHold:
+      event.extendedProperties?.private?.browningHold === "1" || isBrowningHoldEvent({ summary }),
+    attendees: event.attendees,
+  };
 }
 
 type ContactRow = {
@@ -1479,5 +1482,7 @@ export async function persistDraft(input: {
       })
       .eq("id", data.card_id as string);
   }
+  const holds = await syncHandoffHolds(sb, input.handoffId);
+  if (!holds.ok) console.error("[browning-networking] tentative holds", holds.error);
   return { ok: true, url, savedInGmail };
 }
