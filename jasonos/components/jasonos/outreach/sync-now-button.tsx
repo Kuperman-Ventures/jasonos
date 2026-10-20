@@ -380,6 +380,11 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
             );
           }
           if (result.preps) bits.push(`${result.preps} meeting prep`);
+          if (result.sentReplies) {
+            bits.push(
+              `${result.sentReplies} moved to waiting`
+            );
+          }
           patchStep("browning", {
             status: "done",
             resultText: bits.join(", "),
@@ -534,6 +539,9 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           );
         }
         if (browning.preps) bits.push(`${browning.preps} meeting prep`);
+        if (browning.sentReplies) {
+          bits.push(`${browning.sentReplies} moved to waiting`);
+        }
         messages.push(`Browning ${bits.join(", ")}`);
       } else {
         browningFatal = true;

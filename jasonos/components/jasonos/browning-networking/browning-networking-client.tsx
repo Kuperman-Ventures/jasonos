@@ -121,7 +121,12 @@ export function BrowningNetworkingClient({
             start(async () => {
               const result = await checkBrowningHandoffs();
               if (!result.ok) toast.error(result.error);
-              else if (result.created === 0 && result.followUps === 0 && result.preps === 0) {
+              else if (
+                result.created === 0 &&
+                result.followUps === 0 &&
+                result.preps === 0 &&
+                result.sentReplies === 0
+              ) {
                 toast(
                   result.olderFound > 0
                     ? `Found ${result.olderFound} older intros. They already have a meeting or are already on this page.`
@@ -139,6 +144,11 @@ export function BrowningNetworkingClient({
                 if (result.preps > 0) {
                   parts.push(
                     `Meeting prep is on ${result.preps} contact${result.preps === 1 ? "" : "s"}, under Meetings.`
+                  );
+                }
+                if (result.sentReplies > 0) {
+                  parts.push(
+                    `Moved ${result.sentReplies} to Waiting after the reply was sent.`
                   );
                 }
                 toast(parts.join(" "));
@@ -173,7 +183,7 @@ export function BrowningNetworkingClient({
             />
             <HandoffLaneList
               title="Waiting for them to schedule"
-              empty="Nobody is waiting yet. Acted On moves someone here after you send."
+              empty="Nobody is waiting yet. Sync moves them here after the reply is sent, or tap Acted On."
               rows={waitingRows}
               selectedId={selectedId}
               onSelect={setSelectedId}

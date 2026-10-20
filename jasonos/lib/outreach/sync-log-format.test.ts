@@ -68,8 +68,9 @@ describe("formatSyncSummary", () => {
         created: 1,
         followUps: 2,
         preps: 3,
+        sentReplies: 4,
       }),
-      "+1 handoff · 2 follow-ups · 3 meeting prep"
+      "+1 handoff · 2 follow-ups · 3 meeting prep · 4 moved to waiting"
     );
   });
 

@@ -60,6 +60,7 @@ import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "
 import { canEditOfferedTimes } from "./lanes";
 import { meetingBrief } from "./meeting-brief";
 import { matchOfferedSlot, replyWords } from "./chosen-time";
+import { sentReplyPatch } from "./sent-reply";
 import { extractDocxText, extractPdfText } from "@/lib/resume-customizer/extract";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type HandoffStatus, type ParsedHandoff } from "./types";
 
@@ -77,6 +78,8 @@ export type BrowningRunResult = {
   followUps: number;
   olderFound: number;
   preps: number;
+  /** Open replies Sync found already sent — moved to Waiting. */
+  sentReplies: number;
   error?: string;
 };
 
@@ -104,6 +107,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     followUps: 0,
     olderFound: 0,
     preps: 0,
+    sentReplies: 0,
   };
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ...result, error: "Supabase is not configured." };
@@ -128,6 +132,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.thankYous = followed.thankYous;
     await collapseDuplicateHandoffs(sb);
     await linkBrowningReferrals(sb);
+    result.sentReplies = await detectSentReplies(sb);
     await detectChosenTimes(sb);
     try {
       const holds = await syncOpenHandoffHolds(sb, 30);
@@ -1173,6 +1178,56 @@ async function renameConnectTitles(sb: Sb): Promise<void> {
       .eq("gcal_event_id", eventId)
       .eq("prep_goal", oldTitle);
   }
+}
+
+/**
+ * Sync sees that Jason already sent the scheduling reply (or outreach email)
+ * and moves that handoff from Reply ready into Waiting for them to schedule.
+ */
+async function detectSentReplies(sb: Sb): Promise<number> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, contact_email, received_at, created_at, status, call_starts_at, card_id")
+    .is("call_starts_at", null)
+    .in("status", ["times_ready", "draft_ready"])
+    .order("received_at", { ascending: false })
+    .limit(25);
+  if (error) {
+    console.error("[browning-networking] sent replies load", error);
+    return 0;
+  }
+  if (!data?.length) return 0;
+
+  let moved = 0;
+  for (const row of data) {
+    const email = (row.contact_email as string | null) ?? "";
+    const since =
+      (row.received_at as string | null) ||
+      (row.created_at as string | null) ||
+      "";
+    if (!email.includes("@") || !since) continue;
+    const outreach = await lastOutreachTo(email, since);
+    const patch = sentReplyPatch({
+      status: String(row.status ?? ""),
+      callStartsAt: (row.call_starts_at as string | null) ?? null,
+      contactEmail: email,
+      outreach,
+    });
+    if (!patch) continue;
+    const { error: updateError } = await sb
+      .from("browning_handoffs")
+      .update(patch)
+      .eq("id", row.id as string);
+    if (updateError) {
+      console.error("[browning-networking] sent reply", updateError);
+      continue;
+    }
+    if (row.card_id) {
+      await sb.from("cards").update({ state: "actioned" }).eq("id", row.card_id as string);
+    }
+    moved += 1;
+  }
+  return moved;
 }
 
 async function detectChosenTimes(sb: Sb): Promise<void> {
