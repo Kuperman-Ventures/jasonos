@@ -70,7 +70,7 @@ export async function getRelationshipMetrics(
     contactIds.length
       ? sb
           .from("contacts")
-          .select("id, name, cadence_interval, last_touch_date, next_touch_date")
+          .select("id, name, cadence_interval, last_touch_date, next_touch_date, companies(name)")
           .in("id", contactIds)
       : Promise.resolve({ data: [], error: null }),
     contactIds.length
@@ -134,13 +134,18 @@ export async function getRelationshipMetrics(
       asksTotal: tally.total,
     };
   });
-  const people: MetricContact[] = (contacts.data ?? []).map((row) => ({
-    id: row.id as string,
-    name: String(row.name),
-    cadence: typeof row.cadence_interval === "string" ? row.cadence_interval : null,
-    lastTouchDate: typeof row.last_touch_date === "string" ? row.last_touch_date : null,
-    nextTouchDate: typeof row.next_touch_date === "string" ? row.next_touch_date : null,
-  }));
+  const people: MetricContact[] = (contacts.data ?? []).map((row) => {
+    const company = (row as { companies?: { name?: string } | { name?: string }[] | null }).companies;
+    const companyRow = Array.isArray(company) ? company[0] : company;
+    return {
+      id: row.id as string,
+      name: String(row.name),
+      company: companyRow?.name?.trim() || null,
+      cadence: typeof row.cadence_interval === "string" ? row.cadence_interval : null,
+      lastTouchDate: typeof row.last_touch_date === "string" ? row.last_touch_date : null,
+      nextTouchDate: typeof row.next_touch_date === "string" ? row.next_touch_date : null,
+    };
+  });
 
   return {
     ok: true,

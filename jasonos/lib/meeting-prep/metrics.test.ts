@@ -48,6 +48,7 @@ describe("computeRelationshipMetrics", () => {
         {
           id: "c1",
           name: "John",
+          company: "Acme",
           cadence: "monthly",
           lastTouchDate: "2026-09-01",
           nextTouchDate: "2026-10-01",
@@ -79,6 +80,7 @@ describe("computeRelationshipMetrics", () => {
     assert.equal(isWithinCadence(meeting({ startsAt: "2026-10-10T15:00:00.000Z" }), {
       id: "c1",
       name: "John",
+      company: null,
       cadence: "monthly",
       lastTouchDate: "2026-09-01",
       nextTouchDate: null,

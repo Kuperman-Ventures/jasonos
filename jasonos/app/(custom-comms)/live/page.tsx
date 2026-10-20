@@ -11,7 +11,7 @@ export default async function LiveMeetingsPage() {
   const [result, scriptsResult, recentResult, settingsResult] = await Promise.all([
     getTodaysMeetingPreps(),
     listLiveScripts(),
-    getRecentLiveMeetings(10),
+    getRecentLiveMeetings(6),
     getLiveSettings(),
   ]);
   return (

@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
-import { CADENCE_RULE, type RelationshipMetrics } from "@/lib/meeting-prep/metrics";
+import { CaretLeft } from "@phosphor-icons/react";
+import { LIVE_SECTION_LABEL } from "@/components/jasonos/live";
+import { type RelationshipMetrics } from "@/lib/meeting-prep/metrics";
+import { cn } from "@/lib/utils";
 
 function dayLabel(value: string | null): string {
-  if (!value) return "none";
+  if (!value) return "n/a";
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return value;
   return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", {
@@ -17,8 +19,52 @@ function dayLabel(value: string | null): string {
   });
 }
 
-function split(counts: { mine: number; theirs: number }): string {
-  return `${counts.mine} mine · ${counts.theirs} theirs`;
+function overdueDays(nextTouchDate: string, today: string): number {
+  const [ay, am, ad] = nextTouchDate.split("-").map(Number);
+  const [by, bm, bd] = today.split("-").map(Number);
+  return Math.max(
+    1,
+    Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86_400_000)
+  );
+}
+
+function OutcomeBar({
+  hit,
+  partial,
+  missed,
+  unmarked,
+}: {
+  hit: number;
+  partial: number;
+  missed: number;
+  unmarked: number;
+}) {
+  const total = hit + partial + missed + unmarked;
+  if (!total) {
+    return <div className="h-3.5 w-full bg-[#d8d6d6]" />;
+  }
+  const segments = [
+    { key: "hit", value: hit, color: "var(--color-done)" },
+    { key: "partial", value: partial, color: "var(--color-process-yellow)" },
+    { key: "missed", value: missed, color: "var(--color-accent-2)" },
+    { key: "unmarked", value: unmarked, color: "#d8d6d6" },
+  ].filter((segment) => segment.value > 0);
+
+  return (
+    <div className="flex h-3.5 w-full gap-0.5">
+      {segments.map((segment) => (
+        <div
+          key={segment.key}
+          className="min-w-[2px]"
+          style={{
+            flex: segment.value,
+            backgroundColor: segment.color,
+          }}
+          title={`${segment.key}: ${segment.value}`}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function LiveMetricsClient({
@@ -31,108 +77,155 @@ export function LiveMetricsClient({
   error: string | null;
 }) {
   const router = useRouter();
+  const windows = [30, 90, 180] as const;
+  const agreementPercent =
+    metrics && metrics.markAgreement.total
+      ? Math.round((metrics.markAgreement.agree / metrics.markAgreement.total) * 100)
+      : 0;
+
   const tiles = metrics
     ? [
-        { label: "First meetings", value: String(metrics.firstMeetings) },
-        { label: "Repeat meetings", value: String(metrics.repeatMeetings) },
-        { label: "Repeat within cadence", value: String(metrics.repeatWithinCadence) },
-        { label: "Commitments opened", value: split(metrics.commitmentsOpened) },
-        { label: "Commitments closed", value: split(metrics.commitmentsClosed) },
+        {
+          label: "First meetings",
+          value: String(metrics.firstMeetings),
+          sub: null as string | null,
+        },
+        {
+          label: "Repeat meetings",
+          value: String(metrics.repeatMeetings),
+          sub: null,
+        },
+        {
+          label: "Repeat within cadence",
+          value: String(metrics.repeatWithinCadence),
+          sub: `of ${metrics.repeatMeetings}`,
+        },
+        {
+          label: "Commitments opened",
+          value: String(metrics.commitmentsOpened.mine),
+          sub: `${metrics.commitmentsOpened.theirs} theirs`,
+          unit: "yours",
+        },
+        {
+          label: "Commitments closed",
+          value: String(metrics.commitmentsClosed.mine),
+          sub: `${metrics.commitmentsClosed.theirs} theirs`,
+          unit: "yours",
+        },
         {
           label: "Mark agreement",
-          value: metrics.markAgreement.total
-            ? `${metrics.markAgreement.agree} of ${metrics.markAgreement.total}`
-            : "0 of 0",
+          value: `${agreementPercent}%`,
+          sub: "Your mark matches the review",
         },
       ]
     : [];
 
+  const strategyRows = (metrics?.byStrategy ?? []).filter((row) => row.meetings > 0);
+  const today = metrics?.to ?? "";
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    <div className="px-10 py-8">
       <Link
-        href="/live/library"
+        href="/live"
         className="inline-flex items-center gap-1 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
       >
-        <ChevronLeft className="size-4" />
-        Library
+        <CaretLeft size={14} weight="bold" aria-hidden />
+        Live
       </Link>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]">Metrics</h1>
-          {metrics ? (
-            <p className="text-[14px] text-[var(--jos-muted)]">
-              {dayLabel(metrics.from)} through {dayLabel(metrics.to)}
-            </p>
-          ) : null}
+
+      <header className="mt-4 flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-[44px] font-extrabold leading-none tracking-[-0.02em]">Metrics</h1>
+        <div className="flex gap-1">
+          {windows.map((window) => (
+            <button
+              key={window}
+              type="button"
+              onClick={() => router.replace(`/live/metrics?days=${window}`)}
+              className={cn(
+                "min-w-14 px-3 py-1.5 text-[13px] font-bold",
+                days === window
+                  ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+                  : "bg-[var(--jos-surface)] text-[var(--jos-ink)]"
+              )}
+            >
+              {window}
+            </button>
+          ))}
         </div>
-        <label className="space-y-1">
-          <span className="block text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Window</span>
-          <select
-            aria-label="Window"
-            value={String(days)}
-            className="h-9 bg-transparent text-[14px] font-semibold outline-none"
-            onChange={(event) => router.replace(`/live/metrics?days=${event.target.value}`)}
-          >
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-            <option value="180">Last 180 days</option>
-          </select>
-        </label>
       </header>
 
-      {error ? <p className="text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
+      {error ? <p className="mt-4 text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
 
       {metrics ? (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid grid-cols-1 gap-x-10 gap-y-8 min-[900px]:grid-cols-2 min-[1280px]:grid-cols-3">
             {tiles.map((tile) => (
-              <div key={tile.label} className="border border-[var(--color-neutral-400)] bg-[var(--jos-surface)] p-3">
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">{tile.label}</p>
-                <p className="mt-1 text-[22px] font-semibold tracking-tight text-[var(--jos-ink)]">{tile.value}</p>
+              <div key={tile.label} className="border-t-2 border-[var(--jos-ink)] pt-3">
+                <p className={LIVE_SECTION_LABEL}>{tile.label}</p>
+                <p className="mt-2 text-[48px] font-extrabold leading-none tracking-tight tabular-nums">
+                  {tile.value}
+                  {"unit" in tile && tile.unit ? (
+                    <span className="ml-2 text-[15px] font-medium text-[var(--jos-muted)]">
+                      {tile.unit}
+                    </span>
+                  ) : null}
+                </p>
+                {tile.sub ? (
+                  <p className="mt-2 text-[14px] text-[#4a4747]">{tile.sub}</p>
+                ) : null}
               </div>
             ))}
           </div>
-          <p className="text-[13px] text-[var(--jos-muted)]">{CADENCE_RULE}</p>
-          {metrics.commitmentsSince ? (
-            <p className="text-[13px] text-[var(--jos-muted)]">
-              Commitment counts use dates stored on each commitment, since {dayLabel(metrics.commitmentsSince)}. Older
-              commitments have no date and are not counted.
-            </p>
-          ) : null}
 
-          <section className="space-y-2">
-            <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">By strategy</h2>
-            <div className="overflow-x-auto">
+          <section className="mt-14">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="text-[24px] font-extrabold tracking-tight">By strategy</h2>
+              <div className="flex flex-wrap items-center gap-3 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                {[
+                  { label: "Hit", color: "var(--color-done)" },
+                  { label: "Partial", color: "var(--color-process-yellow)" },
+                  { label: "Missed", color: "var(--color-accent-2)" },
+                  { label: "Unmarked", color: "#d8d6d6" },
+                ].map((item) => (
+                  <span key={item.label} className="inline-flex items-center gap-1.5">
+                    <span className="size-2.5" style={{ backgroundColor: item.color }} />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 overflow-x-auto border-t-2 border-[var(--jos-ink)]">
               <table className="w-full min-w-[720px] text-left text-[14px]">
-                <thead className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                  <tr>
-                    <th className="py-2 pr-3 font-bold">Strategy</th>
-                    <th className="py-2 pr-3 font-bold">Meetings</th>
-                    <th className="py-2 pr-3 font-bold">Hit</th>
-                    <th className="py-2 pr-3 font-bold">Partial</th>
-                    <th className="py-2 pr-3 font-bold">Missed</th>
-                    <th className="py-2 pr-3 font-bold">Unmarked</th>
-                    <th className="py-2 font-bold">Asks</th>
+                <thead>
+                  <tr className={LIVE_SECTION_LABEL}>
+                    <th className="py-3 pr-3 font-bold">Strategy</th>
+                    <th className="py-3 pr-3 font-bold tabular-nums">Meetings</th>
+                    <th className="py-3 pr-3 font-bold">Outcomes</th>
+                    <th className="py-3 font-bold">Asks covered</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {metrics.byStrategy.length === 0 ? (
+                  {strategyRows.length === 0 ? (
                     <tr>
-                      <td className="py-2 text-[var(--jos-muted)]" colSpan={7}>
+                      <td className="py-3 text-[var(--jos-muted)]" colSpan={4}>
                         No Live meetings in this window.
                       </td>
                     </tr>
                   ) : (
-                    metrics.byStrategy.map((row) => (
+                    strategyRows.map((row) => (
                       <tr key={row.id ?? "none"} className="border-t border-[var(--jos-line)]">
-                        <td className="py-2 pr-3">{row.name}</td>
-                        <td className="py-2 pr-3">{row.meetings}</td>
-                        <td className="py-2 pr-3">{row.hit}</td>
-                        <td className="py-2 pr-3">{row.partial}</td>
-                        <td className="py-2 pr-3">{row.missed}</td>
-                        <td className="py-2 pr-3">{row.unmarked}</td>
-                        <td className="py-2">
-                          {row.asksCovered}/{row.asksTotal}
+                        <td className="py-3 pr-3 font-bold">{row.name}</td>
+                        <td className="py-3 pr-3 tabular-nums">{row.meetings}</td>
+                        <td className="py-3 pr-3 min-w-[160px]">
+                          <OutcomeBar
+                            hit={row.hit}
+                            partial={row.partial}
+                            missed={row.missed}
+                            unmarked={row.unmarked}
+                          />
+                        </td>
+                        <td className="py-3 tabular-nums">
+                          {row.asksCovered} of {row.asksTotal}
                         </td>
                       </tr>
                     ))
@@ -142,49 +235,74 @@ export function LiveMetricsClient({
             </div>
           </section>
 
-          <section className="space-y-2">
-            <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">By person</h2>
-            <div className="overflow-x-auto">
+          <section className="mt-14">
+            <h2 className="text-[24px] font-extrabold tracking-tight">By person</h2>
+            <div className="mt-3 overflow-x-auto border-t-2 border-[var(--jos-ink)]">
               <table className="w-full min-w-[880px] text-left text-[14px]">
-                <thead className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                  <tr>
-                    <th className="py-2 pr-3 font-bold">Name</th>
-                    <th className="py-2 pr-3 font-bold">Live meetings</th>
-                    <th className="py-2 pr-3 font-bold">First</th>
-                    <th className="py-2 pr-3 font-bold">Last</th>
-                    <th className="py-2 pr-3 font-bold">Avg days</th>
-                    <th className="py-2 pr-3 font-bold">Open theirs</th>
-                    <th className="py-2 pr-3 font-bold">Open mine</th>
-                    <th className="py-2 font-bold">Next touch</th>
+                <thead>
+                  <tr className={LIVE_SECTION_LABEL}>
+                    <th className="py-3 pr-3 font-bold">Person</th>
+                    <th className="py-3 pr-3 font-bold">Meetings</th>
+                    <th className="py-3 pr-3 font-bold">First</th>
+                    <th className="py-3 pr-3 font-bold">Last</th>
+                    <th className="py-3 pr-3 font-bold">Avg days apart</th>
+                    <th className="py-3 pr-3 font-bold">Open commitments</th>
+                    <th className="py-3 font-bold">Next touch</th>
                   </tr>
                 </thead>
                 <tbody>
                   {metrics.byPerson.length === 0 ? (
                     <tr>
-                      <td className="py-2 text-[var(--jos-muted)]" colSpan={8}>
+                      <td className="py-3 text-[var(--jos-muted)]" colSpan={7}>
                         No people in this window.
                       </td>
                     </tr>
                   ) : (
-                    metrics.byPerson.map((row) => (
-                      <tr key={row.id} className="border-t border-[var(--jos-line)]">
-                        <td className="py-2 pr-3">
-                          <Link href={`/live/library?person=${row.id}`} className="font-semibold hover:underline">
-                            {row.name}
-                          </Link>
-                        </td>
-                        <td className="py-2 pr-3">{row.meetings}</td>
-                        <td className="py-2 pr-3">{dayLabel(row.firstMeeting)}</td>
-                        <td className="py-2 pr-3">{dayLabel(row.lastMeeting)}</td>
-                        <td className="py-2 pr-3">{row.avgDaysBetween ?? ""}</td>
-                        <td className="py-2 pr-3">{row.openTheirs}</td>
-                        <td className="py-2 pr-3">{row.openMine}</td>
-                        <td className="py-2">
-                          {dayLabel(row.nextTouchDate)}
-                          {row.nextTouchOverdue ? " · overdue" : ""}
-                        </td>
-                      </tr>
-                    ))
+                    metrics.byPerson.map((row) => {
+                      const openTotal = row.openMine + row.openTheirs;
+                      return (
+                        <tr key={row.id} className="border-t border-[var(--jos-line)]">
+                          <td className="py-3 pr-3">
+                            <Link
+                              href={`/live/library?person=${row.id}`}
+                              className="font-bold hover:underline"
+                            >
+                              {row.name}
+                            </Link>
+                            {row.company ? (
+                              <span className="text-[var(--jos-muted)]"> · {row.company}</span>
+                            ) : null}
+                          </td>
+                          <td className="py-3 pr-3 tabular-nums">{row.meetings}</td>
+                          <td className="py-3 pr-3 tabular-nums">{dayLabel(row.firstMeeting)}</td>
+                          <td className="py-3 pr-3 tabular-nums">{dayLabel(row.lastMeeting)}</td>
+                          <td className="py-3 pr-3 tabular-nums">
+                            {row.avgDaysBetween == null ? "n/a" : row.avgDaysBetween}
+                          </td>
+                          <td
+                            className={cn(
+                              "py-3 pr-3 font-semibold tabular-nums",
+                              openTotal > 0
+                                ? "text-[var(--color-todo)]"
+                                : "font-normal text-[var(--jos-muted)]"
+                            )}
+                          >
+                            {openTotal > 0 ? openTotal : "None"}
+                          </td>
+                          <td className="py-3">
+                            {!row.nextTouchDate ? (
+                              <span className="text-[var(--jos-muted)]">Not set</span>
+                            ) : row.nextTouchOverdue ? (
+                              <span className="inline-flex bg-[var(--color-accent-2)] px-2 py-0.5 text-[12px] font-bold text-white">
+                                Overdue {overdueDays(row.nextTouchDate, today)} d
+                              </span>
+                            ) : (
+                              <span className="tabular-nums">{dayLabel(row.nextTouchDate)}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

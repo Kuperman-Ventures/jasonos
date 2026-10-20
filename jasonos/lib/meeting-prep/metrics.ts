@@ -19,6 +19,7 @@ export interface MetricMeeting {
 export interface MetricContact {
   id: string;
   name: string;
+  company: string | null;
   cadence: string | null;
   lastTouchDate: string | null;
   nextTouchDate: string | null;
@@ -66,6 +67,7 @@ export interface RelationshipMetrics {
   byPerson: Array<{
     id: string;
     name: string;
+    company: string | null;
     meetings: number;
     firstMeeting: string;
     lastMeeting: string;
@@ -228,6 +230,7 @@ export function computeRelationshipMetrics(input: {
     byPerson.push({
       id,
       name: contact?.name ?? "Unknown",
+      company: contact?.company ?? null,
       meetings: sorted.length,
       firstMeeting: sorted[0],
       lastMeeting: sorted[sorted.length - 1],
@@ -238,7 +241,14 @@ export function computeRelationshipMetrics(input: {
       nextTouchOverdue: Boolean(contact?.nextTouchDate && contact.nextTouchDate < input.today),
     });
   }
-  byPerson.sort((a, b) => b.lastMeeting.localeCompare(a.lastMeeting) || a.name.localeCompare(b.name));
+  byPerson.sort((a, b) => {
+    if (a.nextTouchOverdue !== b.nextTouchOverdue) return a.nextTouchOverdue ? -1 : 1;
+    if (a.nextTouchDate && b.nextTouchDate && a.nextTouchDate !== b.nextTouchDate) {
+      return a.nextTouchDate.localeCompare(b.nextTouchDate);
+    }
+    if (Boolean(a.nextTouchDate) !== Boolean(b.nextTouchDate)) return a.nextTouchDate ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
 
   const byStrategy = [...strategyRows.values()].sort(
     (a, b) => b.meetings - a.meetings || a.name.localeCompare(b.name)

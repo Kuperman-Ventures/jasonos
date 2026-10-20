@@ -57,7 +57,11 @@ export interface MeetingPrepSummary {
   projectGoal: string | null;
   primaryContactId: string | null;
   primaryContactName: string | null;
+  primaryCompanyName: string | null;
   personalGoal: string | null;
+  liveEndedAt: string | null;
+  scriptId: string | null;
+  scriptName: string | null;
   home: MeetingHomeContext;
 }
 
@@ -130,6 +134,7 @@ interface PrepRow {
   outcome_marked_at?: string | null;
   project_id?: string | null;
   primary_contact_id?: string | null;
+  script_id?: string | null;
   adapted_from_script_id?: string | null;
   track?: string | null;
   research_ran_at?: string | null;
@@ -234,7 +239,11 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     projectGoal: null,
     primaryContactId: row.primary_contact_id ?? null,
     primaryContactName: null,
+    primaryCompanyName: null,
     personalGoal: null,
+    liveEndedAt: row.live_ended_at ?? null,
+    scriptId: row.script_id ?? null,
+    scriptName: null,
     home: EMPTY_HOME_CONTEXT,
   };
 }
@@ -467,15 +476,31 @@ async function getMeetingPrepsForDays(
       await queueResearchForThinAttendees(sb, eventIds);
     }
 
-    const { data, error } = eventIds.length
-      ? await sb
+    let rowsRaw: unknown[] = [];
+    let selectError: { message: string } | null = null;
+    if (eventIds.length) {
+      const linked = await sb
+        .from("meeting_preps")
+        .select(PREP_COLUMNS_WITH_LINKS)
+        .in("gcal_event_id", eventIds);
+      if (
+        linked.error &&
+        /script_id|live_ended_at|outcome_mark|primary_contact_id/i.test(linked.error.message)
+      ) {
+        const fallback = await sb
           .from("meeting_preps")
           .select(PREP_COLUMNS)
-          .in("gcal_event_id", eventIds)
-      : { data: [], error: null };
-    if (error) return { ok: false, error: error.message };
+          .in("gcal_event_id", eventIds);
+        rowsRaw = (fallback.data ?? []) as unknown[];
+        selectError = fallback.error;
+      } else {
+        rowsRaw = (linked.data ?? []) as unknown[];
+        selectError = linked.error;
+      }
+    }
+    if (selectError) return { ok: false, error: selectError.message };
 
-    const rows = ((data ?? []) as PrepRow[]).sort(
+    const rows = (rowsRaw as PrepRow[]).sort(
       (a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at)
     );
     const prepIds = rows.map((row) => row.id);
@@ -486,6 +511,55 @@ async function getMeetingPrepsForDays(
     );
     const warnings = [...loaded.warnings];
     if (points.missing) warnings.push("Meeting points are not in the database yet.");
+
+    const scriptIds = [
+      ...new Set(meetings.map((meeting) => meeting.scriptId).filter((id): id is string => Boolean(id))),
+    ];
+    const contactIds = [
+      ...new Set(
+        meetings.map((meeting) => meeting.primaryContactId).filter((id): id is string => Boolean(id))
+      ),
+    ];
+    const [scriptsResult, contactsResult] = await Promise.all([
+      scriptIds.length
+        ? sb.from("live_scripts").select("id, name").in("id", scriptIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string | null }>, error: null }),
+      contactIds.length
+        ? sb.from("contacts").select("id, name, company_id, companies(name)").in("id", contactIds)
+        : Promise.resolve({
+            data: [] as Array<{
+              id: string;
+              name: string | null;
+              company_id: string | null;
+              companies: { name: string } | { name: string }[] | null;
+            }>,
+            error: null,
+          }),
+    ]);
+    const scriptNames = new Map(
+      (scriptsResult.data ?? []).map((row) => [row.id as string, String(row.name ?? "").trim()])
+    );
+    const contactMeta = new Map(
+      (contactsResult.data ?? []).map((row) => {
+        const company = Array.isArray(row.companies) ? row.companies[0] : row.companies;
+        return [
+          row.id as string,
+          {
+            name: String(row.name ?? "").trim() || null,
+            company: company?.name?.trim() || null,
+          },
+        ];
+      })
+    );
+    for (const meeting of meetings) {
+      if (meeting.scriptId) meeting.scriptName = scriptNames.get(meeting.scriptId) || null;
+      if (meeting.primaryContactId) {
+        const meta = contactMeta.get(meeting.primaryContactId);
+        meeting.primaryContactName = meta?.name ?? meeting.primaryContactName;
+        meeting.primaryCompanyName = meta?.company ?? null;
+      }
+    }
+
     try {
       const homes = await loadHomeContextsForPreps(
         meetings.map((meeting) => ({
