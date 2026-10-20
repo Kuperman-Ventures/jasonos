@@ -74,8 +74,14 @@ export function holdsLookCurrent(input: {
   slots: HandoffSlot[];
   stored: StoredHold[];
   keep: boolean;
+  /** Set after Sync confirmed the calendar holds were deleted. */
+  clearedAt?: string | null;
 }): boolean {
-  if (!input.keep) return input.stored.length === 0;
+  if (!input.keep) {
+    // Empty stored ids are not enough — Google may still have orphan holds.
+    // Only skip once we have cleared and have nothing left to delete by id.
+    return Boolean(input.clearedAt) && input.stored.length === 0;
+  }
   if (input.stored.length !== input.slots.length) return false;
   const bySlot = new Map(input.stored.map((hold) => [hold.slotId, hold]));
   return input.slots.every((slot) => {

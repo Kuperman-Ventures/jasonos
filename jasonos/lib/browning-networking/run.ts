@@ -928,6 +928,13 @@ async function followBookedCalls(sb: Sb): Promise<{
           })
           .eq("id", id);
         booked += 1;
+        // Drop every tentative hold for this person as soon as the meeting appears.
+        try {
+          const holds = await syncHandoffHolds(sb, id, { force: true });
+          if (!holds.ok) console.error("[browning-networking] clear holds", holds.error);
+        } catch (err) {
+          console.error("[browning-networking] clear holds", err);
+        }
       }
     }
 

@@ -106,7 +106,16 @@ describe("tentative holds", () => {
       false
     );
     assert.equal(holdsLookCurrent({ slots, stored, keep: false }), false);
-    assert.equal(holdsLookCurrent({ slots: [], stored: [], keep: false }), true);
+    assert.equal(holdsLookCurrent({ slots: [], stored: [], keep: false }), false);
+    assert.equal(
+      holdsLookCurrent({
+        slots: [],
+        stored: [],
+        keep: false,
+        clearedAt: "2026-10-08T12:00:00.000Z",
+      }),
+      true
+    );
   });
 
   it("shows other replies' times as grey holds and hides this reply's own hold", () => {
