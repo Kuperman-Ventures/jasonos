@@ -35,28 +35,54 @@ export async function syncOpenHandoffHolds(sb: Sb, maxToWrite = 10): Promise<Hol
 
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("id, contact_name, slots, status, call_starts_at, hold_events")
+    .select("id, contact_name, slots, status, call_starts_at, hold_events, holds_cleared_at")
     .limit(200);
   if (error) {
-    if (/hold_events/.test(error.message)) {
+    if (/hold_events|holds_cleared_at/.test(error.message)) {
       return { ok: false, error: "Calendar holds are not in the database yet." };
     }
     return { ok: false, error: error.message };
   }
 
-  let changed = 0;
-  let warning: string | undefined;
-  let wrote = 0;
+  type Row = Record<string, unknown>;
+  const clearRows: Row[] = [];
+  const writeRows: Row[] = [];
   for (const row of data ?? []) {
-    if (wrote >= maxToWrite) break;
-    const record = row as Record<string, unknown>;
+    const record = row as Row;
     const slots = asSlots(record.slots);
     const stored = asStoredHolds(record.hold_events);
     const keep = shouldKeepTentativeHolds({
       status: String(record.status ?? ""),
       callStartsAt: (record.call_starts_at as string | null) ?? null,
     });
-    if (holdsLookCurrent({ slots, stored, keep })) continue;
+    const clearedAt = (record.holds_cleared_at as string | null) ?? null;
+    if (holdsLookCurrent({ slots, stored, keep, clearedAt })) continue;
+    if (keep) writeRows.push(record);
+    else clearRows.push(record);
+  }
+
+  let changed = 0;
+  let warning: string | undefined;
+  let wrote = 0;
+
+  // Clears first — a meeting on the calendar must drop that person's holds.
+  for (const record of clearRows) {
+    try {
+      const result = await syncRow(sb, token, record, true);
+      if (!result.ok) {
+        if (result.needsReconnect) return { ok: false, error: result.error };
+        warning = result.error;
+        continue;
+      }
+      if (result.changed) changed += 1;
+      if (result.warning) warning = result.warning;
+    } catch (err) {
+      warning = err instanceof Error ? err.message : "Could not clear a tentative hold.";
+    }
+  }
+
+  for (const record of writeRows) {
+    if (wrote >= maxToWrite) break;
     wrote += 1;
     try {
       const result = await syncRow(sb, token, record, false);
@@ -88,11 +114,11 @@ export async function syncHandoffHolds(
   }
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("id, contact_name, slots, status, call_starts_at, hold_events")
+    .select("id, contact_name, slots, status, call_starts_at, hold_events, holds_cleared_at")
     .eq("id", handoffId)
     .maybeSingle();
   if (error) {
-    if (/hold_events/.test(error.message)) {
+    if (/hold_events|holds_cleared_at/.test(error.message)) {
       return { ok: false, error: "Calendar holds are not in the database yet." };
     }
     return { ok: false, error: error.message };
@@ -123,7 +149,8 @@ async function syncRow(
     status: String(row.status ?? ""),
     callStartsAt: (row.call_starts_at as string | null) ?? null,
   });
-  if (!force && holdsLookCurrent({ slots, stored, keep })) {
+  const clearedAt = (row.holds_cleared_at as string | null) ?? null;
+  if (!force && holdsLookCurrent({ slots, stored, keep, clearedAt })) {
     return { ok: true, changed: false };
   }
 
@@ -208,15 +235,23 @@ async function syncRow(
     }
   }
 
-  const changed = !sameHolds(stored, next);
-  if (changed) {
+  const nowIso = new Date().toISOString();
+  const nextClearedAt = keep ? null : warning ? clearedAt : nowIso;
+  const holdsChanged = !sameHolds(stored, next);
+  const clearedChanged = (clearedAt ?? null) !== (nextClearedAt ?? null);
+  if (holdsChanged || clearedChanged) {
     const { error } = await sb
       .from("browning_handoffs")
-      .update({ hold_events: next })
+      .update({
+        hold_events: next,
+        holds_cleared_at: nextClearedAt,
+      })
       .eq("id", handoffId);
     if (error) return { ok: false, error: error.message };
   }
-  return warning ? { ok: true, changed, warning } : { ok: true, changed };
+  return warning
+    ? { ok: true, changed: holdsChanged || clearedChanged, warning }
+    : { ok: true, changed: holdsChanged || clearedChanged };
 }
 
 async function advisorsCalendarToken(): Promise<string | null> {
