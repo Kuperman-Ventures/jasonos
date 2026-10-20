@@ -49,6 +49,14 @@ export interface DraftPromptInput {
     nextStep: string | null;
   }>;
   jobSearch: Array<{ title: string; company: string | null; kind: string }>;
+  linkedinUrl?: string | null;
+  browningPrep?: string | null;
+  packet?: {
+    resumeText: string | null;
+    introReason: string | null;
+    linkedinUrls: string[];
+    otherDocuments: Array<{ filename: string; text: string }>;
+  } | null;
 }
 
 const KIND_SET = new Set<string>(POINT_KINDS);
@@ -266,8 +274,11 @@ function line(label: string, value: string | null | undefined): string | null {
   return `${label}: ${text}`;
 }
 
+export const PACKET_PLACEHOLDER_INSTRUCTION =
+  "When the strategy has a placeholder in square brackets such as [specific accomplishment] or [one specific thing from their background], replace it with a real item from the resume. Never leave a square-bracket placeholder in the output.";
+
 export function meetingPointsSystemPrompt(writingRules: string): string {
-  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. When what Jason wants asks him to explain something about himself or his work, write those points from the narratives, in his voice, and keep each detail under 400 characters. Never summarize a narrative as "explain what you do." Return JSON only.
+  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. When what Jason wants asks him to explain something about himself or his work, write those points from the narratives, in his voice, and keep each detail under 400 characters. Never summarize a narrative as "explain what you do." ${PACKET_PLACEHOLDER_INSTRUCTION} Return JSON only.
 ${writingRules}`;
 }
 
@@ -293,6 +304,8 @@ export function draftContextLines(input: {
   companyResearch: boolean;
   emailContext: string | null;
   narrativeCount: number;
+  packet?: boolean;
+  requirePacket?: boolean;
 }): { contextUsed: string[]; contextMissing: string[] } {
   const rows: Array<{ label: string; present: boolean }> = [
     { label: "Purpose", present: Boolean(input.purpose?.trim()) },
@@ -320,6 +333,9 @@ export function draftContextLines(input: {
       present: input.narrativeCount > 0,
     },
   ];
+  if (input.packet || input.requirePacket) {
+    rows.push({ label: "Browning packet", present: Boolean(input.packet) });
+  }
   return {
     contextUsed: rows.filter((row) => row.present).map((row) => row.label),
     contextMissing: rows.filter((row) => !row.present).map((row) => row.label),
@@ -452,6 +468,28 @@ export function buildMeetingPointsUserMessage(input: DraftPromptInput): string {
     sections.push(`Job search:\n${rows.join("\n")}`);
   } else {
     sections.push("Job search: None on file");
+  }
+
+  if (input.linkedinUrl?.trim()) sections.push(`LinkedIn: ${input.linkedinUrl.trim()}`);
+  if (input.browningPrep?.trim()) {
+    sections.push(`Browning prep note:\n${input.browningPrep.trim().slice(0, 2000)}`);
+  }
+
+  if (input.packet) {
+    const resume = input.packet.resumeText?.trim() || "None on file";
+    const reason = input.packet.introReason?.trim() || "None on file";
+    const links = input.packet.linkedinUrls.length
+      ? input.packet.linkedinUrls.join(", ")
+      : "None on file";
+    sections.push(
+      `## Their background (from the Browning packet)\nResume:\n${resume}\n\nWhy Browning connected us:\n${reason}\n\nLinkedIn: ${links}`
+    );
+    if (input.packet.otherDocuments.length) {
+      const docs = input.packet.otherDocuments
+        .map((doc) => `- ${doc.filename}:\n${doc.text}`)
+        .join("\n\n");
+      sections.push(`Other documents:\n${docs}`);
+    }
   }
 
   return sections.join("\n\n");

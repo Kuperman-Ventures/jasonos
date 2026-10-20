@@ -27,6 +27,12 @@ import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, isBrowningHoldEvent, type CalendarGuestEvent } from "./booking";
 import { syncHandoffHolds, syncOpenHandoffHolds } from "./hold-sync";
+import { backfillMissingPackets, storeHandoffPacket } from "./packet-store";
+import {
+  buildBrowningPlan,
+  ensurePrepForHandoff,
+  loadHandoffForPrep,
+} from "./prep-link";
 import { hasResumeFile, pickResumeHandoff, type ResumeHandoffRow } from "./resume-source";
 import {
   planDuplicateDismissals,
@@ -80,6 +86,8 @@ export type BrowningRunResult = {
   preps: number;
   /** Open replies Sync found already sent — moved to Waiting. */
   sentReplies: number;
+  packetsStored: number;
+  plansBuilt: number;
   error?: string;
 };
 
@@ -108,6 +116,8 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     olderFound: 0,
     preps: 0,
     sentReplies: 0,
+    packetsStored: 0,
+    plansBuilt: 0,
   };
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ...result, error: "Supabase is not configured." };
@@ -130,6 +140,8 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.booked = followed.booked;
     result.briefs = followed.briefs;
     result.thankYous = followed.thankYous;
+    result.plansBuilt = followed.plansBuilt;
+    result.packetsStored = await backfillMissingPackets(sb);
     await collapseDuplicateHandoffs(sb);
     await linkBrowningReferrals(sb);
     result.sentReplies = await detectSentReplies(sb);
@@ -678,6 +690,21 @@ async function writeMeetingBriefs(
         .eq("status", "scheduled")
         .is("prep_notes", null);
     }
+    const packet = await storeHandoffPacket(sb, {
+      handoffId: String(row.id),
+      accountEmail: item.mail.accountEmail,
+      messageId: item.mail.messageId,
+      resumeMessageId: item.resumeMessageId,
+      threadId: item.mail.threadId ?? null,
+      contactName: item.parsed.name,
+      contactEmail: item.parsed.email,
+      whyTheyReplied: item.parsed.whyTheyReplied,
+      tracyBody: item.mail.body,
+      linkedinUrl: item.parsed.linkedinUrl,
+      createdContactId: (row.created_contact_id as string | null) ?? null,
+      existingContactId: (row.existing_contact_id as string | null) ?? null,
+    });
+    if (!packet.ok) console.error("[browning-networking] packet store", packet.error);
     wrote += 1;
   }
   return wrote;
@@ -869,12 +896,13 @@ async function followBookedCalls(sb: Sb): Promise<{
   booked: number;
   briefs: number;
   thankYous: number;
+  plansBuilt: number;
 }> {
   const { data, error } = await sb
     .from("browning_handoffs")
     .select("*")
     .in("status", ["times_ready", "draft_ready", "acted_on", "follow_up", "booked", "brief_ready"]);
-  if (error || !data?.length) return { booked: 0, briefs: 0, thankYous: 0 };
+  if (error || !data?.length) return { booked: 0, briefs: 0, thankYous: 0, plansBuilt: 0 };
 
   const contacts = await loadContacts(sb);
   const contactsById = new Map(contacts.map((row) => [row.id, row]));
@@ -884,6 +912,7 @@ async function followBookedCalls(sb: Sb): Promise<{
   let booked = 0;
   let briefs = 0;
   let thankYous = 0;
+  let plansBuilt = 0;
 
   for (const row of data) {
     const id = row.id as string;
@@ -891,7 +920,7 @@ async function followBookedCalls(sb: Sb): Promise<{
       ((row.existing_contact_id as string | null) ?? null) ||
       ((row.created_contact_id as string | null) ?? null);
     const linked = contactId ? contactsById.get(contactId) : null;
-    let name = (row.contact_name as string | null) ?? linked?.name ?? null;
+    const name = (row.contact_name as string | null) ?? linked?.name ?? null;
     let email = (row.contact_email as string | null) ?? null;
     const emails = [
       email,
@@ -900,7 +929,10 @@ async function followBookedCalls(sb: Sb): Promise<{
     if (!email && emails[0]) email = emails[0];
     let startsAt = (row.call_starts_at as string | null) ?? null;
     let endsAt = (row.call_ends_at as string | null) ?? null;
+    let eventId = (row.call_event_id as string | null) ?? null;
+    let callTitle = (row.call_title as string | null) ?? null;
     let status = row.status as string;
+    let justBooked = false;
 
     const identityPatch: Record<string, string> = {};
     if (!(row.contact_name as string | null) && name) identityPatch.contact_name = name;
@@ -914,7 +946,10 @@ async function followBookedCalls(sb: Sb): Promise<{
       if (match) {
         startsAt = match.startsAt;
         endsAt = match.endsAt;
+        eventId = match.id;
+        callTitle = match.title;
         status = row.brief ? "brief_ready" : "booked";
+        justBooked = true;
         await sb
           .from("browning_handoffs")
           .update({
@@ -935,6 +970,38 @@ async function followBookedCalls(sb: Sb): Promise<{
         } catch (err) {
           console.error("[browning-networking] clear holds", err);
         }
+      }
+    }
+
+    const needsPrep =
+      eventId &&
+      startsAt &&
+      Date.parse(startsAt) >= now.getTime() - 60 * 60 * 1000 &&
+      (justBooked || !(row.prep_id as string | null));
+    if (needsPrep && eventId && startsAt) {
+      try {
+        const handoff = await loadHandoffForPrep(sb, id);
+        if (handoff) {
+          const match = {
+            id: eventId,
+            title: callTitle || "Networking call",
+            startsAt,
+            endsAt,
+          };
+          const ensured = await ensurePrepForHandoff(sb, handoff, match);
+          if (ensured.ok) {
+            const planned = await buildBrowningPlan(ensured.prepId, {
+              ...handoff,
+              prep_id: ensured.prepId,
+            });
+            if (planned.ok && planned.built) plansBuilt += 1;
+            else if (!planned.ok) console.error("[browning-networking] plan", planned.error);
+          } else {
+            console.error("[browning-networking] prep", ensured.error);
+          }
+        }
+      } catch (err) {
+        console.error("[browning-networking] prep/plan", err);
       }
     }
 
@@ -1008,7 +1075,7 @@ async function followBookedCalls(sb: Sb): Promise<{
       }
     }
   }
-  return { booked, briefs, thankYous };
+  return { booked, briefs, thankYous, plansBuilt };
 }
 
 async function transcriptSummary(

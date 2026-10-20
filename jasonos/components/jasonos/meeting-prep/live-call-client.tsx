@@ -43,6 +43,14 @@ import { REACTION_LABELS, REACTION_SHAPES, type ReactionShape } from "@/lib/meet
 import type { MeetingPoint, PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
+export type LiveWhoTheyAre = {
+  name: string;
+  title: string | null;
+  company: string | null;
+  highlights: string[];
+  introReason: string | null;
+};
+
 export type LiveSession = {
   title: string;
   /** Strategy name in the header; falls back to title. */
@@ -56,6 +64,7 @@ export type LiveSession = {
   startedAt: string | null;
   outcomeSentence: string | null;
   onDone: "mark" | "none";
+  whoTheyAre?: LiveWhoTheyAre | null;
 };
 
 export type LiveCallActions = {
@@ -549,6 +558,41 @@ export function LiveCallClient({
           className="hidden shrink-0 flex-col border-r border-[var(--jos-line)] min-[1100px]:flex"
           style={{ width: LIVE_RAIL_W }}
         >
+          {session.whoTheyAre ? (
+            <div
+              className="shrink-0 overflow-hidden border-b border-[var(--jos-line)] px-3 py-2"
+              style={{ maxHeight: 140 }}
+            >
+              <p className="truncate text-[14px] font-bold leading-tight">
+                {session.whoTheyAre.name}
+                {session.whoTheyAre.title ? (
+                  <span className="font-semibold text-[var(--jos-muted)]">
+                    {" "}
+                    · {session.whoTheyAre.title}
+                  </span>
+                ) : null}
+              </p>
+              {session.whoTheyAre.company ? (
+                <p className="truncate text-[12px] text-[var(--jos-muted)]">
+                  {session.whoTheyAre.company}
+                </p>
+              ) : null}
+              {session.whoTheyAre.highlights.length ? (
+                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] leading-snug">
+                  {session.whoTheyAre.highlights.slice(0, 3).map((item) => (
+                    <li key={item} className="line-clamp-1">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {session.whoTheyAre.introReason ? (
+                <p className="mt-1 line-clamp-1 text-[11px] text-[var(--jos-muted)]">
+                  Via Browning: {session.whoTheyAre.introReason.split(/\n/)[0]}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <ul className="min-h-0 flex-1 overflow-y-auto py-2">
             {rows.map((point) => {
               if (point.kind === "agenda") {
@@ -582,6 +626,16 @@ export function LiveCallClient({
 
         {/* Narrow rail: icon strip below 1100px */}
         <aside className="flex w-14 shrink-0 flex-col border-r border-[var(--jos-line)] min-[1100px]:hidden">
+          {session.whoTheyAre ? (
+            <div className="border-b border-[var(--jos-line)] px-1 py-2 text-center">
+              <p className="truncate text-[10px] font-bold leading-tight">
+                {session.whoTheyAre.name.split(/\s+/)[0]}
+              </p>
+              {session.whoTheyAre.title ? (
+                <p className="truncate text-[9px] text-[var(--jos-muted)]">{session.whoTheyAre.title}</p>
+              ) : null}
+            </div>
+          ) : null}
           <ul className="min-h-0 flex-1 overflow-y-auto py-2">
             {rows.map((point) => {
               if (point.kind === "agenda") return null;

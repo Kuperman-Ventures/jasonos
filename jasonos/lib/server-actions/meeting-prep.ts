@@ -62,6 +62,7 @@ export interface MeetingPrepSummary {
   liveEndedAt: string | null;
   scriptId: string | null;
   scriptName: string | null;
+  planSource: string | null;
   home: MeetingHomeContext;
 }
 
@@ -101,6 +102,8 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   researchRanAt: string | null;
   emailContext: string | null;
   emailContextAt: string | null;
+  handoffId: string | null;
+  packetHighlights: string[];
   sources: MeetingPrepSource[];
 }
 
@@ -140,6 +143,9 @@ interface PrepRow {
   research_ran_at?: string | null;
   email_context?: string | null;
   email_context_at?: string | null;
+  plan_source?: string | null;
+  handoff_id?: string | null;
+  packet_highlights?: string[] | null;
 }
 
 const PREP_COLUMNS =
@@ -149,6 +155,7 @@ const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
 const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
 const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_LINKS}, track, research_ran_at, email_context, email_context_at`;
+const PREP_COLUMNS_WITH_PACKET = `${PREP_COLUMNS_WITH_RESEARCH}, plan_source, handoff_id, packet_highlights`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -244,6 +251,7 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     liveEndedAt: row.live_ended_at ?? null,
     scriptId: row.script_id ?? null,
     scriptName: null,
+    planSource: row.plan_source?.trim() || null,
     home: EMPTY_HOME_CONTEXT,
   };
 }
@@ -271,6 +279,10 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     researchRanAt: row.research_ran_at ?? null,
     emailContext: row.email_context?.trim() || null,
     emailContextAt: row.email_context_at ?? null,
+    handoffId: row.handoff_id ?? null,
+    packetHighlights: Array.isArray(row.packet_highlights)
+      ? row.packet_highlights.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [],
     sources,
   };
 }
@@ -302,6 +314,46 @@ function refreshPayload(meeting: TodaysMeeting, nowIso: string) {
     attendees: attendeePayload(meeting),
     updated_at: nowIso,
   };
+}
+
+/** One writer for prep rows keyed on calendar event id. Used by hub load and Browning booking. */
+export async function ensureMeetingPrepForEvent(
+  meeting: TodaysMeeting
+): Promise<{ ok: true; prepId: string; created: boolean } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sb = createServiceRoleClient();
+  const nowIso = new Date().toISOString();
+  const { data: existing, error: existingError } = await sb
+    .from("meeting_preps")
+    .select("id")
+    .eq("gcal_event_id", meeting.gcalEventId)
+    .maybeSingle();
+  if (existingError) return { ok: false, error: existingError.message };
+  if (existing?.id) {
+    const { error: updateError } = await sb
+      .from("meeting_preps")
+      .update(refreshPayload(meeting, nowIso))
+      .eq("id", existing.id as string);
+    if (updateError) return { ok: false, error: updateError.message };
+    return { ok: true, prepId: existing.id as string, created: false };
+  }
+  const purpose = purposeFromCalendarDescription(meeting.description);
+  const { data: inserted, error: insertError } = await sb
+    .from("meeting_preps")
+    .insert({
+      ...refreshPayload(meeting, nowIso),
+      gcal_event_id: meeting.gcalEventId,
+      purpose,
+      purpose_source: purpose ? "calendar" : null,
+      purpose_confirmed: false,
+      status: "new",
+    })
+    .select("id")
+    .single();
+  if (insertError || !inserted?.id) {
+    return { ok: false, error: insertError?.message || "Could not create the meeting prep." };
+  }
+  return { ok: true, prepId: inserted.id as string, created: true };
 }
 
 async function sourceCounts(
@@ -427,7 +479,6 @@ async function getMeetingPrepsForDays(
   try {
     const loaded = await loadMeetingsForDays(days);
     const sb = createServiceRoleClient();
-    const nowIso = new Date().toISOString();
     const eventIds = loaded.meetings.map((meeting) => meeting.gcalEventId);
 
     if (eventIds.length) {
@@ -442,35 +493,10 @@ async function getMeetingPrepsForDays(
         existingByEvent.set(row.gcal_event_id as string, row.id as string);
       }
 
-      const toInsert = [];
       for (const meeting of loaded.meetings) {
-        if (existingByEvent.has(meeting.gcalEventId)) continue;
-        const purpose = purposeFromCalendarDescription(meeting.description);
-        // Every row needs the same keys. A bulk insert turns a missing key
-        // into null, which rejects purpose_confirmed.
-        toInsert.push({
-          ...refreshPayload(meeting, nowIso),
-          gcal_event_id: meeting.gcalEventId,
-          purpose,
-          purpose_source: purpose ? "calendar" : null,
-          purpose_confirmed: false,
-          status: "new",
-        });
-      }
-
-      if (toInsert.length) {
-        const { error: insertError } = await sb.from("meeting_preps").insert(toInsert);
-        if (insertError) return { ok: false, error: insertError.message };
-      }
-
-      for (const meeting of loaded.meetings) {
-        const id = existingByEvent.get(meeting.gcalEventId);
-        if (!id) continue;
-        const { error: updateError } = await sb
-          .from("meeting_preps")
-          .update(refreshPayload(meeting, nowIso))
-          .eq("id", id);
-        if (updateError) return { ok: false, error: updateError.message };
+        const ensured = await ensureMeetingPrepForEvent(meeting);
+        if (!ensured.ok) return { ok: false, error: ensured.error };
+        existingByEvent.set(meeting.gcalEventId, ensured.prepId);
       }
 
       await queueResearchForThinAttendees(sb, eventIds);
@@ -481,9 +507,28 @@ async function getMeetingPrepsForDays(
     if (eventIds.length) {
       const linked = await sb
         .from("meeting_preps")
-        .select(PREP_COLUMNS_WITH_LINKS)
+        .select(PREP_COLUMNS_WITH_PACKET)
         .in("gcal_event_id", eventIds);
-      if (
+      if (linked.error && /plan_source|handoff_id|packet_highlights/i.test(linked.error.message)) {
+        const withoutPacket = await sb
+          .from("meeting_preps")
+          .select(PREP_COLUMNS_WITH_LINKS)
+          .in("gcal_event_id", eventIds);
+        if (
+          withoutPacket.error &&
+          /script_id|live_ended_at|outcome_mark|primary_contact_id/i.test(withoutPacket.error.message)
+        ) {
+          const fallback = await sb
+            .from("meeting_preps")
+            .select(PREP_COLUMNS)
+            .in("gcal_event_id", eventIds);
+          rowsRaw = (fallback.data ?? []) as unknown[];
+          selectError = fallback.error;
+        } else {
+          rowsRaw = (withoutPacket.data ?? []) as unknown[];
+          selectError = withoutPacket.error;
+        }
+      } else if (
         linked.error &&
         /script_id|live_ended_at|outcome_mark|primary_contact_id/i.test(linked.error.message)
       ) {
@@ -599,9 +644,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_WITH_RESEARCH)
+    .select(PREP_COLUMNS_WITH_PACKET)
     .eq("id", id)
     .maybeSingle();
+  if (error && /plan_source|handoff_id|packet_highlights/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_RESEARCH)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && /research_ran_at|email_context|column meeting_preps.track/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")

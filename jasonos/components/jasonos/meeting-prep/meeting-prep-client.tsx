@@ -75,6 +75,7 @@ import {
   updateMeetingPoint,
   type MeetingPoint,
 } from "@/lib/server-actions/meeting-points";
+import { rebuildBrowningPlan } from "@/lib/server-actions/browning-networking";
 import {
   acceptAdaptation,
   applyLiveScript,
@@ -265,6 +266,162 @@ function historyLine(person: MeetingContextPerson): string {
   const notes = person.directTouchCount === 1 ? "1 note" : `${person.directTouchCount} notes`;
   if (!person.lastTouchAt) return notes;
   return `${notes} · last ${easternDateLong(person.lastTouchAt)}`;
+}
+
+function WhoTheyAreCard({
+  prep,
+  person,
+}: {
+  prep: MeetingPrepDetail;
+  person: MeetingContextPerson;
+}) {
+  const [introOpen, setIntroOpen] = useState(false);
+  const [docText, setDocText] = useState<{ title: string; text: string; url: string | null } | null>(
+    null
+  );
+  const [rebuilding, setRebuilding] = useState(false);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
+  const router = useRouter();
+  const packet = person.packet;
+  const intro = packet?.introReason?.trim() || null;
+  const introLines = intro ? intro.split(/\n/).filter(Boolean) : [];
+  const introShort = introLines.slice(0, 4).join("\n");
+  const introLong = Boolean(intro && introLines.length > 4);
+  const highlights = prep.packetHighlights;
+  const linkedinUrls =
+    packet?.linkedinUrls?.length
+      ? packet.linkedinUrls
+      : person.linkedinUrl
+        ? [person.linkedinUrl]
+        : [];
+  const resumeUrl = `/api/browning-networking/resume?contactId=${encodeURIComponent(person.contactId)}`;
+
+  const rebuild = () => {
+    setRebuilding(true);
+    void rebuildBrowningPlan({ prepId: prep.id, force: true }).then((result) => {
+      setRebuilding(false);
+      setConfirmRebuild(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(result.built ? "Plan rebuilt from Browning strategy." : "Plan unchanged.");
+      router.refresh();
+    });
+  };
+
+  return (
+    <section className="border-b border-[var(--jos-line)] px-10 py-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={LIVE_SECTION_LABEL}>Who they are</p>
+          <p className="mt-1 text-[22px] font-extrabold tracking-tight">{person.name}</p>
+          <p className="mt-0.5 text-[15px] text-[var(--jos-muted)]">
+            {[person.title || "Title unfinished", person.company || "Company unfinished"]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        {confirmRebuild ? (
+          <span className="text-[13px]">
+            Replace the plan?{" "}
+            <button
+              type="button"
+              className="font-semibold text-[var(--color-accent-700)] hover:underline"
+              disabled={rebuilding}
+              onClick={rebuild}
+            >
+              Confirm
+            </button>
+            {" · "}
+            <button
+              type="button"
+              className="font-semibold hover:underline"
+              onClick={() => setConfirmRebuild(false)}
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={rebuilding}
+            onClick={() => setConfirmRebuild(true)}
+          >
+            Rebuild plan
+          </Button>
+        )}
+      </div>
+
+      {intro ? (
+        <div className="mt-3 max-w-[70ch]">
+          <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+            Why Browning connected us
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed">
+            {introOpen || !introLong ? intro : introShort}
+          </p>
+          {introLong ? (
+            <button
+              type="button"
+              className="mt-1 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+              onClick={() => setIntroOpen((open) => !open)}
+            >
+              {introOpen ? "Less" : "More"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {highlights.length ? (
+        <div className="mt-3 max-w-[70ch]">
+          <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+            From their resume
+          </p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-[15px] leading-relaxed">
+            {highlights.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
+        {linkedinUrls.map((url) => (
+          <ExternalLink key={url} href={url}>
+            LinkedIn
+          </ExternalLink>
+        ))}
+        <ExternalLink href={resumeUrl}>Resume</ExternalLink>
+        {(packet?.otherDocuments ?? []).map((doc) => (
+          <button
+            key={doc.filename}
+            type="button"
+            className="font-semibold text-[var(--color-accent-700)] hover:underline"
+            onClick={() => setDocText({ title: doc.filename, text: doc.text, url: null })}
+          >
+            {doc.filename}
+          </button>
+        ))}
+      </div>
+
+      {docText ? (
+        <Dialog open onOpenChange={(open) => !open && setDocText(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{docText.title}</DialogTitle>
+              <DialogDescription>Extracted text from the Browning packet.</DialogDescription>
+            </DialogHeader>
+            <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap text-[14px] leading-relaxed">
+              {docText.text}
+            </pre>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </section>
+  );
 }
 
 function PersonRow({ person }: { person: MeetingContextPerson }) {
@@ -1271,6 +1428,12 @@ function PrepPoints({
         ) : null}
       </div>
 
+      {prep.planSource === "browning_auto" ? (
+        <p className="mt-2 text-[14px] text-[var(--jos-muted)]">
+          Built from the Browning first-call strategy and their resume. Edit anything.
+        </p>
+      ) : null}
+
       <p className="mt-2 flex flex-wrap items-center gap-2 text-[14px] text-[var(--jos-muted)]">
         <span>
           {markable.length} points · {asks.length} asks
@@ -1592,8 +1755,16 @@ export function MeetingPrepClient({
     );
   }
 
+  const showWhoTheyAre = Boolean(
+    primary &&
+      (primary.packet ||
+        primary.tags.includes("source:browning") ||
+        primary.browningPrep)
+  );
+
   return (
     <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
+      {showWhoTheyAre && primary ? <WhoTheyAreCard prep={prep} person={primary} /> : null}
       <header className="grid gap-6 border-b border-[var(--jos-ink)] px-10 py-7 min-[1100px]:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1845,14 +2016,24 @@ export function MeetingPrepClient({
             defaultOpen={false}
           >
             {context.documents.length ? (
-              <ul className="space-y-2 text-[15px]">
+              <ul className="space-y-3 text-[15px]">
                 {context.documents.map((document) => (
                   <li key={document.id}>
-                    {document.url ? (
-                      <ExternalLink href={document.url}>{document.label}</ExternalLink>
-                    ) : (
-                      document.label
-                    )}
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      {document.url ? (
+                        <ExternalLink href={document.url}>{document.label}</ExternalLink>
+                      ) : (
+                        <span className="font-semibold">{document.label}</span>
+                      )}
+                      {document.sourceType ? (
+                        <span className="text-[12px] text-[var(--jos-muted)]">{document.sourceType}</span>
+                      ) : null}
+                    </div>
+                    {document.snippet ? (
+                      <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-[var(--jos-muted)]">
+                        {document.snippet}
+                      </p>
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -1121,24 +1121,68 @@ export async function downloadGmailResume(
   messageId: string,
   nameHint?: string | null
 ): Promise<{ filename: string; bytes: Buffer } | null> {
+  const files = await downloadGmailWordOrPdfAttachments(accessToken, messageId);
+  if (!files.length) return null;
+  const needle = lastNameNeedle(nameHint);
+  const ranked = [...files].sort((a, b) => {
+    const aName = a.filename.toLowerCase();
+    const bName = b.filename.toLowerCase();
+    const aScore =
+      (aName.endsWith(".pdf") ? 3 : aName.endsWith(".docx") || aName.endsWith(".doc") ? 2 : 1) +
+      (needle && aName.includes(needle) ? 10 : 0) +
+      (/resume|cv\b/i.test(aName) ? 5 : 0);
+    const bScore =
+      (bName.endsWith(".pdf") ? 3 : bName.endsWith(".docx") || bName.endsWith(".doc") ? 2 : 1) +
+      (needle && bName.includes(needle) ? 10 : 0) +
+      (/resume|cv\b/i.test(bName) ? 5 : 0);
+    return bScore - aScore;
+  });
+  return ranked[0] ?? null;
+}
+
+/** Every Word or PDF attachment on the message. */
+export async function downloadGmailWordOrPdfAttachments(
+  accessToken: string,
+  messageId: string
+): Promise<Array<{ filename: string; bytes: Buffer }>> {
   const message = await gmailFetch<GmailMsgResp & { payload?: GmailFilePart }>(
     `/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
     accessToken
   );
-  const parts = collectResumeParts(message.payload);
-  const part = pickResumePart(parts, nameHint);
-  if (!part) return null;
-  const filename = partFilename(part) || "resume.pdf";
-  if (part.body?.data) {
-    return { filename, bytes: Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
+  const parts = collectResumeParts(message.payload).filter((part) => {
+    const name = partFilename(part).toLowerCase();
+    const mime = (part.mimeType ?? "").toLowerCase();
+    return (
+      name.endsWith(".pdf") ||
+      name.endsWith(".docx") ||
+      name.endsWith(".doc") ||
+      mime === "application/pdf" ||
+      mime === "application/msword" ||
+      mime.includes("word")
+    );
+  });
+  const out: Array<{ filename: string; bytes: Buffer }> = [];
+  for (const part of parts) {
+    const filename = partFilename(part) || "document.pdf";
+    if (part.body?.data) {
+      out.push({
+        filename,
+        bytes: Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
+      });
+      continue;
+    }
+    if (!part.body?.attachmentId) continue;
+    const file = await gmailFetch<{ data?: string }>(
+      `/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(part.body.attachmentId)}`,
+      accessToken
+    );
+    if (!file.data) continue;
+    out.push({
+      filename,
+      bytes: Buffer.from(file.data.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
+    });
   }
-  if (!part.body?.attachmentId) return null;
-  const file = await gmailFetch<{ data?: string }>(
-    `/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(part.body.attachmentId)}`,
-    accessToken
-  );
-  if (!file.data) return null;
-  return { filename, bytes: Buffer.from(file.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
+  return out;
 }
 
 function isSkippedAttachment(filename: string, mime: string): boolean {

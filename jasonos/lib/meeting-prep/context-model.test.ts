@@ -142,6 +142,8 @@ describe("composeMeetingBrief", () => {
         companyResearch: null,
         tracks: [],
         browningPrep: null,
+        tags: ["source:browning"],
+        packet: null,
         openCommitments: [
           { text: "Send intro to Sam", direction: "mine" as const, status: "open", due: "2026-10-15" },
         ],
@@ -305,6 +307,8 @@ describe("enrichPeopleFromTouches", () => {
       companyResearch: null,
       tracks: [],
       browningPrep: null,
+      tags: [],
+      packet: null,
       openCommitments: [],
       remember: [],
       helped: [],

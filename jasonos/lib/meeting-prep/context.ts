@@ -1,6 +1,7 @@
 import "server-only";
 
 import { parseResearchBrief } from "@/lib/ai/research-brief";
+import { packetForPrompt } from "@/lib/browning-networking/packet";
 import { findHandoffResumeSource } from "@/lib/browning-networking/run";
 import {
   hasResumeFile,
@@ -23,6 +24,7 @@ import {
   type HomeContextMeeting,
   type MeetingContext,
   type MeetingContextConnection,
+  type MeetingContextDocument,
   type MeetingContextGranolaNote,
   type MeetingContextPerson,
   type MeetingContextRecentEmail,
@@ -30,7 +32,7 @@ import {
 } from "@/lib/meeting-prep/context-model";
 
 const HANDOFF_COLUMNS =
-  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, meeting_brief, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
+  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, linkedin_urls, why_they_replied, brief, meeting_brief, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, resume_text, intro_reason, other_documents, call_event_id, existing_contact_id, created_contact_id, contact_email";
 
 const TOUCH_COLUMNS =
   "id, contact_id, channel, source, direction, touched_at, subject, brief, outcome, thread_url";
@@ -43,6 +45,7 @@ interface HandoffRow {
   contact_title: string | null;
   contact_company: string | null;
   linkedin_url: string | null;
+  linkedin_urls: string[] | null;
   why_they_replied: string | null;
   brief: unknown;
   meeting_brief: string | null;
@@ -51,10 +54,40 @@ interface HandoffRow {
   gmail_thread_id: string | null;
   resume_message_id: string | null;
   resume_filename: string | null;
+  resume_text: string | null;
+  intro_reason: string | null;
+  other_documents: unknown;
   call_event_id: string | null;
   existing_contact_id: string | null;
   created_contact_id: string | null;
   contact_email: string | null;
+}
+
+function packetFromHandoff(row: HandoffRow) {
+  const otherDocuments = Array.isArray(row.other_documents)
+    ? row.other_documents.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const doc = item as { filename?: unknown; text?: unknown; messageId?: unknown };
+        if (typeof doc.filename !== "string" || typeof doc.text !== "string") return [];
+        return [
+          {
+            filename: doc.filename,
+            messageId: typeof doc.messageId === "string" ? doc.messageId : "",
+            text: doc.text,
+          },
+        ];
+      })
+    : [];
+  return packetForPrompt({
+    resumeText: row.resume_text,
+    introReason: row.intro_reason,
+    linkedinUrls: row.linkedin_urls?.length
+      ? row.linkedin_urls
+      : row.linkedin_url
+        ? [row.linkedin_url]
+        : [],
+    otherDocuments,
+  });
 }
 
 interface PrepAttendee {
@@ -228,9 +261,9 @@ async function attachResumeFiles(
   connections: MeetingContextConnection[]
 ): Promise<{
   connections: MeetingContextConnection[];
-  documents: MeetingContext["documents"];
+  documents: MeetingContextDocument[];
 }> {
-  const documents: MeetingContext["documents"] = [];
+  const documents: MeetingContextDocument[] = [];
   const sourceByContact = new Map<string, ResumeHandoffRow | null>();
   const next = connections.map((connection) => ({ ...connection }));
   for (let i = 0; i < handoffs.length; i++) {
@@ -257,10 +290,53 @@ async function attachResumeFiles(
     const url = `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`;
     next[i] = { ...next[i], attachmentLabel: label, attachmentUrl: url };
     if (!documents.some((doc) => doc.url === url)) {
-      documents.push({ id: row.id, label, url });
+      documents.push({
+        id: row.id,
+        label,
+        url,
+        snippet: text(row.resume_text)?.slice(0, 400) ?? null,
+        sourceType: "document",
+      });
     }
   }
   return { connections: next, documents };
+}
+
+async function loadPacketSourceDocuments(
+  sb: Db,
+  prepId: string
+): Promise<MeetingContextDocument[]> {
+  const { data, error } = await sb
+    .from("meeting_prep_sources")
+    .select("id, source_type, title, url, snippet, external_id")
+    .eq("prep_id", prepId)
+    .in("source_type", ["document", "intro_email"])
+    .order("created_at", { ascending: true });
+  if (error) {
+    // Column/table missing before migration — fall back silently.
+    if (/does not exist|schema cache/i.test(error.message)) return [];
+    throw new Error(error.message);
+  }
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    label: text(row.title) || (row.source_type === "intro_email" ? "Intro email" : "Document"),
+    url: text(row.url),
+    snippet: text(row.snippet),
+    sourceType: text(row.source_type),
+  }));
+}
+
+function mergeDocuments(
+  preferred: MeetingContextDocument[],
+  fallback: MeetingContextDocument[]
+): MeetingContextDocument[] {
+  const out = [...preferred];
+  for (const doc of fallback) {
+    if (doc.url && out.some((item) => item.url === doc.url)) continue;
+    if (out.some((item) => item.id === doc.id && item.label === doc.label)) continue;
+    out.push(doc);
+  }
+  return out;
 }
 
 type Db = ReturnType<typeof createServiceRoleClient>;
@@ -418,16 +494,18 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   );
 
   const handoffs = matchedHandoffs(handoffRows, eventId, attendees);
-  const { connections, documents } = await attachResumeFiles(
+  const { connections, documents: resumeDocuments } = await attachResumeFiles(
     handoffs,
     handoffs.map(toConnection)
   );
+  const packetDocuments = await loadPacketSourceDocuments(sb, id);
+  const documents = mergeDocuments(packetDocuments, resumeDocuments);
 
   const { data: contactRows, error: contactError } = contactIds.length
     ? await sb
         .from("contacts")
         .select(
-          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, research_at, tracks, browning_prep, emails, companies(name, description, research_brief)"
+          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, research_at, tracks, browning_prep, tags, emails, companies(name, description, research_brief)"
         )
         .in("id", contactIds)
     : { data: [], error: null };
@@ -517,6 +595,8 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       companyResearch,
       tracks: stringList(row.tracks),
       browningPrep: text(row.browning_prep),
+      tags: stringList(row.tags),
+      packet: handoff ? packetFromHandoff(handoff) : null,
       openCommitments,
       remember: (relBrief?.remember ?? []).map((item) => item.text),
       helped: (relBrief?.helped ?? []).map((item) => item.text),

@@ -8,6 +8,7 @@ import { connectMeetingTitle } from "@/lib/browning-networking/draft";
 import { composeThankYouDraft } from "@/lib/browning-networking/thank-you-compose";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { syncHandoffHolds, syncOpenHandoffHolds } from "@/lib/browning-networking/hold-sync";
+import { buildBrowningPlan, loadHandoffForPrep } from "@/lib/browning-networking/prep-link";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
 import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
@@ -451,6 +452,43 @@ export async function syncBrowningTentativeHolds(): Promise<
   if (guard) return guard;
   const result = await syncOpenHandoffHolds(createServiceRoleClient());
   if (result.ok && result.changed > 0) revalidate();
+  return result;
+}
+
+/** Rebuild the Browning first/second-call plan onto a prep. Replaces points. */
+export async function rebuildBrowningPlan(input: {
+  prepId: string;
+  force?: boolean;
+}): Promise<{ ok: true; built: boolean; strategyName?: string } | { ok: false; error: string }> {
+  const guard = configured();
+  if (guard) return guard;
+  const prepId = input.prepId.trim();
+  if (!prepId) return { ok: false, error: "Meeting prep not found." };
+  const sb = createServiceRoleClient();
+  const { data: prep, error } = await sb
+    .from("meeting_preps")
+    .select("id, handoff_id")
+    .eq("id", prepId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!prep) return { ok: false, error: "Meeting prep not found." };
+  let handoffId = (prep.handoff_id as string | null) ?? null;
+  if (!handoffId) {
+    const { data: byPrep } = await sb
+      .from("browning_handoffs")
+      .select("id")
+      .eq("prep_id", prepId)
+      .maybeSingle();
+    handoffId = (byPrep?.id as string | null) ?? null;
+  }
+  if (!handoffId) return { ok: false, error: "No Browning handoff linked to this meeting." };
+  const handoff = await loadHandoffForPrep(sb, handoffId);
+  if (!handoff) return { ok: false, error: "Browning handoff not found." };
+  const result = await buildBrowningPlan(prepId, handoff, { force: Boolean(input.force) });
+  if (result.ok) {
+    revalidatePath(`/meetings/${prepId}`);
+    revalidatePath("/live");
+  }
   return result;
 }
 

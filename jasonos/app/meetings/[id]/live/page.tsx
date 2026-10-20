@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { easternClock, joinHref } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
+import { loadMeetingContext } from "@/lib/meeting-prep/context";
 import type { PointState } from "@/lib/meeting-prep/points";
 import {
   endLiveMeeting,
@@ -59,9 +60,10 @@ export default async function LiveMeetingPage({
     return setMeetingPointObservedReaction(pointId, shape);
   }
 
-  const [prepResult, pointsResult] = await Promise.all([
+  const [prepResult, pointsResult, context] = await Promise.all([
     getMeetingPrep(id),
     getMeetingPoints(id),
+    loadMeetingContext(id).catch(() => null),
   ]);
   if (!prepResult.ok) {
     if (prepResult.error === "Meeting prep not found.") notFound();
@@ -86,18 +88,33 @@ export default async function LiveMeetingPage({
   }
 
   const prep = prepResult.prep;
+  const person =
+    context?.people.find((item) => item.contactId === prep.primaryContactId) ??
+    context?.people[0] ??
+    null;
   const personLabel =
+    person?.name?.trim() ||
     prep.primaryContactName?.trim() ||
-    prep.attendees.find((person) => person.name?.trim())?.name?.trim() ||
+    prep.attendees.find((item) => item.name?.trim())?.name?.trim() ||
     prep.attendees[0]?.email ||
     null;
+  const whoTheyAre =
+    person?.packet
+      ? {
+          name: person.name,
+          title: person.title,
+          company: person.company,
+          highlights: prep.packetHighlights,
+          introReason: person.packet.introReason,
+        }
+      : null;
   return (
     <LiveCallClient
       session={{
         title: prep.title,
         strategyName: prep.scriptName ?? prep.title,
         personLabel,
-        companyLabel: null,
+        companyLabel: person?.company ?? null,
         timeLabel: `${easternClock(prep.startsAt)}–${easternClock(prep.endsAt)} ET`,
         joinHref: joinHref(prep),
         backHref: `/meetings/${prep.id}`,
@@ -105,6 +122,7 @@ export default async function LiveMeetingPage({
         startedAt: prep.liveStartedAt,
         outcomeSentence: prep.outcomeSentence,
         onDone: "mark",
+        whoTheyAre,
       }}
       points={pointsResult.points}
       actions={{ start, setState, setNote, end, markOutcome, setObservedReaction }}
