@@ -295,6 +295,13 @@ export interface MeetingContextPerson {
   } | null;
   tracks: string[];
   browningPrep: string | null;
+  tags: string[];
+  packet: {
+    resumeText: string | null;
+    introReason: string | null;
+    linkedinUrls: string[];
+    otherDocuments: Array<{ filename: string; text: string }>;
+  } | null;
   /** Open / overdue / awaiting commitments from the relationship brief. */
   openCommitments: Array<{
     text: string;
@@ -333,6 +340,8 @@ export interface MeetingContextDocument {
   id: string;
   label: string;
   url: string | null;
+  snippet?: string | null;
+  sourceType?: string | null;
 }
 
 export interface MeetingContextPast {

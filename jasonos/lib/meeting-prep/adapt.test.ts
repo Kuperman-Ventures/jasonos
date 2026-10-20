@@ -215,6 +215,7 @@ describe("adaptSystemPrompt", () => {
     const prompt = adaptSystemPrompt("No slogans.");
     assert.match(prompt, /at most two/);
     assert.match(prompt, /nothing invented/);
+    assert.match(prompt, /square brackets/);
     assert.match(prompt, /No slogans\./);
   });
 });

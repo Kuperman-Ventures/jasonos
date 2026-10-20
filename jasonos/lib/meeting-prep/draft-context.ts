@@ -72,6 +72,8 @@ export function assembleDraftPrompt(
   const lastNextStep =
     context.pastMeetings.find((meeting) => meeting.nextStep?.trim())?.nextStep?.trim() || null;
   const relationshipGoal = prep.personalGoal || personalGoal;
+  const track = meetingTrack(prep.track, context.people);
+  const packet = person?.packet ?? null;
   const lines = draftContextLines({
     purpose,
     outcomeSentence: prep.outcomeSentence,
@@ -85,13 +87,15 @@ export function assembleDraftPrompt(
     earlierMeetings: context.pastMeetings.length,
     jobSearch: context.jobSearch.length,
     personResearch: context.people.some(
-      (person) => person.researchLead || person.researchBullets.length
+      (item) => item.researchLead || item.researchBullets.length
     ),
     companyResearch: context.people.some(
-      (person) => person.companyResearch?.lead || person.companyResearch?.bullets.length
+      (item) => item.companyResearch?.lead || item.companyResearch?.bullets.length
     ),
     emailContext: prep.emailContext ?? null,
     narrativeCount: narratives.filter((item) => item.body.trim()).length,
+    packet: Boolean(packet),
+    requirePacket: track === "job_search",
   });
   const knownEmails = new Set(context.people.map((item) => item.email.toLowerCase()));
   const attendees = [
@@ -153,7 +157,10 @@ export function assembleDraftPrompt(
       })),
       emailContext: prep.emailContext?.trim() || null,
       narratives: narratives.filter((item) => item.body.trim()),
-      track: meetingTrack(prep.track, context.people),
+      track,
+      linkedinUrl: person?.linkedinUrl ?? null,
+      browningPrep: person?.browningPrep ?? null,
+      packet,
     },
   };
 }

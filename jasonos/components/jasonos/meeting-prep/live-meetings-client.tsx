@@ -200,6 +200,8 @@ function TodayCard({
 }) {
   const action = cardAction(meeting, nowIso);
   const strategy = meeting.scriptName?.trim() || "No strategy";
+  const browning = meeting.planSource === "browning_auto";
+  const strategyLabel = browning ? `${strategy} · Browning` : strategy;
   const person = personLabel(meeting);
   const company = meeting.primaryCompanyName?.trim() || null;
   const relative = relativeLabel(meeting.startsAt, meeting.endsAt, nowIso);
@@ -210,23 +212,23 @@ function TodayCard({
 
   let StateIcon = CircleDashed;
   let stateColor = "var(--jos-muted)";
-  let stateLine = `${strategy}`;
+  let stateLine = strategyLabel;
   if (action === "prepare") {
     StateIcon = WarningCircle;
     stateColor = "var(--color-accent-2)";
-    stateLine = `${strategy} · needs points first`;
+    stateLine = `${strategyLabel} · needs points first`;
   } else if (action === "go_live") {
     StateIcon = CheckCircle;
     stateColor = "#006925";
-    stateLine = strategy;
+    stateLine = strategyLabel;
   } else if (!meeting.outcomeMark) {
     StateIcon = CircleDashed;
     stateColor = "var(--jos-muted)";
-    stateLine = `${strategy}`;
+    stateLine = strategyLabel;
   } else {
     StateIcon = CheckCircle;
     stateColor = "#006925";
-    stateLine = strategy;
+    stateLine = strategyLabel;
   }
 
   return (

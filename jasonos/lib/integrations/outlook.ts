@@ -944,39 +944,55 @@ export async function downloadOutlookResume(
   messageId: string,
   nameHint?: string | null
 ): Promise<{ filename: string; bytes: Buffer } | null> {
+  const files = await downloadOutlookWordOrPdfAttachments(accessToken, messageId);
+  if (!files.length) return null;
+  const needle = (nameHint ?? "").trim().split(/\s+/).filter(Boolean).pop()?.toLowerCase();
+  const named =
+    needle && needle.length >= 3
+      ? files.find((item) => item.filename.toLowerCase().includes(needle))
+      : null;
+  return (
+    named ??
+    files.find((item) => /resume|cv\b/i.test(item.filename)) ??
+    files.find((item) => item.filename.toLowerCase().includes("word") || item.filename.toLowerCase().endsWith(".docx")) ??
+    files[0] ??
+    null
+  );
+}
+
+/** Every Word or PDF attachment on the Outlook message. */
+export async function downloadOutlookWordOrPdfAttachments(
+  accessToken: string,
+  messageId: string
+): Promise<Array<{ filename: string; bytes: Buffer }>> {
   const { status, body } = await graphGet(
     accessToken,
     `/me/messages/${encodeURIComponent(messageId)}/attachments?$top=20`
   );
-  if (status < 200 || status >= 300) return null;
+  if (status < 200 || status >= 300) return [];
   const files = (body?.value ?? []) as {
     id?: string;
     name?: string;
     contentType?: string;
     contentBytes?: string;
   }[];
-  const resumes = files.filter((item) => isResumeFile(item.name, item.contentType));
-  const needle = (nameHint ?? "").trim().split(/\s+/).filter(Boolean).pop()?.toLowerCase();
-  const named =
-    needle && needle.length >= 3
-      ? resumes.find((item) => (item.name ?? "").toLowerCase().includes(needle))
-      : null;
-  const file =
-    named ??
-    resumes.find((item) => `${item.name ?? ""} ${item.contentType ?? ""}`.toLowerCase().includes("word")) ??
-    resumes[0];
-  if (!file) return null;
-  if (file.contentBytes) {
-    return { filename: file.name || "resume.docx", bytes: Buffer.from(file.contentBytes, "base64") };
+  const out: Array<{ filename: string; bytes: Buffer }> = [];
+  for (const file of files.filter((item) => isResumeFile(item.name, item.contentType))) {
+    const filename = file.name || "document.docx";
+    if (file.contentBytes) {
+      out.push({ filename, bytes: Buffer.from(file.contentBytes, "base64") });
+      continue;
+    }
+    if (!file.id) continue;
+    const one = await graphGet(
+      accessToken,
+      `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(file.id)}`
+    );
+    const full = one.body as { contentBytes?: string } | null;
+    if (!full?.contentBytes) continue;
+    out.push({ filename, bytes: Buffer.from(full.contentBytes, "base64") });
   }
-  if (!file.id) return null;
-  const one = await graphGet(
-    accessToken,
-    `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(file.id)}`
-  );
-  const full = one.body as { contentBytes?: string } | null;
-  if (!full?.contentBytes) return null;
-  return { filename: file.name || "resume.docx", bytes: Buffer.from(full.contentBytes, "base64") };
+  return out;
 }
 
 function isResumeFile(name?: string, contentType?: string): boolean {

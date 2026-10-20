@@ -4,6 +4,9 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { shouldSkipCalendarMeeting } from "@/lib/outreach/meeting-capture-filter";
+
+export { shouldSkipCalendarMeeting } from "@/lib/outreach/meeting-capture-filter";
 
 type MeetingStatus = "scheduled" | "held" | "cancelled";
 
@@ -14,6 +17,8 @@ export interface CalendarMeetingUpsert {
   title: string | null;
   calendarUrl: string | null;
   status: MeetingStatus;
+  /** Guest emails excluding Jason when known — used to skip solo self-holds. */
+  guestEmails?: string[];
 }
 
 export interface UpsertCalendarMeetingsResult {
@@ -87,6 +92,7 @@ export async function upsertMeetingsFromCalendar(
   const toInsert: Record<string, unknown>[] = [];
 
   for (const row of rows) {
+    if (shouldSkipCalendarMeeting(row)) continue;
     const key = `${row.contactId}::${row.gcalEventId}`;
     const existing = existingByKey.get(key);
     if (!existing) {

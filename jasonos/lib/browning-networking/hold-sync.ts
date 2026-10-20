@@ -233,6 +233,9 @@ async function syncRow(
       if (removed.needsReconnect) return { ok: false, error: removed.error, needsReconnect: true };
       warning = removed.error;
     }
+    // Holds must not linger as scheduled meetings if sync ever wrote one.
+    const { error: meetingError } = await sb.from("meetings").delete().eq("gcal_event_id", eventId);
+    if (meetingError) console.error("[browning-networking] delete hold meeting", meetingError);
   }
 
   const nowIso = new Date().toISOString();
