@@ -11,7 +11,7 @@ import {
   loadMeetingsForDays,
   type TodaysMeeting,
 } from "@/lib/meeting-prep/today";
-import { purposeFromCalendarDescription } from "@/lib/meeting-prep/text";
+import { isJoinBoilerplate, purposeFromCalendarDescription } from "@/lib/meeting-prep/text";
 import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { TRACKS, type Track } from "@/lib/types";
@@ -774,6 +774,9 @@ export async function setMeetingPurpose(
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const text = purpose.trim();
   if (!text) return { ok: false, error: "Write a purpose first." };
+  if (isJoinBoilerplate(text)) {
+    return { ok: false, error: "That looks like join info. Write what you want out of the call." };
+  }
 
   const sb = createServiceRoleClient();
   const { data, error } = await sb

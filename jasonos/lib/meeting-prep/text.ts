@@ -18,29 +18,49 @@ export function plainTextFromHtml(input: string): string {
     .trim();
 }
 
-/** First 300 characters of a calendar description, or null when it is empty. */
+/** First 300 characters of a calendar description, or null when empty / join junk. */
 export function purposeFromCalendarDescription(
   description: string | null | undefined
 ): string | null {
   if (!description?.trim()) return null;
   const text = plainTextFromHtml(description).replace(/\s+/g, " ").trim();
-  if (!text) return null;
+  if (!text || isJoinBoilerplate(text)) return null;
   return text.slice(0, 300);
 }
 
-/** Zoom / Teams / Meet join boilerplate is not a meeting purpose. */
+/**
+ * Zoom / Teams / Meet / Calendly join text is not a meeting purpose.
+ * Calendly often writes "Event Name… Zoom web conference… Password…"
+ * without the classic "Join Zoom Meeting / Meeting ID / Passcode" lines.
+ */
 export function isJoinBoilerplate(value: string | null | undefined): boolean {
   const text = (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
   if (!text) return false;
+
   const markers = [
     "join zoom",
     "zoom meeting",
+    "zoom web conference",
     "meeting id:",
     "passcode:",
+    "password:",
     "teams.microsoft",
     "meet.google.com",
     "one tap mobile",
+    "you can also dial in",
+    "event name",
+    "zoom.us/j/",
+    "zoom.us/my/",
   ];
   const hits = markers.filter((marker) => text.includes(marker)).length;
-  return hits >= 2 || (hits >= 1 && text.length < 80);
+  if (hits >= 2) return true;
+  if (hits >= 1 && text.length < 120) return true;
+
+  // A long body that is mostly dial-in / join instructions.
+  const looksLikeInvite =
+    /\b(zoom\.us|teams\.microsoft|meet\.google\.com)\b/.test(text) &&
+    (/\b(password|passcode|meeting id)\b/.test(text) ||
+      /\bone tap mobile\b/.test(text) ||
+      /\byou can join this meeting\b/.test(text));
+  return looksLikeInvite;
 }

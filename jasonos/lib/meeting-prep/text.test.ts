@@ -17,6 +17,20 @@ describe("purposeFromCalendarDescription", () => {
     assert.equal(purposeFromCalendarDescription(null), null);
     assert.equal(plainTextFromHtml("<p>Hi&nbsp;there</p>"), "Hi there");
   });
+
+  it("returns null for Calendly Zoom web-conference dumps", () => {
+    const html = `Event Name
+30 Minute Meeting
+
+Location: This is a Zoom web conference.
+
+You can join this meeting from your computer, tablet, or smartphone.
+https://us06web.zoom.us/j/88152580681?pwd=abc
+Password: 778948
+One tap mobile:
++1 646 931 3860,,88152580681#`;
+    assert.equal(purposeFromCalendarDescription(html), null);
+  });
 });
 
 describe("isJoinBoilerplate", () => {
@@ -24,6 +38,12 @@ describe("isJoinBoilerplate", () => {
     assert.equal(
       isJoinBoilerplate(
         "The Connective is inviting you to a scheduled Zoom meeting. Join Zoom Meeting https://us02web.zoom.us Meeting ID: 849 Passcode: 389 One tap mobile"
+      ),
+      true
+    );
+    assert.equal(
+      isJoinBoilerplate(
+        "Event Name 30 Minute Meeting Location: This is a Zoom web conference. You can join this meeting from your computer, tablet, or smartphone. https://us06web.zoom.us/j/88152580681?pwd=YnUTd8 Password: 778948 One tap mobile: +1 646 931 3860,,88152580681#"
       ),
       true
     );
