@@ -243,14 +243,16 @@ async function callModelOnce(
   modelOverride?: string | null,
 ): Promise<ExtractionResult> {
   const { generateText } = await import("ai");
-  const { resolveCollegeModel } = await import("@/lib/ai-model");
+  const { resolveIngestModel } = await import("@/lib/ai-model");
   const { timeSourceCall } = await import("@/lib/data-source-checks");
-  const model = await resolveCollegeModel(modelOverride);
+  const model = await resolveIngestModel(modelOverride);
   const result = await timeSourceCall("ai-gateway", () =>
     generateText({
       model,
       system: EXTRACT_TODOS_SYSTEM_PROMPT,
       prompt: buildUserPrompt(text, context),
+      temperature: 0.1,
+      maxOutputTokens: 8_000,
     }),
   );
   const parsed = parseJsonObject(result.text);
@@ -262,6 +264,7 @@ async function callModelWithRetry(
   context: ExtractTodosContext,
 ): Promise<ExtractionResult> {
   const {
+    DEFAULT_COLLEGE_AI_MODEL,
     FREE_FALLBACK_COLLEGE_AI_MODEL,
     formatGatewayAccessError,
     isGatewayModelAccessError,
@@ -290,15 +293,14 @@ async function callModelWithRetry(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Extraction failed";
     if (isGatewayModelAccessError(message)) {
-      try {
-        return await run(FREE_FALLBACK_COLLEGE_AI_MODEL);
-      } catch (fallbackError) {
-        const fallbackMessage =
-          fallbackError instanceof Error ? fallbackError.message : message;
-        throw new Error(
-          `Could not extract to-dos: ${formatGatewayAccessError(fallbackMessage)}`,
-        );
+      for (const fallback of [DEFAULT_COLLEGE_AI_MODEL, FREE_FALLBACK_COLLEGE_AI_MODEL]) {
+        try {
+          return await run(fallback);
+        } catch {
+          /* try next */
+        }
       }
+      throw new Error(`Could not extract to-dos: ${formatGatewayAccessError(message)}`);
     }
     throw new Error(`Could not parse model output as valid extraction JSON: ${message}`);
   }
