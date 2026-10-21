@@ -11,6 +11,12 @@ import type { LanguageModel } from "ai";
 /** Free-tier capable default — strong enough for structured JSON extraction. */
 export const DEFAULT_COLLEGE_AI_MODEL = "google/gemini-2.5-flash";
 
+/**
+ * Prefer a stronger model for Ingest (to-dos + calendar tables). Falls back to
+ * Flash, then the free model, when Gateway rejects paid access.
+ */
+export const PREFERRED_INGEST_AI_MODEL = "google/gemini-2.5-pro";
+
 /** Always-$0 fallback when the preferred model is blocked on free tier. */
 export const FREE_FALLBACK_COLLEGE_AI_MODEL = "poolside/laguna-s-2.1-free";
 
@@ -75,6 +81,20 @@ export async function resolveCollegeModel(override?: string | null): Promise<Lan
   const { gateway } = await import("@ai-sdk/gateway");
   const saved = override?.trim() ? null : await savedCollegeAiModel();
   return gateway(collegeAiModelId(override, saved));
+}
+
+/** Ingest prefers Pro unless the caller, Data Sources setting, or env already picked a model. */
+export async function resolveIngestModel(override?: string | null): Promise<LanguageModel> {
+  const { gateway } = await import("@ai-sdk/gateway");
+  if (override?.trim()) return gateway(override.trim());
+  const saved = await savedCollegeAiModel();
+  const fromEnv =
+    process.env.EXTRACTION_MODEL?.trim() ||
+    process.env.COLLEGE_AI_MODEL?.trim() ||
+    process.env.ANTHROPIC_MODEL?.trim() ||
+    "";
+  const id = saved || fromEnv || PREFERRED_INGEST_AI_MODEL;
+  return gateway(id);
 }
 
 export function isGatewayModelAccessError(message: string): boolean {

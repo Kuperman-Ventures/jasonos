@@ -256,6 +256,9 @@ export async function suggestStepsFromText(
     sourceType?: "paste" | "url" | "file" | "pdf" | "word" | "image";
     schoolNames?: string[];
     openTodos?: { title: string; school: string | null; dueDate: string | null }[];
+    /** Which jobs to run. Defaults to both so older callers keep working. */
+    findTodos?: boolean;
+    findCalendar?: boolean;
   },
 ): Promise<{
   suggestions: SuggestedStep[];
@@ -268,49 +271,103 @@ export async function suggestStepsFromText(
     return { suggestions: [], method: "ai", documentSummary: "Empty document." };
   }
 
-  const { extractTodosFromText } = await import("@/lib/extract-todos");
+  const findTodos = context?.findTodos !== false;
+  const findCalendar = context?.findCalendar !== false;
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const result = await extractTodosFromText(trimmed, {
+  const shared = {
     today: todayIso,
     sourceFilename: context?.sourceFilename ?? "",
-    sourceType: context?.sourceType ?? "paste",
-    schoolNames: context?.schoolNames ?? [],
-    openTodos: context?.openTodos ?? [],
-  });
+    sourceType: context?.sourceType ?? ("paste" as const),
+  };
 
-  if (!result.ok) {
+  const suggestions: SuggestedStep[] = [];
+  const summaries: string[] = [];
+  const errors: string[] = [];
+  let draft = 0;
+
+  if (findTodos) {
+    const { extractTodosFromText } = await import("@/lib/extract-todos");
+    const result = await extractTodosFromText(trimmed, {
+      ...shared,
+      schoolNames: context?.schoolNames ?? [],
+      openTodos: context?.openTodos ?? [],
+    });
+    if (!result.ok) {
+      errors.push(result.error);
+    } else {
+      if (result.documentSummary) summaries.push(result.documentSummary);
+      for (const todo of result.todos) {
+        draft += 1;
+        suggestions.push({
+          id: `draft-${draft}`,
+          label: todo.title,
+          owner: guessOwner(`${todo.title} ${todo.details}`),
+          parentId: guessParentId(
+            `${todo.title} ${todo.details} ${todo.school ?? ""}`,
+            phaseList,
+          ),
+          dueDate: todo.due_date,
+          startDate: null,
+          endDate: null,
+          route: "todo",
+          details: todo.details,
+          category: todo.category,
+          school: todo.school,
+          dueDateBasis: todo.due_date_basis,
+          conditionalOn: todo.conditional_on,
+          updatesExisting: todo.updates_existing,
+          evidence: todo.evidence,
+          confidence: todo.confidence,
+        });
+      }
+    }
+  }
+
+  if (findCalendar) {
+    const { extractCalendarFromText } = await import("@/lib/extract-calendar");
+    const result = await extractCalendarFromText(trimmed, shared);
+    if (!result.ok) {
+      errors.push(result.error);
+    } else {
+      if (result.documentSummary) summaries.push(result.documentSummary);
+      for (const event of result.events) {
+        draft += 1;
+        suggestions.push({
+          id: `draft-${draft}`,
+          label: event.title,
+          owner: guessOwner(event.title),
+          parentId: guessParentId(event.title, phaseList),
+          dueDate: event.date,
+          startDate: null,
+          endDate: null,
+          route: "calendar",
+          details: event.related_label,
+          category: "visit_event",
+          school: event.location,
+          dueDateBasis: "explicit",
+          conditionalOn: null,
+          updatesExisting: null,
+          evidence: event.evidence,
+          confidence: event.confidence,
+        });
+      }
+    }
+  }
+
+  if (!suggestions.length && errors.length) {
     return {
       suggestions: [],
       method: "ai",
       documentSummary: "",
-      error: result.error,
+      error: errors[0],
     };
   }
-
-  const suggestions: SuggestedStep[] = result.todos.map((todo, index) => ({
-    id: `draft-${index + 1}`,
-    label: todo.title,
-    owner: guessOwner(`${todo.title} ${todo.details}`),
-    parentId: guessParentId(`${todo.title} ${todo.details} ${todo.school ?? ""}`, phaseList),
-    dueDate: todo.due_date,
-    startDate: null,
-    endDate: null,
-    route: "todo" as const,
-    details: todo.details,
-    category: todo.category,
-    school: todo.school,
-    dueDateBasis: todo.due_date_basis,
-    conditionalOn: todo.conditional_on,
-    updatesExisting: todo.updates_existing,
-    evidence: todo.evidence,
-    confidence: todo.confidence,
-  }));
 
   return {
     suggestions,
     method: "ai",
-    documentSummary: result.documentSummary,
+    documentSummary: summaries[0] ?? "No actionable content found.",
   };
 }
 

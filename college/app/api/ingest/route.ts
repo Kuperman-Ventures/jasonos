@@ -5,11 +5,11 @@ import { fetchLinkPreview, summarizeLinkPreview } from "@/lib/link-preview";
 import { extractPdfText, isPdfFile } from "@/lib/pdf";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 type OpenTodoContext = { title: string; school: string | null; dueDate: string | null };
 
-async function parseMultipart(request: Request): Promise<{
+type IngestRequest = {
   text: string;
   kind: "paste" | "url" | "file";
   title: string;
@@ -19,7 +19,12 @@ async function parseMultipart(request: Request): Promise<{
   previewSiteName: string | null;
   schoolNames: string[];
   openTodos: OpenTodoContext[];
-}> {
+  findTodos: boolean;
+  findCalendar: boolean;
+  sourceType?: "paste" | "url" | "file" | "pdf" | "word" | "image";
+};
+
+async function parseMultipart(request: Request): Promise<IngestRequest> {
   const form = await request.formData();
   const titleField = form.get("title");
   const title = typeof titleField === "string" ? titleField.trim() : "";
@@ -46,6 +51,9 @@ async function parseMultipart(request: Request): Promise<{
     previewSiteName: null,
     schoolNames,
     openTodos,
+    findTodos: form.get("findTodos") !== "false",
+    findCalendar: form.get("findCalendar") !== "false",
+    sourceType: "pdf",
   };
 }
 
@@ -99,17 +107,7 @@ function parseOpenTodos(raw: FormDataEntryValue | null | unknown): OpenTodoConte
   return [];
 }
 
-async function parseJson(request: Request): Promise<{
-  text: string;
-  kind: "paste" | "url" | "file";
-  title: string;
-  fileName: string;
-  previewImageUrl: string | null;
-  previewSummary: string | null;
-  previewSiteName: string | null;
-  schoolNames: string[];
-  openTodos: OpenTodoContext[];
-}> {
+async function parseJson(request: Request): Promise<IngestRequest> {
   const body = (await request.json()) as {
     text?: string;
     url?: string;
@@ -118,6 +116,9 @@ async function parseJson(request: Request): Promise<{
     schoolNames?: unknown;
     openTodos?: unknown;
     fileName?: string;
+    findTodos?: boolean;
+    findCalendar?: boolean;
+    sourceType?: "paste" | "url" | "file" | "pdf" | "word" | "image";
   };
 
   let text = typeof body.text === "string" ? body.text.trim() : "";
@@ -156,6 +157,9 @@ async function parseJson(request: Request): Promise<{
     previewSiteName,
     schoolNames,
     openTodos,
+    findTodos: body.findTodos !== false,
+    findCalendar: body.findCalendar !== false,
+    sourceType: body.sourceType,
   };
 }
 
@@ -170,7 +174,8 @@ export async function POST(request: Request) {
       : await parseJson(request);
 
     const sourceType =
-      input.kind === "file" ? "pdf" : input.kind === "url" ? "url" : "paste";
+      input.sourceType ??
+      (input.kind === "file" ? "pdf" : input.kind === "url" ? "url" : "paste");
 
     const { suggestions, method, documentSummary, error } = await suggestStepsFromText(
       input.text,
@@ -180,6 +185,8 @@ export async function POST(request: Request) {
         sourceType,
         schoolNames: input.schoolNames,
         openTodos: input.openTodos,
+        findTodos: input.findTodos,
+        findCalendar: input.findCalendar,
       },
     );
 

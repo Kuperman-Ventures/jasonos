@@ -6,7 +6,7 @@ import { isRtfFile } from "@/lib/rtf";
 export const INGEST_BUCKET = "college-ingest";
 export const INGEST_MAX_BYTES = 25 * 1024 * 1024;
 export const INGEST_FILE_HINT =
-  "Use a PowerPoint, Keynote, PDF, email, or rich-text file (.rtf or .rtfd).";
+  "Use a PowerPoint, Keynote, PDF, email, rich-text file (.rtf or .rtfd), or image (PNG, JPG, WebP).";
 
 /** MIME types we store. Extension fallback covers browsers that omit type. */
 export const INGEST_MIME = new Set([
@@ -21,11 +21,15 @@ export const INGEST_MIME = new Set([
   "text/rtf",
   "application/x-rtf",
   "application/rtfd",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
 ]);
 
-export type IngestAssetKind = "pdf" | "deck" | "email" | "rtf";
+export type IngestAssetKind = "pdf" | "deck" | "email" | "rtf" | "image";
 
-const EXT_RE = /\.(pptx|key|pdf|eml|msg|rtf|rtfd)$/i;
+const EXT_RE = /\.(pptx|key|pdf|eml|msg|rtf|rtfd|png|jpe?g|webp|gif)$/i;
 
 export function ingestFileKind(file: { name?: string; type?: string }): IngestAssetKind | null {
   const name = (file.name ?? "").toLowerCase();
@@ -34,6 +38,12 @@ export function ingestFileKind(file: { name?: string; type?: string }): IngestAs
   if (isRtfFile(file)) return "rtf";
   if (name.endsWith(".pdf") || type === "application/pdf") return "pdf";
   if (name.endsWith(".eml") || name.endsWith(".msg") || type === "message/rfc822") return "email";
+  if (
+    type.startsWith("image/") ||
+    /\.(png|jpe?g|webp|gif)$/.test(name)
+  ) {
+    return "image";
+  }
   if (
     name.endsWith(".pptx") ||
     name.endsWith(".key") ||
@@ -57,6 +67,7 @@ export function ingestAssetKind(mime: string): IngestAssetKind | null {
   ) {
     return "rtf";
   }
+  if (mime.startsWith("image/")) return "image";
   if (
     mime.includes("presentation") ||
     mime.includes("powerpoint") ||
@@ -69,8 +80,15 @@ export function ingestAssetKind(mime: string): IngestAssetKind | null {
 
 export function ingestExtension(mime: string, fileName?: string): string | null {
   const fromName = fileName?.split(".").pop()?.toLowerCase();
-  if (fromName && ["pdf", "pptx", "key", "eml", "msg", "rtf", "rtfd"].includes(fromName)) {
-    return fromName === "rtfd" ? "rtf" : fromName;
+  if (
+    fromName &&
+    ["pdf", "pptx", "key", "eml", "msg", "rtf", "rtfd", "png", "jpg", "jpeg", "webp", "gif"].includes(
+      fromName,
+    )
+  ) {
+    if (fromName === "rtfd") return "rtf";
+    if (fromName === "jpeg") return "jpg";
+    return fromName;
   }
   if (mime === "application/pdf") return "pdf";
   if (mime === "message/rfc822") return "eml";
@@ -85,6 +103,10 @@ export function ingestExtension(mime: string, fileName?: string): string | null 
   ) {
     return "rtf";
   }
+  if (mime === "image/png") return "png";
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
   return null;
 }
 
@@ -92,6 +114,7 @@ export function isIngestFile(file: { name?: string; type?: string }): boolean {
   if (ingestFileKind(file)) return true;
   const type = (file.type ?? "").toLowerCase();
   if (type === "application/pdf" || type === "message/rfc822") return true;
+  if (type.startsWith("image/")) return true;
   if (isRtfFile(file)) return true;
   return EXT_RE.test(file.name ?? "");
 }
@@ -121,11 +144,20 @@ export function acceptIngestAttr(): string {
     ".msg",
     ".rtf",
     ".rtfd",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".webp",
+    ".gif",
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "message/rfc822",
     "application/rtf",
     "text/rtf",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/gif",
   ].join(",");
 }
 

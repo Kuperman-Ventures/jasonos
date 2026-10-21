@@ -94,6 +94,7 @@ function kindLabel(kind: IngestAssetKind): string {
   if (kind === "email") return "Email";
   if (kind === "pdf") return "PDF";
   if (kind === "rtf") return "Rich text";
+  if (kind === "image") return "Image";
   return "Deck";
 }
 
@@ -381,6 +382,12 @@ export function IngestPanel({
       const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
       return result.text;
     }
+    if (info.kind === "image") {
+      setStatus("Reading image…");
+      const { readImageForIngest } = await import("@/lib/image-ocr");
+      const result = await readImageForIngest(info.file, (progress) => setStatus(progress.detail));
+      return result.text;
+    }
     throw new Error(
       "Can’t extract text from this file yet. Paste the text, or save as a note only.",
     );
@@ -437,6 +444,14 @@ export function IngestPanel({
       }
 
       setStatus(jobs.todo && jobs.cal ? "Finding items…" : jobs.todo ? "Finding to-dos…" : "Finding calendar events…");
+      const sourceType =
+        asset?.kind === "pdf"
+          ? "pdf"
+          : asset?.kind === "email" || asset?.kind === "rtf" || asset?.kind === "deck"
+            ? "file"
+            : asset?.kind === "image"
+              ? "image"
+              : "paste";
       const response = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -447,6 +462,9 @@ export function IngestPanel({
           fileName: asset?.name ?? "pasted-notes.txt",
           schoolNames,
           openTodos,
+          findTodos: jobs.todo,
+          findCalendar: jobs.cal,
+          sourceType,
         }),
       });
       const raw = await response.text();
@@ -476,8 +494,8 @@ export function IngestPanel({
 
       const calRows = suggestions.filter(isCalendarSuggestion);
       const todoRows = suggestions.filter((row) => !isCalendarSuggestion(row));
-      setTodos(jobs.todo ? (jobs.cal ? todoRows : suggestions).map(toTodoDraft) : []);
-      setEvents(jobs.cal ? (jobs.todo ? calRows : suggestions).map(toEventDraft) : []);
+      setTodos(jobs.todo ? todoRows.map(toTodoDraft) : []);
+      setEvents(jobs.cal ? calRows.map(toEventDraft) : []);
       if (!noteTitle.trim()) setNoteTitle(defaultNoteTitle(asset, paste));
       setStep(3);
       setStatus("");

@@ -70,11 +70,82 @@ function pushUnique(out: ParsedEventDate[], hit: ParsedEventDate | null) {
   out.push(hit);
 }
 
+type DatedHit = ParsedEventDate & { index: number };
+
+/** OCR often drops the space after a comma: "November 24,2026". */
+function normalizeDateSpacing(text: string): string {
+  return text.replace(/,(\d{4})\b/g, ", $1");
+}
+
+/** Day-precision dates in document order, keeping duplicates (table cells). */
+export function listDayDatesInOrder(
+  ...parts: Array<string | null | undefined>
+): string[] {
+  const text = normalizeDateSpacing(parts.filter(Boolean).join(" \n "));
+  if (!text.trim()) return [];
+  const hits: DatedHit[] = [];
+  const yearHint = defaultYear(text);
+
+  const push = (index: number, date: string | null) => {
+    if (!date || index < 0) return;
+    hits.push({ date, precision: "day", index });
+  };
+
+  for (const match of text.matchAll(/\b(20\d{2})-(\d{2})-(\d{2})\b/g)) {
+    push(match.index ?? -1, isoDate(Number(match[1]), Number(match[2]), Number(match[3])));
+  }
+  for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g)) {
+    push(match.index ?? -1, isoDate(Number(match[3]), Number(match[1]), Number(match[2])));
+  }
+  // Allow "November 7, 2026" and OCR "November 7,2026" / "November 7 2026".
+  const namedFull = new RegExp(
+    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,\\s*|\\s+)(20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(namedFull)) {
+    const month = MONTHS[match[1]!.toLowerCase()];
+    if (!month) continue;
+    push(match.index ?? -1, isoDate(Number(match[3]), month, Number(match[2])));
+  }
+  const dayMonthYear = new RegExp(
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?:,\\s*|\\s+)(20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(dayMonthYear)) {
+    const month = MONTHS[match[2]!.toLowerCase()];
+    if (!month) continue;
+    push(match.index ?? -1, isoDate(Number(match[3]), month, Number(match[1])));
+  }
+  // Only use yearless forms when the document has almost no full dates.
+  if (hits.length < 2) {
+    const namedDay = new RegExp(
+      `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?!(?:,\\s*|\\s+)20\\d{2})\\b`,
+      "gi",
+    );
+    for (const match of text.matchAll(namedDay)) {
+      const month = MONTHS[match[1]!.toLowerCase()];
+      if (!month) continue;
+      push(match.index ?? -1, isoDate(yearHint, month, Number(match[2])));
+    }
+  }
+
+  hits.sort((a, b) => a.index - b.index);
+  // Drop overlapping regex hits that start at the same index.
+  const out: string[] = [];
+  let lastIndex = -1;
+  for (const hit of hits) {
+    if (hit.index === lastIndex) continue;
+    lastIndex = hit.index;
+    out.push(hit.date);
+  }
+  return out;
+}
+
 /** All date candidates found in text, day-precision first when picking. */
 export function parseEventDatesFromText(
   ...parts: Array<string | null | undefined>
 ): ParsedEventDate[] {
-  const text = parts.filter(Boolean).join(" \n ");
+  const text = normalizeDateSpacing(parts.filter(Boolean).join(" \n "));
   if (!text.trim()) return [];
   const out: ParsedEventDate[] = [];
   const yearHint = defaultYear(text);
@@ -90,7 +161,7 @@ export function parseEventDatesFromText(
   }
 
   const namedFull = new RegExp(
-    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,)?\\s+(20\\d{2})\\b`,
+    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,\\s*|\\s+)(20\\d{2})\\b`,
     "gi",
   );
   for (const match of text.matchAll(namedFull)) {
@@ -102,7 +173,7 @@ export function parseEventDatesFromText(
 
   // "30 September 2026"
   const dayMonthYear = new RegExp(
-    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?:,)?\\s+(20\\d{2})\\b`,
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?:,\\s*|\\s+)(20\\d{2})\\b`,
     "gi",
   );
   for (const match of text.matchAll(dayMonthYear)) {
@@ -114,7 +185,7 @@ export function parseEventDatesFromText(
 
   // "September 30" / "Sept 30th" — year from surrounding text (e.g. Sept2026)
   const namedDay = new RegExp(
-    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?!\\s*,?\\s*20\\d{2})\\b`,
+    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?!(?:,\\s*|\\s+)20\\d{2})\\b`,
     "gi",
   );
   for (const match of text.matchAll(namedDay)) {
@@ -126,7 +197,7 @@ export function parseEventDatesFromText(
 
   // "30 September" without year
   const dayMonth = new RegExp(
-    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?!\\s*,?\\s*20\\d{2})\\b`,
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?!(?:,\\s*|\\s+)20\\d{2})\\b`,
     "gi",
   );
   for (const match of text.matchAll(dayMonth)) {
