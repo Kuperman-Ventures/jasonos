@@ -98,6 +98,12 @@ export type HandoffRecord = {
   chosenSlotStart: string | null;
   sourceKind: "intro" | "packet";
   status: HandoffStatus;
+  /** Open Email Follow Up for this contact, when Sync has one. */
+  emailFollowUp: {
+    status: "new" | "scheduled";
+    followUpDue: string | null;
+    followUpDays: number | null;
+  } | null;
 };
 
 export type BrowningNetworkingPage = {

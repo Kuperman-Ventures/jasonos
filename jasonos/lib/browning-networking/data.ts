@@ -7,6 +7,10 @@ import {
   type CalendarApiEvent,
 } from "@/lib/integrations/google-calendar";
 import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
+import {
+  pickFollowUpForContact,
+  type SentFollowupMatchRow,
+} from "./email-followup";
 import type { BusyBlock } from "./types";
 import { addCalendarDays, firstEligibleYmd, lastEligibleYmd, wallToUtc } from "./slots";
 import type {
@@ -53,7 +57,10 @@ function asBrief(value: unknown): HandoffBrief | null {
   };
 }
 
-function mapRow(row: Record<string, unknown>): HandoffRecord {
+function mapRow(
+  row: Record<string, unknown>,
+  emailFollowUp: HandoffRecord["emailFollowUp"] = null
+): HandoffRecord {
   return {
     id: String(row.id),
     gmailAccount: String(row.gmail_account ?? ""),
@@ -86,6 +93,7 @@ function mapRow(row: Record<string, unknown>): HandoffRecord {
     chosenSlotStart: (row.chosen_slot_start as string | null) ?? null,
     sourceKind: row.source_kind === "packet" ? "packet" : "intro",
     status: (row.status as HandoffStatus) ?? "times_ready",
+    emailFollowUp,
   };
 }
 
@@ -106,20 +114,40 @@ export async function getBrowningNetworkingPage(): Promise<BrowningNetworkingPag
   }
 
   const sb = createServiceRoleClient();
-  const { data, error } = await sb
-    .from("browning_handoffs")
-    .select("*")
-    .neq("status", "dismissed")
-    .order("received_at", { ascending: false })
-    .limit(100);
+  const [{ data, error }, followupsResult] = await Promise.all([
+    sb
+      .from("browning_handoffs")
+      .select("*")
+      .neq("status", "dismissed")
+      .order("received_at", { ascending: false })
+      .limit(100),
+    sb
+      .from("sent_email_followups")
+      .select("status, follow_up_due, follow_up_days, to_line, recipients, account_email")
+      .in("status", ["new", "scheduled"])
+      .order("sent_at", { ascending: false })
+      .limit(200),
+  ]);
   if (error) {
     return { ...empty, error: error.message };
+  }
+
+  const followupRows = (followupsResult.data ?? []) as SentFollowupMatchRow[];
+  if (followupsResult.error) {
+    console.error("[browning-networking] email follow-ups", followupsResult.error);
   }
 
   const busy = await loadBusy(etYmd(now), lastYmd);
   return {
     ...empty,
-    handoffs: (data ?? []).map((row) => mapRow(row as Record<string, unknown>)),
+    handoffs: (data ?? []).map((row) => {
+      const record = row as Record<string, unknown>;
+      const emailFollowUp = pickFollowUpForContact(
+        followupRows,
+        (record.contact_email as string | null) ?? null
+      );
+      return mapRow(record, emailFollowUp);
+    }),
     busy,
   };
 }
