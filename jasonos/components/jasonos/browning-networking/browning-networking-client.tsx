@@ -66,6 +66,7 @@ export function BrowningNetworkingClient({
       page.handoffs.find((row) => handoffLane(row) === "reply")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "waiting")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "scheduled")?.id ??
+      page.handoffs.find((row) => handoffLane(row) === "held")?.id ??
       ""
     );
   });
@@ -81,6 +82,7 @@ export function BrowningNetworkingClient({
   const replyRows = page.handoffs.filter((row) => laneFor(row) === "reply");
   const waitingRows = page.handoffs.filter((row) => laneFor(row) === "waiting");
   const scheduledRows = page.handoffs.filter((row) => laneFor(row) === "scheduled");
+  const heldRows = page.handoffs.filter((row) => laneFor(row) === "held");
   const router = useRouter();
   const [slotOverrides, setSlotOverrides] = useState<Record<string, HandoffSlot[]>>({});
   const handoffs = useMemo(
@@ -196,6 +198,15 @@ export function BrowningNetworkingClient({
               rows={scheduledRows}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              lane="scheduled"
+            />
+            <HandoffLaneList
+              title="Meeting held"
+              empty="No calls held yet."
+              rows={heldRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              lane="held"
             />
           </>
         )}
@@ -412,8 +423,15 @@ function WaitingAssociatePanel({
               });
               if (!result.ok) toast.error(result.error);
               else {
+                const linkedLane = handoffLane({
+                  status: "booked",
+                  callStartsAt: picked.start,
+                  callEndsAt: picked.end,
+                });
                 toast.success(
-                  `Linked “${picked.title}” — ${displayHandoffName(handoff)} is on Meeting set.`
+                  `Linked “${picked.title}” — ${displayHandoffName(handoff)} is on ${
+                    linkedLane === "held" ? "Meeting held" : "Meeting set"
+                  }.`
                 );
                 onLinked();
               }
@@ -463,7 +481,9 @@ function HandoffDetail({
   const [notes, setNotes] = useState("");
   const [cadence, setCadence] = useState<CadenceInterval>("none");
   const [pending, start] = useTransition();
-  const meetingSet = handoffLane(handoff) === "scheduled";
+  const lane = handoffLane(handoff);
+  const meetingSet = lane === "scheduled" || lane === "held";
+  const meetingHeld = lane === "held";
   const isPacket = handoff.sourceKind === "packet" && !meetingSet;
   const draft = useMemo(
     () =>
@@ -561,12 +581,18 @@ function HandoffDetail({
       ) : null}
       {meetingSet ? (
         <section className="rounded-md border px-3 py-2">
-          <h3 className="text-sm font-semibold">Meeting set</h3>
+          <h3 className="text-sm font-semibold">{meetingHeld ? "Meeting held" : "Meeting set"}</h3>
           <p className="text-sm">
             {handoff.callTitle ? `${handoff.callTitle}. ` : ""}
-            {handoff.callStartsAt ? formatSlotLabel(handoff.callStartsAt) : "On your calendar."}
+            {handoff.callStartsAt
+              ? formatSlotLabel(handoff.callStartsAt)
+              : meetingHeld
+                ? "Call finished."
+                : "On your calendar."}
           </p>
-          <p className="text-xs text-muted-foreground">This time stays as it is.</p>
+          <p className="text-xs text-muted-foreground">
+            {meetingHeld ? "This call is done." : "This time stays as it is."}
+          </p>
         </section>
       ) : (
       <>
@@ -1087,9 +1113,13 @@ function InvitePanel({
 function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): string {
   if (row.chosenSlotStart && lane === "waiting") return `Picked ${formatSlotLabel(row.chosenSlotStart)}`;
   if (row.replyExcerpt && lane === "waiting") return "Replied — pick the time";
-  if (row.status === "follow_up" && lane !== "scheduled") return "Follow up";
+  if (row.status === "follow_up" && lane !== "scheduled" && lane !== "held") return "Follow up";
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
-  if (row.status === "brief_ready") return "Brief ready";
+  if (row.status === "brief_ready" && lane === "scheduled") return "Brief ready";
+  if (lane === "held") {
+    if (row.callStartsAt) return `Held · ${formatSlotLabel(row.callStartsAt)}`;
+    return "Meeting held";
+  }
   if (lane === "scheduled") return "On your calendar";
   if (lane === "waiting") {
     const followUp = emailFollowUpStatusLabel(row.emailFollowUp, etToday());
