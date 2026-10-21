@@ -23,6 +23,7 @@ import {
 } from "@/lib/browning-networking/draft";
 import { displayHandoffName } from "@/lib/browning-networking/dedupe";
 import { busyForHandoff } from "@/lib/browning-networking/holds";
+import { emailFollowUpStatusLabel } from "@/lib/browning-networking/email-followup";
 import { handoffLane, isFollowUp, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL } from "@/lib/browning-networking/types";
@@ -42,7 +43,7 @@ import {
   setHandoffCadence,
   syncBrowningTentativeHolds,
 } from "@/lib/server-actions/browning-networking";
-import { etYmd } from "@/lib/dates";
+import { etToday, etYmd } from "@/lib/dates";
 import { SlotCalendar, mondayOf } from "./slot-calendar";
 
 const CADENCES: CadenceInterval[] = ["biweekly", "triweekly", "monthly", "quarterly", "none"];
@@ -315,6 +316,15 @@ function WaitingAssociatePanel({
             tentative holds for times offered on other replies. Click a gray meeting that is not
             a hold to link it to {displayHandoffName(handoff)} and clear Waiting.
           </p>
+          {emailFollowUpStatusLabel(handoff.emailFollowUp, etToday()) ? (
+            <p className="mt-1 text-xs font-medium text-[var(--jos-ink)]">
+              {emailFollowUpStatusLabel(handoff.emailFollowUp, etToday())}
+              {" · "}
+              <a href="/outreach/sent" className="underline">
+                Email follow-ups
+              </a>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -1081,7 +1091,11 @@ function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): 
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
   if (row.status === "brief_ready") return "Brief ready";
   if (lane === "scheduled") return "On your calendar";
-  if (lane === "waiting") return "Waiting for them to schedule";
+  if (lane === "waiting") {
+    const followUp = emailFollowUpStatusLabel(row.emailFollowUp, etToday());
+    if (followUp) return followUp;
+    return "Waiting for them to schedule";
+  }
   if (lane === "outreach") {
     if (row.linkedinUrl && !row.contactEmail) return "LinkedIn — no email yet";
     if (row.contactEmail) return "Email found — send or LinkedIn";
