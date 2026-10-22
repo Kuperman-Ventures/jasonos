@@ -14,6 +14,7 @@ import {
   holdTitle,
   reconcileHolds,
   shouldKeepTentativeHolds,
+  slotEligibleForHold,
   type StoredHold,
 } from "./holds";
 import type { HandoffSlot } from "./types";
@@ -46,7 +47,9 @@ export async function syncOpenHandoffHolds(sb: Sb, maxToWrite = 10): Promise<Hol
 
   type Row = Record<string, unknown>;
   const clearRows: Row[] = [];
+  const releaseRows: Row[] = [];
   const writeRows: Row[] = [];
+  const now = new Date();
   for (const row of data ?? []) {
     const record = row as Row;
     const slots = asSlots(record.slots);
@@ -56,9 +59,17 @@ export async function syncOpenHandoffHolds(sb: Sb, maxToWrite = 10): Promise<Hol
       callStartsAt: (record.call_starts_at as string | null) ?? null,
     });
     const clearedAt = (record.holds_cleared_at as string | null) ?? null;
-    if (holdsLookCurrent({ slots, stored, keep, clearedAt })) continue;
-    if (keep) writeRows.push(record);
-    else clearRows.push(record);
+    if (holdsLookCurrent({ slots, stored, keep, clearedAt, now })) continue;
+    if (!keep) {
+      clearRows.push(record);
+      continue;
+    }
+    // Near-term unbooked holds must drop even when create/update work is capped.
+    if (stored.some((hold) => !slotEligibleForHold(hold.start, now))) {
+      releaseRows.push(record);
+    } else {
+      writeRows.push(record);
+    }
   }
 
   let changed = 0;
@@ -66,7 +77,8 @@ export async function syncOpenHandoffHolds(sb: Sb, maxToWrite = 10): Promise<Hol
   let wrote = 0;
 
   // Clears first — a meeting on the calendar must drop that person's holds.
-  for (const record of clearRows) {
+  // Then 24h releases — those free the calendar for other replies today.
+  for (const record of [...clearRows, ...releaseRows]) {
     try {
       const result = await syncRow(sb, token, record, true);
       if (!result.ok) {

@@ -41,6 +41,7 @@ export const config: VercelConfig = {
     // Job Alerts harvest opens Gmail threads from a labeled folder.
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
+    "app/api/browning-networking/holds/route.ts": { maxDuration: 60 },
     // Daily Sync: Gmail/Outlook/Calendar/Beeper + follow-up capture.
     "app/api/sync/daily/route.ts": { maxDuration: 300 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
@@ -68,6 +69,12 @@ export const config: VercelConfig = {
     {
       path: "/api/browning-networking/run?source=cron",
       schedule: "30 11 * * 1-5",
+    },
+    // Browning holds — weekdays every hour (EDT). Releases unbooked Hold ·
+    // events inside 24 hours without waiting for the morning full run.
+    {
+      path: "/api/browning-networking/holds?source=cron",
+      schedule: "5 * * * 1-5",
     },
   ],
 };
