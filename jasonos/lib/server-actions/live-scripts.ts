@@ -37,12 +37,19 @@ import {
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
+export type LiveScriptKind = "strategy" | "plan";
+
 export interface LiveScript {
   id: string;
   name: string;
   description: string | null;
+  kind: LiveScriptKind;
   situation: string | null;
   successSentence: string | null;
+  outcomeSentence: string | null;
+  notes: string | null;
+  attachedPrepId: string | null;
+  attachedAt: string | null;
   rubric: string[];
   methodologySource: string | null;
   itemCount: number;
@@ -67,8 +74,13 @@ interface ScriptRow {
   id: string;
   name: string;
   description: string | null;
+  kind?: string | null;
   situation?: string | null;
   success_sentence?: string | null;
+  outcome_sentence?: string | null;
+  notes?: string | null;
+  attached_prep_id?: string | null;
+  attached_at?: string | null;
   rubric?: unknown;
   methodology_source?: string | null;
   use_count: number;
@@ -91,7 +103,7 @@ interface ItemRow {
 const KINDS = new Set<PointKind>(["agenda", "point", "question", "ask"]);
 const SHAPE_SET = new Set<string>(REACTION_SHAPES);
 const SCRIPT_COLUMNS =
-  "id, name, description, situation, success_sentence, rubric, methodology_source, use_count, last_used_at, updated_at";
+  "id, name, description, kind, situation, success_sentence, outcome_sentence, notes, attached_prep_id, attached_at, rubric, methodology_source, use_count, last_used_at, updated_at";
 const ITEM_COLUMNS =
   "id, script_id, position, kind, headline, detail, listen_for, prepare_reactions, reactions";
 
@@ -206,13 +218,22 @@ function toItem(row: ItemRow): LiveScriptItem {
   };
 }
 
+function asScriptKind(value: string | null | undefined): LiveScriptKind {
+  return value === "plan" ? "plan" : "strategy";
+}
+
 function toScript(row: ScriptRow, itemCount: number): LiveScript {
   return {
     id: row.id,
     name: row.name,
     description: row.description?.trim() || null,
+    kind: asScriptKind(row.kind),
     situation: row.situation?.trim() || null,
     successSentence: row.success_sentence?.trim() || null,
+    outcomeSentence: row.outcome_sentence?.trim() || null,
+    notes: row.notes?.trim() || null,
+    attachedPrepId: row.attached_prep_id ?? null,
+    attachedAt: row.attached_at ?? null,
     rubric: rubricLines(row.rubric),
     methodologySource: row.methodology_source?.trim() || null,
     itemCount,
@@ -231,17 +252,8 @@ function cleanName(value: string): string | null {
   return text || null;
 }
 
-export async function listLiveScripts(): Promise<PointResult<{ scripts: LiveScript[] }>> {
-  if (!hasConfig()) return { ok: false, error: "Not configured" };
+async function withItemCounts(rows: ScriptRow[]): Promise<PointResult<{ scripts: LiveScript[] }>> {
   const sb = createServiceRoleClient();
-  const { data, error } = await sb
-    .from("live_scripts")
-    .select(SCRIPT_COLUMNS)
-    .order("last_used_at", { ascending: false, nullsFirst: false })
-    .order("name", { ascending: true });
-  if (error) return { ok: false, error: error.message };
-
-  const rows = (data ?? []) as ScriptRow[];
   const counts = new Map<string, number>();
   if (rows.length) {
     const { data: items, error: itemError } = await sb
@@ -258,6 +270,39 @@ export async function listLiveScripts(): Promise<PointResult<{ scripts: LiveScri
     }
   }
   return { ok: true, scripts: rows.map((row) => toScript(row, counts.get(row.id) ?? 0)) };
+}
+
+export async function listLiveScripts(input?: {
+  kind?: LiveScriptKind;
+}): Promise<PointResult<{ scripts: LiveScript[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sb = createServiceRoleClient();
+  let query = sb
+    .from("live_scripts")
+    .select(SCRIPT_COLUMNS)
+    .order("last_used_at", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true });
+  if (input?.kind) query = query.eq("kind", input.kind);
+  const { data, error } = await query;
+  if (error) return { ok: false, error: error.message };
+  return withItemCounts((data ?? []) as ScriptRow[]);
+}
+
+/** Unattached plans newest first, plus plans attached in the last 30 days. */
+export async function listLivePlans(): Promise<PointResult<{ plans: LiveScript[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sb = createServiceRoleClient();
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await sb
+    .from("live_scripts")
+    .select(SCRIPT_COLUMNS)
+    .eq("kind", "plan")
+    .or(`attached_prep_id.is.null,attached_at.gte.${since}`)
+    .order("updated_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+  const counted = await withItemCounts((data ?? []) as ScriptRow[]);
+  if (!counted.ok) return counted;
+  return { ok: true, plans: counted.scripts };
 }
 
 export async function getLiveScript(
@@ -289,22 +334,35 @@ export async function getLiveScript(
 export async function createLiveScript(input: {
   name: string;
   description?: string | null;
+  kind?: LiveScriptKind;
+  outcomeSentence?: string | null;
+  notes?: string | null;
 }): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const name = cleanName(input.name);
   if (!name) return { ok: false, error: "Name the strategy." };
+  const kind: LiveScriptKind = input.kind === "plan" ? "plan" : "strategy";
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
     .insert({
       name,
       description: input.description?.trim() ? input.description.trim() : null,
+      kind,
+      outcome_sentence: kind === "plan" ? cleanLine(input.outcomeSentence) : null,
+      notes: kind === "plan" ? cleanLine(input.notes, 2000) : null,
     })
     .select(SCRIPT_COLUMNS)
     .single();
   if (error) {
     if (nameTaken(error.message, error.code)) {
-      return { ok: false, error: "A strategy with that name already exists." };
+      return {
+        ok: false,
+        error:
+          kind === "plan"
+            ? "A plan with that name already exists."
+            : "A strategy with that name already exists.",
+      };
     }
     return { ok: false, error: error.message };
   }
@@ -319,6 +377,8 @@ export async function updateLiveScript(
     description?: string | null;
     situation?: string | null;
     successSentence?: string | null;
+    outcomeSentence?: string | null;
+    notes?: string | null;
     rubric?: string[];
     methodologySource?: string | null;
   }
@@ -337,6 +397,8 @@ export async function updateLiveScript(
   }
   if (patch.situation !== undefined) update.situation = cleanLine(patch.situation);
   if (patch.successSentence !== undefined) update.success_sentence = cleanLine(patch.successSentence);
+  if (patch.outcomeSentence !== undefined) update.outcome_sentence = cleanLine(patch.outcomeSentence);
+  if (patch.notes !== undefined) update.notes = cleanLine(patch.notes, 2000);
   if (patch.methodologySource !== undefined) {
     update.methodology_source = cleanLine(patch.methodologySource, 200);
   }
@@ -697,16 +759,167 @@ export async function applyLiveScript(input: {
   return { ok: true, added: rows.length };
 }
 
+export async function attachPlanToMeeting(input: {
+  scriptId: string;
+  prepId: string;
+  mode: "add" | "replace";
+}): Promise<PointResult<{ added: number }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const scriptId = input.scriptId.trim();
+  const prepId = input.prepId.trim();
+  if (!scriptId || !prepId) return { ok: false, error: "Plan or meeting not found." };
+
+  const loaded = await getLiveScript(scriptId);
+  if (!loaded.ok) return loaded;
+  if (loaded.script.kind !== "plan") {
+    return { ok: false, error: "Only a plan can be attached this way." };
+  }
+
+  const applied = await applyLiveScript({ scriptId, prepId, mode: input.mode });
+  if (!applied.ok) return applied;
+
+  const sb = createServiceRoleClient();
+  const now = new Date().toISOString();
+  const { data: prepRow, error: prepError } = await sb
+    .from("meeting_preps")
+    .select("id, outcome_sentence, email_context, email_context_at, attendees, research_ran_at")
+    .eq("id", prepId)
+    .maybeSingle();
+  if (prepError) return { ok: false, error: prepError.message };
+  if (!prepRow) return { ok: false, error: "Meeting prep not found." };
+
+  const existingOutcome =
+    typeof prepRow.outcome_sentence === "string" ? prepRow.outcome_sentence.trim() : "";
+  const prepUpdate: Record<string, unknown> = {
+    script_id: null,
+    updated_at: now,
+  };
+  if (!existingOutcome && loaded.script.outcomeSentence) {
+    prepUpdate.outcome_sentence = loaded.script.outcomeSentence;
+  }
+  const { error: clearError } = await sb.from("meeting_preps").update(prepUpdate).eq("id", prepId);
+  if (clearError) return { ok: false, error: clearError.message };
+
+  const { error: attachError } = await sb
+    .from("live_scripts")
+    .update({
+      attached_prep_id: prepId,
+      attached_at: now,
+      updated_at: now,
+    })
+    .eq("id", scriptId);
+  if (attachError) return { ok: false, error: attachError.message };
+
+  try {
+    const { runMeetingResearch } = await import("@/lib/server-actions/meeting-research");
+    const { isContactThin } = await import("@/lib/meeting-prep/research-policy");
+    const attendees = Array.isArray(prepRow.attendees) ? prepRow.attendees : [];
+    const contactIds = attendees
+      .map((row) =>
+        row && typeof row === "object"
+          ? ((row as { contact_id?: string }).contact_id ?? null)
+          : null
+      )
+      .filter((id): id is string => Boolean(id));
+    let needsResearch = !prepRow.research_ran_at;
+    if (contactIds.length) {
+      const { data: contacts } = await sb
+        .from("contacts")
+        .select("id, title, company_id, linkedin_url, research_at")
+        .in("id", contactIds);
+      const nowDate = new Date();
+      needsResearch =
+        needsResearch ||
+        (contacts ?? []).some((contact) =>
+          isContactThin(
+            {
+              title: (contact.title as string | null) ?? null,
+              companyId: (contact.company_id as string | null) ?? null,
+              linkedinUrl: (contact.linkedin_url as string | null) ?? null,
+              researchAt: (contact.research_at as string | null) ?? null,
+            },
+            nowDate
+          )
+        );
+    }
+    if (needsResearch) {
+      await runMeetingResearch(prepId).catch((err) => {
+        console.error("[attachPlanToMeeting] research", err);
+      });
+    }
+  } catch (err) {
+    console.error("[attachPlanToMeeting] research import", err);
+  }
+
+  try {
+    const attendees = Array.isArray(prepRow.attendees)
+      ? (prepRow.attendees as Array<{ email?: string; name?: string | null }>).map((row) => ({
+          email: typeof row.email === "string" ? row.email : "",
+          name: typeof row.name === "string" ? row.name : null,
+        }))
+      : [];
+    await ensureEmailContext({
+      id: prepId,
+      attendees: attendees.filter((row) => row.email),
+      emailContext:
+        typeof prepRow.email_context === "string" ? prepRow.email_context : null,
+      emailContextAt:
+        typeof prepRow.email_context_at === "string" ? prepRow.email_context_at : null,
+    });
+  } catch (err) {
+    console.error("[attachPlanToMeeting] email context", err);
+  }
+
+  revalidateScripts(scriptId, prepId);
+  return applied;
+}
+
+export async function promotePlanToStrategy(
+  scriptId: string
+): Promise<PointResult<{ script: LiveScript }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = scriptId.trim();
+  if (!id) return { ok: false, error: "Plan not found." };
+  const loaded = await getLiveScript(id);
+  if (!loaded.ok) return loaded;
+  if (loaded.script.kind !== "plan") return { ok: false, error: "Only a plan can become a strategy." };
+
+  const update: Record<string, unknown> = {
+    kind: "strategy",
+    attached_prep_id: null,
+    attached_at: null,
+    updated_at: new Date().toISOString(),
+  };
+  if (!loaded.script.successSentence?.trim() && loaded.script.outcomeSentence?.trim()) {
+    update.success_sentence = loaded.script.outcomeSentence;
+    update.outcome_sentence = null;
+  }
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("live_scripts")
+    .update(update)
+    .eq("id", id)
+    .select(SCRIPT_COLUMNS)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Plan not found." };
+  revalidateScripts(id);
+  return { ok: true, script: toScript(data as ScriptRow, loaded.items.length) };
+}
+
 export async function saveMeetingPointsAsScript(input: {
   prepId: string;
   name: string;
   description?: string | null;
+  kind?: LiveScriptKind;
 }): Promise<PointResult<{ scriptId: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const prepId = input.prepId.trim();
   const name = cleanName(input.name);
   if (!prepId) return { ok: false, error: "Meeting prep not found." };
   if (!name) return { ok: false, error: "Name the strategy." };
+  const kind: LiveScriptKind = input.kind === "plan" ? "plan" : "strategy";
 
   const sb = createServiceRoleClient();
   const { data: points, error: pointError } = await sb
@@ -717,7 +930,20 @@ export async function saveMeetingPointsAsScript(input: {
   if (pointError) return { ok: false, error: pointError.message };
   if (!points?.length) return { ok: false, error: "Add at least one point first." };
 
-  const created = await createLiveScript({ name, description: input.description });
+  const { data: prepRow } = await sb
+    .from("meeting_preps")
+    .select("outcome_sentence")
+    .eq("id", prepId)
+    .maybeSingle();
+  const outcome =
+    typeof prepRow?.outcome_sentence === "string" ? prepRow.outcome_sentence : null;
+
+  const created = await createLiveScript({
+    name,
+    description: input.description,
+    kind,
+    outcomeSentence: kind === "plan" ? outcome : null,
+  });
   if (!created.ok) return created;
 
   const { error } = await sb.from("live_script_items").insert(

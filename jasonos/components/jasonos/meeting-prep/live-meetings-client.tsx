@@ -27,6 +27,7 @@ import { LIVE_FIELD, LIVE_SECTION_LABEL } from "@/components/jasonos/live";
 import { updateLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import type { MeetingPrepSummary, OutcomeMark, RecentLiveMeeting } from "@/lib/server-actions/meeting-prep";
 import {
+  attachPlanToMeeting,
   createLiveScript,
   draftLiveScriptItems,
   type LiveScript,
@@ -292,6 +293,9 @@ export function LiveMeetingsClient({
   warnings,
   scripts,
   scriptsError,
+  plans = [],
+  plansError = null,
+  upcomingMeetings = [],
   recent,
   recentError,
   settings,
@@ -303,6 +307,9 @@ export function LiveMeetingsClient({
   warnings: string[];
   scripts: LiveScript[];
   scriptsError: string | null;
+  plans?: LiveScript[];
+  plansError?: string | null;
+  upcomingMeetings?: MeetingPrepSummary[];
   recent: RecentLiveMeeting[];
   recentError: string | null;
   settings: LiveSettings;
@@ -314,6 +321,16 @@ export function LiveMeetingsClient({
   const [description, setDescription] = useState("");
   const [brief, setBrief] = useState("");
   const [saving, setSaving] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planName, setPlanName] = useState("");
+  const [planFor, setPlanFor] = useState("");
+  const [planOutcome, setPlanOutcome] = useState("");
+  const [planNotes, setPlanNotes] = useState("");
+  const [planBrief, setPlanBrief] = useState("");
+  const [planSaving, setPlanSaving] = useState(false);
+  const [attachFor, setAttachFor] = useState<string | null>(null);
+  const [attachPrepId, setAttachPrepId] = useState("");
+  const [attaching, setAttaching] = useState(false);
 
   const today = [...meetings].sort(
     (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)
@@ -341,6 +358,53 @@ export function LiveMeetingsClient({
       setOpen(false);
       router.push(`/live/scripts/${created.script.id}`);
     });
+  };
+
+  const createPlan = () => {
+    const trimmed = planName.trim();
+    if (!trimmed) {
+      toast.error("Name the plan.");
+      return;
+    }
+    setPlanSaving(true);
+    void createLiveScript({
+      name: trimmed,
+      kind: "plan",
+      description: planFor.trim() || null,
+      outcomeSentence: planOutcome.trim() || null,
+      notes: planNotes.trim() || null,
+    }).then(async (created) => {
+      if (!created.ok) {
+        setPlanSaving(false);
+        toast.error(created.error);
+        return;
+      }
+      if (planBrief.trim()) {
+        const drafted = await draftLiveScriptItems(created.script.id, planBrief);
+        if (!drafted.ok) toast.error(drafted.error);
+      }
+      setPlanSaving(false);
+      setPlanOpen(false);
+      router.push(`/live/scripts/${created.script.id}`);
+    });
+  };
+
+  const attach = (mode: "add" | "replace") => {
+    if (!attachFor || !attachPrepId) return;
+    setAttaching(true);
+    void attachPlanToMeeting({ scriptId: attachFor, prepId: attachPrepId, mode }).then(
+      (result) => {
+        setAttaching(false);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`Attached ${result.added === 1 ? "1 point" : `${result.added} points`}`);
+        setAttachFor(null);
+        setAttachPrepId("");
+        router.refresh();
+      }
+    );
   };
 
   return (
@@ -382,6 +446,62 @@ export function LiveMeetingsClient({
 
       <div className="mt-14 flex flex-col gap-10 min-[1100px]:flex-row">
         <div className="min-w-0 flex-1 space-y-12">
+          <section>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-[24px] font-extrabold tracking-tight">Plans</h2>
+              <Button type="button" className="h-9 px-3" onClick={() => setPlanOpen(true)}>
+                New plan
+              </Button>
+            </div>
+            {plansError ? (
+              <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{plansError}</p>
+            ) : null}
+            {plans.length === 0 ? (
+              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No unattached plans.</p>
+            ) : (
+              <div className="mt-4 space-y-0">
+                {plans.map((plan) => (
+                  <div
+                    key={plan.id}
+                    className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
+                  >
+                    <Link href={`/live/scripts/${plan.id}`} className="min-w-0 flex-1 hover:underline">
+                      <p className="truncate text-[16px] font-bold">{plan.name}</p>
+                      <p className="mt-0.5 truncate text-[14px] text-[var(--jos-muted)]">
+                        {plan.outcomeSentence?.trim() || plan.description?.trim() || "No outcome sentence"}
+                      </p>
+                      <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
+                        {plan.itemCount} points
+                      </p>
+                    </Link>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {plan.itemCount > 0 ? (
+                        <Link
+                          href={`/live/scripts/${plan.id}/rehearse`}
+                          className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "h-8")}
+                        >
+                          Rehearse
+                        </Link>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8"
+                        onClick={() => {
+                          setAttachFor(plan.id);
+                          setAttachPrepId(upcomingMeetings[0]?.id ?? "");
+                        }}
+                      >
+                        Attach to a meeting
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-[24px] font-extrabold tracking-tight">Strategies</h2>
@@ -532,6 +652,138 @@ export function LiveMeetingsClient({
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New plan</DialogTitle>
+            <DialogDescription>
+              A meeting plan that is not tied to the calendar yet. Rehearse it, then attach it.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              createPlan();
+            }}
+          >
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">
+                Name <span className="text-[var(--jos-danger)]">*</span>
+              </span>
+              <input
+                required
+                value={planName}
+                maxLength={120}
+                className={cn(LIVE_FIELD, "h-11")}
+                onChange={(event) => setPlanName(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">Who it is for</span>
+              <input
+                value={planFor}
+                maxLength={200}
+                className={cn(LIVE_FIELD, "h-11")}
+                onChange={(event) => setPlanFor(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">Outcome sentence</span>
+              <textarea
+                value={planOutcome}
+                rows={2}
+                className={cn(LIVE_FIELD, "py-2")}
+                onChange={(event) => setPlanOutcome(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">Notes</span>
+              <textarea
+                value={planNotes}
+                rows={2}
+                className={cn(LIVE_FIELD, "py-2")}
+                onChange={(event) => setPlanNotes(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-[14px] font-semibold">Brief for AI draft</span>
+              <textarea
+                value={planBrief}
+                rows={3}
+                placeholder="Optional"
+                className={cn(LIVE_FIELD, "py-2")}
+                onChange={(event) => setPlanBrief(event.target.value)}
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setPlanOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="default" disabled={planSaving}>
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(attachFor)}
+        onOpenChange={(openState) => {
+          if (!openState) {
+            setAttachFor(null);
+            setAttachPrepId("");
+          }
+        }}
+      >
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Attach to a meeting</DialogTitle>
+            <DialogDescription>Meetings in the next 14 days.</DialogDescription>
+          </DialogHeader>
+          {upcomingMeetings.length === 0 ? (
+            <p className="text-[14px] text-[var(--jos-muted)]">No meetings in the next 14 days.</p>
+          ) : (
+            <div className="space-y-4">
+              <select
+                aria-label="Meeting"
+                value={attachPrepId}
+                className={cn(LIVE_FIELD, "h-11")}
+                onChange={(event) => setAttachPrepId(event.target.value)}
+              >
+                {upcomingMeetings.map((meeting) => (
+                  <option key={meeting.id} value={meeting.id}>
+                    {personLabel(meeting)} · {easternDate(meeting.startsAt)} {easternTime(meeting.startsAt)}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setAttachFor(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={attaching || !attachPrepId}
+                  onClick={() => attach("add")}
+                >
+                  Add
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={attaching || !attachPrepId}
+                  onClick={() => attach("replace")}
+                >
+                  Replace
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

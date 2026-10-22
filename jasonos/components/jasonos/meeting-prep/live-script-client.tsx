@@ -23,11 +23,13 @@ import type { PointResult } from "@/lib/server-actions/meeting-points";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
 import {
   applyLiveScript,
+  attachPlanToMeeting,
   proposeAdaptation,
   createLiveScriptItem,
   deleteLiveScript,
   deleteLiveScriptItem,
   draftLiveScriptItems,
+  promotePlanToStrategy,
   reorderLiveScriptItems,
   updateLiveScript,
   draftScriptItemReactions,
@@ -36,6 +38,56 @@ import {
   type LiveScriptItem,
 } from "@/lib/server-actions/live-scripts";
 import { cn } from "@/lib/utils";
+
+function PlanFields({ script }: { script: LiveScript }) {
+  const router = useRouter();
+  const serverKey = `${script.outcomeSentence ?? ""}\u0000${script.notes ?? ""}`;
+  const [outcome, setOutcome] = useState(script.outcomeSentence ?? "");
+  const [notes, setNotes] = useState(script.notes ?? "");
+  const [seen, setSeen] = useState(serverKey);
+  if (serverKey !== seen) {
+    setSeen(serverKey);
+    setOutcome(script.outcomeSentence ?? "");
+    setNotes(script.notes ?? "");
+  }
+
+  const save = (patch: { outcomeSentence?: string | null; notes?: string | null }) => {
+    void updateLiveScript(script.id, patch).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (patch.outcomeSentence !== undefined) setOutcome(patch.outcomeSentence ?? "");
+      if (patch.notes !== undefined) setNotes(patch.notes ?? "");
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="mt-5 grid gap-5 min-[900px]:grid-cols-2">
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Outcome sentence</span>
+        <UnfinishedField
+          value={outcome}
+          emptyLabel="Add a sentence"
+          placeholder="What you want out of this meeting"
+          inputClassName="text-[17px] font-semibold"
+          onSave={(next) => save({ outcomeSentence: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Notes</span>
+        <UnfinishedField
+          value={notes}
+          emptyLabel="Add a sentence"
+          placeholder="Who it is for, what you know"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ notes: next || null })}
+        />
+      </label>
+    </div>
+  );
+}
 
 function StrategyFields({ script }: { script: LiveScript }) {
   const router = useRouter();
@@ -189,6 +241,9 @@ export function LiveScriptClient({
   const [prepId, setPrepId] = useState("");
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [confirmPromote, setConfirmPromote] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const isPlan = script.kind === "plan";
 
   const markable = items.some((item) => item.kind !== "agenda");
   const selected = meetings.find((meeting) => meeting.id === prepId) ?? null;
@@ -200,7 +255,7 @@ export function LiveScriptClient({
   const saveName = (next: string) => {
     const name = next.trim();
     if (!name) {
-      toast.error("Name the strategy.");
+      toast.error(isPlan ? "Name the plan." : "Name the strategy.");
       return;
     }
     void updateLiveScript(script.id, { name }).then((result) => {
@@ -249,7 +304,10 @@ export function LiveScriptClient({
   const apply = (mode: "add" | "replace") => {
     if (!prepId) return;
     setApplying(true);
-    void applyLiveScript({ scriptId: script.id, prepId, mode }).then((result) => {
+    const run = isPlan
+      ? attachPlanToMeeting({ scriptId: script.id, prepId, mode })
+      : applyLiveScript({ scriptId: script.id, prepId, mode });
+    void run.then((result) => {
       setApplying(false);
       setConfirmReplace(false);
       if (!result.ok) {
@@ -259,12 +317,26 @@ export function LiveScriptClient({
       const count = result.added === 1 ? "1 point" : `${result.added} points`;
       toast.success(
         <span>
-          Added {count}.{" "}
+          {isPlan ? "Attached" : "Added"} {count}.{" "}
           <a className="underline" href={`/meetings/${prepId}`}>
             Open the meeting
           </a>
         </span>
       );
+      router.refresh();
+    });
+  };
+
+  const promote = () => {
+    setPromoting(true);
+    void promotePlanToStrategy(script.id).then((result) => {
+      setPromoting(false);
+      setConfirmPromote(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("This is now a strategy.");
       router.refresh();
     });
   };
@@ -278,12 +350,12 @@ export function LiveScriptClient({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>
-              Strategy · {usedLabel}
+              {isPlan ? "Plan" : `Strategy · ${usedLabel}`}
             </p>
             <InlineField
               value={script.name}
-              placeholder="Strategy name"
-              emptyLabel="Strategy name"
+              placeholder={isPlan ? "Plan name" : "Strategy name"}
+              emptyLabel={isPlan ? "Plan name" : "Strategy name"}
               maxLength={120}
               className="mt-1 text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
               onSave={saveName}
@@ -302,6 +374,33 @@ export function LiveScriptClient({
                 Rehearse
               </button>
             )}
+            {isPlan ? (
+              confirmPromote ? (
+                <p className="text-[13px]">
+                  Make this a strategy?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                    disabled={promoting}
+                    onClick={promote}
+                  >
+                    Confirm
+                  </button>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="font-semibold hover:underline"
+                    onClick={() => setConfirmPromote(false)}
+                  >
+                    Cancel
+                  </button>
+                </p>
+              ) : (
+                <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPromote(true)}>
+                  Make this a strategy
+                </Button>
+              )
+            ) : null}
             {confirmDelete ? (
               <p className="text-[13px]">
                 Delete?{" "}
@@ -325,7 +424,7 @@ export function LiveScriptClient({
             )}
           </div>
         </div>
-        <StrategyFields script={script} />
+        {isPlan ? <PlanFields script={script} /> : <StrategyFields script={script} />}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -357,9 +456,13 @@ export function LiveScriptClient({
       </div>
 
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t-2 border-[var(--jos-ink)] bg-[var(--jos-surface)] px-10 py-3">
-        <p className={LIVE_SECTION_LABEL}>Apply to a meeting</p>
+        <p className={LIVE_SECTION_LABEL}>
+          {isPlan ? "Attach to a meeting" : "Apply to a meeting"}
+        </p>
         {meetings.length === 0 ? (
-          <p className="text-[14px] text-[var(--jos-muted)]">No meetings today or tomorrow.</p>
+          <p className="text-[14px] text-[var(--jos-muted)]">
+            {isPlan ? "No meetings in the next 14 days." : "No meetings today or tomorrow."}
+          </p>
         ) : (
           <>
             <select
@@ -414,15 +517,17 @@ export function LiveScriptClient({
                 >
                   Replace
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="default"
-                  disabled={!prepId || applying}
-                  onClick={adapt}
-                >
-                  Adapt to {adaptName}
-                </Button>
+                {!isPlan ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="default"
+                    disabled={!prepId || applying}
+                    onClick={adapt}
+                  >
+                    Adapt to {adaptName}
+                  </Button>
+                ) : null}
               </>
             )}
           </>

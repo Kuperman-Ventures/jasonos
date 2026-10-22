@@ -79,6 +79,7 @@ import { rebuildBrowningPlan } from "@/lib/server-actions/browning-networking";
 import {
   acceptAdaptation,
   applyLiveScript,
+  attachPlanToMeeting,
   discardAdaptation,
   proposeAdaptation,
   saveMeetingPointsAsScript,
@@ -1301,7 +1302,12 @@ function PrepPoints({
   const apply = (mode: "add" | "replace") => {
     if (!scriptId) return;
     setApplying(true);
-    void applyLiveScript({ scriptId, prepId: prep.id, mode }).then((result) => {
+    const selected = scripts.find((script) => script.id === scriptId);
+    const run =
+      selected?.kind === "plan"
+        ? attachPlanToMeeting({ scriptId, prepId: prep.id, mode })
+        : applyLiveScript({ scriptId, prepId: prep.id, mode });
+    void run.then((result) => {
       setApplying(false);
       setConfirmReplace(false);
       if (!result.ok) {
@@ -1309,7 +1315,7 @@ function PrepPoints({
         return;
       }
       const count = result.added === 1 ? "1 point" : `${result.added} points`;
-      toast.success(`Added ${count}`);
+      toast.success(selected?.kind === "plan" ? `Attached ${count}` : `Added ${count}`);
       router.refresh();
     });
   };
@@ -1374,12 +1380,26 @@ function PrepPoints({
             setConfirmReplace(false);
           }}
         >
-          <option value="">{prep.scriptName || "Strategy"}</option>
-          {scripts.map((script) => (
-            <option key={script.id} value={script.id}>
-              {script.name}
+          <option value="">{prep.scriptName || "Start from a strategy"}</option>
+          {scripts
+            .filter((script) => script.kind !== "plan")
+            .map((script) => (
+              <option key={script.id} value={script.id}>
+                {script.name}
+              </option>
+            ))}
+          {scripts.some((script) => script.kind === "plan" && !script.attachedPrepId) ? (
+            <option disabled value="">
+              ——— Plans ———
             </option>
-          ))}
+          ) : null}
+          {scripts
+            .filter((script) => script.kind === "plan" && !script.attachedPrepId)
+            .map((script) => (
+              <option key={script.id} value={script.id}>
+                Plan: {script.name}
+              </option>
+            ))}
         </select>
         {scriptId ? (
           confirmReplace ? (
@@ -1406,13 +1426,24 @@ function PrepPoints({
               <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={() => setConfirmReplace(true)}>
                 Replace
               </Button>
-              <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={adapt}>
-                Adapt to {first}
-              </Button>
+              {selectedScript?.kind !== "plan" ? (
+                <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={adapt}>
+                  Adapt to {first}
+                </Button>
+              ) : null}
             </>
           )
         ) : (
-          <Button type="button" size="sm" variant="secondary" disabled={!scripts.length} onClick={() => scripts[0] && setScriptId(scripts[0].id)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={!scripts.some((script) => script.kind !== "plan")}
+            onClick={() => {
+              const firstStrategy = scripts.find((script) => script.kind !== "plan");
+              if (firstStrategy) setScriptId(firstStrategy.id);
+            }}
+          >
             Adapt to {first}
           </Button>
         )}

@@ -23,10 +23,7 @@ export default async function LiveScriptPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [loaded, meetingsResult] = await Promise.all([
-    getLiveScript(id),
-    getUpcomingMeetingPreps(2),
-  ]);
+  const loaded = await getLiveScript(id);
   if (!loaded.ok) {
     if (loaded.error === "Strategy not found.") notFound();
     return (
@@ -35,6 +32,9 @@ export default async function LiveScriptPage({
       </div>
     );
   }
+  const meetingsResult = await getUpcomingMeetingPreps(
+    loaded.script.kind === "plan" ? 14 : 2
+  );
   return (
     <LiveScriptClient
       script={loaded.script}

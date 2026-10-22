@@ -612,8 +612,25 @@ async function getMeetingPrepsForDays(
         ];
       })
     );
+    const planNames = new Map<string, string>();
+    if (prepIds.length) {
+      const { data: planRows } = await sb
+        .from("live_scripts")
+        .select("name, attached_prep_id")
+        .eq("kind", "plan")
+        .in("attached_prep_id", prepIds);
+      for (const row of planRows ?? []) {
+        const prepId = row.attached_prep_id as string | null;
+        const name = String(row.name ?? "").trim();
+        if (prepId && name) planNames.set(prepId, name);
+      }
+    }
+
     for (const meeting of meetings) {
       if (meeting.scriptId) meeting.scriptName = scriptNames.get(meeting.scriptId) || null;
+      else if (planNames.has(meeting.id)) {
+        meeting.scriptName = `From plan: ${planNames.get(meeting.id)}`;
+      }
       if (meeting.primaryContactId) {
         const meta = contactMeta.get(meeting.primaryContactId);
         meeting.primaryContactName = meta?.name ?? meeting.primaryContactName;
@@ -754,6 +771,16 @@ export async function getMeetingPrep(
       .eq("id", scriptId)
       .maybeSingle();
     prep.scriptName = (script?.name as string | undefined)?.trim() || null;
+  } else {
+    const { data: plan } = await sb
+      .from("live_scripts")
+      .select("name")
+      .eq("kind", "plan")
+      .eq("attached_prep_id", prep.id)
+      .order("attached_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (plan?.name) prep.scriptName = `From plan: ${String(plan.name).trim()}`;
   }
   if (prep.adaptedFromScriptId) {
     const { data: adapted } = await sb
