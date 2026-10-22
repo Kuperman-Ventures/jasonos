@@ -5,6 +5,11 @@ import {
   listICloudCalendars,
 } from "@/lib/integrations/icloud-caldav";
 import {
+  dedupeAcrossLanes,
+  dedupeOccurrences,
+  filterEventsToWindow,
+} from "./dedupe";
+import {
   FAMILY_CALENDAR_GROUPS,
   pickBestCalendarForGroup,
   scoreCalendarGroupMatch,
@@ -76,10 +81,11 @@ export async function loadFamilyMeetingAgenda(
   }
 
   const warnings: string[] = [];
-  const byGroup = new Map<
-    string,
-    { calendarName: string; calendarHref: string; events: FamilyMeetingEvent[] }
-  >();
+  const rawLanes: {
+    groupId: (typeof FAMILY_CALENDAR_GROUPS)[number]["id"];
+    calendarName: string;
+    events: FamilyMeetingEvent[];
+  }[] = [];
 
   for (const group of FAMILY_CALENDAR_GROUPS) {
     const candidates = listed.calendars.filter(
@@ -107,37 +113,49 @@ export async function loadFamilyMeetingAgenda(
       warnings.push(`${picked.name}: ${fetched.error}`);
     }
 
-    const events: FamilyMeetingEvent[] = fetched.events
-      .map((ev) => ({
-        id: ev.uid || ev.href || `${picked.name}-${ev.startsAt}`,
-        uid: ev.uid,
-        title: ev.summary,
-        startsAt: ev.startsAt,
-        endsAt: ev.endsAt,
-        allDay: ev.allDay,
-        location: ev.location,
-        notes: ev.description,
-        calendarName: picked.name,
-        calendarHref: picked.href,
-        groupId: group.id,
-      }))
-      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-
-    byGroup.set(group.id, {
+    const mapped: FamilyMeetingEvent[] = fetched.events.map((ev) => ({
+      id: `${ev.uid || ev.href || picked.name}-${ev.startsAt}`,
+      uid: ev.uid,
+      title: ev.summary,
+      startsAt: ev.startsAt,
+      endsAt: ev.endsAt,
+      allDay: ev.allDay,
+      location: ev.location,
+      notes: ev.description,
       calendarName: picked.name,
       calendarHref: picked.href,
-      events,
+      groupId: group.id,
+    }));
+
+    const inWindow = filterEventsToWindow(
+      mapped,
+      window.start,
+      window.end,
+      FAMILY_MEETING_TIMEZONE
+    );
+    const unique = dedupeOccurrences(inWindow).sort((a, b) =>
+      a.startsAt.localeCompare(b.startsAt)
+    );
+
+    rawLanes.push({
+      groupId: group.id,
+      calendarName: picked.name,
+      events: unique,
     });
   }
 
+  const deduped = dedupeAcrossLanes(
+    rawLanes.map((lane) => ({ groupId: lane.groupId, events: lane.events }))
+  );
+
   const groups: FamilyMeetingGroupAgenda[] = FAMILY_CALENDAR_GROUPS.map(
     (group) => {
-      const hit = byGroup.get(group.id);
+      const lane = rawLanes.find((l) => l.groupId === group.id);
       return {
         group,
-        calendarName: hit?.calendarName ?? null,
-        events: hit?.events ?? [],
-        missingCalendar: !hit,
+        calendarName: lane?.calendarName ?? null,
+        events: deduped.get(group.id) ?? [],
+        missingCalendar: !lane,
       };
     }
   );

@@ -25,7 +25,7 @@ END:VCALENDAR`;
     assert.equal(events[0]!.startsAt, "2026-10-24T09:00:00.000Z");
   });
 
-  it("parses an all-day event", () => {
+  it("parses an all-day event as local midnight", () => {
     const ics = `BEGIN:VEVENT
 UID:day-1
 SUMMARY:Camping
@@ -36,5 +36,7 @@ END:VEVENT`;
     assert.equal(events.length, 1);
     assert.equal(events[0]!.allDay, true);
     assert.equal(events[0]!.summary, "Camping");
+    // 2026-10-25 is still EDT (UTC-4).
+    assert.equal(events[0]!.startsAt, "2026-10-25T04:00:00.000Z");
   });
 });

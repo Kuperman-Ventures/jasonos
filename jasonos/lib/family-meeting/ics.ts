@@ -51,11 +51,13 @@ export function parseIcsDateTime(
   const isDateOnly = /VALUE=DATE/i.test(params) || /^\d{8}$/.test(value);
 
   if (isDateOnly) {
-    const y = value.slice(0, 4);
-    const mo = value.slice(4, 6);
-    const d = value.slice(6, 8);
-    if (y.length !== 4) return null;
-    return { iso: `${y}-${mo}-${d}T00:00:00.000Z`, allDay: true };
+    const y = Number(value.slice(0, 4));
+    const mo = Number(value.slice(4, 6));
+    const d = Number(value.slice(6, 8));
+    if (!y || !mo || !d) return null;
+    // Local midnight America/New_York so window filters match calendar days.
+    const instant = zonedLocalDate("America/New_York", y, mo, d, 0, 0);
+    return { iso: instant.toISOString(), allDay: true };
   }
 
   const m = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/);

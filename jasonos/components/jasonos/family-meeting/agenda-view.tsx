@@ -55,7 +55,7 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
               <strong>{agenda.totalEvents}</strong> items
             </span>
             <span className="fm-chip">
-              14 days · {agenda.timezone.replace("_", " ")}
+              2 weeks · {agenda.timezone.replace("_", " ")}
             </span>
             {agenda.connected && agenda.appleIdMasked ? (
               <span className="fm-chip">
