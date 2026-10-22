@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import {
   FAMILY_MEETING_TIMEZONE,
-  upcomingWeekendWindow,
+  upcomingAgendaWindow,
 } from "./weekend";
 
 function emptyAgenda(partial: {
@@ -25,7 +25,7 @@ function emptyAgenda(partial: {
   appleIdMasked: string | null;
   error: string | null;
   warnings?: string[];
-  window: ReturnType<typeof upcomingWeekendWindow>;
+  window: ReturnType<typeof upcomingAgendaWindow>;
 }): FamilyMeetingAgenda {
   const groups: FamilyMeetingGroupAgenda[] = FAMILY_CALENDAR_GROUPS.map(
     (group) => ({
@@ -53,7 +53,7 @@ function emptyAgenda(partial: {
 export async function loadFamilyMeetingAgenda(
   now: Date = new Date()
 ): Promise<FamilyMeetingAgenda> {
-  const window = upcomingWeekendWindow(now);
+  const window = upcomingAgendaWindow(now);
   const creds = await resolveICloudCalendarConnection();
 
   if (!creds) {

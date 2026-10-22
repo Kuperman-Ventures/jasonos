@@ -1,16 +1,22 @@
-/** America/New_York weekend window for the Family Meeting agenda. */
+/** America/New_York lookahead window for the Family Meeting agenda. */
 
 export const FAMILY_MEETING_TIMEZONE = "America/New_York";
 
-export interface WeekendWindow {
-  /** Inclusive start (Friday 5pm local). */
+/** How far the weekend meeting looks ahead (weekdays + weekends). */
+export const FAMILY_MEETING_LOOKAHEAD_DAYS = 14;
+
+export interface AgendaWindow {
+  /** Inclusive start (local midnight today). */
   start: Date;
-  /** Exclusive end (Monday 00:00 local). */
+  /** Exclusive end (local midnight after the last day). */
   end: Date;
-  /** Friday date of this weekend, YYYY-MM-DD in local tz. */
-  fridayKey: string;
+  /** Start date YYYY-MM-DD in local tz. */
+  startKey: string;
   label: string;
 }
+
+/** @deprecated Use AgendaWindow — kept for older call sites. */
+export type WeekendWindow = AgendaWindow;
 
 function partsInTz(date: Date, timeZone: string) {
   const fmt = new Intl.DateTimeFormat("en-US", {
@@ -61,7 +67,6 @@ export function zonedLocalDate(
 }
 
 function addLocalDays(
-  timeZone: string,
   year: number,
   month: number,
   day: number,
@@ -75,87 +80,69 @@ function addLocalDays(
   };
 }
 
-const WEEKDAY_INDEX: Record<string, number> = {
-  Sun: 0,
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-};
+function ymdKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 /**
- * Upcoming family weekend: Friday 5pm → Monday midnight (America/New_York).
- * Before Friday 5pm, this is the coming weekend. From Friday 5pm through
- * Sunday, it is the current weekend.
+ * Coming two weeks for the Family Meeting agenda (America/New_York).
+ * The meeting happens on the weekend; the board looks forward across
+ * weekdays and weekends from local midnight today through 14 days.
  */
-export function upcomingWeekendWindow(
+export function upcomingAgendaWindow(
   now: Date = new Date(),
-  timeZone: string = FAMILY_MEETING_TIMEZONE
-): WeekendWindow {
+  timeZone: string = FAMILY_MEETING_TIMEZONE,
+  days: number = FAMILY_MEETING_LOOKAHEAD_DAYS
+): AgendaWindow {
   const local = partsInTz(now, timeZone);
-  const dow = WEEKDAY_INDEX[local.weekday] ?? 0;
-
-  let fridayOffset: number;
-  if (dow === 5) {
-    // Friday: before 5pm → this Friday; after → this weekend (offset 0).
-    fridayOffset = local.hour < 17 ? 0 : 0;
-  } else if (dow === 6) {
-    fridayOffset = -1;
-  } else if (dow === 0) {
-    fridayOffset = -2;
-  } else {
-    // Mon–Thu → upcoming Friday
-    fridayOffset = 5 - dow;
-  }
-
-  const friday = addLocalDays(
+  const start = zonedLocalDate(
     timeZone,
     local.year,
     local.month,
     local.day,
-    fridayOffset
-  );
-  const monday = addLocalDays(timeZone, friday.year, friday.month, friday.day, 3);
-
-  const start = zonedLocalDate(
-    timeZone,
-    friday.year,
-    friday.month,
-    friday.day,
-    17,
+    0,
     0
   );
+  const endDay = addLocalDays(local.year, local.month, local.day, days);
   const end = zonedLocalDate(
     timeZone,
-    monday.year,
-    monday.month,
-    monday.day,
+    endDay.year,
+    endDay.month,
+    endDay.day,
     0,
     0
   );
 
-  const fridayKey = `${friday.year}-${String(friday.month).padStart(2, "0")}-${String(friday.day).padStart(2, "0")}`;
-  const sat = addLocalDays(timeZone, friday.year, friday.month, friday.day, 1);
-  const sun = addLocalDays(timeZone, friday.year, friday.month, friday.day, 2);
-
+  const lastInclusive = addLocalDays(local.year, local.month, local.day, days - 1);
   const monthDay = new Intl.DateTimeFormat("en-US", {
     timeZone,
     month: "short",
     day: "numeric",
   });
-  const satLabel = monthDay.format(
-    zonedLocalDate(timeZone, sat.year, sat.month, sat.day, 12, 0)
-  );
-  const sunLabel = monthDay.format(
-    zonedLocalDate(timeZone, sun.year, sun.month, sun.day, 12, 0)
+  const startLabel = monthDay.format(start);
+  const endLabel = monthDay.format(
+    zonedLocalDate(
+      timeZone,
+      lastInclusive.year,
+      lastInclusive.month,
+      lastInclusive.day,
+      12,
+      0
+    )
   );
 
   return {
     start,
     end,
-    fridayKey,
-    label: `${satLabel} – ${sunLabel}`,
+    startKey: ymdKey(local.year, local.month, local.day),
+    label: `${startLabel} – ${endLabel}`,
   };
+}
+
+/** @deprecated Use upcomingAgendaWindow. */
+export function upcomingWeekendWindow(
+  now: Date = new Date(),
+  timeZone: string = FAMILY_MEETING_TIMEZONE
+): AgendaWindow {
+  return upcomingAgendaWindow(now, timeZone);
 }
