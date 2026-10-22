@@ -4,7 +4,11 @@ import {
   fetchICloudCalendarEvents,
   listICloudCalendars,
 } from "@/lib/integrations/icloud-caldav";
-import { FAMILY_CALENDAR_GROUPS, matchCalendarGroup } from "./groups";
+import {
+  FAMILY_CALENDAR_GROUPS,
+  pickBestCalendarForGroup,
+  scoreCalendarGroupMatch,
+} from "./groups";
 import { maskAppleId, resolveICloudCalendarConnection } from "./icloud";
 import type {
   FamilyMeetingAgenda,
@@ -77,29 +81,35 @@ export async function loadFamilyMeetingAgenda(
     { calendarName: string; calendarHref: string; events: FamilyMeetingEvent[] }
   >();
 
-  for (const cal of listed.calendars) {
-    const group = matchCalendarGroup(cal.name);
-    if (!group) continue;
-    if (byGroup.has(group.id)) {
+  for (const group of FAMILY_CALENDAR_GROUPS) {
+    const candidates = listed.calendars.filter(
+      (cal) => scoreCalendarGroupMatch(cal.name, group) > 0
+    );
+    const picked = pickBestCalendarForGroup(group, candidates);
+    if (!picked) continue;
+
+    const skipped = candidates
+      .filter((cal) => cal.href !== picked.href)
+      .map((cal) => cal.name);
+    if (skipped.length) {
       warnings.push(
-        `Multiple calendars matched “${group.label}” — using “${byGroup.get(group.id)!.calendarName}”, also saw “${cal.name}”.`
+        `Multiple calendars matched “${group.label}” — using “${picked.name}” (also saw ${skipped.join(", ")}).`
       );
-      continue;
     }
 
     const fetched = await fetchICloudCalendarEvents({
       creds,
-      calendarHref: cal.href,
+      calendarHref: picked.href,
       timeMin: window.start,
       timeMax: window.end,
     });
     if (fetched.error) {
-      warnings.push(`${cal.name}: ${fetched.error}`);
+      warnings.push(`${picked.name}: ${fetched.error}`);
     }
 
     const events: FamilyMeetingEvent[] = fetched.events
       .map((ev) => ({
-        id: ev.uid || ev.href || `${cal.name}-${ev.startsAt}`,
+        id: ev.uid || ev.href || `${picked.name}-${ev.startsAt}`,
         uid: ev.uid,
         title: ev.summary,
         startsAt: ev.startsAt,
@@ -107,15 +117,15 @@ export async function loadFamilyMeetingAgenda(
         allDay: ev.allDay,
         location: ev.location,
         notes: ev.description,
-        calendarName: cal.name,
-        calendarHref: cal.href,
+        calendarName: picked.name,
+        calendarHref: picked.href,
         groupId: group.id,
       }))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
     byGroup.set(group.id, {
-      calendarName: cal.name,
-      calendarHref: cal.href,
+      calendarName: picked.name,
+      calendarHref: picked.href,
       events,
     });
   }
