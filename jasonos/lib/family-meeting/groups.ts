@@ -1,6 +1,6 @@
 import type { FamilyCalendarGroup, FamilyCalendarGroupId } from "./types";
 
-/** People-group calendars that feed the weekend Family Meeting agenda. */
+/** People-group calendars that feed the Family Meeting two-week agenda. */
 export const FAMILY_CALENDAR_GROUPS: FamilyCalendarGroup[] = [
   {
     id: "family",

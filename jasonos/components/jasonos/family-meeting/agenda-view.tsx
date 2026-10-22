@@ -4,9 +4,12 @@ import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
 
 function formatEventTime(ev: FamilyMeetingEvent): { day: string; time: string } {
   const start = new Date(ev.startsAt);
+  // Two-week board: include month/day so two Saturdays don't collide.
   const day = new Intl.DateTimeFormat("en-US", {
     timeZone: FAMILY_MEETING_TIMEZONE,
     weekday: "short",
+    month: "short",
+    day: "numeric",
   }).format(start);
 
   if (ev.allDay) {
@@ -31,21 +34,21 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
             <span className="fm-kicker-dot" aria-hidden />
             <span>Family Meeting</span>
             <span>·</span>
-            <span>Weekend agenda</span>
+            <span>Next two weeks</span>
           </div>
           <h1 className="fm-title">
-            This weekend, <em>{agenda.weekendLabel}</em>
+            Coming up, <em>{agenda.weekendLabel}</em>
           </h1>
           <p className="fm-lede">
-            Agenda built from the Family, Kat &amp; Jason, Kyle, and Wyatt
-            calendars — what needs airtime before Monday.
+            Weekend meeting agenda from the Family, Kat &amp; Jason, Kyle, and
+            Wyatt calendars — weekdays and weekends for the next two weeks.
           </p>
           <div className="fm-meta">
             <span className="fm-chip">
               <strong>{agenda.totalEvents}</strong> items
             </span>
             <span className="fm-chip">
-              Fri 5pm → Sun night · {agenda.timezone.replace("_", " ")}
+              14 days · {agenda.timezone.replace("_", " ")}
             </span>
             {agenda.connected && agenda.appleIdMasked ? (
               <span className="fm-chip">
@@ -108,8 +111,8 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
 
               {lane.events.length === 0 ? (
                 <p className="fm-empty">
-                  {agenda.connected
-                    ? "Nothing on this calendar for the weekend."
+                    {agenda.connected
+                    ? "Nothing on this calendar in the next two weeks."
                     : "Events appear here once iCloud is connected."}
                 </p>
               ) : (
