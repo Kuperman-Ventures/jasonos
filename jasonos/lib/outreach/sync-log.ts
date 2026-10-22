@@ -18,6 +18,7 @@ export type SyncLogSource =
   | "suggested"
   | "sent-followups"
   | "meeting-followups"
+  | "commitments"
   | "browning";
 
 export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
@@ -29,6 +30,7 @@ export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   suggested: "Suggested",
   "sent-followups": "Sent follow-ups",
   "meeting-followups": "Follow Up",
+  commitments: "Commitments",
   browning: "Browning",
   "job-alerts": "Job Alerts",
 };
@@ -69,6 +71,7 @@ const SOURCE_ORDER = [
   "suggested",
   "sent-followups",
   "meeting-followups",
+  "commitments",
   "hubspot",
   "browning",
   "job-alerts",

@@ -2,15 +2,17 @@
 // POST /api/sync/daily
 //
 // Daily Sync — the same Home / Follow Up feeders as the top-bar Sync button,
-// with a 7-day lookback (button keeps 90). Browning and Job Alerts stay on
-// their own crons. These server actions use the service-role client (no
-// signed-in browser session), matching the Browning cron path.
+// with a 7-day lookback (button keeps 90). Includes Granola-backed Commitments
+// after Meeting Follow Up. Browning and Job Alerts stay on their own crons.
+// These server actions use the service-role client (no signed-in browser
+// session), matching the Browning cron path.
 
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { SUGGESTED_SCAN_DAYS_FORWARD } from "@/lib/outreach/suggested-scan";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
+import { scanCommitmentsFromSurfaces } from "@/lib/server-actions/commitment-scan";
 import { captureMeetingFollowups } from "@/lib/server-actions/meeting-followups";
 import {
   listSyncTargets,
@@ -138,6 +140,20 @@ async function runDailySync() {
           : String(result.reason),
     };
   });
+
+  // After meeting follow-ups so Granola backfill is available for Commitments.
+  try {
+    steps.push({
+      step: "commitments",
+      ...asStep(await scanCommitmentsFromSurfaces({ runId, daysBack: DAYS_BACK })),
+    });
+  } catch (err) {
+    steps.push({
+      step: "commitments",
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   try {
     const provocations = await researchPendingWeeklyProvocations(1);

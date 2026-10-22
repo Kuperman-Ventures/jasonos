@@ -256,7 +256,7 @@ export async function generateFirstContactDraft(input: {
   const [hubspot, gmail, granola, fireflies] = await Promise.allSettled([
     withTimeout(gatherHubSpotHistory(contact), 5_000, { found: false }),
     withTimeout(gatherGmailHistory(contact), 5_000, { found: false }),
-    withTimeout(gatherGranolaHistory(contact), 5_000, { found: false }),
+    withTimeout(gatherGranolaHistory(contact), 20_000, { found: false }),
     withTimeout(gatherFirefliesHistory(contact), 5_000, { found: false }),
   ]);
 

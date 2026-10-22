@@ -144,10 +144,25 @@ export function formatSyncSummary(
     const updated = num(payload, "updated");
     const resolved = num(payload, "resolved");
     const scanned = num(payload, "scanned");
+    const granolaEnriched = num(payload, "granolaEnriched");
     const parts = [`+${created} follow-up${created === 1 ? "" : "s"}`];
     if (updated) parts.push(`${updated} refreshed`);
     if (resolved) parts.push(`${resolved} cleared`);
+    if (granolaEnriched) {
+      parts.push(
+        `${granolaEnriched} Granola note${granolaEnriched === 1 ? "" : "s"}`
+      );
+    }
     if (scanned) parts.push(`${scanned} meetings`);
+    if (issues.length) parts.push(issues.join(" · "));
+    return parts.join(" · ");
+  }
+
+  if (source === "commitments") {
+    const published = num(payload, "inserted");
+    const scanned = num(payload, "matched");
+    const parts = [`${published} open`];
+    if (scanned) parts.push(`${scanned} notes scanned`);
     if (issues.length) parts.push(issues.join(" · "));
     return parts.join(" · ");
   }
