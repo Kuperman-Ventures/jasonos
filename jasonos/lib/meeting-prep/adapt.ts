@@ -2,6 +2,7 @@ import {
   buildMeetingPointsUserMessage,
   clampDetail,
   clampHeadline,
+  clampListenFor,
   type DraftPromptInput,
   type PointKind,
   POINT_KINDS,
@@ -34,6 +35,7 @@ export interface AdaptedItem {
   prepareReactions: boolean;
   reactions: Reaction[];
   sourceHint: string | null;
+  listenFor: string | null;
   dropped: boolean;
   droppedReason: string | null;
   added: boolean;
@@ -133,6 +135,7 @@ interface Candidate {
   detail: string | null;
   reactions: Reaction[] | "invalid" | null;
   sourceHint: string | null;
+  listenFor: string | null;
   dropped: boolean;
   droppedReason: string | null;
 }
@@ -154,6 +157,13 @@ function readCandidate(value: unknown): Candidate | null {
     detail,
     reactions: readReactions(row.reactions),
     sourceHint: oneLine(row.source_hint ?? row.sourceHint, 160),
+    listenFor: clampListenFor(
+      typeof row.listen_for === "string"
+        ? row.listen_for
+        : typeof row.listenFor === "string"
+          ? row.listenFor
+          : null
+    ),
     dropped,
     droppedReason: oneLine(row.dropped_reason ?? row.droppedReason, 240),
   };
@@ -209,6 +219,7 @@ export function parseAdaptation(
       prepareReactions: strategy.prepareReactions,
       reactions: strategy.prepareReactions ? reactions : [],
       sourceHint: candidate.dropped ? reason : candidate.sourceHint,
+      listenFor: strategy.kind === "question" ? candidate.listenFor : null,
       dropped: candidate.dropped,
       droppedReason: reason,
       added: false,
@@ -229,6 +240,7 @@ export function parseAdaptation(
       prepareReactions: Boolean(extra.reactions),
       reactions: extra.reactions ?? [],
       sourceHint: extra.sourceHint,
+      listenFor: extra.kind === "question" ? extra.listenFor : null,
       dropped: false,
       droppedReason: null,
       added: true,

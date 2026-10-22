@@ -93,6 +93,7 @@ function pointSignature(points: MeetingPoint[]): string {
         point.kind,
         point.headline,
         point.detail ?? "",
+        point.listenFor ?? "",
         point.state,
         point.note ?? "",
         point.sourceHint ?? "",
@@ -101,6 +102,24 @@ function pointSignature(points: MeetingPoint[]): string {
       ].join("\u001f")
     )
     .join("\u001e");
+}
+
+/** Listen-for phrases still open in the agenda section that contains currentId. */
+function listenForStrip(points: MeetingPoint[], currentId: string | null): string | null {
+  if (!currentId) return null;
+  const index = points.findIndex((point) => point.id === currentId);
+  if (index < 0) return null;
+  let start = index;
+  while (start > 0 && points[start].kind !== "agenda") start -= 1;
+  if (points[start]?.kind !== "agenda") return null;
+  let end = index + 1;
+  while (end < points.length && points[end].kind !== "agenda") end += 1;
+  const phrases = points
+    .slice(start, end)
+    .filter((point) => point.kind !== "agenda" && point.state !== "covered" && point.listenFor?.trim())
+    .map((point) => point.listenFor!.trim());
+  if (!phrases.length) return null;
+  return phrases.join(" · ");
 }
 
 function hasReactionTray(point: MeetingPoint | null): boolean {
@@ -155,6 +174,8 @@ export function LiveCallClient({
   const outcomeNoteRef = useRef("");
   const submittingRef = useRef(false);
   const [marking, setMarking] = useState(false);
+  const [askGuard, setAskGuard] = useState<{ id: string; headline: string } | null>(null);
+  const [askGuardCleared, setAskGuardCleared] = useState(false);
   const [chosen, setChosen] = useState<OutcomeChoice | null>(null);
   const [outcomeNote, setOutcomeNote] = useState("");
   const [selectedReaction, setSelectedReaction] = useState<ReactionShape | null>(null);
@@ -473,6 +494,18 @@ export function LiveCallClient({
 
   const finish = () => {
     if (session.onDone === "mark") {
+      const openAsk = rowsRef.current.find(
+        (point) =>
+          point.kind === "ask" && (point.state === "open" || point.state === "skipped")
+      );
+      if (openAsk && !askGuardCleared) {
+        setAskGuard({ id: openAsk.id, headline: openAsk.headline });
+        setMarking(true);
+        setChosen(null);
+        chosenRef.current = null;
+        return;
+      }
+      setAskGuard(null);
       setMarking(true);
       return;
     }
@@ -494,13 +527,15 @@ export function LiveCallClient({
     session.badge === "rehearsal"
       ? "Rehearsal"
       : [session.personLabel, session.companyLabel].filter(Boolean).join(" · ") || session.timeLabel;
+  const listening = listenForStrip(rows, currentId);
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]">
       <header
-        className="flex shrink-0 items-center gap-4 border-b border-[var(--jos-line)] px-5"
-        style={{ height: LIVE_HEADER_H }}
+        className="flex shrink-0 flex-col justify-center border-b border-[var(--jos-line)] px-5"
+        style={{ minHeight: LIVE_HEADER_H }}
       >
+        <div className="flex items-center gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight">
             {headerTitle}
@@ -551,6 +586,12 @@ export function LiveCallClient({
             Done
           </Button>
         </div>
+        </div>
+        {listening ? (
+          <p className="truncate pb-2 text-[13px] text-[var(--jos-muted)]">
+            Listening for: {listening}
+          </p>
+        ) : null}
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -710,28 +751,66 @@ export function LiveCallClient({
         </section>
       </div>
 
-      <Dialog open={marking} onOpenChange={(open) => !open && setMarking(false)}>
+      <Dialog
+        open={marking}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMarking(false);
+            setAskGuard(null);
+            setAskGuardCleared(false);
+          }
+        }}
+      >
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
               Outcome
             </DialogTitle>
           </DialogHeader>
-          <OutcomeDialogBody
-            sentence={session.outcomeSentence}
-            chosen={chosen}
-            note={outcomeNote}
-            onChoose={(markChoice) => {
-              chosenRef.current = markChoice;
-              setChosen(markChoice);
-            }}
-            onNote={(value) => {
-              outcomeNoteRef.current = value;
-              setOutcomeNote(value);
-            }}
-            onConfirm={confirmOutcome}
-            onSkip={leave}
-          />
+          {askGuard && !askGuardCleared ? (
+            <div className="space-y-4">
+              <p className="text-[18px] font-semibold leading-snug">
+                The ask was not made: {askGuard.headline}. Mark anyway?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => {
+                    setMarking(false);
+                    setAskGuardCleared(false);
+                    setAskGuard(null);
+                    select(askGuard.id);
+                  }}
+                >
+                  Go back to the ask
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAskGuardCleared(true)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <OutcomeDialogBody
+              sentence={session.outcomeSentence}
+              chosen={chosen}
+              note={outcomeNote}
+              onChoose={(markChoice) => {
+                chosenRef.current = markChoice;
+                setChosen(markChoice);
+              }}
+              onNote={(value) => {
+                outcomeNoteRef.current = value;
+                setOutcomeNote(value);
+              }}
+              onConfirm={confirmOutcome}
+              onSkip={leave}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -7,6 +7,14 @@ export interface DraftPoint {
   headline: string;
   detail: string | null;
   sourceHint: string | null;
+  listenFor: string | null;
+}
+
+export function clampListenFor(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/\s+/g, " ");
+  if (!text) return null;
+  return text.length <= 160 ? text : text.slice(0, 160).trim();
 }
 
 export interface DraftPromptInput {
@@ -186,7 +194,18 @@ export function parseDraftPoints(text: string): DraftPoint[] | null {
       typeof sourceHint === "string" && sourceHint.trim()
         ? sourceHint.trim().replace(/\s+/g, " ").slice(0, 160)
         : null;
-    drafts.push({ kind: kind as PointKind, headline: clean, detail: cleanDetail, sourceHint: hint });
+    const listenRaw =
+      (item as { listen_for?: unknown }).listen_for ??
+      (item as { listenFor?: unknown }).listenFor;
+    const listenFor =
+      kind === "question" ? clampListenFor(typeof listenRaw === "string" ? listenRaw : null) : null;
+    drafts.push({
+      kind: kind as PointKind,
+      headline: clean,
+      detail: cleanDetail,
+      sourceHint: hint,
+      listenFor,
+    });
     if (drafts.length === 9) break;
   }
   return drafts.length ? drafts : null;

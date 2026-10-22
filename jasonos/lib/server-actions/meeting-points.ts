@@ -225,6 +225,7 @@ export async function createMeetingPoint(input: {
   kind: PointKind;
   headline: string;
   detail?: string | null;
+  listenFor?: string | null;
   position?: number;
 }): Promise<PointResult<{ point: MeetingPoint }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
@@ -242,6 +243,11 @@ export async function createMeetingPoint(input: {
     position = appended.position;
   }
 
+  const listenFor =
+    typeof input.listenFor === "string" && input.listenFor.trim()
+      ? input.listenFor.trim().replace(/\s+/g, " ").slice(0, 160)
+      : null;
+
   const { data, error } = await sb
     .from("meeting_points")
     .insert({
@@ -250,6 +256,7 @@ export async function createMeetingPoint(input: {
       kind: input.kind,
       headline,
       detail: cleanDetail(input.detail),
+      listen_for: listenFor,
       state: "open",
       source: "user",
       edited_by_user: true,
@@ -268,6 +275,7 @@ export async function updateMeetingPoint(
     kind?: PointKind;
     headline?: string;
     detail?: string | null;
+    listenFor?: string | null;
     prepareReactions?: boolean;
     reactions?: Reaction[];
   }
@@ -277,7 +285,12 @@ export async function updateMeetingPoint(
   if (!pointId) return { ok: false, error: "Point not found." };
 
   const update: Record<string, unknown> = {};
-  if (patch.kind != null || patch.headline != null || patch.detail !== undefined) {
+  if (
+    patch.kind != null ||
+    patch.headline != null ||
+    patch.detail !== undefined ||
+    patch.listenFor !== undefined
+  ) {
     update.edited_by_user = true;
   }
   if (patch.kind != null) {
@@ -290,6 +303,12 @@ export async function updateMeetingPoint(
     update.headline = headline;
   }
   if (patch.detail !== undefined) update.detail = cleanDetail(patch.detail);
+  if (patch.listenFor !== undefined) {
+    update.listen_for =
+      typeof patch.listenFor === "string" && patch.listenFor.trim()
+        ? patch.listenFor.trim().replace(/\s+/g, " ").slice(0, 160)
+        : null;
+  }
   if (patch.prepareReactions !== undefined) update.prepare_reactions = Boolean(patch.prepareReactions);
   if (patch.reactions !== undefined) {
     const stored = parseReactions(JSON.stringify(patch.reactions));
@@ -522,6 +541,7 @@ export async function draftMeetingPoints(
       kind: point.kind,
       headline: point.headline,
       detail: point.detail,
+      listen_for: point.listenFor,
       state: "open",
       source: "ai",
       edited_by_user: false,

@@ -58,6 +58,7 @@ export interface LiveScriptItem {
   kind: PointKind;
   headline: string;
   detail: string | null;
+  listenFor: string | null;
   prepareReactions: boolean;
   reactions: Reaction[];
 }
@@ -82,6 +83,7 @@ interface ItemRow {
   kind: string;
   headline: string;
   detail: string | null;
+  listen_for?: string | null;
   prepare_reactions?: boolean | null;
   reactions?: unknown;
 }
@@ -91,7 +93,7 @@ const SHAPE_SET = new Set<string>(REACTION_SHAPES);
 const SCRIPT_COLUMNS =
   "id, name, description, situation, success_sentence, rubric, methodology_source, use_count, last_used_at, updated_at";
 const ITEM_COLUMNS =
-  "id, script_id, position, kind, headline, detail, prepare_reactions, reactions";
+  "id, script_id, position, kind, headline, detail, listen_for, prepare_reactions, reactions";
 
 function rubricLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -198,6 +200,7 @@ function toItem(row: ItemRow): LiveScriptItem {
     kind: asKind(row.kind),
     headline: row.headline,
     detail: row.detail?.trim() || null,
+    listenFor: row.listen_for?.trim() || null,
     prepareReactions: Boolean(row.prepare_reactions),
     reactions: asReactions(row.reactions),
   };
@@ -401,6 +404,7 @@ export async function createLiveScriptItem(input: {
   kind: PointKind;
   headline: string;
   detail?: string | null;
+  listenFor?: string | null;
   position?: number;
 }): Promise<PointResult<{ item: LiveScriptItem }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
@@ -417,6 +421,10 @@ export async function createLiveScriptItem(input: {
     if (!appended.ok) return appended;
     position = appended.position;
   }
+  const listenFor =
+    typeof input.listenFor === "string" && input.listenFor.trim()
+      ? input.listenFor.trim().replace(/\s+/g, " ").slice(0, 160)
+      : null;
   const { data, error } = await sb
     .from("live_script_items")
     .insert({
@@ -425,6 +433,7 @@ export async function createLiveScriptItem(input: {
       kind: input.kind,
       headline,
       detail: input.detail ? clampDetail(input.detail) : null,
+      listen_for: listenFor,
     })
     .select(ITEM_COLUMNS)
     .single();
@@ -439,6 +448,7 @@ export async function updateLiveScriptItem(
     kind?: PointKind;
     headline?: string;
     detail?: string | null;
+    listenFor?: string | null;
     prepareReactions?: boolean;
     reactions?: Reaction[];
   }
@@ -457,6 +467,12 @@ export async function updateLiveScriptItem(
     update.headline = headline;
   }
   if (patch.detail !== undefined) update.detail = patch.detail ? clampDetail(patch.detail) : null;
+  if (patch.listenFor !== undefined) {
+    update.listen_for =
+      typeof patch.listenFor === "string" && patch.listenFor.trim()
+        ? patch.listenFor.trim().replace(/\s+/g, " ").slice(0, 160)
+        : null;
+  }
   if (patch.prepareReactions !== undefined) update.prepare_reactions = Boolean(patch.prepareReactions);
   if (patch.reactions !== undefined) {
     const stored = parseReactions(JSON.stringify(patch.reactions));
@@ -631,6 +647,7 @@ export async function applyLiveScript(input: {
     kind: item.kind,
     headline: fillAppliedText(item.headline, person, settings, narratives) || item.headline,
     detail: fillAppliedText(item.detail, person, settings, narratives),
+    listen_for: item.listenFor,
     state: "open",
     source: "script",
     script_id: scriptId,
@@ -694,7 +711,7 @@ export async function saveMeetingPointsAsScript(input: {
   const sb = createServiceRoleClient();
   const { data: points, error: pointError } = await sb
     .from("meeting_points")
-    .select("kind, headline, detail, position, prepare_reactions, reactions")
+    .select("kind, headline, detail, listen_for, position, prepare_reactions, reactions")
     .eq("prep_id", prepId)
     .order("position", { ascending: true });
   if (pointError) return { ok: false, error: pointError.message };
@@ -710,6 +727,10 @@ export async function saveMeetingPointsAsScript(input: {
       kind: asKind(String(point.kind)),
       headline: clampHeadline(String(point.headline)) || String(point.headline).trim(),
       detail: point.detail ? clampDetail(String(point.detail)) : null,
+      listen_for:
+        typeof point.listen_for === "string" && point.listen_for.trim()
+          ? point.listen_for.trim().replace(/\s+/g, " ").slice(0, 160)
+          : null,
       prepare_reactions: Boolean(point.prepare_reactions),
       reactions: asReactions(point.reactions),
     }))
@@ -836,6 +857,12 @@ function asAdaptedItems(value: unknown): AdaptedItem[] {
           ? row.sourceHint
           : typeof row.source_hint === "string"
             ? row.source_hint
+            : null,
+      listenFor:
+        typeof row.listenFor === "string"
+          ? row.listenFor
+          : typeof row.listen_for === "string"
+            ? row.listen_for
             : null,
       dropped: row.dropped === true,
       droppedReason:
@@ -1095,6 +1122,7 @@ export async function acceptAdaptation(input: {
     kind: item.kind,
     headline: fillAppliedText(item.headline, person, settings, narratives) || item.headline,
     detail: fillAppliedText(item.detail, person, settings, narratives),
+    listen_for: item.listenFor,
     state: "open",
     source: "script",
     script_id: row.script_id,

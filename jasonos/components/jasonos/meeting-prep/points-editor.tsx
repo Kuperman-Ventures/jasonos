@@ -29,6 +29,7 @@ export type EditorPoint = {
   kind: PointKind;
   headline: string;
   detail: string | null;
+  listenFor?: string | null;
   position: number;
   prepareReactions?: boolean;
   reactions?: Reaction[];
@@ -39,6 +40,7 @@ export type PointsEditorActions = {
     kind: PointKind;
     headline: string;
     detail?: string | null;
+    listenFor?: string | null;
   }) => Promise<PointResult<{ id: string }>>;
   update: (
     id: string,
@@ -46,6 +48,7 @@ export type PointsEditorActions = {
       kind?: PointKind;
       headline?: string;
       detail?: string | null;
+      listenFor?: string | null;
       prepareReactions?: boolean;
       reactions?: Reaction[];
     }
@@ -64,6 +67,7 @@ function pointSignature(points: EditorPoint[]): string {
         point.kind,
         point.headline,
         point.detail ?? "",
+        point.listenFor ?? "",
         point.prepareReactions ? "1" : "0",
         JSON.stringify(point.reactions ?? []),
       ].join("\u001f")
@@ -295,6 +299,7 @@ function CardEditor({
     kind?: PointKind;
     headline?: string;
     detail?: string | null;
+    listenFor?: string | null;
     prepareReactions?: boolean;
     reactions?: Reaction[];
   }) => void;
@@ -306,6 +311,12 @@ function CardEditor({
   if ((point.detail ?? "") !== seenDetail) {
     setSeenDetail(point.detail ?? "");
     setDetail(point.detail ?? "");
+  }
+  const [listenFor, setListenFor] = useState(point.listenFor ?? "");
+  const [seenListen, setSeenListen] = useState(point.listenFor ?? "");
+  if ((point.listenFor ?? "") !== seenListen) {
+    setSeenListen(point.listenFor ?? "");
+    setListenFor(point.listenFor ?? "");
   }
 
   return (
@@ -369,6 +380,23 @@ function CardEditor({
             const next = detail.trim() ? detail : null;
             if ((next ?? "") === (point.detail ?? "")) return;
             onPatch({ detail: next });
+          }}
+        />
+      </label>
+
+      <label className="mt-3 block">
+        <span className={LIVE_SECTION_LABEL}>Listen for</span>
+        <input
+          value={listenFor}
+          maxLength={160}
+          placeholder="What to listen for in the answer"
+          aria-label="Listen for"
+          className={cn(LIVE_FIELD, "mt-2 py-2 text-[15px]")}
+          onChange={(event) => setListenFor(event.target.value)}
+          onBlur={() => {
+            const next = listenFor.trim() ? listenFor.trim() : null;
+            if ((next ?? "") === (point.listenFor ?? "")) return;
+            onPatch({ listenFor: next });
           }}
         />
       </label>
@@ -589,6 +617,7 @@ export function PointsEditor({
       kind?: PointKind;
       headline?: string;
       detail?: string | null;
+      listenFor?: string | null;
       prepareReactions?: boolean;
       reactions?: Reaction[];
     }
@@ -878,6 +907,14 @@ export function PointsEditor({
                     onSave={(next) => savePatch(point, { detail: next.trim() ? next : null })}
                   />
                 )}
+                <InlineField
+                  value={point.listenFor ?? ""}
+                  placeholder="Listen for"
+                  emptyLabel="Listen for"
+                  maxLength={160}
+                  className="text-[13px] text-[var(--jos-muted)]"
+                  onSave={(next) => savePatch(point, { listenFor: next.trim() ? next.trim() : null })}
+                />
                 {actions.draftReactions ? (
                   <ReactionsTable
                     point={point}

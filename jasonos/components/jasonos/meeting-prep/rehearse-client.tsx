@@ -20,7 +20,7 @@ function toPoints(items: LiveScriptItem[]): MeetingPoint[] {
     stateChangedAt: null,
     confirmedState: null,
     confirmedAt: null,
-    listenFor: "listenFor" in item ? ((item as { listenFor?: string | null }).listenFor ?? null) : null,
+    listenFor: item.listenFor ?? null,
     note: null,
     source: "script" as const,
     editedByUser: false,
