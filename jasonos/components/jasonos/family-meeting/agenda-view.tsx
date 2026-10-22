@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { FamilyMeetingEventIcon } from "@/components/jasonos/family-meeting/event-icon";
+import { splitAgendaLists } from "@/lib/family-meeting/collapse";
+import { discernEventIcon } from "@/lib/family-meeting/icons";
 import type { FamilyMeetingAgenda, FamilyMeetingEvent } from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
 
@@ -8,7 +11,6 @@ function formatEventTime(ev: FamilyMeetingEvent): {
   time: string;
 } {
   const start = new Date(ev.startsAt);
-  // Two-week board: weekday + month/day must read at a glance.
   const weekday = new Intl.DateTimeFormat("en-US", {
     timeZone: FAMILY_MEETING_TIMEZONE,
     weekday: "short",
@@ -30,6 +32,24 @@ function formatEventTime(ev: FamilyMeetingEvent): {
   }).format(start);
 
   return { weekday, date, time };
+}
+
+function formatRoutineMeta(parts: {
+  weekdayLabel: string;
+  timeLabel: string | null;
+  dateLabels: string[];
+  allDay: boolean;
+}): string {
+  const when = parts.timeLabel
+    ? `${parts.weekdayLabel} · ${parts.timeLabel}`
+    : parts.allDay
+      ? parts.weekdayLabel
+      : parts.weekdayLabel;
+  const dates =
+    parts.dateLabels.length <= 2
+      ? parts.dateLabels.join(" & ")
+      : `${parts.dateLabels[0]} +${parts.dateLabels.length - 1}`;
+  return `${when} · ${dates}`;
 }
 
 export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgenda }) {
@@ -95,76 +115,98 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
         ) : null}
 
         <div className="fm-board">
-          {agenda.groups.map((lane) => (
-            <section
-              key={lane.group.id}
-              className="fm-lane"
-              style={{ ["--lane-accent" as string]: lane.group.accent }}
-              aria-label={lane.group.label}
-            >
-              <div className="fm-lane-head">
-                <div>
-                  <h2 className="fm-lane-label">{lane.group.label}</h2>
-                  <p className="fm-lane-sub">
-                    {lane.calendarName
-                      ? `Calendar · ${lane.calendarName}`
-                      : agenda.connected
-                        ? "No matching calendar yet"
-                        : "Waiting on iCloud"}
-                  </p>
+          {agenda.groups.map((lane) => {
+            const { spotlight, routines } = splitAgendaLists(lane.events);
+            const displayCount = spotlight.length + routines.length;
+            return (
+              <section
+                key={lane.group.id}
+                className="fm-lane"
+                style={{ ["--lane-accent" as string]: lane.group.accent }}
+                aria-label={lane.group.label}
+              >
+                <div className="fm-lane-head">
+                  <div>
+                    <h2 className="fm-lane-label">{lane.group.label}</h2>
+                    <p className="fm-lane-sub">
+                      {lane.calendarName
+                        ? `Calendar · ${lane.calendarName}`
+                        : agenda.connected
+                          ? "No matching calendar yet"
+                          : "Waiting on iCloud"}
+                    </p>
+                  </div>
+                  <div className="fm-count">{displayCount}</div>
                 </div>
-                <div className="fm-count">{lane.events.length}</div>
-              </div>
 
-              {lane.events.length === 0 ? (
-                <p className="fm-empty">
+                {lane.events.length === 0 ? (
+                  <p className="fm-empty">
                     {agenda.connected
-                    ? "Nothing on this calendar in the next two weeks."
-                    : "Events appear here once iCloud is connected."}
-                </p>
-              ) : (
-                <div className="fm-events">
-                  {lane.events.map((ev) => {
-                    const { weekday, date, time } = formatEventTime(ev);
-                    const whenLabel = `${weekday} ${date}, ${time}`;
-                    if (ev.routine) {
-                      return (
-                        <article
-                          key={ev.id}
-                          className="fm-event fm-event--routine"
-                          aria-label={`${whenLabel}: ${ev.title}`}
-                        >
-                          <span className="fm-routine-when">
-                            <span className="fm-routine-day">{weekday}</span>
-                            <span className="fm-routine-date">{date}</span>
-                            {!ev.allDay ? (
-                              <span className="fm-routine-clock">{time}</span>
-                            ) : null}
-                          </span>
-                          <span className="fm-routine-title">{ev.title}</span>
-                        </article>
-                      );
-                    }
-                    return (
-                      <article key={ev.id} className="fm-event">
-                        <div className="fm-event-when" aria-label={whenLabel}>
-                          <span className="fm-event-weekday">{weekday}</span>
-                          <span className="fm-event-date">{date}</span>
-                          <span className="fm-event-clock">{time}</span>
-                        </div>
-                        <div>
-                          <h3 className="fm-event-title">{ev.title}</h3>
-                          {ev.location ? (
-                            <p className="fm-event-loc">{ev.location}</p>
-                          ) : null}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-          ))}
+                      ? "Nothing on this calendar in the next two weeks."
+                      : "Events appear here once iCloud is connected."}
+                  </p>
+                ) : (
+                  <>
+                    {spotlight.length ? (
+                      <div className="fm-events">
+                        {spotlight.map((ev) => {
+                          const { weekday, date, time } = formatEventTime(ev);
+                          const whenLabel = `${weekday} ${date}, ${time}`;
+                          const icon = discernEventIcon(ev.title, ev.location);
+                          return (
+                            <article key={ev.id} className="fm-event">
+                              <span className="fm-event-icon" aria-hidden>
+                                <FamilyMeetingEventIcon id={icon} />
+                              </span>
+                              <div
+                                className="fm-event-when"
+                                aria-label={whenLabel}
+                              >
+                                <span className="fm-event-weekday">{weekday}</span>
+                                <span className="fm-event-date">{date}</span>
+                                <span className="fm-event-clock">{time}</span>
+                              </div>
+                              <div className="fm-event-copy">
+                                <h3 className="fm-event-title">{ev.title}</h3>
+                                {ev.location ? (
+                                  <p className="fm-event-loc">{ev.location}</p>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+
+                    {routines.length ? (
+                      <div className="fm-rhythm">
+                        <h3 className="fm-rhythm-label">Weekly rhythm</h3>
+                        <ul className="fm-rhythm-list">
+                          {routines.map((row) => {
+                            const icon = discernEventIcon(row.title);
+                            const meta = formatRoutineMeta(row);
+                            return (
+                              <li
+                                key={row.key}
+                                className="fm-rhythm-row"
+                                aria-label={`${row.title}. ${meta}`}
+                              >
+                                <span className="fm-rhythm-icon" aria-hidden>
+                                  <FamilyMeetingEventIcon id={icon} />
+                                </span>
+                                <span className="fm-rhythm-title">{row.title}</span>
+                                <span className="fm-rhythm-meta">{meta}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </section>
+            );
+          })}
         </div>
       </div>
     </div>

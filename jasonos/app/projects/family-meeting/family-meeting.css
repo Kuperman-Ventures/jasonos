@@ -212,8 +212,9 @@
 
 .fm-event {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: 0.85rem;
+  grid-template-columns: 2.35rem 5.6rem minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
   padding: 0.85rem 0.85rem;
   border-radius: 0.85rem;
   background: rgba(0, 0, 0, 0.22);
@@ -231,7 +232,7 @@
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
-  padding: 0.2rem 0.45rem 0.25rem 0;
+  padding: 0.15rem 0.45rem 0.25rem 0;
   border-right: 2px solid color-mix(in srgb, var(--lane-accent) 70%, transparent);
 }
 
@@ -264,6 +265,29 @@
   line-height: 1.2;
 }
 
+.fm-event-icon {
+  flex-shrink: 0;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  margin-top: 0.15rem;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--lane-accent) 22%, transparent);
+  color: color-mix(in srgb, var(--lane-accent) 90%, white);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane-accent) 28%, transparent);
+}
+
+.fm-event-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.fm-event-copy {
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
 .fm-event-title {
   margin: 0;
   font-size: 0.95rem;
@@ -278,55 +302,87 @@
   color: var(--fm-paper-faint);
 }
 
-/* Week-to-week routines — quiet single-line presence */
-.fm-event--routine {
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  gap: 0.65rem 0.75rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 0.45rem;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  opacity: 0.72;
+/* Collapsed week-to-week chores — quiet footer block */
+.fm-rhythm {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
-.fm-event--routine:hover {
-  transform: none;
-  background: rgba(255, 255, 255, 0.03);
-  opacity: 0.9;
-}
-
-.fm-routine-when {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
-  min-width: 5.5rem;
-  font-family: var(--fm-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  color: var(--fm-paper-faint);
-  white-space: nowrap;
-}
-
-.fm-routine-day {
+.fm-rhythm-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--lane-accent) 45%, var(--fm-paper-faint));
+  color: var(--fm-paper-faint);
 }
 
-.fm-routine-title {
+.fm-rhythm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.fm-rhythm-row {
+  display: grid;
+  grid-template-columns: 1.15rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  padding: 0.28rem 0.15rem;
+  opacity: 0.7;
+}
+
+.fm-rhythm-row:hover {
+  opacity: 0.95;
+}
+
+.fm-rhythm-icon {
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--lane-accent) 55%, var(--fm-paper-faint));
+}
+
+.fm-rhythm-icon svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.fm-rhythm-title {
   min-width: 0;
-  font-size: 0.8rem;
-  font-weight: 450;
-  line-height: 1.35;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.3;
   color: var(--fm-paper-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.fm-rhythm-meta {
+  font-family: var(--fm-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--fm-paper-faint);
+  white-space: nowrap;
+  text-align: right;
+}
+
+@media (max-width: 520px) {
+  .fm-rhythm-row {
+    grid-template-columns: 1.15rem minmax(0, 1fr);
+  }
+
+  .fm-rhythm-meta {
+    grid-column: 2;
+    text-align: left;
+    white-space: normal;
+  }
 }
 
 .fm-empty {

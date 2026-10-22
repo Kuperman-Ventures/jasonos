@@ -1,0 +1,86 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Baby,
+  Bike,
+  BookOpen,
+  Brush,
+  Bus,
+  Cake,
+  Calendar,
+  Car,
+  Cat,
+  Coffee,
+  Droplets,
+  Dumbbell,
+  Film,
+  Gamepad2,
+  Gift,
+  Goal,
+  GraduationCap,
+  Heart,
+  Home,
+  Leaf,
+  Music,
+  PartyPopper,
+  PawPrint,
+  Plane,
+  Recycle,
+  ShoppingCart,
+  Ship,
+  Sparkles,
+  Star,
+  Stethoscope,
+  Sun,
+  TrainFront,
+  Trees,
+  Utensils,
+} from "lucide-react";
+import type { FamilyMeetingIconId } from "@/lib/family-meeting/icons";
+
+const ICONS: Record<FamilyMeetingIconId, LucideIcon> = {
+  train: TrainFront,
+  bus: Bus,
+  plane: Plane,
+  car: Car,
+  bike: Bike,
+  ship: Ship,
+  cake: Cake,
+  gift: Gift,
+  party: PartyPopper,
+  music: Music,
+  recycle: Recycle,
+  leaf: Leaf,
+  cat: Cat,
+  paw: PawPrint,
+  droplet: Droplets,
+  vacuum: Brush,
+  home: Home,
+  school: GraduationCap,
+  book: BookOpen,
+  doctor: Stethoscope,
+  tooth: Sparkles,
+  sport: Goal,
+  dumbbell: Dumbbell,
+  food: Utensils,
+  coffee: Coffee,
+  shop: ShoppingCart,
+  film: Film,
+  game: Gamepad2,
+  baby: Baby,
+  heart: Heart,
+  trees: Trees,
+  sun: Sun,
+  star: Star,
+  calendar: Calendar,
+};
+
+export function FamilyMeetingEventIcon({
+  id,
+  className,
+}: {
+  id: FamilyMeetingIconId;
+  className?: string;
+}) {
+  const Icon = ICONS[id] ?? Star;
+  return <Icon className={className} aria-hidden strokeWidth={1.75} />;
+}
