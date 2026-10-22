@@ -95,15 +95,6 @@ export async function loadFamilyMeetingAgenda(
     const picked = pickBestCalendarForGroup(group, candidates);
     if (!picked) continue;
 
-    const skipped = candidates
-      .filter((cal) => cal.href !== picked.href)
-      .map((cal) => cal.name);
-    if (skipped.length) {
-      warnings.push(
-        `Multiple calendars matched “${group.label}” — using “${picked.name}” (also saw ${skipped.join(", ")}).`
-      );
-    }
-
     const fetched = await fetchICloudCalendarEvents({
       creds,
       calendarHref: picked.href,

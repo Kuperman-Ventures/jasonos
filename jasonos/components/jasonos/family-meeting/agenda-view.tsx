@@ -103,17 +103,6 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
           </div>
         ) : null}
 
-        {agenda.warnings.length ? (
-          <div className="fm-warn">
-            <strong>Calendar notes</strong>
-            <ul>
-              {agenda.warnings.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
         <div className="fm-board">
           {agenda.groups.map((lane) => {
             const { spotlight, routines } = splitAgendaLists(lane.events);
@@ -155,9 +144,6 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                           const icon = discernEventIcon(ev.title, ev.location);
                           return (
                             <article key={ev.id} className="fm-event">
-                              <span className="fm-event-icon" aria-hidden>
-                                <FamilyMeetingEventIcon id={icon} />
-                              </span>
                               <div
                                 className="fm-event-when"
                                 aria-label={whenLabel}
@@ -172,6 +158,9 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                   <p className="fm-event-loc">{ev.location}</p>
                                 ) : null}
                               </div>
+                              <span className="fm-event-icon" aria-hidden>
+                                <FamilyMeetingEventIcon id={icon} />
+                              </span>
                             </article>
                           );
                         })}
