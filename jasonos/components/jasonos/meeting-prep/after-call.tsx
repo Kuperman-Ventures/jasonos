@@ -1,19 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckSquare, Sparkle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   LIVE_SECTION_LABEL,
   OutcomeMarkButton,
-  ReviewStatusChip,
   UnfinishedField,
-  type ReviewStatusKey,
 } from "@/components/jasonos/live";
 import { ExternalLink } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { REACTION_LABELS, type ReactionShape } from "@/lib/meeting-prep/reactions";
+import type { SpokenMatch } from "@/lib/meeting-prep/review";
 import { runMeetingReview, type MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import {
   setMeetingOutcomeMark,
@@ -21,19 +20,28 @@ import {
   type MeetingPrepDetail,
   type OutcomeMark,
 } from "@/lib/server-actions/meeting-prep";
-import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
+import {
+  confirmMeetingPointState,
+  confirmMeetingPointsAsShown,
+  type ConfirmedPointState,
+  type MeetingPoint,
+} from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
 
-function reviewStatusFor(
+function matchLabel(match: SpokenMatch | undefined): string {
+  if (match === "exact") return "Said";
+  if (match === "close") return "Close";
+  return "Not found";
+}
+
+function presetConfirm(
   point: MeetingPoint,
-  spoken: boolean | undefined
-): ReviewStatusKey {
-  if (point.state === "skipped" && !spoken) return "skipped";
-  if (point.state === "covered" && spoken) return "covered";
-  if (spoken && point.state !== "covered") return "said_differently";
-  if (point.state === "covered" && !spoken) return "said_differently";
+  match: SpokenMatch | undefined
+): ConfirmedPointState {
+  if (match === "exact" || match === "close") return "covered";
   if (point.state === "skipped") return "skipped";
-  return "skipped";
+  if (point.state === "covered") return "covered";
+  return "not_reached";
 }
 
 export function AfterTheCall({
@@ -60,29 +68,47 @@ export function AfterTheCall({
   const router = useRouter();
   const [current, setCurrent] = useState(review);
   const [running, setRunning] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [localPoints, setLocalPoints] = useState(points);
   const [seenId, setSeenId] = useState(review?.id ?? null);
+  const [seenPointsKey, setSeenPointsKey] = useState(() =>
+    points.map((point) => `${point.id}:${point.confirmedState ?? ""}:${point.confirmedAt ?? ""}`).join("|")
+  );
   if ((review?.id ?? null) !== seenId) {
     setSeenId(review?.id ?? null);
     setCurrent(review);
   }
+  const pointsKey = points
+    .map((point) => `${point.id}:${point.confirmedState ?? ""}:${point.confirmedAt ?? ""}`)
+    .join("|");
+  if (pointsKey !== seenPointsKey) {
+    setSeenPointsKey(pointsKey);
+    setLocalPoints(points);
+  }
 
-  const markable = points.filter((point) => point.kind !== "agenda");
+  const markable = localPoints.filter((point) => point.kind !== "agenda");
   const spokenById = new Map((current?.pointsSpoken ?? []).map((row) => [row.pointId, row]));
   const reactionById = new Map((current?.reactionsObserved ?? []).map((row) => [row.pointId, row]));
-  const covered = markable.filter((point) => {
-    const found = spokenById.get(point.id);
-    return reviewStatusFor(point, found?.spoken) === "covered";
-  }).length;
-  const saidDiff = markable.filter((point) => {
-    const found = spokenById.get(point.id);
-    return reviewStatusFor(point, found?.spoken) === "said_differently";
-  }).length;
-  const skipped = markable.filter((point) => {
-    const found = spokenById.get(point.id);
-    return reviewStatusFor(point, found?.spoken) === "skipped";
-  }).length;
+
+  const presets = useMemo(() => {
+    const map = new Map<string, ConfirmedPointState>();
+    for (const point of markable) {
+      const found = spokenById.get(point.id);
+      map.set(point.id, point.confirmedState ?? presetConfirm(point, found?.match));
+    }
+    return map;
+  }, [markable, spokenById]);
+
+  const liveCovered = markable.filter((point) => point.state === "covered").length;
+  const confirmedRows = markable.filter((point) => point.confirmedState);
+  const confirmedCovered = confirmedRows.filter((point) => point.confirmedState === "covered").length;
+  const confirmedSkipped = confirmedRows.filter((point) => point.confirmedState === "skipped").length;
+  const confirmedNotReached = confirmedRows.filter(
+    (point) => point.confirmedState === "not_reached"
+  ).length;
   const checklistMet = (current?.rubricResults ?? []).filter((row) => row.met).length;
-  const checklistTotal = rubric.length;
+  const checklistTotal = (current?.rubricResults?.length || rubric.length) || 0;
+  const checklistFallback = !prep.scriptId && checklistTotal > 0;
   const analyzed = current && current.sourceKind !== "none" && !current.error;
 
   const run = () => {
@@ -99,13 +125,15 @@ export function AfterTheCall({
   };
 
   const mark = (value: OutcomeMark) => {
-    void setMeetingOutcomeMark(prep.id, { mark: value, note: prep.outcomeNote ?? "" }).then((result) => {
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
+    void setMeetingOutcomeMark(prep.id, { mark: value, note: prep.outcomeNote ?? "" }).then(
+      (result) => {
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        router.refresh();
       }
-      router.refresh();
-    });
+    );
   };
 
   const saveNote = (note: string) => {
@@ -131,6 +159,43 @@ export function AfterTheCall({
     });
   };
 
+  const confirmOne = (pointId: string, state: ConfirmedPointState) => {
+    setConfirming(true);
+    void confirmMeetingPointState(pointId, state).then((result) => {
+      setConfirming(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setLocalPoints((prev) =>
+        prev.map((point) => (point.id === pointId ? result.point : point))
+      );
+      router.refresh();
+    });
+  };
+
+  const confirmAll = () => {
+    setConfirming(true);
+    const rows = markable.map((point) => ({
+      pointId: point.id,
+      state: presets.get(point.id) ?? "not_reached",
+    }));
+    void confirmMeetingPointsAsShown(prep.id, rows).then((result) => {
+      setConfirming(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Confirmed ${result.updated} points`);
+      router.refresh();
+    });
+  };
+
+  const tally =
+    confirmedRows.length > 0
+      ? `${markable.length} points · live: ${liveCovered} covered · confirmed: ${confirmedCovered} covered, ${confirmedSkipped} skipped, ${confirmedNotReached} not reached`
+      : `${markable.length} points · live: ${liveCovered} covered`;
+
   return (
     <div className="space-y-8">
       <div className="bg-[var(--jos-surface)] px-10 py-6">
@@ -141,11 +206,7 @@ export function AfterTheCall({
               <p className="mt-2 text-[17px] font-medium leading-snug">{prep.outcomeSentence}</p>
             ) : (
               <div className="mt-2">
-                <UnfinishedField
-                  value=""
-                  emptyLabel="Add a sentence"
-                  onSave={saveSentence}
-                />
+                <UnfinishedField value="" emptyLabel="Add a sentence" onSave={saveSentence} />
               </div>
             )}
           </div>
@@ -163,9 +224,19 @@ export function AfterTheCall({
             </div>
             {current?.suggestedMark ? (
               <p className="mt-3 flex items-start gap-1.5 text-[14px] leading-snug text-[var(--jos-ink)]">
-                <Sparkle size={14} weight="duotone" className="mt-0.5 shrink-0 text-[var(--color-accent-700)]" aria-hidden />
+                <Sparkle
+                  size={14}
+                  weight="duotone"
+                  className="mt-0.5 shrink-0 text-[var(--color-accent-700)]"
+                  aria-hidden
+                />
                 <span>
-                  Review suggests {current.suggestedMark === "hit" ? "Hit" : current.suggestedMark === "partial" ? "Partial" : "Missed"}
+                  Review suggests{" "}
+                  {current.suggestedMark === "hit"
+                    ? "Hit"
+                    : current.suggestedMark === "partial"
+                      ? "Partial"
+                      : "Missed"}
                   {current.suggestedReason ? `. ${current.suggestedReason}` : "."}
                 </span>
               </p>
@@ -194,7 +265,12 @@ export function AfterTheCall({
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
           {current?.sourceUrl ? (
-            <a href={current.sourceUrl} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            <a
+              href={current.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "secondary", size: "sm" })}
+            >
               Transcript
             </a>
           ) : (
@@ -202,7 +278,10 @@ export function AfterTheCall({
               {running ? "Reviewing…" : "Transcript"}
             </Button>
           )}
-          <a href={`/live/library/${prep.id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+          <a
+            href={`/live/library/${prep.id}`}
+            className={buttonVariants({ variant: "secondary", size: "sm" })}
+          >
             Record page
           </a>
         </div>
@@ -212,24 +291,48 @@ export function AfterTheCall({
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-[24px] font-extrabold tracking-tight">Planned against said</h2>
           <p className="text-[14px] text-[var(--jos-muted)]">
-            {covered} covered · {saidDiff} said differently · {skipped} skipped
+            {tally}
             {checklistTotal ? ` · checklist ${checklistMet} of ${checklistTotal}` : ""}
           </p>
+        </div>
+        <div className="mt-3">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={confirming || !markable.length}
+            onClick={confirmAll}
+          >
+            Confirm all as shown
+          </Button>
         </div>
         <ul className="mt-4">
           {markable.map((point) => {
             const found = spokenById.get(point.id);
-            const status = reviewStatusFor(point, found?.spoken);
-            const note = found?.quote ?? null;
+            const selected = point.confirmedState ?? presets.get(point.id) ?? "not_reached";
             return (
               <li
                 key={point.id}
                 className="flex flex-wrap items-start gap-3 border-t border-[var(--jos-line)] py-3"
               >
-                <ReviewStatusChip status={status} />
+                <span
+                  className={cn(
+                    "mt-0.5 shrink-0 text-[12px] font-bold uppercase tracking-[0.06em]",
+                    found?.match === "exact" && "text-[var(--color-done)]",
+                    found?.match === "close" && "text-[var(--color-accent-700)]",
+                    (!found || found.match === "none") && "text-[var(--jos-muted)]"
+                  )}
+                >
+                  {matchLabel(found?.match)}
+                </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[16px] font-semibold leading-snug">{point.headline}</p>
-                  {note ? <p className="mt-1 text-[14px] text-[var(--jos-muted)]">{note}</p> : null}
+                  {found?.nearest ? (
+                    <p className="mt-1 text-[14px] text-[var(--jos-muted)]">
+                      {found.timestamp ? `${found.timestamp} · ` : ""}
+                      {found.nearest}
+                    </p>
+                  ) : null}
                   {point.kind === "ask" ? (
                     <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
                       Recorded{" "}
@@ -243,11 +346,61 @@ export function AfterTheCall({
                         : "nothing"}
                     </p>
                   ) : null}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(
+                      [
+                        ["covered", "Covered"],
+                        ["skipped", "Skipped"],
+                        ["not_reached", "Not reached"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        disabled={confirming}
+                        onClick={() => confirmOne(point.id, value)}
+                        className={cn(
+                          "border px-2 py-1 text-[12px] font-semibold",
+                          selected === value
+                            ? "border-[var(--jos-ink)] bg-[var(--jos-ink)] text-white"
+                            : "border-[var(--jos-line)] text-[var(--jos-ink)]"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </li>
             );
           })}
         </ul>
+        {checklistTotal ? (
+          <div className="mt-6">
+            <p className={LIVE_SECTION_LABEL}>Checklist</p>
+            {checklistFallback ? (
+              <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
+                Checklist built from the outcome sentence and the asks; no strategy was applied
+              </p>
+            ) : null}
+            <ul className="mt-2 space-y-2">
+              {(current?.rubricResults?.length ? current.rubricResults : rubric.map((item) => ({ item, met: false, quote: null }))).map(
+                (row) => (
+                  <li key={row.item} className="text-[15px]">
+                    <span className={row.met ? "text-[var(--color-done)]" : "text-[var(--jos-muted)]"}>
+                      {row.met ? "Met" : "Missed"}
+                    </span>
+                    {" · "}
+                    {row.item}
+                    {row.quote ? (
+                      <span className="block text-[13px] text-[var(--jos-muted)]">{row.quote}</span>
+                    ) : null}
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        ) : null}
         {current?.error ? (
           <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{current.error}</p>
         ) : null}
@@ -284,7 +437,9 @@ export function AfterTheCall({
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-[14px] text-[var(--jos-muted)]">No open commitments on the record yet.</p>
+            <p className="mt-2 text-[14px] text-[var(--jos-muted)]">
+              No open commitments on the record yet.
+            </p>
           )}
         </section>
 

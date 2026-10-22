@@ -90,7 +90,11 @@ export async function getRelationshipMetrics(
       ? sb.from("meeting_reviews").select("prep_id, suggested_mark").in("prep_id", prepIds)
       : Promise.resolve({ data: [], error: null }),
     prepIds.length
-      ? sb.from("meeting_points").select("prep_id, state").in("prep_id", prepIds).eq("kind", "ask")
+      ? sb
+          .from("meeting_points")
+          .select("prep_id, state, confirmed_state")
+          .in("prep_id", prepIds)
+          .eq("kind", "ask")
       : Promise.resolve({ data: [], error: null }),
   ]);
   const lookupError =
@@ -102,7 +106,9 @@ export async function getRelationshipMetrics(
   for (const row of asks.data ?? []) {
     const tally = askTally.get(row.prep_id as string) ?? { covered: 0, total: 0 };
     tally.total += 1;
-    if (row.state === "covered") tally.covered += 1;
+    const confirmed = (row as { confirmed_state?: string | null }).confirmed_state;
+    const effective = confirmed || (row.state as string);
+    if (effective === "covered") tally.covered += 1;
     askTally.set(row.prep_id as string, tally);
   }
   const commitments: MetricCommitment[] = [];

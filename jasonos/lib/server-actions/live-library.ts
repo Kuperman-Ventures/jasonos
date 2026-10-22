@@ -234,7 +234,11 @@ export async function listLiveMeetings(
       ? sb.from("projects").select("id, name").in("id", projectIds)
       : Promise.resolve({ data: [], error: null }),
     sb.from("meeting_reviews").select("prep_id, suggested_mark").in("prep_id", prepIds),
-    sb.from("meeting_points").select("prep_id, state").in("prep_id", prepIds).eq("kind", "ask"),
+    sb
+      .from("meeting_points")
+      .select("prep_id, state, confirmed_state")
+      .in("prep_id", prepIds)
+      .eq("kind", "ask"),
   ]);
   const lookupError = contacts.error || scripts.error || projects.error || reviews.error || asks.error;
   if (lookupError) return { ok: false, error: lookupError.message };
@@ -271,7 +275,9 @@ export async function listLiveMeetings(
     const id = row.prep_id as string;
     const tally = asksByPrep.get(id) ?? { covered: 0, total: 0 };
     tally.total += 1;
-    if (row.state === "covered") tally.covered += 1;
+    const confirmed = (row as { confirmed_state?: string | null }).confirmed_state;
+    const effective = confirmed || (row.state as string);
+    if (effective === "covered") tally.covered += 1;
     asksByPrep.set(id, tally);
   }
 

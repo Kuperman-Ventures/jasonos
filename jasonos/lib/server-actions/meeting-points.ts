@@ -24,6 +24,8 @@ import {
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 
+export type ConfirmedPointState = "covered" | "skipped" | "not_reached";
+
 export interface MeetingPoint {
   id: string;
   prepId: string;
@@ -33,6 +35,9 @@ export interface MeetingPoint {
   detail: string | null;
   state: PointState;
   stateChangedAt: string | null;
+  confirmedState: ConfirmedPointState | null;
+  confirmedAt: string | null;
+  listenFor: string | null;
   note: string | null;
   source: "user" | "ai" | "script";
   editedByUser: boolean;
@@ -53,6 +58,9 @@ interface PointRow {
   detail: string | null;
   state: string;
   state_changed_at: string | null;
+  confirmed_state?: string | null;
+  confirmed_at?: string | null;
+  listen_for?: string | null;
   note: string | null;
   source: string;
   edited_by_user: boolean;
@@ -61,6 +69,8 @@ interface PointRow {
   reactions?: unknown;
   observed_reaction?: string | null;
 }
+
+const CONFIRMED = new Set<ConfirmedPointState>(["covered", "skipped", "not_reached"]);
 
 const KINDS = new Set<PointKind>(["agenda", "point", "question", "ask"]);
 const STATES = new Set<PointState>(["open", "covered", "skipped"]);
@@ -72,11 +82,15 @@ function hasConfig() {
 }
 
 function revalidatePoints(prepId: string) {
-  revalidatePath("/");
-  revalidatePath(`/meetings/${prepId}`);
-  revalidatePath(`/meetings/${prepId}/live`);
-  revalidatePath("/meetings/[id]", "page");
-  revalidatePath("/meetings/[id]/live", "page");
+  try {
+    revalidatePath("/");
+    revalidatePath(`/meetings/${prepId}`);
+    revalidatePath(`/meetings/${prepId}/live`);
+    revalidatePath("/meetings/[id]", "page");
+    revalidatePath("/meetings/[id]/live", "page");
+  } catch {
+    // Outside a Next request (scripts / tests) revalidatePath throws.
+  }
 }
 
 function asKind(value: string): PointKind {
@@ -85,6 +99,12 @@ function asKind(value: string): PointKind {
 
 function asState(value: string): PointState {
   return STATES.has(value as PointState) ? (value as PointState) : "open";
+}
+
+function asConfirmed(value: string | null | undefined): ConfirmedPointState | null {
+  return value && CONFIRMED.has(value as ConfirmedPointState)
+    ? (value as ConfirmedPointState)
+    : null;
 }
 
 function toPoint(row: PointRow): MeetingPoint {
@@ -97,6 +117,9 @@ function toPoint(row: PointRow): MeetingPoint {
     detail: row.detail?.trim() || null,
     state: asState(row.state),
     stateChangedAt: row.state_changed_at,
+    confirmedState: asConfirmed(row.confirmed_state),
+    confirmedAt: row.confirmed_at ?? null,
+    listenFor: row.listen_for?.trim() || null,
     note: row.note?.trim() || null,
     source: row.source === "ai" || row.source === "script" ? row.source : "user",
     editedByUser: Boolean(row.edited_by_user),
@@ -126,7 +149,7 @@ function missingPointsTable(message: string): boolean {
 }
 
 const POINT_COLUMNS =
-  "id, prep_id, position, kind, headline, detail, state, state_changed_at, note, source, edited_by_user, source_hint, prepare_reactions, reactions, observed_reaction";
+  "id, prep_id, position, kind, headline, detail, state, state_changed_at, confirmed_state, confirmed_at, listen_for, note, source, edited_by_user, source_hint, prepare_reactions, reactions, observed_reaction";
 
 const REACTION_SHAPE_SET = new Set<string>(REACTION_SHAPES);
 
@@ -313,6 +336,55 @@ export async function setMeetingPointState(
 
   revalidatePoints((data as PointRow).prep_id);
   return { ok: true, point: toPoint(data as PointRow) };
+}
+
+export async function confirmMeetingPointState(
+  id: string,
+  state: ConfirmedPointState
+): Promise<PointResult<{ point: MeetingPoint }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!CONFIRMED.has(state)) return { ok: false, error: "Unknown confirmed state." };
+  const pointId = id.trim();
+  if (!pointId) return { ok: false, error: "Point not found." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_points")
+    .update({
+      confirmed_state: state,
+      confirmed_at: new Date().toISOString(),
+    })
+    .eq("id", pointId)
+    .select(POINT_COLUMNS)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Point not found." };
+
+  revalidatePoints((data as PointRow).prep_id);
+  return { ok: true, point: toPoint(data as PointRow) };
+}
+
+export async function confirmMeetingPointsAsShown(
+  prepId: string,
+  rows: Array<{ pointId: string; state: ConfirmedPointState }>
+): Promise<PointResult<{ updated: number }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const sb = createServiceRoleClient();
+  const now = new Date().toISOString();
+  let updated = 0;
+  for (const row of rows) {
+    if (!CONFIRMED.has(row.state) || !row.pointId.trim()) continue;
+    const { error } = await sb
+      .from("meeting_points")
+      .update({ confirmed_state: row.state, confirmed_at: now })
+      .eq("id", row.pointId.trim())
+      .eq("prep_id", id);
+    if (!error) updated += 1;
+  }
+  revalidatePoints(id);
+  return { ok: true, updated };
 }
 
 export async function setMeetingPointNote(
