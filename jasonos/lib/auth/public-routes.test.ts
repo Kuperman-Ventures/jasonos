@@ -67,6 +67,8 @@ describe("public JasonOS paths", () => {
     assert.equal(isCronPath("/api/inbox-dispatch"), false);
     assert.equal(isCronPath("/api/sync/daily"), true);
     assert.equal(isCronPath("/api/monitoring/health-check"), true);
+    assert.equal(isCronPath("/api/browning-networking/run"), true);
+    assert.equal(isCronPath("/api/browning-networking/holds"), true);
     assert.equal(isCronPath("/api/dashboard/action-queue"), false);
   });
 });

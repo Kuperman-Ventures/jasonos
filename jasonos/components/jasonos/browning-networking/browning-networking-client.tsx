@@ -92,19 +92,38 @@ export function BrowningNetworkingClient({
       ),
     [page.handoffs, slotOverrides]
   );
-  const syncedHolds = useRef(false);
-
   useEffect(() => {
-    if (syncedHolds.current) return;
-    syncedHolds.current = true;
-    void syncBrowningTentativeHolds().then((result) => {
-      if (!result.ok) {
-        toast(result.error);
-        return;
+    let cancelled = false;
+    let inFlight = false;
+    // Holds must re-sync after the 24h release window opens — a one-shot
+    // page load earlier in the day leaves near holds on Google Calendar.
+    async function syncHolds() {
+      if (inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        const result = await syncBrowningTentativeHolds();
+        if (cancelled) return;
+        if (!result.ok) {
+          toast(result.error);
+          return;
+        }
+        if (result.warning) toast(result.warning);
+        if (result.changed > 0) router.refresh();
+      } finally {
+        inFlight = false;
       }
-      if (result.warning) toast(result.warning);
-      if (result.changed > 0) router.refresh();
-    });
+    }
+    void syncHolds();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void syncHolds();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = window.setInterval(() => void syncHolds(), 10 * 60_000);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(timer);
+    };
   }, [router]);
 
   return (
