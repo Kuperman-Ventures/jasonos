@@ -95,6 +95,10 @@ const NAV: NavItem[] = [
         label: "Trailbound AT",
       },
       {
+        href: "/projects/family-meeting",
+        label: "Family Meeting",
+      },
+      {
         href: "/projects/ski-tracker",
         label: "Ski Tracker",
       },
