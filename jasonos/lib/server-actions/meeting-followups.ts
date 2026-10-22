@@ -158,24 +158,31 @@ export async function captureMeetingFollowups(opts?: {
       updated: number;
       resolved: number;
       skipped: number;
+      granolaEnriched: number;
     }
   | { ok: false; error: string; unavailable?: boolean }
 > {
   const result = await captureMeetingFollowupsInner(opts);
   if (result.ok) {
+    const granolaEnriched = await enrichOpenMeetingFollowupsWithGranola({
+      limit: 12,
+    });
+    const withEnrich = { ...result, granolaEnriched };
     await appendSyncLog(
       "meeting-followups",
       {
         ok: true,
-        scanned: result.scanned,
-        created: result.created,
-        updated: result.updated,
-        resolved: result.resolved,
-        skipped: result.skipped,
-        inserted: result.created,
+        scanned: withEnrich.scanned,
+        created: withEnrich.created,
+        updated: withEnrich.updated,
+        resolved: withEnrich.resolved,
+        skipped: withEnrich.skipped,
+        granolaEnriched: withEnrich.granolaEnriched,
+        inserted: withEnrich.created,
       },
       opts?.runId
     );
+    return withEnrich;
   } else if (result.error !== "Not configured") {
     await appendSyncLog(
       "meeting-followups",
@@ -188,6 +195,81 @@ export async function captureMeetingFollowups(opts?: {
     );
   }
   return result;
+}
+
+/**
+ * Backfill Granola summary (+ transcript when the summary is thin) onto open
+ * Meeting Follow Ups so Home Draft and Commitments can use them without a click.
+ */
+export async function enrichOpenMeetingFollowupsWithGranola(opts?: {
+  limit?: number;
+}): Promise<number> {
+  if (!hasConfig()) return 0;
+  const limit = Math.max(1, Math.min(25, opts?.limit ?? 12));
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_followups")
+    .select(
+      "id, gcal_event_id, ical_uid, title, starts_at, attendees, pending_attendees, granola_summary"
+    )
+    .in("status", ["open", "snoozed"])
+    .order("ends_at", { ascending: false })
+    .limit(40);
+  if (error || !data?.length) return 0;
+
+  const needs = (data as FollowupRow[])
+    .filter((row) => !(row.granola_summary && row.granola_summary.trim().length > 80))
+    .slice(0, limit);
+
+  let enriched = 0;
+  for (const row of needs) {
+    const pending = asAttendees(row.pending_attendees);
+    const attendees = asAttendees(row.attendees);
+    const pool = pending.length ? pending : attendees;
+    if (!pool.length) continue;
+    const primary = pickPrimaryFollowupAttendee(pending, attendees, row.title);
+    const displayName =
+      guessFollowupDisplayName({
+        name: primary.name,
+        email: primary.email,
+        title: row.title,
+      }) ??
+      primary.name ??
+      row.title;
+    const contactName = displayName || primary.email.split("@")[0] || row.title;
+    const calendarEventIds = [
+      row.gcal_event_id,
+      typeof row.ical_uid === "string" ? row.ical_uid : null,
+    ].filter((value): value is string => Boolean(value?.trim()));
+    try {
+      const note = await searchGranolaForContact({
+        contactName,
+        email: primary.email,
+        emails: [...pending.map((a) => a.email), ...attendees.map((a) => a.email)],
+        aroundIso: row.starts_at,
+        calendarEventId: row.gcal_event_id,
+        calendarEventIds,
+        meetingTitle: row.title,
+        includeTranscript: true,
+      });
+      if (!note.found) continue;
+      const summary = note.summary?.trim() || null;
+      if (!summary) continue;
+      const { error: updateError } = await sb
+        .from("meeting_followups")
+        .update({
+          granola_summary: summary.slice(0, 20_000),
+          granola_url: note.url ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      if (!updateError) enriched += 1;
+    } catch {
+      // One note failure must not abort the Sync lane.
+    }
+  }
+  if (enriched) revalidate();
+  return enriched;
 }
 
 async function captureMeetingFollowupsInner(opts?: {
@@ -534,6 +616,7 @@ export async function draftMeetingFollowupMailto(
     calendarEventId: row.gcal_event_id,
     calendarEventIds,
     meetingTitle: row.title,
+    includeTranscript: true,
   });
   const summary = note.found && note.summary ? note.summary : null;
   const granolaUrl = note.found ? note.url ?? null : null;

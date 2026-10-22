@@ -121,7 +121,7 @@ export async function generateDraftFromHistory(input: {
       withTimeout(gatherGmailHistory(ctx, { depth: "draft" }), 30_000, {
         found: false,
       } satisfies GmailHistory),
-      withTimeout(gatherGranolaHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
+      withTimeout(gatherGranolaHistory(ctx), 20_000, { found: false } satisfies SearchHistory),
       withTimeout(gatherFirefliesHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
     ]);
 
@@ -435,15 +435,167 @@ export async function gatherHubSpotHistory(ctx: ContactContext): Promise<HubSpot
 }
 
 export async function gatherGranolaHistory(ctx: ContactContext): Promise<SearchHistory> {
-  const result = await searchGranolaForContact({
+  const emails = uniqueContactEmails({
+    primaryEmail: ctx.primaryEmail,
+    emails: ctx.emails,
+  });
+  const cached = await loadCachedGranolaForContact(ctx.id, emails);
+  const aroundIso = cached.aroundIso;
+  const live = await searchGranolaForContact({
     contactName: ctx.name,
     email: ctx.primaryEmail,
+    emails,
+    aroundIso: aroundIso ?? undefined,
+    calendarEventId: cached.calendarEventId ?? undefined,
+    calendarEventIds: cached.calendarEventIds,
+    meetingTitle: cached.meetingTitle ?? undefined,
+    lookbackDays: aroundIso ? undefined : 30,
+    includeTranscript: true,
   });
-  return {
-    found: result.found,
-    summary: result.summary,
-    url: result.url,
+
+  // Prefer a live match (stronger + may include transcript). Fall back to cache.
+  if (live.found && live.summary?.trim()) {
+    return {
+      found: true,
+      summary: live.summary.trim(),
+      url: live.url ?? cached.url ?? undefined,
+    };
+  }
+  if (cached.summary?.trim()) {
+    return {
+      found: true,
+      summary: cached.summary.trim(),
+      url: cached.url ?? live.url ?? undefined,
+    };
+  }
+  if (live.found) {
+    return { found: true, summary: live.summary, url: live.url };
+  }
+  return { found: false };
+}
+
+/** Granola already attached to this contact via follow-ups or held meetings. */
+async function loadCachedGranolaForContact(
+  contactId: string,
+  emails: string[]
+): Promise<{
+  summary: string | null;
+  url: string | null;
+  aroundIso: string | null;
+  calendarEventId: string | null;
+  calendarEventIds: string[];
+  meetingTitle: string | null;
+}> {
+  const empty = {
+    summary: null as string | null,
+    url: null as string | null,
+    aroundIso: null as string | null,
+    calendarEventId: null as string | null,
+    calendarEventIds: [] as string[],
+    meetingTitle: null as string | null,
   };
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return empty;
+  }
+  try {
+    const sb = createServiceRoleClient();
+    const emailSet = new Set(emails.map((e) => e.toLowerCase()));
+
+    const [{ data: meetings }, { data: followups }] = await Promise.all([
+      sb
+        .from("meetings")
+        .select("scheduled_at, title, gcal_event_id, granola_url, debrief_notes, status")
+        .eq("contact_id", contactId)
+        .order("scheduled_at", { ascending: false })
+        .limit(8),
+      sb
+        .from("meeting_followups")
+        .select(
+          "starts_at, title, gcal_event_id, ical_uid, granola_summary, granola_url, attendees, pending_attendees"
+        )
+        .order("starts_at", { ascending: false })
+        .limit(40),
+    ]);
+
+    const meetingHit = (meetings ?? []).find((row) => {
+      const notes = typeof row.debrief_notes === "string" ? row.debrief_notes.trim() : "";
+      return notes.length > 40 || Boolean(row.granola_url);
+    });
+
+    let followupHit:
+      | {
+          starts_at: string;
+          title: string | null;
+          gcal_event_id: string;
+          ical_uid?: string | null;
+          granola_summary: string | null;
+          granola_url: string | null;
+        }
+      | undefined;
+    if (emailSet.size) {
+      for (const row of followups ?? []) {
+        const attendees = [
+          ...(Array.isArray(row.attendees) ? row.attendees : []),
+          ...(Array.isArray(row.pending_attendees) ? row.pending_attendees : []),
+        ];
+        const hit = attendees.some((a) => {
+          const email =
+            a && typeof a === "object" && typeof (a as { email?: unknown }).email === "string"
+              ? (a as { email: string }).email.trim().toLowerCase()
+              : "";
+          return email && emailSet.has(email);
+        });
+        if (!hit) continue;
+        followupHit = {
+          starts_at: row.starts_at as string,
+          title: (row.title as string | null) ?? null,
+          gcal_event_id: row.gcal_event_id as string,
+          ical_uid: (row.ical_uid as string | null) ?? null,
+          granola_summary: (row.granola_summary as string | null) ?? null,
+          granola_url: (row.granola_url as string | null) ?? null,
+        };
+        break;
+      }
+    }
+
+    const calendarEventIds = [
+      followupHit?.gcal_event_id,
+      followupHit?.ical_uid,
+      meetingHit?.gcal_event_id as string | null | undefined,
+    ].filter((v): v is string => Boolean(v?.trim()));
+
+    const summary =
+      (typeof followupHit?.granola_summary === "string" &&
+      followupHit.granola_summary.trim()
+        ? followupHit.granola_summary.trim()
+        : null) ||
+      (typeof meetingHit?.debrief_notes === "string" && meetingHit.debrief_notes.trim()
+        ? meetingHit.debrief_notes.trim()
+        : null);
+
+    return {
+      summary,
+      url:
+        (followupHit?.granola_url as string | null) ||
+        (meetingHit?.granola_url as string | null) ||
+        null,
+      aroundIso:
+        (followupHit?.starts_at as string | null) ||
+        (meetingHit?.scheduled_at as string | null) ||
+        null,
+      calendarEventId:
+        (followupHit?.gcal_event_id as string | null) ||
+        (meetingHit?.gcal_event_id as string | null) ||
+        null,
+      calendarEventIds,
+      meetingTitle:
+        (followupHit?.title as string | null) ||
+        (meetingHit?.title as string | null) ||
+        null,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 export async function gatherFirefliesHistory(ctx: ContactContext): Promise<SearchHistory> {

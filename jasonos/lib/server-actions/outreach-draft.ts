@@ -56,7 +56,7 @@ export async function loadOutreachContext(input: {
       withTimeout(gatherGmailHistory(stubCtx), 5_000, {
         found: false,
       } as GmailHistory),
-      withTimeout(gatherGranolaHistory(stubCtx), 5_000, {
+      withTimeout(gatherGranolaHistory(stubCtx), 20_000, {
         found: false,
       } as SearchHistory),
       withTimeout(gatherFirefliesHistory(stubCtx), 5_000, {
@@ -204,7 +204,7 @@ export async function generateOutreachDraft(input: {
       withTimeout(gatherGmailHistory(stubCtx, { depth: "draft" }), 30_000, {
         found: false,
       }),
-      withTimeout(gatherGranolaHistory(stubCtx), 5_000, { found: false }),
+      withTimeout(gatherGranolaHistory(stubCtx), 20_000, { found: false }),
       withTimeout(gatherFirefliesHistory(stubCtx), 5_000, { found: false }),
       withTimeout(getRecentTouches(stubCtx), 3_000, [] as RecentTouch[]),
     ]);
@@ -388,7 +388,8 @@ ${MODE_INSTRUCTIONS[mode]}
 
 OUTPUT RULES:
 - 60-150 words, no exceptions
-- HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from those emails. Do not invent history that is not in the sources. Do not paste prior emails.
+- HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from emails and Granola meeting notes/transcripts. Do not invent history that is not in the sources. Do not paste prior emails or raw transcripts.
+- When [granola] is present, ground the draft in what was actually said or decided on the call — commitments, next steps, open asks — not generic "great speaking."
 - "With this person" emails ARE correspondence with the recipient. That is the live thread.
 - "Same company" emails are other people at the firm. Use as background (who you've already talked to, live searches, recent asks). Do not write as if the recipient said those things, and do not address those other people.
 - If there's an existing email thread, the draft is a REPLY (don't restate prior content)

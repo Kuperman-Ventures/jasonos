@@ -217,6 +217,12 @@ export async function getOvernightGranola(): Promise<IntegrationResult<GranolaMe
   }
 }
 
+/**
+ * Find a Granola note for a person / calendar event.
+ * - With aroundIso / calendar ids: tight ± window (default 2 days back, 1 ahead).
+ * - Without a meeting time (e.g. Home Draft email): look back lookbackDays (default 30).
+ * - includeTranscript: append transcript text when the summary is thin or missing.
+ */
 export async function searchGranolaForContact({
   contactName,
   email,
@@ -225,6 +231,8 @@ export async function searchGranolaForContact({
   calendarEventId,
   calendarEventIds,
   meetingTitle,
+  lookbackDays,
+  includeTranscript = false,
 }: {
   contactName: string;
   email?: string | null;
@@ -233,6 +241,9 @@ export async function searchGranolaForContact({
   calendarEventId?: string | null;
   calendarEventIds?: string[] | null;
   meetingTitle?: string | null;
+  /** Days back when no aroundIso. Ignored when aroundIso is set (uses 2). */
+  lookbackDays?: number;
+  includeTranscript?: boolean;
 }): Promise<GranolaSearchResult> {
   const name = contactName.trim();
   if (!name) return { found: false };
@@ -240,8 +251,11 @@ export async function searchGranolaForContact({
   if (!key) return { found: false, error: "Granola is not connected. Add an API key in Settings." };
 
   const around = aroundIso ? Date.parse(aroundIso) : NaN;
+  const backDays = Number.isFinite(around)
+    ? 2
+    : Math.max(3, Math.min(60, lookbackDays ?? 30));
   const createdAfter = new Date(
-    (Number.isFinite(around) ? around : Date.now()) - 2 * 24 * 60 * 60 * 1000
+    (Number.isFinite(around) ? around : Date.now()) - backDays * 24 * 60 * 60 * 1000
   ).toISOString();
   const createdBefore = new Date(
     (Number.isFinite(around) ? around : Date.now()) + 24 * 60 * 60 * 1000
@@ -264,7 +278,7 @@ export async function searchGranolaForContact({
           titleRank(b, name) - titleRank(a, name) ||
           titleRank(b, meetingTitle ?? "") - titleRank(a, meetingTitle ?? "")
       )
-      .slice(0, eventIds.length ? 16 : 10);
+      .slice(0, eventIds.length ? 16 : Math.min(20, listed.notes.length));
 
     const details: GranolaNoteCandidate[] = [];
     for (const note of shortlist) {
@@ -288,8 +302,16 @@ export async function searchGranolaForContact({
     if (!match) {
       return { found: false, error: "No Granola note for this call yet." };
     }
-    // Summary may lag; callers can still pull the transcript by note id.
-    const summary = match.summaryText?.trim() || undefined;
+    let summary = match.summaryText?.trim() || undefined;
+    if (includeTranscript && match.id) {
+      const transcript = await getGranolaTranscript(match.id);
+      if (transcript?.text) {
+        const clipped = transcript.text.slice(0, 12_000);
+        summary = summary
+          ? `${summary}\n\n--- Transcript ---\n${clipped}`
+          : clipped;
+      }
+    }
     return {
       found: true,
       summary,
@@ -307,6 +329,82 @@ export async function searchGranolaForContact({
     };
   } catch (error) {
     return { found: false, error: error instanceof Error ? error.message : "Granola request failed." };
+  }
+}
+
+/** Recent note details for Sync scanners (commitments, cross-surface enrich). */
+export async function listRecentGranolaNotes(opts?: {
+  daysBack?: number;
+  limit?: number;
+  includeTranscript?: boolean;
+}): Promise<
+  | {
+      ok: true;
+      notes: Array<{
+        id: string;
+        title: string;
+        createdAt: string;
+        summary: string | null;
+        transcript: string | null;
+        url: string | null;
+        attendeeEmails: string[];
+        attendeeNames: string[];
+        calendarEventId: string | null;
+        scheduledStart: string | null;
+      }>;
+    }
+  | { ok: false; error: string }
+> {
+  const key = await resolveGranolaApiKey();
+  if (!key) return { ok: false, error: "Granola is not connected. Add an API key in Settings." };
+  const daysBack = Math.max(1, Math.min(45, opts?.daysBack ?? 14));
+  const limit = Math.max(1, Math.min(40, opts?.limit ?? 20));
+  const createdAfter = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  const createdBefore = new Date(Date.now() + 86_400_000).toISOString();
+  try {
+    const listed = await listNotes(key, createdAfter, createdBefore);
+    if (!listed.ok) return { ok: false, error: keyError(listed.status) };
+    const shortlist = listed.notes.filter((note) => note.id).slice(0, limit);
+    const notes: Array<{
+      id: string;
+      title: string;
+      createdAt: string;
+      summary: string | null;
+      transcript: string | null;
+      url: string | null;
+      attendeeEmails: string[];
+      attendeeNames: string[];
+      calendarEventId: string | null;
+      scheduledStart: string | null;
+    }> = [];
+    for (const note of shortlist) {
+      const detail = await granolaGet(`/v1/notes/${encodeURIComponent(note.id as string)}`, key);
+      if (!detail.ok) {
+        if (detail.status === 401 || detail.status === 403) return { ok: false, error: keyError(detail.status) };
+        continue;
+      }
+      const candidate = toCandidate(detail.json as NoteDetail, note);
+      let transcript: string | null = null;
+      if (opts?.includeTranscript) {
+        const t = await getGranolaTranscript(candidate.id);
+        transcript = t?.text?.slice(0, 12_000) ?? null;
+      }
+      notes.push({
+        id: candidate.id,
+        title: candidate.title?.trim() || "Untitled meeting",
+        createdAt: candidate.createdAt,
+        summary: candidate.summaryText ?? null,
+        transcript,
+        url: candidate.webUrl ?? null,
+        attendeeEmails: candidate.attendeeEmails ?? [],
+        attendeeNames: candidate.attendeeNames ?? [],
+        calendarEventId: candidate.calendarEventId ?? null,
+        scheduledStart: candidate.scheduledStart ?? null,
+      });
+    }
+    return { ok: true, notes };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Granola request failed." };
   }
 }
 

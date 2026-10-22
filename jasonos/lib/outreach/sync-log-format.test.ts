@@ -82,8 +82,20 @@ describe("formatSyncSummary", () => {
         updated: 1,
         resolved: 3,
         scanned: 12,
+        granolaEnriched: 4,
       }),
-      "+2 follow-ups · 1 refreshed · 3 cleared · 12 meetings"
+      "+2 follow-ups · 1 refreshed · 3 cleared · 4 Granola notes · 12 meetings"
+    );
+  });
+
+  it("summarizes commitment scan", () => {
+    assert.equal(
+      formatSyncSummary("commitments", {
+        ok: true,
+        inserted: 5,
+        matched: 8,
+      }),
+      "5 open · 8 notes scanned"
     );
   });
 

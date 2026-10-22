@@ -23,6 +23,7 @@ import {
   Handshake,
   Send,
   CalendarClock,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ import { scanJobAlerts } from "@/lib/server-actions/job-opportunities";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
 import { captureMeetingFollowups } from "@/lib/server-actions/meeting-followups";
 import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import { scanCommitmentsFromSurfaces } from "@/lib/server-actions/commitment-scan";
 import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
@@ -212,6 +214,13 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           status: "running",
         },
         {
+          id: "commitments",
+          label: "Commitments",
+          group: "other",
+          icon: ListChecks,
+          status: "running",
+        },
+        {
           id: "suggested",
           label: "Suggested contacts",
           group: "other",
@@ -319,6 +328,13 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
             `+${result.created} follow-up${result.created === 1 ? "" : "s"}`,
           ];
           if (result.resolved) bits.push(`${result.resolved} cleared`);
+          if (result.granolaEnriched) {
+            bits.push(
+              `${result.granolaEnriched} Granola note${
+                result.granolaEnriched === 1 ? "" : "s"
+              }`
+            );
+          }
           patchStep("meeting-followups", {
             status: "done",
             resultText: bits.join(", "),
@@ -330,6 +346,29 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           });
         } else {
           patchStep("meeting-followups", {
+            status: "failed",
+            resultText: result.error,
+          });
+        }
+        return result;
+      })();
+
+      const commitmentsJob = (async () => {
+        // Run after meeting follow-ups so cached Granola summaries are fresh.
+        await meetingJob;
+        const result = await scanCommitmentsFromSurfaces({ runId });
+        if (result.ok) {
+          patchStep("commitments", {
+            status: "done",
+            resultText: `${result.published} open · ${result.scannedNotes} notes`,
+          });
+        } else if (result.unavailable) {
+          patchStep("commitments", {
+            status: "skipped",
+            resultText: result.error,
+          });
+        } else {
+          patchStep("commitments", {
             status: "failed",
             resultText: result.error,
           });
@@ -421,6 +460,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         beeper,
         suggested,
         meetingFollowups,
+        commitments,
         sentFollowups,
         browning,
         jobAlerts,
@@ -431,6 +471,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         beeperJob,
         suggestedJob,
         meetingJob,
+        commitmentsJob,
         sentJob,
         browningJob,
         jobAlertsJob,
@@ -566,12 +607,31 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         if (meetingFollowups.resolved) {
           bits.push(`${meetingFollowups.resolved} cleared`);
         }
+        if (meetingFollowups.granolaEnriched) {
+          bits.push(
+            `${meetingFollowups.granolaEnriched} Granola note${
+              meetingFollowups.granolaEnriched === 1 ? "" : "s"
+            }`
+          );
+        }
         messages.push(`Meeting Follow Up ${bits.join(", ")}`);
       } else if (meetingFollowups.unavailable) {
         messages.push(meetingFollowups.error);
       } else {
         meetingFollowUpFatal = true;
         messages.push(`Meeting Follow Up failed: ${meetingFollowups.error}`);
+      }
+
+      let commitmentsFatal = false;
+      if (commitments.ok) {
+        messages.push(
+          `Commitments ${commitments.published} open · ${commitments.scannedNotes} notes`
+        );
+      } else if (commitments.unavailable) {
+        messages.push(commitments.error);
+      } else {
+        commitmentsFatal = true;
+        messages.push(`Commitments failed: ${commitments.error}`);
       }
 
       let sentFollowUpFatal = false;
@@ -605,18 +665,24 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !beeperFatal &&
         !outlookFatal &&
         !meetingFollowUpFatal &&
+        !commitmentsFatal &&
         !sentFollowUpFatal &&
         !browningFatal &&
         !jobAlertsFatal;
       const mailboxWarning = Boolean(
         gcal?.warnings?.length || gmailWarnings.length || outlook?.warnings?.length
       );
+      const commitmentsUnavailable =
+        !commitments.ok && Boolean(commitments.unavailable);
       const softOnlyMiss =
-        (Boolean(beeper?.unavailable) || Boolean(outlook?.unavailable)) &&
+        (Boolean(beeper?.unavailable) ||
+          Boolean(outlook?.unavailable) ||
+          commitmentsUnavailable) &&
         !beeperFatal &&
         !outlookFatal &&
         !suggestedFatal &&
         !meetingFollowUpFatal &&
+        !commitmentsFatal &&
         !sentFollowUpFatal &&
         !browningFatal &&
         !jobAlertsFatal &&
@@ -660,8 +726,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         disabled={running}
         title={
           lastSynced
-            ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Meeting Follow Up, Sent Follow Up, job alerts, Browning handoffs, Beeper (when open) & suggested contacts`
-            : "Sync Gmail, Outlook, Calendar, Meeting Follow Up, Sent Follow Up, job alerts, Browning handoffs, Beeper (when Desktop is open) & suggested contacts"
+            ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Meeting Follow Up, Commitments (Granola), Sent Follow Up, job alerts, Browning handoffs, Beeper (when open) & suggested contacts`
+            : "Sync Gmail, Outlook, Calendar, Meeting Follow Up, Commitments from Granola, Sent Follow Up, job alerts, Browning handoffs, Beeper (when Desktop is open) & suggested contacts"
         }
       >
         {running ? (
