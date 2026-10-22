@@ -106,7 +106,19 @@ export function SettingsClient({
     const error = searchParams.get("google_error");
     const outlookConnected = searchParams.get("outlook_connected") === "1";
     const outlookError = searchParams.get("outlook_error");
-    if (!connected && !advisors && !error && !outlookConnected && !outlookError) return;
+    const wisprConnected = searchParams.get("wispr_connected") === "1";
+    const wisprError = searchParams.get("wispr_error");
+    if (
+      !connected &&
+      !advisors &&
+      !error &&
+      !outlookConnected &&
+      !outlookError &&
+      !wisprConnected &&
+      !wisprError
+    ) {
+      return;
+    }
     if (connected) {
       toast.success("Personal Gmail connected", {
         description: "Hit Sync in the top bar. Calendar and sent mail on jasonkuperman@gmail.com will come through.",
@@ -124,12 +136,22 @@ export function SettingsClient({
     } else if (outlookError) {
       toast.error("Outlook connect failed", { description: outlookError });
     }
+    if (wisprConnected) {
+      toast.success("Wispr Notetaker connected", {
+        description:
+          "Draft email, Meeting Follow Ups, and Commitments can read Wispr notes alongside Granola.",
+      });
+    } else if (wisprError) {
+      toast.error("Wispr connect failed", { description: wisprError });
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("google_gmail_connected");
     url.searchParams.delete("google_connected");
     url.searchParams.delete("google_error");
     url.searchParams.delete("outlook_connected");
     url.searchParams.delete("outlook_error");
+    url.searchParams.delete("wispr_connected");
+    url.searchParams.delete("wispr_error");
     router.replace(url.pathname + url.search, { scroll: false });
   }, [searchParams, router]);
 
@@ -840,6 +862,26 @@ function ServiceCard({
             Fix this in Mail accounts
           </a>
         ) : null
+      ) : null}
+
+      {definition.name === "wispr" ? (
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Sign in with the Wispr Flow account that holds your Notetaker meetings. Cloud Sync /
+            Notetaker must be on in Wispr. Runs next to Granola until you switch fully.
+          </p>
+          {connection.status !== "connected" ? (
+            <Button size="sm" render={<a href="/api/auth/wispr" />}>
+              Connect Wispr
+            </Button>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" render={<a href="/api/auth/wispr" />}>
+                Reconnect
+              </Button>
+            </div>
+          )}
+        </div>
       ) : null}
 
       {definition.connectionType === "mcp" ? (
