@@ -26,6 +26,11 @@ export interface FamilyMeetingEvent {
   calendarName: string;
   calendarHref: string;
   groupId: FamilyCalendarGroupId;
+  /**
+   * Week-to-week repeat (same series or title on 2+ days in the window).
+   * Rendered with a quieter list treatment.
+   */
+  routine?: boolean;
 }
 
 export interface FamilyMeetingGroupAgenda {
