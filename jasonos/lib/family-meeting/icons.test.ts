@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { discernEventIcon } from "./icons.ts";
+import {
+  discernEventIcon,
+  locationForDisplay,
+} from "./icons.ts";
 
 describe("discernEventIcon", () => {
   it("maps obvious titles", () => {
@@ -14,7 +17,34 @@ describe("discernEventIcon", () => {
     assert.equal(discernEventIcon("Flight to Chicago"), "plane");
   });
 
+  it("uses a video icon for Webex / Zoom / webinar locations", () => {
+    assert.equal(
+      discernEventIcon(
+        "Using Psychology to Help Your Student Be a Competent Cougar",
+        "https://somsdk12.webex.com/wbxmjs/joinservice/sites/somsdk12/meeting"
+      ),
+      "video"
+    );
+    assert.equal(
+      discernEventIcon("Team sync", "https://us02web.zoom.us/j/12345"),
+      "video"
+    );
+    assert.equal(discernEventIcon("Parent webinar tonight"), "video");
+  });
+
   it("falls back when nothing matches", () => {
     assert.equal(discernEventIcon("Mystery hang"), "star");
+  });
+});
+
+describe("locationForDisplay", () => {
+  it("hides URLs and meeting join links", () => {
+    assert.equal(
+      locationForDisplay(
+        "https://somsdk12.webex.com/wbxmjs/joinservice/sites/somsdk12/meeting"
+      ),
+      null
+    );
+    assert.equal(locationForDisplay("Springfield MVC Vehicle Center"), "Springfield MVC Vehicle Center");
   });
 });
