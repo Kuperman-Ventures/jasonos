@@ -252,11 +252,16 @@ export async function fetchICloudCalendarEvents(opts: {
 }): Promise<{ events: ICloudCalDavEvent[]; error?: string }> {
   const start = formatCalDavUtc(opts.timeMin);
   const end = formatCalDavUtc(opts.timeMax);
+  // Ask iCloud to expand recurrences into concrete instances inside the
+  // window. Without <expand>, masters arrive with ancient DTSTARTs and
+  // the agenda fills with years-old birthdays / chores.
   const body = `<?xml version="1.0" encoding="utf-8"?>
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
   <d:prop>
     <d:getetag/>
-    <c:calendar-data/>
+    <c:calendar-data>
+      <c:expand start="${start}" end="${end}"/>
+    </c:calendar-data>
   </d:prop>
   <c:filter>
     <c:comp-filter name="VCALENDAR">
