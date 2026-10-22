@@ -175,6 +175,57 @@ export async function testServiceConnection(
     };
   }
 
+  if (serviceName === "icloud_calendar") {
+    let appleId = stringCredential(credentials.apple_id);
+    let appPassword = stringCredential(credentials.api_key);
+    if (!appleId || !appPassword) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "icloud_calendar")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as {
+          apple_id?: string;
+          access_token?: string;
+        };
+        if (!appleId) appleId = cfg.apple_id?.trim() || undefined;
+        if (!appPassword) appPassword = cfg.access_token?.trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+    if (!appleId || !appPassword) {
+      return {
+        success: false,
+        message:
+          "Paste your Apple ID email and an app-specific password from account.apple.com.",
+        health_status: "down",
+      };
+    }
+    try {
+      const { probeICloudCalDav } = await import("@/lib/integrations/icloud-caldav");
+      const probe = await probeICloudCalDav({
+        appleId,
+        appPassword,
+      });
+      if (!probe.ok) {
+        return { success: false, message: probe.message, health_status: "down" };
+      }
+      return {
+        success: true,
+        message: probe.message,
+        account_name: appleId,
+        health_status: "healthy",
+      };
+    } catch (error) {
+      return failed(error, "iCloud Calendar check failed.");
+    }
+  }
+
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
   if (
     !key &&
@@ -579,7 +630,8 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
     service.name === "jasonos_mcp" ||
     service.name === "firecrawl" ||
     service.name === "granola" ||
-    service.name === "leaddelta"
+    service.name === "leaddelta" ||
+    service.name === "icloud_calendar"
   ) {
     const { data: existing } = await supabase
       .from("service_connections")
@@ -591,6 +643,7 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
       access_token?: string;
       access_token_hash?: string;
       base_url?: string;
+      apple_id?: string;
     };
     safeConfig = {
       ...prev,
@@ -776,6 +829,14 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
   if (serviceName === "firecrawl" || serviceName === "granola" || serviceName === "leaddelta") {
     const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
+    if (token) out.access_token = token;
+    return out;
+  }
+  if (serviceName === "icloud_calendar") {
+    const out: Record<string, string> = {};
+    const appleId = stringCredential(credentials.apple_id);
+    const token = stringCredential(credentials.api_key);
+    if (appleId) out.apple_id = appleId;
     if (token) out.access_token = token;
     return out;
   }

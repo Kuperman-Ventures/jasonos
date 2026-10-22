@@ -119,6 +119,33 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     disconnectable: false,
   },
   {
+    name: "icloud_calendar",
+    label: "iCloud Calendar",
+    connectionType: "api_key",
+    setup: "Apple ID email + app-specific password",
+    logoDomain: "icloud.com",
+    description:
+      "Family Meeting weekend agenda. Reads the Family, Kat & Jason, Kyle, and Wyatt calendars over CalDAV. Use your Apple ID email and an app-specific password from account.apple.com (not your normal Apple password).",
+    features: ["Family Meeting", "Weekend agenda"],
+    configurable: true,
+    disconnectable: true,
+    fields: [
+      {
+        name: "apple_id",
+        label: "Apple ID email",
+        placeholder: "you@icloud.com",
+        required: true,
+      },
+      {
+        name: "api_key",
+        label: "App-specific password",
+        type: "password",
+        required: true,
+        placeholder: "xxxx-xxxx-xxxx-xxxx",
+      },
+    ],
+  },
+  {
     name: "encore_os",
     label: "EncoreOS",
     connectionType: "mcp",
