@@ -4,14 +4,22 @@
  */
 
 import "server-only";
-import { DOMParser } from "@xmldom/xmldom";
-import type { Element as XmlElement } from "@xmldom/xmldom";
 import { parseIcsEvents } from "@/lib/family-meeting/ics";
 import type {
   ICloudCalDavEvent,
   ICloudCalendar,
   ICloudCredentials,
 } from "./icloud-caldav-types";
+import {
+  childElements,
+  ensureTrailingSlash,
+  findDeep,
+  firstDeep,
+  hrefInsideProperty,
+  localName,
+  parseMultistatus,
+  textOf,
+} from "./icloud-caldav-xml";
 
 export type { ICloudCalDavEvent, ICloudCalendar, ICloudCredentials };
 
@@ -58,7 +66,34 @@ async function caldavFetch(
       },
       body: init.body,
       cache: "no-store",
+      redirect: "manual",
     });
+    // iCloud sometimes chains redirects onto the shard host.
+    const againLoc = again.headers.get("location") ?? undefined;
+    if (
+      (again.status === 301 ||
+        again.status === 302 ||
+        again.status === 307 ||
+        again.status === 308) &&
+      againLoc
+    ) {
+      const third = new URL(againLoc, next).toString();
+      const last = await fetch(third, {
+        method: init.method,
+        headers: {
+          Authorization: basicAuth(creds),
+          ...(init.headers ?? {}),
+        },
+        body: init.body,
+        cache: "no-store",
+      });
+      return {
+        ok: last.ok,
+        status: last.status,
+        text: await last.text().catch(() => ""),
+        location: third,
+      };
+    }
     return {
       ok: again.ok,
       status: again.status,
@@ -74,46 +109,11 @@ async function caldavFetch(
   };
 }
 
-function localName(node: { localName?: string | null; nodeName?: string | null } | null): string {
-  if (!node) return "";
-  if (node.localName) return node.localName.toLowerCase();
-  const name = node.nodeName ?? "";
-  const parts = name.split(":");
-  return (parts[parts.length - 1] ?? "").toLowerCase();
-}
-
-function textOf(el: XmlElement | null | undefined): string {
-  if (!el) return "";
-  return (el.textContent ?? "").trim();
-}
-
-function childElements(parent: XmlElement): XmlElement[] {
-  const out: XmlElement[] = [];
-  for (let i = 0; i < parent.childNodes.length; i++) {
-    const n = parent.childNodes[i];
-    if (n && n.nodeType === 1) out.push(n as XmlElement);
-  }
-  return out;
-}
-
-function findDeep(root: XmlElement, name: string): XmlElement[] {
-  const want = name.toLowerCase();
-  const out: XmlElement[] = [];
-  const walk = (el: XmlElement) => {
-    if (localName(el) === want) out.push(el);
-    for (const child of childElements(el)) walk(child);
-  };
-  walk(root);
-  return out;
-}
-
-function firstDeep(root: XmlElement, name: string): XmlElement | null {
-  return findDeep(root, name)[0] ?? null;
-}
-
-function parseMultistatus(xml: string): XmlElement | null {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  return doc.documentElement;
+function resolveHref(
+  href: string,
+  baseUrl: string
+): string {
+  return new URL(href, baseUrl).toString();
 }
 
 /** Discover principal → calendar-home-set → calendar collections. */
@@ -148,14 +148,13 @@ export async function listICloudCalendars(
 
   const principalRoot = parseMultistatus(principalProbe.text);
   const principalHref =
-    (principalRoot && textOf(firstDeep(principalRoot, "href"))) || "";
+    (principalRoot && hrefInsideProperty(principalRoot, "current-user-principal")) ||
+    "";
   if (!principalHref) {
     return { calendars: [], error: "iCloud did not return a calendar principal." };
   }
-  const principalUrl = new URL(
-    principalHref,
-    principalProbe.location ?? ICLOUD_CALDAV
-  ).toString();
+  const principalBase = principalProbe.location ?? ICLOUD_CALDAV;
+  const principalUrl = resolveHref(principalHref, principalBase);
 
   const homeProbe = await caldavFetch(principalUrl, creds, {
     method: "PROPFIND",
@@ -175,11 +174,13 @@ export async function listICloudCalendars(
     };
   }
   const homeRoot = parseMultistatus(homeProbe.text);
-  const homeHref = (homeRoot && textOf(firstDeep(homeRoot, "href"))) || "";
+  const homeHref =
+    (homeRoot && hrefInsideProperty(homeRoot, "calendar-home-set")) || "";
   if (!homeHref) {
     return { calendars: [], error: "iCloud did not return a calendar home." };
   }
-  const homeUrl = new URL(homeHref, homeProbe.location ?? principalUrl).toString();
+  const homeBase = homeProbe.location ?? principalUrl;
+  const homeUrl = ensureTrailingSlash(resolveHref(homeHref, homeBase));
 
   const listProbe = await caldavFetch(homeUrl, creds, {
     method: "PROPFIND",
@@ -188,11 +189,11 @@ export async function listICloudCalendars(
       "Content-Type": "application/xml; charset=utf-8",
     },
     body: `<?xml version="1.0" encoding="utf-8"?>
-<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/">
+<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
   <d:prop>
     <d:displayname/>
     <d:resourcetype/>
-    <cs:getctag/>
+    <c:supported-calendar-component-set/>
   </d:prop>
 </d:propfind>`,
   });
@@ -209,9 +210,12 @@ export async function listICloudCalendars(
     return { calendars: [], error: "Empty calendar list from iCloud.", homeUrl };
   }
 
+  const listBase = listProbe.location ?? homeUrl;
   const calendars: ICloudCalendar[] = [];
   for (const response of findDeep(listRoot, "response")) {
-    const href = textOf(firstDeep(response, "href"));
+    // Response-level href is the first direct child href, not nested property hrefs.
+    const hrefEl = childElements(response).find((el) => localName(el) === "href");
+    const href = textOf(hrefEl);
     if (!href) continue;
     const types = findDeep(response, "resourcetype");
     const isCalendar = types.some((t) =>
@@ -219,12 +223,11 @@ export async function listICloudCalendars(
     );
     if (!isCalendar) continue;
     const name = textOf(firstDeep(response, "displayname")) || href;
-    const absolute = new URL(href, homeUrl).toString();
+    const absolute = ensureTrailingSlash(resolveHref(href, listBase));
     if (absolute.replace(/\/$/, "") === homeUrl.replace(/\/$/, "")) continue;
     calendars.push({
       href: absolute,
       name,
-      ctag: textOf(firstDeep(response, "getctag")) || undefined,
     });
   }
 
@@ -291,7 +294,8 @@ export async function fetchICloudCalendarEvents(opts: {
 
   const events: ICloudCalDavEvent[] = [];
   for (const response of findDeep(root, "response")) {
-    const href = textOf(firstDeep(response, "href"));
+    const hrefEl = childElements(response).find((el) => localName(el) === "href");
+    const href = textOf(hrefEl);
     const dataEl = firstDeep(response, "calendar-data");
     const ics = textOf(dataEl);
     if (!ics) continue;
