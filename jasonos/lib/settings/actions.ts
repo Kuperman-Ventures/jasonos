@@ -213,13 +213,19 @@ export async function testServiceConnection(
         appPassword,
       });
       if (!probe.ok) {
-        return { success: false, message: probe.message, health_status: "down" };
+        return {
+          success: false,
+          message: probe.message,
+          health_status: "down",
+          status: "error",
+        };
       }
       return {
         success: true,
         message: probe.message,
         account_name: appleId,
         health_status: "healthy",
+        status: "connected",
       };
     } catch (error) {
       return failed(error, "iCloud Calendar check failed.");
@@ -680,6 +686,38 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
     account_name: test.account_name,
     health_status: test.health_status,
   };
+}
+
+/**
+ * Persist a Test Connection / health-check outcome without wiping config.
+ * Clears sticky error_message on success so the Settings badge updates.
+ */
+export async function persistConnectionHealth(
+  serviceName: string,
+  result: ConnectionTestResult
+) {
+  const { supabase, userId } = await getUserContext();
+  const service = getServiceDefinition(serviceName);
+  if (!service) return;
+  const now = new Date().toISOString();
+  const status =
+    result.status ?? (result.success ? "connected" : envStatus(service));
+  const { error } = await supabase.from("service_connections").upsert(
+    {
+      user_id: userId,
+      service_name: service.name,
+      status,
+      connection_type: service.connectionType,
+      last_health_check: now,
+      health_status: result.health_status,
+      health_details: result.message,
+      error_message: result.success ? null : result.message,
+      connected_at: result.success ? now : null,
+      updated_at: now,
+    },
+    { onConflict: "user_id,service_name" }
+  );
+  if (error) throw new Error(error.message);
 }
 
 export async function healthCheckAll() {
