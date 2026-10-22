@@ -1,6 +1,8 @@
 // Tentative holds for times offered in a Browning reply.
 // They stay grey on the calendar until a meeting is set, so the next
 // handoff does not take the same slot.
+// Unbooked holds that start within 24 hours are released — the slot is
+// too soon to keep blocking the calendar if they have not picked it.
 
 import type { BusyBlock, HandoffSlot, HandoffStatus } from "./types";
 
@@ -10,6 +12,26 @@ const OPEN_HOLD_STATUSES = new Set<HandoffStatus>([
   "acted_on",
   "follow_up",
 ]);
+
+/** Drop calendar holds once the offered start is this close (or past). */
+export const HOLD_RELEASE_AHEAD_MS = 24 * 60 * 60 * 1000;
+
+/** True while the offered time is far enough out to keep a calendar hold. */
+export function slotEligibleForHold(
+  startIso: string,
+  now: Date = new Date()
+): boolean {
+  const start = Date.parse(startIso);
+  if (!Number.isFinite(start)) return false;
+  return start - now.getTime() > HOLD_RELEASE_AHEAD_MS;
+}
+
+export function slotsEligibleForHold(
+  slots: HandoffSlot[],
+  now: Date = new Date()
+): HandoffSlot[] {
+  return slots.filter((slot) => slotEligibleForHold(slot.start, now));
+}
 
 export type StoredHold = {
   slotId: string;
@@ -76,15 +98,17 @@ export function holdsLookCurrent(input: {
   keep: boolean;
   /** Set after Sync confirmed the calendar holds were deleted. */
   clearedAt?: string | null;
+  now?: Date;
 }): boolean {
   if (!input.keep) {
     // Empty stored ids are not enough — Google may still have orphan holds.
     // Only skip once we have cleared and have nothing left to delete by id.
     return Boolean(input.clearedAt) && input.stored.length === 0;
   }
-  if (input.stored.length !== input.slots.length) return false;
+  const holdSlots = slotsEligibleForHold(input.slots, input.now ?? new Date());
+  if (input.stored.length !== holdSlots.length) return false;
   const bySlot = new Map(input.stored.map((hold) => [hold.slotId, hold]));
-  return input.slots.every((slot) => {
+  return holdSlots.every((slot) => {
     const hold = bySlot.get(slot.id);
     return Boolean(
       hold && sameTime(hold.start, slot.start) && sameTime(hold.end, slot.end)
@@ -97,6 +121,7 @@ export function reconcileHolds(input: {
   listed: ListedHold[];
   stored: StoredHold[];
   keep: boolean;
+  now?: Date;
 }): HoldPlan {
   if (!input.keep) {
     return {
@@ -110,6 +135,10 @@ export function reconcileHolds(input: {
     };
   }
 
+  // Only far-enough slots keep a calendar hold. Near slots stay on the
+  // reply as offered times, but the grey Hold · event is deleted.
+  const holdSlots = slotsEligibleForHold(input.slots, input.now ?? new Date());
+
   const listedBySlot = new Map<string, ListedHold[]>();
   const deleteIds: string[] = [];
   for (const row of input.listed) {
@@ -122,7 +151,7 @@ export function reconcileHolds(input: {
     listedBySlot.set(row.slotId, group);
   }
 
-  const slotIds = new Set(input.slots.map((slot) => slot.id));
+  const slotIds = new Set(holdSlots.map((slot) => slot.id));
   for (const hold of input.stored) {
     if (!slotIds.has(hold.slotId)) deleteIds.push(hold.eventId);
   }
@@ -136,7 +165,7 @@ export function reconcileHolds(input: {
   const create: HandoffSlot[] = [];
   const update: HoldPlan["update"] = [];
 
-  for (const slot of input.slots) {
+  for (const slot of holdSlots) {
     const matches = listedBySlot.get(slot.id) ?? [];
     const primary = matches[0];
     for (const extra of matches.slice(1)) deleteIds.push(extra.eventId);
@@ -175,14 +204,23 @@ export function busyForHandoff(
     callStartsAt: string | null;
     slots: HandoffSlot[];
   }[],
-  handoffId: string
+  handoffId: string,
+  now: Date = new Date()
 ): BusyBlock[] {
   const self = handoffs.find((row) => row.id === handoffId);
   const ownTitle = holdTitle(self?.contactName).toLowerCase();
   const withoutOwnHolds = calendarBusy.filter((block) => {
     if (block.holdHandoffId === handoffId) return false;
     const title = block.title.trim().toLowerCase();
-    return !(title.startsWith("hold ·") && title === ownTitle);
+    if (title.startsWith("hold ·") && title === ownTitle) return false;
+    // Near-term holds are being released — do not keep them busy for others.
+    if (
+      (block.tentativeHold || title.startsWith("hold ·")) &&
+      !slotEligibleForHold(block.start, now)
+    ) {
+      return false;
+    }
+    return true;
   });
   const coveredStarts = new Set(
     withoutOwnHolds
@@ -194,7 +232,7 @@ export function busyForHandoff(
   for (const handoff of handoffs) {
     if (handoff.id === handoffId) continue;
     if (!shouldKeepTentativeHolds(handoff)) continue;
-    for (const slot of handoff.slots) {
+    for (const slot of slotsEligibleForHold(handoff.slots, now)) {
       const start = Date.parse(slot.start);
       if (!Number.isFinite(start) || coveredStarts.has(start)) continue;
       coveredStarts.add(start);
