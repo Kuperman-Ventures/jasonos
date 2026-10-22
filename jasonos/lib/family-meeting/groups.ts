@@ -6,7 +6,7 @@ export const FAMILY_CALENDAR_GROUPS: FamilyCalendarGroup[] = [
     id: "family",
     label: "Family",
     shortLabel: "Family",
-    nameMatchers: [/^family$/i, /\bfamily\b/i],
+    nameMatchers: [/^kuperman\s+family$/i, /^family$/i, /\bfamily\b/i],
     accent: "#d4a84b",
     ink: "#2a1f0a",
   },
@@ -24,7 +24,7 @@ export const FAMILY_CALENDAR_GROUPS: FamilyCalendarGroup[] = [
   },
   {
     id: "kyle_kat_jason",
-    label: "Kyle, Kat & Jason",
+    label: "Kyle",
     shortLabel: "Kyle",
     nameMatchers: [/^kyle$/i, /\bkyle\b/i],
     accent: "#4a9b8c",
@@ -32,7 +32,7 @@ export const FAMILY_CALENDAR_GROUPS: FamilyCalendarGroup[] = [
   },
   {
     id: "wyatt_kat_jason",
-    label: "Wyatt, Kat & Jason",
+    label: "Wyatt",
     shortLabel: "Wyatt",
     nameMatchers: [/^wyatt$/i, /\bwyatt\b/i],
     accent: "#6a8fbf",
@@ -62,7 +62,7 @@ export function familyCalendarGroup(
 
 /**
  * Score how well a calendar name fits a group. Higher is better.
- * Exact / short names beat broader contains matches (Family vs Kuperman Family).
+ * Family prefers the iCloud “Kuperman Family” calendar over a bare “Family” name.
  */
 export function scoreCalendarGroupMatch(
   calendarName: string,
@@ -73,8 +73,8 @@ export function scoreCalendarGroupMatch(
   if (!name) return 0;
 
   if (group.id === "family") {
-    if (/^family$/i.test(name)) return 100;
-    if (/^kuperman\s+family$/i.test(name)) return 80;
+    if (/^kuperman\s+family$/i.test(name)) return 100;
+    if (/^family$/i.test(name)) return 70;
     if (/\bfamily\b/i.test(name)) return 40;
     return 0;
   }

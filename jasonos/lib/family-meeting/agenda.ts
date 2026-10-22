@@ -145,7 +145,7 @@ export async function loadFamilyMeetingAgenda(
   const missing = groups.filter((g) => g.missingCalendar).map((g) => g.group.label);
   if (missing.length) {
     warnings.push(
-      `No iCloud calendar matched: ${missing.join(", ")}. Names should include Family / Kat & Jason / Kyle / Wyatt.`
+      `No iCloud calendar matched: ${missing.join(", ")}. Names should include Kuperman Family / Kat & Jason / Kyle / Wyatt.`
     );
   }
 

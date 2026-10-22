@@ -16,13 +16,19 @@ describe("matchCalendarGroup", () => {
     assert.equal(matchCalendarGroup("WYATT")?.id, "wyatt_kat_jason");
   });
 
-  it("prefers exact Family over Kuperman Family", () => {
+  it("prefers Kuperman Family over a bare Family calendar", () => {
     const group = familyCalendarGroup("family");
     const picked = pickBestCalendarForGroup(group, [
       { name: "Kuperman Family", href: "/a/" },
       { name: "Family ⚠️", href: "/b/" },
     ]);
-    assert.equal(picked?.href, "/b/");
+    assert.equal(picked?.href, "/a/");
+    assert.equal(picked?.name, "Kuperman Family");
+  });
+
+  it("labels Kyle and Wyatt lanes with short names", () => {
+    assert.equal(familyCalendarGroup("kyle_kat_jason").label, "Kyle");
+    assert.equal(familyCalendarGroup("wyatt_kat_jason").label, "Wyatt");
   });
 
   it("returns null for unrelated calendars", () => {

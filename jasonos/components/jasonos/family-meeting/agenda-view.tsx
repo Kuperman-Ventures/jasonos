@@ -2,18 +2,25 @@ import Link from "next/link";
 import type { FamilyMeetingAgenda, FamilyMeetingEvent } from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
 
-function formatEventTime(ev: FamilyMeetingEvent): { day: string; time: string } {
+function formatEventTime(ev: FamilyMeetingEvent): {
+  weekday: string;
+  date: string;
+  time: string;
+} {
   const start = new Date(ev.startsAt);
-  // Two-week board: include month/day so two Saturdays don't collide.
-  const day = new Intl.DateTimeFormat("en-US", {
+  // Two-week board: weekday + month/day must read at a glance.
+  const weekday = new Intl.DateTimeFormat("en-US", {
     timeZone: FAMILY_MEETING_TIMEZONE,
     weekday: "short",
+  }).format(start);
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: FAMILY_MEETING_TIMEZONE,
     month: "short",
     day: "numeric",
   }).format(start);
 
   if (ev.allDay) {
-    return { day, time: "All day" };
+    return { weekday, date, time: "All day" };
   }
 
   const time = new Intl.DateTimeFormat("en-US", {
@@ -22,7 +29,7 @@ function formatEventTime(ev: FamilyMeetingEvent): { day: string; time: string } 
     minute: "2-digit",
   }).format(start);
 
-  return { day, time };
+  return { weekday, date, time };
 }
 
 export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgenda }) {
@@ -40,8 +47,8 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
             Coming up, <em>{agenda.weekendLabel}</em>
           </h1>
           <p className="fm-lede">
-            Weekend meeting agenda from the Family, Kat &amp; Jason, Kyle, and
-            Wyatt calendars — weekdays and weekends for the next two weeks.
+            Agenda from the Kuperman Family, Kat &amp; Jason, Kyle, and Wyatt
+            calendars — weekdays and weekends for the next two weeks.
           </p>
           <div className="fm-meta">
             <span className="fm-chip">
@@ -65,7 +72,7 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
               These people-group calendars live on iCloud, not Google. In{" "}
               <Link href="/settings">Settings</Link>, add your Apple ID and an
               app-specific password, then reopen this page. JasonOS will match
-              calendars named Family, Kat &amp; Jason, Kyle, and Wyatt.
+              calendars named Kuperman Family, Kat &amp; Jason, Kyle, and Wyatt.
             </p>
           </div>
         ) : null}
@@ -118,12 +125,13 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
               ) : (
                 <div className="fm-events">
                   {lane.events.map((ev) => {
-                    const { day, time } = formatEventTime(ev);
+                    const { weekday, date, time } = formatEventTime(ev);
                     return (
                       <article key={ev.id} className="fm-event">
-                        <div className="fm-event-time">
-                          <span className="fm-event-day">{day}</span>
-                          {time}
+                        <div className="fm-event-when" aria-label={`${weekday} ${date}, ${time}`}>
+                          <span className="fm-event-weekday">{weekday}</span>
+                          <span className="fm-event-date">{date}</span>
+                          <span className="fm-event-clock">{time}</span>
                         </div>
                         <div>
                           <h3 className="fm-event-title">{ev.title}</h3>
