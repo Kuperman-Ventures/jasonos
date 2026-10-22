@@ -28,6 +28,7 @@ export const config: VercelConfig = {
     "app/api/post-master/hooks/route.ts": { maxDuration: 60 },
     "app/api/post-master/generate/route.ts": { maxDuration: 120 },
     "app/api/post-master/research/route.ts": { maxDuration: 120 },
+    "app/api/post-master/weekly-provocation/research/route.ts": { maxDuration: 300 },
 
 
     // Product Health probes targets in parallel with a 10s timeout each;

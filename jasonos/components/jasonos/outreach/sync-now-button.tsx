@@ -447,6 +447,9 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         0
       );
       const gmailWarnings = gmailResults.flatMap((r) => r.warnings ?? []);
+      const weeklyProvocations =
+        gmailResults.reduce((n, r) => n + (r.weeklyProvocations ?? 0), 0) +
+        (outlook?.weeklyProvocations ?? 0);
       const gmailErrors = gmailResults
         .filter((r) => !r.ok)
         .map((r) => r.error)
@@ -478,6 +481,11 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       }
       if (gmailWarnings.length) {
         messages.push(gmailWarnings.join(" · "));
+      }
+      if (weeklyProvocations) {
+        messages.push(
+          `Weekly Provocation +${weeklyProvocations}`
+        );
       }
       if (outlook) {
         if (outlook.unavailable) {

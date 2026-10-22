@@ -276,6 +276,7 @@ describe("registerJasonosTools", () => {
     }
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
+    assert.ok(registered.includes("list_weekly_provocations"));
   });
 });
 
@@ -302,6 +303,7 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("request_fyb_entry_changes"));
     assert.ok(tools.includes("list_project_links"));
     assert.ok(tools.includes("add_project_link"));
+    assert.ok(tools.includes("list_weekly_provocations"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
   });

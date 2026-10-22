@@ -31,6 +31,7 @@ import {
   listProjectLinks,
   listProjects,
   listSuggestedContacts,
+  listWeeklyProvocations,
 } from "./reads";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
@@ -485,6 +486,18 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => runTool(listPostMasterProjects)
+  );
+
+  server.registerTool(
+    "list_weekly_provocations",
+    {
+      title: "Weekly Provocation",
+      description:
+        "Weekly Provocation briefs from Will Duffy or Rover: subject, short brief, questions, and how many sources each question has. Not a drafted reply.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(listWeeklyProvocations)
   );
 
   server.registerTool(

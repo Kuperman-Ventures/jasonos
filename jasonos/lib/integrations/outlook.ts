@@ -276,6 +276,7 @@ export interface OutlookSearchedMessage {
   body: string;
   conversationId: string | null;
   internetMessageId: string | null;
+  webLink: string | null;
 }
 
 interface GraphSearchedMessage extends GraphMessage {
@@ -302,7 +303,7 @@ export async function searchOutlookMessages(
       $search: query,
       $top: "25",
       $select:
-        "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft",
+        "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft,webLink",
     });
     let url: string | null = `/me/messages?${params}`;
     for (let page = 0; page < maxPages && url; page += 1) {
@@ -331,6 +332,7 @@ export async function searchOutlookMessages(
           body: raw.body?.content ?? raw.bodyPreview ?? "",
           conversationId: raw.conversationId ?? null,
           internetMessageId: raw.internetMessageId ?? null,
+          webLink: raw.webLink ?? null,
         });
       }
       url = body?.["@odata.nextLink"] ?? null;
@@ -936,6 +938,7 @@ function mapSearchedMessage(raw: GraphSearchedMessage | null | undefined): Outlo
     body: raw.body?.content ?? raw.bodyPreview ?? "",
     conversationId: raw.conversationId ?? null,
     internetMessageId: raw.internetMessageId ?? null,
+    webLink: raw.webLink ?? null,
   };
 }
 

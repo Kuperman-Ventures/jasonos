@@ -183,6 +183,12 @@ export function formatSyncSummary(
   else if (meetingsUpdated) parts.push(`${meetingsUpdated} meetings updated`);
   const staged = suggestedClip(payload);
   if (staged) parts.push(staged);
+  const provocations = num(payload, "weeklyProvocations");
+  if (provocations) {
+    parts.push(
+      `${provocations} weekly provocation${provocations === 1 ? "" : "s"}`
+    );
+  }
   if (issues.length) parts.push(issues.join(" · "));
   return parts.join(" · ");
 }
