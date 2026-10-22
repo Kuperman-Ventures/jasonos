@@ -209,6 +209,8 @@ export interface PersonCompanyResearch {
   title: string | null;
   website: string | null;
   linkedinUrl: string | null;
+  /** True when at least one page from the company domain was read. */
+  companyVerified: boolean;
 }
 
 function asShortText(value: unknown, max: number): string | null {
@@ -295,5 +297,6 @@ export function parsePersonCompanyResearch(raw: string): PersonCompanyResearch |
     title: asShortText(row.title, 160),
     website: asHttpUrl(company.website),
     linkedinUrl: linkedin && /linkedin\.com\//i.test(linkedin) ? linkedin : null,
+    companyVerified: false,
   };
 }

@@ -292,6 +292,7 @@ export interface MeetingContextPerson {
     lead: string | null;
     bullets: string[];
     sources: Array<{ title: string | null; url: string }>;
+    verified: boolean;
   } | null;
   tracks: string[];
   browningPrep: string | null;

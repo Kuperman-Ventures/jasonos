@@ -412,13 +412,16 @@ export async function draftMeetingPoints(
     ? narrativeResult.narratives.map((item) => ({ title: item.title, body: item.body }))
     : [];
   const assembled = assembleDraftPrompt(prepResult.prep, context, narratives);
+  const companyVerified = !context.people.some(
+    (person) => person.companyResearch && !person.companyResearch.verified
+  );
 
   let text: string;
   try {
     text = await callClaude({
       model: "claude-sonnet-4-6",
       maxTokens: 1200,
-      system: meetingPointsSystemPrompt(NO_AI_SLOP_WRITING_RULES),
+      system: meetingPointsSystemPrompt(NO_AI_SLOP_WRITING_RULES, companyVerified),
       messages: [{ role: "user", content: buildMeetingPointsUserMessage(assembled.input) }],
     });
   } catch (err) {

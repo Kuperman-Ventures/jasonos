@@ -64,6 +64,8 @@ export interface MeetingPrepSummary {
   scriptName: string | null;
   planSource: string | null;
   home: MeetingHomeContext;
+  /** True when any attendee company was researched without reading its website. */
+  researchUnverified: boolean;
 }
 
 export interface MeetingPrepSource {
@@ -253,6 +255,7 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     scriptName: null,
     planSource: row.plan_source?.trim() || null,
     home: EMPTY_HOME_CONTEXT,
+    researchUnverified: false,
   };
 }
 
@@ -562,7 +565,12 @@ async function getMeetingPrepsForDays(
     ];
     const contactIds = [
       ...new Set(
-        meetings.map((meeting) => meeting.primaryContactId).filter((id): id is string => Boolean(id))
+        meetings.flatMap((meeting) => [
+          ...(meeting.primaryContactId ? [meeting.primaryContactId] : []),
+          ...meeting.attendees
+            .map((attendee) => attendee.contactId)
+            .filter((id): id is string => Boolean(id)),
+        ])
       ),
     ];
     const [scriptsResult, contactsResult] = await Promise.all([
@@ -570,13 +578,19 @@ async function getMeetingPrepsForDays(
         ? sb.from("live_scripts").select("id, name").in("id", scriptIds)
         : Promise.resolve({ data: [] as Array<{ id: string; name: string | null }>, error: null }),
       contactIds.length
-        ? sb.from("contacts").select("id, name, company_id, companies(name)").in("id", contactIds)
+        ? sb
+            .from("contacts")
+            .select("id, name, company_id, companies(name, research_verified)")
+            .in("id", contactIds)
         : Promise.resolve({
             data: [] as Array<{
               id: string;
               name: string | null;
               company_id: string | null;
-              companies: { name: string } | { name: string }[] | null;
+              companies:
+                | { name: string; research_verified?: boolean }
+                | { name: string; research_verified?: boolean }[]
+                | null;
             }>,
             error: null,
           }),
@@ -592,6 +606,8 @@ async function getMeetingPrepsForDays(
           {
             name: String(row.name ?? "").trim() || null,
             company: company?.name?.trim() || null,
+            researchVerified: Boolean(company?.research_verified),
+            hasCompany: Boolean(company?.name?.trim() || row.company_id),
           },
         ];
       })
@@ -602,6 +618,17 @@ async function getMeetingPrepsForDays(
         const meta = contactMeta.get(meeting.primaryContactId);
         meeting.primaryContactName = meta?.name ?? meeting.primaryContactName;
         meeting.primaryCompanyName = meta?.company ?? null;
+        meeting.researchUnverified = Boolean(meta?.hasCompany && !meta.researchVerified);
+      }
+      // Also flag when any attendee contact's company is unverified.
+      const attendeeIds = meeting.attendees
+        .map((attendee) => attendee.contactId)
+        .filter((id): id is string => Boolean(id));
+      if (attendeeIds.length) {
+        meeting.researchUnverified = attendeeIds.some((id) => {
+          const meta = contactMeta.get(id);
+          return Boolean(meta?.hasCompany && !meta.researchVerified);
+        });
       }
     }
 

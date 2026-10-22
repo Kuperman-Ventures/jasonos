@@ -7,6 +7,8 @@ export interface FirecrawlSearchHit {
 }
 
 const FIRECRAWL_SEARCH = "https://api.firecrawl.dev/v2/search";
+const FIRECRAWL_SCRAPE = "https://api.firecrawl.dev/v2/scrape";
+const SCRAPE_TEXT_CAP = 12_000;
 
 const DEFAULT_EXCLUDE = [
   "wikipedia.org",
@@ -34,10 +36,12 @@ async function loadFirecrawlConnectionConfig(): Promise<FirecrawlConnectionConfi
       .from("service_connections")
       .select("config")
       .eq("service_name", "firecrawl")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return ((data?.config ?? {}) as FirecrawlConnectionConfig) ?? {};
+      .order("updated_at", { ascending: false });
+    for (const row of data ?? []) {
+      const cfg = (row.config ?? {}) as FirecrawlConnectionConfig;
+      if (cfg.access_token?.trim()) return cfg;
+    }
+    return {};
   } catch {
     return {};
   }
@@ -83,6 +87,59 @@ function asHits(payload: unknown): FirecrawlSearchHit[] {
     });
   }
   return out;
+}
+
+/** Scrape one URL to markdown/text. Caps body at 12,000 characters. */
+export async function firecrawlScrape(
+  url: string,
+  opts?: { apiKey?: string | null }
+): Promise<{ title: string | null; text: string; links: string[] } | null> {
+  const target = url.trim();
+  if (!/^https?:\/\//i.test(target)) return null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const key =
+    (typeof opts?.apiKey === "string" && opts.apiKey.trim()) ||
+    (await resolveFirecrawlApiKey());
+  if (!key) return null;
+  headers.Authorization = `Bearer ${key}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25_000);
+  try {
+    const res = await fetch(FIRECRAWL_SCRAPE, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        url: target,
+        formats: ["markdown", "links"],
+        onlyMainContent: true,
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      data?: {
+        markdown?: string;
+        metadata?: { title?: string | null };
+        links?: string[];
+      };
+    };
+    const markdown = body.data?.markdown?.trim() ?? "";
+    if (!markdown) return null;
+    const title =
+      typeof body.data?.metadata?.title === "string"
+        ? body.data.metadata.title.trim() || null
+        : null;
+    const links = Array.isArray(body.data?.links)
+      ? body.data!.links!.filter((item): item is string => typeof item === "string")
+      : [];
+    return { title, text: markdown.slice(0, SCRAPE_TEXT_CAP), links };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function firecrawlSearch(

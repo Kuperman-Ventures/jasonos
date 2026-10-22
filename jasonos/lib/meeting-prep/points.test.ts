@@ -237,6 +237,7 @@ describe("draft prompt", () => {
             name: "VantaFive",
             lead: "An agency venture studio.",
             bullets: ["Recruits operator-founders."],
+            verified: true,
           },
         },
       ],

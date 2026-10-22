@@ -16,8 +16,15 @@ export interface DraftPromptInput {
     title: string | null;
     company: string | null;
     personResearch: { lead: string | null; bullets: string[] } | null;
-    companyResearch: { name: string | null; lead: string | null; bullets: string[] } | null;
+    companyResearch: {
+      name: string | null;
+      lead: string | null;
+      bullets: string[];
+      verified?: boolean;
+    } | null;
   }>;
+  /** False when any attendee company was not read from its own website. */
+  companyVerified?: boolean;
   purpose: string | null;
   emailContext: string | null;
   narratives: Array<{ title: string; body: string }>;
@@ -277,8 +284,11 @@ function line(label: string, value: string | null | undefined): string | null {
 export const PACKET_PLACEHOLDER_INSTRUCTION =
   "When the strategy has a placeholder in square brackets such as [specific accomplishment] or [one specific thing from their background], replace it with a real item from the resume. Never leave a square-bracket placeholder in the output.";
 
-export function meetingPointsSystemPrompt(writingRules: string): string {
-  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"..."}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. When what Jason wants asks him to explain something about himself or his work, write those points from the narratives, in his voice, and keep each detail under 400 characters. Never summarize a narrative as "explain what you do." ${PACKET_PLACEHOLDER_INSTRUCTION} Return JSON only.
+export function meetingPointsSystemPrompt(writingRules: string, companyVerified = true): string {
+  const unverified = companyVerified
+    ? ""
+    : " Company research is unverified (JasonOS could not read the company website). The first question in the plan should establish what the company is and what the person does there, and later points must not assume either.";
+  return `Jason is preparing for this call. Return 5 to 9 items as JSON: [{"kind":"agenda|point|question|ask","headline":"...","detail":"...","sourceHint":"...","listen_for":null}]. Headlines are under 80 characters, plain, in Jason's voice, no questions phrased as statements. Include exactly one ask when the purpose names something Jason wants. Include a question for every open commitment of theirs and for anything in the context Jason does not yet know. Put one agenda item first ("Open") and one last ("Close and next step"). Add a one-line sourceHint per point naming the fact or source the point came from ("John owes the board notes since March", "Introduced by Tracy"), or null when it is Jason's own purpose. For question points, set listen_for to a short phrase of what Jason should listen for in the answer when the detail says what to listen for; otherwise null. When what Jason wants asks him to explain something about himself or his work, write those points from the narratives, in his voice, and keep each detail under 400 characters. Never summarize a narrative as "explain what you do."${unverified} ${PACKET_PLACEHOLDER_INSTRUCTION} Return JSON only.
 ${writingRules}`;
 }
 

@@ -182,29 +182,126 @@ OUTPUT RULES (hard):
   }
 }
 
+const ABOUT_LINK_RE =
+  /\/(about|about-us|team|our-team|people|services|process|how-it-works|what-we-do|company)(\/|$|\?)/i;
+
+async function scrapeCompanySite(domain: string): Promise<{
+  pages: Array<{ url: string; title: string | null; text: string }>;
+  verified: boolean;
+}> {
+  const { firecrawlScrape } = await import("@/lib/integrations/firecrawl");
+  const homeUrl = `https://${domain}`;
+  const home = await firecrawlScrape(homeUrl);
+  if (!home?.text.trim()) {
+    const www = await firecrawlScrape(`https://www.${domain}`);
+    if (!www?.text.trim()) return { pages: [], verified: false };
+    return scrapeFollowPages(domain, `https://www.${domain}`, www);
+  }
+  return scrapeFollowPages(domain, homeUrl, home);
+}
+
+async function scrapeFollowPages(
+  domain: string,
+  homeUrl: string,
+  home: { title: string | null; text: string; links: string[] }
+): Promise<{
+  pages: Array<{ url: string; title: string | null; text: string }>;
+  verified: boolean;
+}> {
+  const { firecrawlScrape } = await import("@/lib/integrations/firecrawl");
+  const pages: Array<{ url: string; title: string | null; text: string }> = [
+    { url: homeUrl, title: home.title, text: home.text },
+  ];
+  const host = domain.toLowerCase();
+  const candidates = home.links
+    .map((link) => {
+      try {
+        const url = new URL(link, homeUrl);
+        if (!url.hostname.replace(/^www\./, "").endsWith(host.replace(/^www\./, ""))) {
+          return null;
+        }
+        if (!ABOUT_LINK_RE.test(url.pathname)) return null;
+        url.hash = "";
+        return url.toString();
+      } catch {
+        return null;
+      }
+    })
+    .filter((value): value is string => Boolean(value));
+  const seen = new Set(pages.map((page) => page.url.replace(/\/$/, "")));
+  for (const link of candidates) {
+    if (pages.length >= 3) break;
+    const key = link.replace(/\/$/, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const page = await firecrawlScrape(link);
+    if (!page?.text.trim()) continue;
+    pages.push({ url: link, title: page.title, text: page.text });
+  }
+  return { pages, verified: pages.length > 0 };
+}
+
 export async function researchPersonAndCompany(input: {
   name: string;
   email: string | null;
   company: string | null;
   linkedinUrl: string | null;
 }): Promise<PersonCompanyResearch> {
+  const { companyDomainFromEmail, emailDomain, isPersonalEmailDomain } = await import(
+    "@/lib/meeting-prep/personal-domains"
+  );
   const who = [input.name, input.company ? `(${input.company})` : "", input.email ? `<${input.email}>` : ""]
     .filter(Boolean)
     .join(" ");
-  const system = `You are researching someone before Jason Kuperman's meeting. Use perplexity_search at most 8 times. Establish, with sources:
+  const domain = companyDomainFromEmail(input.email);
+  const personal = isPersonalEmailDomain(emailDomain(input.email));
+  let sitePages: Array<{ url: string; title: string | null; text: string }> = [];
+  let companyVerified = false;
+  let siteNote: string | null = null;
+
+  if (personal) {
+    siteNote = "Personal email domain; company website scrape skipped.";
+  } else if (!domain) {
+    siteNote = "No company email domain on file; company website could not be read.";
+  } else {
+    const scraped = await scrapeCompanySite(domain);
+    sitePages = scraped.pages;
+    companyVerified = scraped.verified;
+    if (!companyVerified) {
+      siteNote = "Company website could not be read.";
+    }
+  }
+
+  const siteBlock = sitePages.length
+    ? sitePages
+        .map(
+          (page) =>
+            `### ${page.url}${page.title ? ` (${page.title})` : ""}\n${page.text.slice(0, 4000)}`
+        )
+        .join("\n\n")
+    : siteNote || "Company website could not be read.";
+
+  const system = `You are researching someone before Jason Kuperman's meeting.
+
+Company website text is provided below as "Company website, verbatim". Describe the company from its own website first. Use perplexity_search (at most 8 times) only to add what the site does not say, and for the person and recent news. Every company bullet that comes from the site must cite that page URL in sources. When the site could not be read, put "Company website could not be read" in the company lead and do not invent what the company does from search alone beyond a cautious unverified note.
+
+Also establish:
 - who this person is (current role, company, what they built before, what they are known for)
-- what the company does and how it makes money, who it serves, size and stage
 - anything material from the last 90 days
 
-Report only what was found. Every bullet needs a source URL in the sources array. If the email domain identifies the company, start there. Do not invent a role, company, or URL.
+Report only what was found. Do not invent a role, company, or URL.
 
 Return ONLY JSON:
 {"person":{"lead":"","bullets":[],"sources":[{"title":"","url":""}]},"company":{"name":null,"website":null,"lead":"","bullets":[],"sources":[{"title":"","url":""}]},"title":null,"linkedinUrl":null}`;
+
   const prompt = `Research ${who}.${
     input.linkedinUrl ? ` LinkedIn on file: ${input.linkedinUrl}.` : ""
-  }${
-    input.email ? " If the email domain is a company, start there." : ""
-  } Return the JSON object and nothing else.`;
+  }
+
+Company website, verbatim:
+${siteBlock}
+
+Return the JSON object and nothing else.`;
 
   try {
     const result = await generateText({
@@ -234,6 +331,22 @@ Return ONLY JSON:
       const found = collectResearchSources(result);
       if (found.length) parsed.person.sources = found.slice(0, 8);
     }
+    for (const page of sitePages) {
+      if (!parsed.company.sources.some((source) => source.url === page.url)) {
+        parsed.company.sources.unshift({ title: page.title, url: page.url });
+      }
+    }
+    parsed.company.sources = parsed.company.sources.slice(0, 8);
+    if (!companyVerified && !parsed.company.lead?.toLowerCase().includes("could not be read")) {
+      parsed.company.lead = [
+        "Company website could not be read.",
+        parsed.company.lead?.trim() || "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+    if (domain && !parsed.website) parsed.website = `https://${domain}`;
+    parsed.companyVerified = companyVerified;
     return parsed;
   } catch (err) {
     throw new Error(cleanErrorMessage(err));

@@ -1059,6 +1059,11 @@ function AttendeeResearch({ people }: { people: MeetingContextPerson[] }) {
               <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
                 {person.companyResearch.name || "Their company"}
               </p>
+              {!person.companyResearch.verified ? (
+                <p className="mt-1 text-[14px] font-medium text-[var(--color-accent-2-text)]">
+                  Unverified: JasonOS could not read the company website
+                </p>
+              ) : null}
               {person.companyResearch.lead ? (
                 <p className="mt-1 text-[15px] leading-relaxed">
                   <Prose text={person.companyResearch.lead} />

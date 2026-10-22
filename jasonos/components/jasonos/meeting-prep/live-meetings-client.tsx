@@ -242,6 +242,11 @@ function TodayCard({
         </div>
         <p className="mt-2 text-[18px] font-bold leading-snug">{person}</p>
         {company ? <p className="text-[14px] text-[var(--jos-muted)]">{company}</p> : null}
+        {meeting.researchUnverified ? (
+          <p className="mt-1 text-[12px] font-semibold text-[var(--color-accent-2-text)]">
+            Research unverified
+          </p>
+        ) : null}
         <p className="mt-2 flex items-start gap-1.5 text-[14px] leading-snug text-[var(--jos-muted)]">
           <StateIcon size={16} weight="duotone" className="mt-0.5 shrink-0" style={{ color: stateColor }} aria-hidden />
           <span>{stateLine}</span>

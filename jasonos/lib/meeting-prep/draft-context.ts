@@ -112,6 +112,7 @@ export function assembleDraftPrompt(
             name: item.companyResearch.name,
             lead: item.companyResearch.lead,
             bullets: item.companyResearch.bullets.slice(0, 4),
+            verified: item.companyResearch.verified,
           }
         : null,
     })),

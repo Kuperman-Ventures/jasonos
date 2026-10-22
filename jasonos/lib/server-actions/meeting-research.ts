@@ -115,6 +115,7 @@ async function storeCompany(
   const patch: Record<string, unknown> = {
     research_brief: brief,
     research_at: input.now,
+    research_verified: Boolean(input.research.companyVerified),
     updated_at: input.now,
   };
   if (description) patch.description = description;

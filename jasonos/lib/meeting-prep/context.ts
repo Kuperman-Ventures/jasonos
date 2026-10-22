@@ -108,16 +108,28 @@ function companyRecord(row: { companies?: unknown }): {
   name: string | null;
   description: string | null;
   researchBrief: string | null;
+  researchVerified: boolean;
 } {
   const company = row.companies as
-    | { name?: string; description?: string | null; research_brief?: string | null }
-    | { name?: string; description?: string | null; research_brief?: string | null }[]
+    | {
+        name?: string;
+        description?: string | null;
+        research_brief?: string | null;
+        research_verified?: boolean | null;
+      }
+    | {
+        name?: string;
+        description?: string | null;
+        research_brief?: string | null;
+        research_verified?: boolean | null;
+      }[]
     | null;
   const one = Array.isArray(company) ? company[0] : company;
   return {
     name: text(one?.name),
     description: text(one?.description),
     researchBrief: typeof one?.research_brief === "string" ? one.research_brief : null,
+    researchVerified: Boolean(one?.research_verified),
   };
 }
 
@@ -505,7 +517,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     ? await sb
         .from("contacts")
         .select(
-          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, research_at, tracks, browning_prep, tags, emails, companies(name, description, research_brief)"
+          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, research_at, tracks, browning_prep, tags, emails, companies(name, description, research_brief, research_verified)"
         )
         .in("id", contactIds)
     : { data: [], error: null };
@@ -547,6 +559,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
             lead: companyLead || companyRow.description,
             bullets: companyBullets,
             sources: companyBrief.empty ? [] : companyBrief.sources,
+            verified: companyRow.researchVerified,
           }
         : null;
     const handoff = handoffs.find(
