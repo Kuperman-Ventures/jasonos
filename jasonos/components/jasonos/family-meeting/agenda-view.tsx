@@ -126,9 +126,28 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                 <div className="fm-events">
                   {lane.events.map((ev) => {
                     const { weekday, date, time } = formatEventTime(ev);
+                    const whenLabel = `${weekday} ${date}, ${time}`;
+                    if (ev.routine) {
+                      return (
+                        <article
+                          key={ev.id}
+                          className="fm-event fm-event--routine"
+                          aria-label={`${whenLabel}: ${ev.title}`}
+                        >
+                          <span className="fm-routine-when">
+                            <span className="fm-routine-day">{weekday}</span>
+                            <span className="fm-routine-date">{date}</span>
+                            {!ev.allDay ? (
+                              <span className="fm-routine-clock">{time}</span>
+                            ) : null}
+                          </span>
+                          <span className="fm-routine-title">{ev.title}</span>
+                        </article>
+                      );
+                    }
                     return (
                       <article key={ev.id} className="fm-event">
-                        <div className="fm-event-when" aria-label={`${weekday} ${date}, ${time}`}>
+                        <div className="fm-event-when" aria-label={whenLabel}>
                           <span className="fm-event-weekday">{weekday}</span>
                           <span className="fm-event-date">{date}</span>
                           <span className="fm-event-clock">{time}</span>

@@ -15,6 +15,7 @@ import {
   scoreCalendarGroupMatch,
 } from "./groups";
 import { maskAppleId, resolveICloudCalendarConnection } from "./icloud";
+import { markRoutineEvents } from "./routine";
 import type {
   FamilyMeetingAgenda,
   FamilyMeetingEvent,
@@ -151,10 +152,11 @@ export async function loadFamilyMeetingAgenda(
   const groups: FamilyMeetingGroupAgenda[] = FAMILY_CALENDAR_GROUPS.map(
     (group) => {
       const lane = rawLanes.find((l) => l.groupId === group.id);
+      const events = markRoutineEvents(deduped.get(group.id) ?? []);
       return {
         group,
         calendarName: lane?.calendarName ?? null,
-        events: deduped.get(group.id) ?? [],
+        events,
         missingCalendar: !lane,
       };
     }
