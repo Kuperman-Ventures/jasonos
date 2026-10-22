@@ -5,7 +5,7 @@ import { loadFamilyMeetingAgenda } from "@/lib/family-meeting/agenda";
 export const metadata = {
   title: "Family Meeting · JasonOS",
   description:
-    "Family Meeting agenda for the next two weeks from the Family, Kat & Jason, Kyle, and Wyatt iCloud calendars.",
+    "Family Meeting agenda for the next two weeks from the Kuperman Family, Kat & Jason, Kyle, and Wyatt iCloud calendars.",
 };
 
 export const dynamic = "force-dynamic";
