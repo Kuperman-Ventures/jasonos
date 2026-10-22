@@ -133,6 +133,22 @@ export async function testServiceConnection(
     };
   }
 
+  if (serviceName === "wispr") {
+    try {
+      const { testWisprConnection } = await import("@/lib/integrations/wispr");
+      const result = await testWisprConnection();
+      return {
+        success: result.ok,
+        message: result.message,
+        account_name: result.accountName,
+        health_status: result.ok ? "healthy" : "down",
+        status: result.ok ? "connected" : "not_configured",
+      };
+    } catch (error) {
+      return failed(error, "Wispr Notetaker verification failed.");
+    }
+  }
+
   if (service.connectionType === "env_var") {
     const status = envStatus(service);
     return {
@@ -513,6 +529,11 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   const now = new Date().toISOString();
 
   if (input.disconnect) {
+    if (service.name === "wispr") {
+      const { clearWisprTokens } = await import("@/lib/integrations/wispr-oauth");
+      await clearWisprTokens(userId);
+      return { status: "not_configured" as ServiceStatus, message: "Disconnected." };
+    }
     const { error } = await supabase.from("service_connections").upsert(
       {
         user_id: userId,
@@ -532,6 +553,17 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
     );
     if (error) throw new Error(error.message);
     return { status: "not_configured" as ServiceStatus, message: "Disconnected." };
+  }
+
+  // Wispr connects via /api/auth/wispr (OAuth). Saving here just re-tests.
+  if (service.name === "wispr") {
+    const test = await testServiceConnection(service.name, {});
+    return {
+      status: (test.status ?? (test.success ? "connected" : "not_configured")) as ServiceStatus,
+      message: test.message,
+      account_name: test.account_name,
+      health_status: test.health_status,
+    };
   }
 
   const credentials = input.credentials ?? {};

@@ -709,6 +709,7 @@ function DraftSourcesStrip({
     hubspot: "HubSpot",
     gmail: "Gmail",
     granola: "Granola",
+    wispr: "Wispr",
     fireflies: "Fireflies",
     rr_recruiter: "Recruiter notes",
     template_fallback: "Template",

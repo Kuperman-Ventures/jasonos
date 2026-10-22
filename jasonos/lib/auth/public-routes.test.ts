@@ -24,6 +24,7 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/.well-known/oauth-protected-resource/api/mcp"), true);
     assert.equal(isPublicJasonosPath("/api/morning-brief/publish"), true);
     assert.equal(isPublicJasonosPath("/api/commitment-check/publish"), true);
+    assert.equal(isPublicJasonosPath("/api/auth/wispr/callback"), true);
     assert.equal(isPublicJasonosPath("/api/fyb"), true);
   });
 

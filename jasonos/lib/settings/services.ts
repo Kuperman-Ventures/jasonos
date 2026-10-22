@@ -198,7 +198,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     setup: "API key (grn_…) from Granola → Settings → Connectors",
     logoDomain: "granola.ai",
     description:
-      "Meeting notes for Live, meeting prep, the morning brief, and Browning thank-you drafts. In the Granola app: Settings → Connectors → API keys. Include Personal notes, then paste the key here. It starts with grn_. Settings is used first, then GRANOLA_API_KEY.",
+      "Meeting notes for Live, meeting prep, the morning brief, and Browning thank-you drafts. In the Granola app: Settings → Connectors → API keys. Include Personal notes, then paste the key here. It starts with grn_. Settings is used first, then GRANOLA_API_KEY. Wispr Notetaker is the parallel/replacement source — keep both while you migrate.",
     features: ["Live", "Meeting prep", "Morning brief", "Browning thank-you"],
     configurable: true,
     disconnectable: true,
@@ -212,6 +212,18 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
         placeholder: "grn_…",
       },
     ],
+  },
+  {
+    name: "wispr",
+    label: "Wispr Notetaker",
+    connectionType: "oauth",
+    setup: "Browser sign-in (Wispr Flow → Notetaker MCP)",
+    logoDomain: "wisprflow.ai",
+    description:
+      "Meeting notes and transcripts via Wispr Flow Notetaker. Connect with your Wispr account (OAuth). JasonOS reads the same notes Cursor/Claude can via Wispr MCP. Runs in parallel with Granola until you fully switch.",
+    features: ["Draft email", "Meeting Follow Up", "Commitments", "Meeting prep"],
+    configurable: false,
+    disconnectable: true,
   },
   {
     name: "firecrawl",

@@ -10,6 +10,7 @@ import {
 } from "@/lib/integrations/google-calendar";
 import { listSentRecipientTouches } from "@/lib/integrations/gmail";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
+import { searchWisprForContact } from "@/lib/integrations/wispr";
 import {
   listOutlookCalendarEvents,
   listOutlookSentRecipientTouches,
@@ -242,16 +243,28 @@ export async function enrichOpenMeetingFollowupsWithGranola(opts?: {
       typeof row.ical_uid === "string" ? row.ical_uid : null,
     ].filter((value): value is string => Boolean(value?.trim()));
     try {
-      const note = await searchGranolaForContact({
+      const emails = [...pending.map((a) => a.email), ...attendees.map((a) => a.email)];
+      const search = {
         contactName,
         email: primary.email,
-        emails: [...pending.map((a) => a.email), ...attendees.map((a) => a.email)],
+        emails,
         aroundIso: row.starts_at,
         calendarEventId: row.gcal_event_id,
         calendarEventIds,
         meetingTitle: row.title,
         includeTranscript: true,
-      });
+      };
+      let note = await searchGranolaForContact(search);
+      if (!note.found || !note.summary?.trim()) {
+        const wispr = await searchWisprForContact(search);
+        if (wispr.found && wispr.summary?.trim()) {
+          note = {
+            found: true,
+            summary: wispr.summary,
+            url: wispr.url,
+          };
+        }
+      }
       if (!note.found) continue;
       const summary = note.summary?.trim() || null;
       if (!summary) continue;
@@ -605,7 +618,7 @@ export async function draftMeetingFollowupMailto(
     row.gcal_event_id,
     typeof row.ical_uid === "string" ? row.ical_uid : null,
   ].filter((value): value is string => Boolean(value?.trim()));
-  const note = await searchGranolaForContact({
+  const search = {
     contactName,
     email: primary.email,
     emails: [
@@ -616,8 +629,15 @@ export async function draftMeetingFollowupMailto(
     calendarEventId: row.gcal_event_id,
     calendarEventIds,
     meetingTitle: row.title,
-    includeTranscript: true,
-  });
+    includeTranscript: true as const,
+  };
+  let note = await searchGranolaForContact(search);
+  if (!note.found || !note.summary) {
+    const wispr = await searchWisprForContact(search);
+    if (wispr.found && wispr.summary) {
+      note = { found: true, summary: wispr.summary, url: wispr.url };
+    }
+  }
   const summary = note.found && note.summary ? note.summary : null;
   const granolaUrl = note.found ? note.url ?? null : null;
   const fromGranola = Boolean(summary);

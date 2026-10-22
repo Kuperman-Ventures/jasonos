@@ -6,6 +6,7 @@ import {
   gatherGmailHistory,
   gatherHubSpotHistory,
   gatherGranolaHistory,
+  gatherWisprHistory,
   gatherFirefliesHistory,
   type ContactContext,
   type DraftSource,
@@ -48,7 +49,7 @@ export async function loadOutreachContext(input: {
   const baseCtx = await loadContactContext(input.contactId);
   const stubCtx = baseCtx ?? stubContextFor(contact);
 
-  const [hubspot, gmail, granola, fireflies, recentTouches] =
+  const [hubspot, gmail, granola, wispr, fireflies, recentTouches] =
     await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(stubCtx), 5_000, {
         found: false,
@@ -57,6 +58,9 @@ export async function loadOutreachContext(input: {
         found: false,
       } as GmailHistory),
       withTimeout(gatherGranolaHistory(stubCtx), 20_000, {
+        found: false,
+      } as SearchHistory),
+      withTimeout(gatherWisprHistory(stubCtx), 20_000, {
         found: false,
       } as SearchHistory),
       withTimeout(gatherFirefliesHistory(stubCtx), 5_000, {
@@ -68,6 +72,7 @@ export async function loadOutreachContext(input: {
   const gmailResult = settledValue(gmail, { found: false } as GmailHistory);
   const hubspotResult = settledValue(hubspot, { found: false } as HubSpotHistory);
   const granolaResult = settledValue(granola, { found: false } as SearchHistory);
+  const wisprResult = settledValue(wispr, { found: false } as SearchHistory);
   const firefliesResult = settledValue(fireflies, {
     found: false,
   } as SearchHistory);
@@ -91,6 +96,12 @@ export async function loadOutreachContext(input: {
       found: granolaResult.found,
       summary: granolaResult.summary,
       url: granolaResult.url,
+    },
+    {
+      source: "wispr",
+      found: wisprResult.found,
+      summary: wisprResult.summary,
+      url: wisprResult.url,
     },
     {
       source: "fireflies",
@@ -198,13 +209,14 @@ export async function generateOutreachDraft(input: {
   const baseCtx = await loadContactContext(input.contactId);
   const stubCtx: ContactContext = baseCtx ?? stubContextFor(contact);
 
-  const [hubspot, gmail, granola, fireflies, recentTouches] =
+  const [hubspot, gmail, granola, wispr, fireflies, recentTouches] =
     await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(stubCtx), 5_000, { found: false }),
       withTimeout(gatherGmailHistory(stubCtx, { depth: "draft" }), 30_000, {
         found: false,
       }),
       withTimeout(gatherGranolaHistory(stubCtx), 20_000, { found: false }),
+      withTimeout(gatherWisprHistory(stubCtx), 20_000, { found: false }),
       withTimeout(gatherFirefliesHistory(stubCtx), 5_000, { found: false }),
       withTimeout(getRecentTouches(stubCtx), 3_000, [] as RecentTouch[]),
     ]);
@@ -212,6 +224,7 @@ export async function generateOutreachDraft(input: {
   const gmailResult = settledValue(gmail, { found: false } as GmailHistory);
   const hubspotResult = settledValue(hubspot, { found: false } as HubSpotHistory);
   const granolaResult = settledValue(granola, { found: false } as SearchHistory);
+  const wisprResult = settledValue(wispr, { found: false } as SearchHistory);
   const firefliesResult = settledValue(fireflies, {
     found: false,
   } as SearchHistory);
@@ -235,6 +248,12 @@ export async function generateOutreachDraft(input: {
       found: granolaResult.found,
       summary: granolaResult.summary,
       url: granolaResult.url,
+    },
+    {
+      source: "wispr",
+      found: wisprResult.found,
+      summary: wisprResult.summary,
+      url: wisprResult.url,
     },
     {
       source: "fireflies",
@@ -388,8 +407,8 @@ ${MODE_INSTRUCTIONS[mode]}
 
 OUTPUT RULES:
 - 60-150 words, no exceptions
-- HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from emails and Granola meeting notes/transcripts. Do not invent history that is not in the sources. Do not paste prior emails or raw transcripts.
-- When [granola] is present, ground the draft in what was actually said or decided on the call — commitments, next steps, open asks — not generic "great speaking."
+- HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from emails and meeting notes/transcripts (Granola and/or Wispr). Do not invent history that is not in the sources. Do not paste prior emails or raw transcripts.
+- When [granola] or [wispr] is present, ground the draft in what was actually said or decided on the call — commitments, next steps, open asks — not generic "great speaking."
 - "With this person" emails ARE correspondence with the recipient. That is the live thread.
 - "Same company" emails are other people at the firm. Use as background (who you've already talked to, live searches, recent asks). Do not write as if the recipient said those things, and do not address those other people.
 - If there's an existing email thread, the draft is a REPLY (don't restate prior content)

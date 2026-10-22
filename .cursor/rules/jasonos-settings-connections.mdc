@@ -9,7 +9,7 @@ JasonOS Settings already holds the APIs, OAuth mailboxes, and MCP connections Li
 
 ## Where to look
 
-1. `public.service_connections` — status and `config`. Settings is the source of truth ahead of `process.env` for Granola, Firecrawl, Beeper, and LeadDelta (`config.access_token`). Firecrawl is the web-search key. Granola is the meeting-notes key.
+1. `public.service_connections` — status and `config`. Settings is the source of truth ahead of `process.env` for Granola, Wispr Notetaker, Firecrawl, Beeper, and LeadDelta. Firecrawl is the web-search key (`config.access_token`). Granola is the meeting-notes API key (`config.access_token`). Wispr Notetaker is OAuth to Wispr Flow MCP (`config.access_token` / `refresh_token`) and runs in parallel with Granola while Jason migrates.
 2. `jasonos.user_integrations` — Google (Advisors), personal Gmail, and Outlook. `access_token` and `refresh_token` are stored here. Gmail and Calendar show as connected in Settings because of these rows, not because a key was pasted into the form.
 3. Vercel production env for the `jasonos` project. Cloud agents have `VERCEL_TOKEN`. Pull production env (`AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, Microsoft client secrets) with the Vercel API or CLI. Do not print the values.
 4. MCP servers already attached to the agent session, including Supabase and Granola. Supabase MCP can read the tables above. Granola MCP can read meeting notes.

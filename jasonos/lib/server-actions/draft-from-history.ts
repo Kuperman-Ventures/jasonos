@@ -27,6 +27,7 @@ import {
   type GmailHistoryDepth,
 } from "@/lib/outreach/gmail-draft-context";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
+import { searchWisprForContact } from "@/lib/integrations/wispr";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { callClaude } from "@/lib/ai/models";
 import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
@@ -34,7 +35,14 @@ import { extractFirstName, generateDraft as templateFallback } from "@/lib/triag
 import type { Intent } from "@/lib/triage/types";
 
 export interface DraftSource {
-  source: "hubspot" | "gmail" | "granola" | "fireflies" | "rr_recruiter" | "template_fallback";
+  source:
+    | "hubspot"
+    | "gmail"
+    | "granola"
+    | "wispr"
+    | "fireflies"
+    | "rr_recruiter"
+    | "template_fallback";
   found: boolean;
   summary?: string;
   url?: string;
@@ -116,12 +124,13 @@ export async function generateDraftFromHistory(input: {
   const fallbackDraft = buildTemplateFallback(ctx);
 
   try {
-    const [hubspot, gmail, granola, fireflies] = await Promise.allSettled([
+    const [hubspot, gmail, granola, wispr, fireflies] = await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(ctx), 5_000, { found: false } satisfies HubSpotHistory),
       withTimeout(gatherGmailHistory(ctx, { depth: "draft" }), 30_000, {
         found: false,
       } satisfies GmailHistory),
       withTimeout(gatherGranolaHistory(ctx), 20_000, { found: false } satisfies SearchHistory),
+      withTimeout(gatherWisprHistory(ctx), 20_000, { found: false } satisfies SearchHistory),
       withTimeout(gatherFirefliesHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
     ]);
 
@@ -129,6 +138,7 @@ export async function generateDraftFromHistory(input: {
       resolveSource("hubspot", hubspot),
       resolveSource("gmail", gmail),
       resolveSource("granola", granola),
+      resolveSource("wispr", wispr),
       resolveSource("fireflies", fireflies),
       {
         source: "rr_recruiter",
@@ -471,6 +481,34 @@ export async function gatherGranolaHistory(ctx: ContactContext): Promise<SearchH
   if (live.found) {
     return { found: true, summary: live.summary, url: live.url };
   }
+  return { found: false };
+}
+
+export async function gatherWisprHistory(ctx: ContactContext): Promise<SearchHistory> {
+  const emails = uniqueContactEmails({
+    primaryEmail: ctx.primaryEmail,
+    emails: ctx.emails,
+  });
+  const cached = await loadCachedGranolaForContact(ctx.id, emails);
+  const result = await searchWisprForContact({
+    contactName: ctx.name,
+    email: ctx.primaryEmail,
+    emails,
+    aroundIso: cached.aroundIso ?? undefined,
+    calendarEventId: cached.calendarEventId ?? undefined,
+    calendarEventIds: cached.calendarEventIds,
+    meetingTitle: cached.meetingTitle ?? undefined,
+    lookbackDays: cached.aroundIso ? undefined : 30,
+    includeTranscript: true,
+  });
+  if (result.found && result.summary?.trim()) {
+    return {
+      found: true,
+      summary: result.summary.trim(),
+      url: result.url,
+    };
+  }
+  if (result.found) return { found: true, summary: result.summary, url: result.url };
   return { found: false };
 }
 

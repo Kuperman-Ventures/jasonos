@@ -23,6 +23,7 @@ import type {
   DeliveryState,
 } from "@/lib/commitments/types";
 import { listRecentGranolaNotes } from "@/lib/integrations/granola";
+import { listRecentWisprNotes } from "@/lib/integrations/wispr";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -32,6 +33,7 @@ export type CommitmentScanResult =
       published: number;
       scannedNotes: number;
       granola: "ok" | "unavailable";
+      wispr: "ok" | "unavailable";
       notes: string | null;
     }
   | { ok: false; error: string; unavailable?: boolean };
@@ -56,6 +58,7 @@ export async function scanCommitmentsFromSurfaces(opts?: {
         inserted: result.published,
         matched: result.scannedNotes,
         granola: result.granola,
+        wispr: result.wispr,
         notes: result.notes,
       },
       opts?.runId
@@ -83,8 +86,13 @@ async function scanCommitmentsInner(opts?: {
   const daysBack = Math.max(3, Math.min(30, opts?.daysBack ?? 14));
   const noteLimit = Math.max(3, Math.min(25, opts?.noteLimit ?? 12));
 
-  const [granola, cachedFollowups, priorPayload, states] = await Promise.all([
+  const [granola, wispr, cachedFollowups, priorPayload, states] = await Promise.all([
     listRecentGranolaNotes({
+      daysBack,
+      limit: noteLimit,
+      includeTranscript: true,
+    }),
+    listRecentWisprNotes({
       daysBack,
       limit: noteLimit,
       includeTranscript: true,
@@ -95,11 +103,18 @@ async function scanCommitmentsInner(opts?: {
   ]);
 
   const granolaStatus: "ok" | "unavailable" = granola.ok ? "ok" : "unavailable";
-  if (!granola.ok && !cachedFollowups.length && !priorPayload?.items.length) {
+  const wisprStatus: "ok" | "unavailable" = wispr.ok ? "ok" : "unavailable";
+  if (
+    !granola.ok &&
+    !wispr.ok &&
+    !cachedFollowups.length &&
+    !priorPayload?.items.length
+  ) {
     return {
       ok: false,
-      unavailable: /not connected/i.test(granola.error),
-      error: granola.error,
+      unavailable:
+        /not connected/i.test(granola.error) && /not connected/i.test(wispr.error),
+      error: [granola.error, wispr.error].filter(Boolean).join(" · "),
     };
   }
 
@@ -112,6 +127,20 @@ async function scanCommitmentsInner(opts?: {
       if (!body.trim()) continue;
       docs.push({
         title: note.title,
+        url: note.url,
+        body: body.slice(0, 14_000),
+      });
+    }
+  }
+  if (wispr.ok) {
+    for (const note of wispr.notes) {
+      if (docs.some((d) => d.url && note.url && d.url === note.url)) continue;
+      const body = [note.summary, note.transcript]
+        .filter((part): part is string => Boolean(part?.trim()))
+        .join("\n\n--- Transcript ---\n");
+      if (!body.trim()) continue;
+      docs.push({
+        title: `[Wispr] ${note.title}`,
         url: note.url,
         body: body.slice(0, 14_000),
       });
@@ -150,12 +179,13 @@ async function scanCommitmentsInner(opts?: {
     },
     delivered_count,
     items,
-    notes:
-      granolaStatus === "unavailable"
-        ? `Granola unavailable during Sync${granola.ok ? "" : `: ${granola.error}`}. Kept prior open items.`
-        : docs.length === 0
-          ? "No recent Granola notes with text to scan."
-          : `Scanned ${docs.length} Granola/meeting note${docs.length === 1 ? "" : "s"} on Sync.`,
+    notes: commitmentScanNotes({
+      docs: docs.length,
+      granolaStatus,
+      wisprStatus,
+      granolaError: granola.ok ? null : granola.error,
+      wisprError: wispr.ok ? null : wispr.error,
+    }),
   };
 
   try {
@@ -177,8 +207,33 @@ async function scanCommitmentsInner(opts?: {
     published: items.length,
     scannedNotes: docs.length,
     granola: granolaStatus,
+    wispr: wisprStatus,
     notes: payload.notes,
   };
+}
+
+function commitmentScanNotes(input: {
+  docs: number;
+  granolaStatus: "ok" | "unavailable";
+  wisprStatus: "ok" | "unavailable";
+  granolaError: string | null;
+  wisprError: string | null;
+}): string {
+  const bits: string[] = [];
+  if (input.docs > 0) {
+    bits.push(
+      `Scanned ${input.docs} meeting note${input.docs === 1 ? "" : "s"} on Sync`
+    );
+  } else {
+    bits.push("No recent meeting notes with text to scan");
+  }
+  if (input.granolaStatus === "unavailable") {
+    bits.push(`Granola unavailable${input.granolaError ? `: ${input.granolaError}` : ""}`);
+  }
+  if (input.wisprStatus === "unavailable") {
+    bits.push(`Wispr unavailable${input.wisprError ? `: ${input.wisprError}` : ""}`);
+  }
+  return `${bits.join(". ")}.`;
 }
 
 async function loadPriorPayload(): Promise<CommitmentCheckPayload | null> {

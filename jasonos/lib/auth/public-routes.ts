@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
   "/.well-known",
   "/api/auth/google/callback",
   "/api/auth/microsoft/callback",
+  "/api/auth/wispr/callback",
   "/api/morning-brief/publish",
   "/api/inbox-dispatch/publish",
   "/api/commitment-check/publish",
