@@ -752,16 +752,26 @@ function ServiceCard({
         success?: boolean;
         message?: string;
         health_status?: ServiceConnection["health_status"];
+        status?: ServiceConnection["status"];
       };
       toast[payload.success ? "success" : "error"](payload.message ?? "Connection test complete");
-      if (payload.health_status) {
-        onChange({
-          ...connection,
-          health_status: payload.health_status,
-          health_details: payload.message ?? null,
-          last_health_check: new Date().toISOString(),
-        });
-      }
+      const now = new Date().toISOString();
+      onChange({
+        ...connection,
+        status: payload.success
+          ? (payload.status ?? "connected")
+          : payload.status === "expired"
+            ? "expired"
+            : connection.status === "not_configured"
+              ? "not_configured"
+              : "error",
+        health_status: payload.health_status ?? (payload.success ? "healthy" : "down"),
+        health_details: payload.message ?? null,
+        // Clear the sticky error badge text on success; keep/replace it on failure.
+        error_message: payload.success ? null : payload.message ?? connection.error_message,
+        last_health_check: now,
+        connected_at: payload.success ? connection.connected_at ?? now : connection.connected_at,
+      });
     });
   };
 
