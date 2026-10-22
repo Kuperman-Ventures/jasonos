@@ -4,6 +4,7 @@
  */
 
 export type FamilyMeetingIconId =
+  | "video"
   | "train"
   | "bus"
   | "plane"
@@ -41,8 +42,33 @@ export type FamilyMeetingIconId =
 
 type IconRule = { icon: FamilyMeetingIconId; re: RegExp };
 
+const VIDEO_RE =
+  /\b(webex|zoom|gotomeeting|whereby|facetime|webinar|video\s*call|video\s*conference|teams\.microsoft|meet\.google|google\s*meet)\b|https?:\/\/[^\s]*(zoom\.us|webex\.com|meet\.google|teams\.microsoft|gotomeeting\.com)/i;
+
+/** True when the text is (or contains) a video-conference / webinar link. */
+export function isVideoConferenceText(text: string): boolean {
+  return VIDEO_RE.test(text);
+}
+
+/**
+ * Location line for the UI — hide raw URLs and meeting-join links.
+ * Place cues become the video icon instead.
+ */
+export function locationForDisplay(location?: string | null): string | null {
+  if (!location) return null;
+  const trimmed = location.trim();
+  if (!trimmed) return null;
+  if (/https?:\/\//i.test(trimmed)) return null;
+  if (isVideoConferenceText(trimmed) && /\.[a-z]{2,}/i.test(trimmed)) {
+    // Bare join hosts like "somsdk12.webex.com/…" without scheme
+    return null;
+  }
+  return trimmed;
+}
+
 /** First match wins — order from specific → general. */
 const RULES: IconRule[] = [
+  { icon: "video", re: VIDEO_RE },
   { icon: "train", re: /\b(train|amtrak|metro.?north|lirr|subway|rail)\b/i },
   { icon: "plane", re: /\b(flight|fly|airport|airplane|plane)\b/i },
   { icon: "bus", re: /\b(bus|coach)\b/i },
@@ -59,7 +85,7 @@ const RULES: IconRule[] = [
   { icon: "droplet", re: /\bwater\b|\bhydrate/i },
   { icon: "tooth", re: /\bdentist|\bdental|\borthodont|\bbraces\b|\bteeth\b/i },
   { icon: "doctor", re: /\bdoctor\b|\bdr\.|\bpediatric|\bcheckup\b|\bcheck\-?up\b|\bappt\b|\bappointment\b|\bhospital\b|\burgent care\b|\boptom/i },
-  { icon: "school", re: /\bschool\b|\bclass\b|\bhomework\b|\bpta\b|\bparent.?teacher/i },
+  { icon: "school", re: /\bschool\b|\bstudent|\bclass\b|\bhomework\b|\bpta\b|\bparent.?teacher/i },
   { icon: "book", re: /\blibrary\b|\breading\b|\bbooks?\b/i },
   { icon: "sport", re: /\bsoccer\b|\blacrosse\b|\bbaseball\b|\bbasketball\b|\bfootball\b|\bhockey\b|\bswim|\btennis\b|\bpractice\b|\bgames?\b|\btournament\b|\btryouts?\b/i },
   { icon: "dumbbell", re: /\bgym\b|\bworkout\b|\blift\b|\byoga\b|\brun(?:ning)?\b/i },
@@ -72,7 +98,7 @@ const RULES: IconRule[] = [
   { icon: "heart", re: /\bdate night\b|\banniversary\b|\bvalentine/i },
   { icon: "trees", re: /\bhike\b|\bcamp(?:ing)?\b|\bpark\b|\bgarden\b|\byard\b|\boutdoor/i },
   { icon: "sun", re: /\bbeach\b|\bpool\b|\bpicnic\b/i },
-  { icon: "car", re: /\bdrive\b|\bdriving\b|\buber\b|\blyft\b|\bcarpool\b/i },
+  { icon: "car", re: /\bdrive\b|\bdriving\b|\buber\b|\blyft\b|\bcarpool\b|\blicense\b|\bmvc\b/i },
   { icon: "home", re: /\bhome\b|\bhouse\b|\bfamily meeting\b/i },
 ];
 

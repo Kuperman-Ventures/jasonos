@@ -34,10 +34,12 @@ import {
   TrainFront,
   Trees,
   Utensils,
+  Video,
 } from "lucide-react";
 import type { FamilyMeetingIconId } from "@/lib/family-meeting/icons";
 
 const ICONS: Record<FamilyMeetingIconId, LucideIcon> = {
+  video: Video,
   train: TrainFront,
   bus: Bus,
   plane: Plane,

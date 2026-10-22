@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FamilyMeetingEventIcon } from "@/components/jasonos/family-meeting/event-icon";
 import { splitAgendaLists } from "@/lib/family-meeting/collapse";
-import { discernEventIcon } from "@/lib/family-meeting/icons";
+import { discernEventIcon, locationForDisplay } from "@/lib/family-meeting/icons";
 import type { FamilyMeetingAgenda, FamilyMeetingEvent } from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
 
@@ -142,6 +142,7 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                           const { weekday, date, time } = formatEventTime(ev);
                           const whenLabel = `${weekday} ${date}, ${time}`;
                           const icon = discernEventIcon(ev.title, ev.location);
+                          const loc = locationForDisplay(ev.location);
                           return (
                             <article key={ev.id} className="fm-event">
                               <div
@@ -154,9 +155,7 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                               </div>
                               <div className="fm-event-copy">
                                 <h3 className="fm-event-title">{ev.title}</h3>
-                                {ev.location ? (
-                                  <p className="fm-event-loc">{ev.location}</p>
-                                ) : null}
+                                {loc ? <p className="fm-event-loc">{loc}</p> : null}
                               </div>
                               <span className="fm-event-icon" aria-hidden>
                                 <FamilyMeetingEventIcon id={icon} />
