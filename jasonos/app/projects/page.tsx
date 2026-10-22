@@ -108,8 +108,9 @@ export default async function ProjectsPage() {
                   Family Meeting
                 </h2>
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                  Weekend meeting board for the next two weeks from the Family,
-                  Kat &amp; Jason, Kyle, and Wyatt iCloud calendars.
+                  Weekend meeting board for the next two weeks from the
+                  Kuperman Family, Kat &amp; Jason, Kyle, and Wyatt iCloud
+                  calendars.
                 </p>
               </div>
             </div>
