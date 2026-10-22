@@ -87,6 +87,17 @@ describe("formatSyncSummary", () => {
     );
   });
 
+  it("mentions weekly provocations filed during mail sync", () => {
+    assert.equal(
+      formatSyncSummary("gmail", {
+        ok: true,
+        inserted: 4,
+        weeklyProvocations: 1,
+      }),
+      "+4 new · 1 weekly provocation"
+    );
+  });
+
   it("still appends soft warnings on a successful run", () => {
     assert.equal(
       formatSyncSummary("outlook", {

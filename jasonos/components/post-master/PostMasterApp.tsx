@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { ConfiguratorDashboard } from "@/components/post-master/ConfiguratorDashboard";
 import { HookPicker } from "@/components/post-master/HookPicker";
@@ -8,6 +9,7 @@ import { OutputPanel } from "@/components/post-master/OutputPanel";
 import { ProjectBar } from "@/components/post-master/ProjectBar";
 import { ProjectLibrary } from "@/components/post-master/ProjectLibrary";
 import { ResearchFindingsPanel } from "@/components/post-master/ResearchFindings";
+import { WeeklyProvocationPanel } from "@/components/post-master/WeeklyProvocation";
 import {
   deletePostMasterProject,
   getPostMasterProject,
@@ -25,6 +27,7 @@ import {
   type PostMasterStep,
   type ResearchFindings,
 } from "@/lib/post-master/types";
+import type { WeeklyProvocationListItem } from "@/lib/post-master/weekly-provocation/types";
 
 const STEPS: { id: PostMasterStep; label: string }[] = [
   { id: "idea", label: "01 Idea" },
@@ -36,9 +39,15 @@ const STEPS: { id: PostMasterStep; label: string }[] = [
 
 type PostMasterAppProps = {
   initialProjects: PostMasterProjectListItem[];
+  module: "posts" | "provocation";
+  provocations: WeeklyProvocationListItem[];
 };
 
-export function PostMasterApp({ initialProjects }: PostMasterAppProps) {
+export function PostMasterApp({
+  initialProjects,
+  module,
+  provocations,
+}: PostMasterAppProps) {
   const [step, setStep] = useState<PostMasterStep>("idea");
   const [inputMode, setInputMode] = useState<InputMode>("idea");
   const [idea, setIdea] = useState("");
@@ -294,11 +303,34 @@ export function PostMasterApp({ initialProjects }: PostMasterAppProps) {
           <span>Custom Comms</span>
         </div>
         <h1 className="pm-title pm-display">Post Master</h1>
+        <nav className="pm-modules" aria-label="Post Master modules">
+          <Link
+            href="/post-master"
+            className={module === "posts" ? "pm-btn" : "pm-btn pm-btn-ghost"}
+            aria-current={module === "posts" ? "page" : undefined}
+          >
+            Posts
+          </Link>
+          <Link
+            href="/post-master?module=weekly-provocation"
+            className={module === "provocation" ? "pm-btn" : "pm-btn pm-btn-ghost"}
+            aria-current={module === "provocation" ? "page" : undefined}
+          >
+            Weekly Provocation
+          </Link>
+        </nav>
         <p className="pm-lede">
-          Rough idea or researched topic in. LinkedIn post and blog draft out —
-          in your voice. Save anytime and pick the project back up later.
+          {module === "provocation"
+            ? "Sync files Weekly Provocation emails from Will Duffy and Rover. You get a short brief, the questions, and sourced background so you can decide what you think."
+            : "Rough idea or researched topic in. LinkedIn post and blog draft out — in your voice. Save anytime and pick the project back up later."}
         </p>
       </header>
+
+      <div hidden={module !== "provocation"}>
+        <WeeklyProvocationPanel items={provocations} active={module === "provocation"} />
+      </div>
+
+      <div hidden={module !== "posts"}>
 
       <ProjectBar
         title={displayTitle}
@@ -425,6 +457,7 @@ export function PostMasterApp({ initialProjects }: PostMasterAppProps) {
           ) : null}
         </>
       )}
+      </div>
     </div>
   );
 }

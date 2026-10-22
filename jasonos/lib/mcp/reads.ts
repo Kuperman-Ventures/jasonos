@@ -62,7 +62,7 @@ export function listJasonosAreas() {
       { area: "meetings", tools: ["list_meetings"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
-      { area: "post_master", tools: ["list_post_master_projects"] },
+      { area: "post_master", tools: ["list_post_master_projects", "list_weekly_provocations"] },
       { area: "connections", tools: ["get_connection_status"] },
       {
         area: "connections_register",
@@ -433,6 +433,37 @@ export async function listPostMasterProjects() {
       ...row,
       idea_preview: clip(row.idea_preview, 280),
     })),
+  };
+}
+
+export async function listWeeklyProvocations() {
+  const sb = jasonosDb();
+  const { data, error } = await sb
+    .from("weekly_provocations")
+    .select("id, from_name, from_email, subject, received_at, status, tldr, questions, thread_url")
+    .order("received_at", { ascending: false })
+    .limit(20);
+  if (error) throw new Error(error.message);
+  return {
+    provocations: (data ?? []).map((row) => {
+      const questions = Array.isArray(row.questions) ? row.questions : [];
+      return {
+        id: row.id,
+        from: row.from_name || row.from_email,
+        subject: row.subject,
+        received_at: row.received_at,
+        status: row.status,
+        tldr: clip(row.tldr, 500),
+        thread_url: row.thread_url,
+        questions: questions.map((question) => {
+          const item = question as { prompt?: unknown; sources?: unknown };
+          return {
+            prompt: clip(item.prompt, 300),
+            source_count: Array.isArray(item.sources) ? item.sources.length : 0,
+          };
+        }),
+      };
+    }),
   };
 }
 

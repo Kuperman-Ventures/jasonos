@@ -20,6 +20,7 @@ import {
   syncOutreachFromOutlook,
 } from "@/lib/server-actions/outreach-sync";
 import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import { researchPendingWeeklyProvocations } from "@/lib/post-master/weekly-provocation/prepare";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,7 +124,7 @@ async function runDailySync() {
   ];
 
   const settled = await Promise.allSettled(jobs.map((job) => job.run()));
-  const steps = settled.map((result, index) => {
+  const steps: Array<StepPayload & { step: string }> = settled.map((result, index) => {
     const step = jobs[index]!.step;
     if (result.status === "fulfilled") {
       return { step, ...result.value };
@@ -137,6 +138,23 @@ async function runDailySync() {
           : String(result.reason),
     };
   });
+
+  try {
+    const provocations = await researchPendingWeeklyProvocations(1);
+    steps.push({
+      step: "weekly-provocation",
+      ok: true,
+      researched: provocations.researched,
+      failed: provocations.failed,
+      warnings: provocations.warnings,
+    });
+  } catch (err) {
+    steps.push({
+      step: "weekly-provocation",
+      ok: true,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 
   revalidatePath("/");
   revalidatePath("/outreach/queue");

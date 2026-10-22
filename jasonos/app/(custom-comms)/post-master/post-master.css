@@ -584,4 +584,131 @@
   gap: 0.5rem;
 }
 
+.post-master .pm-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.15rem;
+}
+
+.post-master .pm-modules a {
+  text-decoration: none;
+}
+
+.post-master .wp-empty {
+  margin-top: 1.75rem;
+}
+
+.post-master .wp-empty-title {
+  font-size: 1.35rem;
+  margin: 0 0 0.6rem;
+}
+
+.post-master .wp-empty p,
+.post-master .wp-block p,
+.post-master .wp-background p,
+.post-master .wp-pending {
+  margin: 0.55rem 0 0;
+  line-height: 1.55;
+  color: var(--pm-ink);
+}
+
+.post-master .wp-layout {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 900px) {
+  .post-master .wp-layout {
+    grid-template-columns: 280px minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.post-master .wp-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.post-master .wp-list-item {
+  text-align: left;
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  padding: 0.95rem 1rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.post-master .wp-list-item[data-active="true"] {
+  border-color: var(--pm-gold);
+}
+
+.post-master .wp-list-date,
+.post-master .wp-list-from,
+.post-master .wp-status {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pm-muted);
+}
+
+.post-master .wp-list-subject {
+  display: block;
+  margin: 0.3rem 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.post-master .wp-status[data-status="ready"] {
+  color: var(--pm-gold);
+}
+
+.post-master .wp-detail-head {
+  margin-bottom: 1rem;
+}
+
+.post-master .wp-detail-title {
+  margin: 0.35rem 0 0;
+  font-size: 1.7rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.post-master .wp-block,
+.post-master .wp-question {
+  margin-top: 1rem;
+}
+
+.post-master .wp-questions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.post-master .wp-question-text {
+  margin: 0.35rem 0 0;
+  font-size: 1.2rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.post-master .wp-background,
+.post-master .wp-sources {
+  margin-top: 1rem;
+}
+
+.post-master .wp-sources ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.post-master .wp-sources a {
+  color: var(--pm-gold-soft);
+}
+
+
 

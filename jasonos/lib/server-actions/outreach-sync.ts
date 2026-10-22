@@ -75,6 +75,10 @@ import {
 } from "@/lib/integrations/beeper";
 import { hasFullPersonName } from "@/lib/outreach/beeper-match";
 import { etEndOfWorkWeekYmd, gmailAfterSlashDate } from "@/lib/dates";
+import {
+  ingestWeeklyProvocationsFromGmail,
+  ingestWeeklyProvocationsFromOutlook,
+} from "@/lib/post-master/weekly-provocation/scan";
 
 // ---------------------------------------------------------------------------
 // Email write-back — when a sync matches a contact (typically by NAME, e.g. a
@@ -285,6 +289,8 @@ export interface SyncResult {
   candidatesStaged?: number;
   /** One mailbox failed while others still synced. */
   warnings?: string[];
+  /** Weekly Provocation emails filed during this sync. */
+  weeklyProvocations?: number;
 }
 
 export interface SyncAllResult {
@@ -350,6 +356,8 @@ export async function syncOutreachFromGmail(opts?: {
   let matchedTotal = 0;
   let skippedTotal = 0;
   let stagedTotal = 0;
+  let provocationInserted = 0;
+  const provocationWarnings: string[] = [];
   const mailboxErrors: string[] = [];
   const mailboxReports: Array<Record<string, unknown>> = [];
 
@@ -363,6 +371,19 @@ export async function syncOutreachFromGmail(opts?: {
     const touches: ContactTouchInput[] = [];
     const sightings: CandidateSighting[] = [];
     let skipped = 0;
+
+    try {
+      const filed = await ingestWeeklyProvocationsFromGmail({
+        accessToken: token,
+        accountEmail,
+        daysBack,
+      });
+      provocationInserted += filed.inserted;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      provocationWarnings.push(`Weekly Provocation: ${msg}`);
+      console.error("[outreach-sync.gmail] weekly provocation", err);
+    }
 
     try {
       // Preload open drafts so a draft reply inside an in:sent thread never
@@ -527,8 +548,9 @@ export async function syncOutreachFromGmail(opts?: {
     matchedTotal,
     skippedTotal,
     stagedTotal,
-    mailboxErrors
+    [...mailboxErrors, ...provocationWarnings]
   );
+  if (provocationInserted) result.weeklyProvocations = provocationInserted;
   await log({
     ok: result.ok,
     afterDate,
@@ -538,8 +560,10 @@ export async function syncOutreachFromGmail(opts?: {
     cadenceUpdates: combined.cadenceUpdates,
     skipped: skippedTotal,
     candidatesStaged: stagedTotal,
+    weeklyProvocations: provocationInserted,
     mailboxes: mailboxReports,
     errors: mailboxErrors,
+    warnings: provocationWarnings,
   });
   return result;
 }
@@ -1063,6 +1087,21 @@ export async function syncOutreachFromOutlook(opts?: {
 
   const lookup = await buildContactLookup();
   const sinceIso = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  let provocationInserted = 0;
+  const provocationWarnings: string[] = [];
+  try {
+    const filed = await ingestWeeklyProvocationsFromOutlook({
+      accessToken: account.token,
+      accountEmail: account.accountEmail,
+      sinceIso,
+    });
+    provocationInserted = filed.inserted;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    provocationWarnings.push(`Weekly Provocation: ${msg}`);
+    console.error("[outreach-sync.outlook] weekly provocation", err);
+  }
+
   const enrich: EnrichMap = new Map();
   const touches: ContactTouchInput[] = [];
   const sightings: CandidateSighting[] = [];
@@ -1135,11 +1174,11 @@ export async function syncOutreachFromOutlook(opts?: {
   await applyEmailEnrichments(enrich);
   revalidatePaths();
 
-  const softWarnings = fetched.warnings;
+  const softWarnings = [...fetched.warnings, ...provocationWarnings];
   const hardErrors = insertResult.errors;
   const issues = [...hardErrors, ...softWarnings];
 
-  if (softWarnings.length && !insertResult.inserted && touches.length === 0 && fetched.messages.length === 0) {
+  if (fetched.warnings.length && !insertResult.inserted && touches.length === 0 && fetched.messages.length === 0) {
     await log({
       ok: false,
       accountEmail: account.accountEmail,
@@ -1183,6 +1222,7 @@ export async function syncOutreachFromOutlook(opts?: {
     staged.created,
     softWarnings
   );
+  if (provocationInserted) result.weeklyProvocations = provocationInserted;
   await log({
     ok: result.ok,
     accountEmail: account.accountEmail,
@@ -1194,6 +1234,7 @@ export async function syncOutreachFromOutlook(opts?: {
     candidatesStaged: staged.created,
     unmatchedNames: staged.newNames,
     messageCount: fetched.messages.length,
+    weeklyProvocations: provocationInserted,
     ...(issues.length
       ? {
           error: issues.join(" · "),
