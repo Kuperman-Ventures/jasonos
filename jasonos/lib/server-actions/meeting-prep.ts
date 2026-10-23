@@ -886,6 +886,10 @@ export async function setMeetingTitle(
 
   revalidatePrep(id);
   revalidatePath("/live");
+  revalidatePath("/live/before");
+  revalidatePath("/live/after");
+  revalidatePath("/live/library");
+  revalidatePath("/live/library/[id]", "page");
   return { ok: true, title: text };
 }
 

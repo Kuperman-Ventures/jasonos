@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { OutcomePill } from "@/components/jasonos/meeting-prep/live-library-client";
+import { MeetingTitleField } from "@/components/jasonos/meeting-prep/live-rename-field";
 import { isMarkable } from "@/lib/meeting-prep/points";
 import { REACTION_LABELS } from "@/lib/meeting-prep/reactions";
 import type { LiveMeetingRecord } from "@/lib/server-actions/live-library";
@@ -42,7 +43,11 @@ export function LiveRecordClient({ record }: { record: LiveMeetingRecord }) {
 
       <header className="space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]">{prep.title}</h1>
+          <MeetingTitleField
+            prepId={prep.id}
+            title={prep.title}
+            className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]"
+          />
           <Link href={`/meetings/${prep.id}`} className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline">
             Edit on the prep page
           </Link>

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CalendarBlank,
-  ChartBar,
   CheckCircle,
   CircleDashed,
   ClipboardText,
@@ -24,6 +23,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LIVE_FIELD, LIVE_SECTION_LABEL } from "@/components/jasonos/live";
+import {
+  MeetingTitleField,
+  ScriptTitleField,
+} from "@/components/jasonos/meeting-prep/live-rename-field";
 import { updateLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import type { MeetingPrepSummary, OutcomeMark, RecentLiveMeeting } from "@/lib/server-actions/meeting-prep";
 import {
@@ -249,7 +252,14 @@ function TodayCard({
           </p>
           {relative ? <p className="text-[14px] text-[var(--jos-muted)]">{relative}</p> : null}
         </div>
-        <p className="mt-2 text-[18px] font-bold leading-snug">{person}</p>
+        <MeetingTitleField
+          prepId={meeting.id}
+          title={meeting.title}
+          className="mt-2 text-[18px] font-bold leading-snug"
+        />
+        {person !== meeting.title ? (
+          <p className="mt-0.5 text-[14px] text-[var(--jos-muted)]">{person}</p>
+        ) : null}
         {company ? <p className="text-[14px] text-[var(--jos-muted)]">{company}</p> : null}
         {meeting.researchUnverified ? (
           <p className="mt-1 text-[12px] font-semibold text-[var(--color-accent-2-text)]">
@@ -417,18 +427,9 @@ export function LiveMeetingsClient({
 
   return (
     <div className="px-10 py-8">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>Custom comms</p>
-          <h1 className="mt-1 text-[44px] font-extrabold leading-none tracking-[-0.02em]">Live</h1>
-        </div>
-        <Link
-          href="/live/metrics"
-          className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-        >
-          <ChartBar size={16} weight="duotone" aria-hidden />
-          Metrics
-        </Link>
+      <header>
+        <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>Custom comms</p>
+        <h1 className="mt-1 text-[44px] font-extrabold leading-none tracking-[-0.02em]">Live</h1>
       </header>
 
       {error ? <p className="mt-4 text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
@@ -473,15 +474,23 @@ export function LiveMeetingsClient({
                     key={plan.id}
                     className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
                   >
-                    <Link href={`/live/scripts/${plan.id}`} className="min-w-0 flex-1 hover:underline">
-                      <p className="truncate text-[16px] font-bold">{plan.name}</p>
-                      <p className="mt-0.5 truncate text-[14px] text-[var(--jos-muted)]">
+                    <div className="min-w-0 flex-1">
+                      <ScriptTitleField
+                        scriptId={plan.id}
+                        name={plan.name}
+                        kind="plan"
+                        className="truncate text-[16px] font-bold"
+                      />
+                      <Link
+                        href={`/live/scripts/${plan.id}`}
+                        className="mt-0.5 block truncate text-[14px] text-[var(--jos-muted)] hover:underline"
+                      >
                         {plan.outcomeSentence?.trim() || plan.description?.trim() || "No outcome sentence"}
-                      </p>
+                      </Link>
                       <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
                         {plan.itemCount} points
                       </p>
-                    </Link>
+                    </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {plan.itemCount > 0 ? (
                         <Link
@@ -529,15 +538,23 @@ export function LiveMeetingsClient({
                     key={script.id}
                     className="flex items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0 min-[900px]:[&:nth-child(-n+2)]:border-t-0"
                   >
-                    <Link href={`/live/scripts/${script.id}`} className="min-w-0 flex-1 hover:underline">
-                      <p className="truncate text-[16px] font-bold">{script.name}</p>
-                      <p className="mt-0.5 truncate text-[14px] text-[var(--jos-muted)]">
+                    <div className="min-w-0 flex-1">
+                      <ScriptTitleField
+                        scriptId={script.id}
+                        name={script.name}
+                        kind="strategy"
+                        className="truncate text-[16px] font-bold"
+                      />
+                      <Link
+                        href={`/live/scripts/${script.id}`}
+                        className="mt-0.5 block truncate text-[14px] text-[var(--jos-muted)] hover:underline"
+                      >
                         {script.successSentence?.trim() || script.description?.trim() || "No success sentence"}
-                      </p>
+                      </Link>
                       <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
                         {script.itemCount} points · used {script.useCount}
                       </p>
-                    </Link>
+                    </div>
                     {script.itemCount > 0 ? (
                       <Link
                         href={`/live/scripts/${script.id}/rehearse`}
@@ -556,10 +573,10 @@ export function LiveMeetingsClient({
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-[24px] font-extrabold tracking-tight">Recent</h2>
               <Link
-                href="/live/library"
+                href="/live/after"
                 className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
               >
-                All meetings
+                All after
               </Link>
             </div>
             {recentError ? (
@@ -571,35 +588,36 @@ export function LiveMeetingsClient({
               <ul className="mt-3">
                 {recentRows.map((row) => {
                   const needsReview = !row.reviewed || !row.outcomeMark;
+                  const meta = [row.attendeeName, row.companyName, row.strategyName]
+                    .filter((value): value is string => Boolean(value && value !== row.title))
+                    .filter((value, index, all) => all.indexOf(value) === index);
                   return (
-                    <li key={row.id} className="border-t border-[var(--jos-line)] first:border-t-0">
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
+                    >
                       <Link
                         href={`/meetings/${row.id}`}
-                        className="flex flex-wrap items-center gap-3 py-3"
+                        className="w-[4.5rem] shrink-0 text-[15px] font-bold tabular-nums text-[var(--jos-ink)] hover:underline"
                       >
-                        <span className="w-[4.5rem] shrink-0 text-[15px] font-bold tabular-nums text-[var(--jos-ink)]">
-                          {easternDate(row.startsAt)}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[16px] font-semibold">
-                          {row.attendeeName || row.title}
-                          {row.companyName && row.attendeeName && row.companyName !== row.attendeeName ? (
-                            <span className="font-normal text-[var(--jos-muted)]">
-                              {" · "}
-                              {row.companyName}
-                            </span>
-                          ) : null}
-                          {row.strategyName ? (
-                            <span className="font-normal text-[var(--jos-muted)]">
-                              {" · "}
-                              {row.strategyName}
-                            </span>
-                          ) : null}
-                        </span>
-                        {needsReview ? (
-                          <span className="text-[13px] text-[var(--jos-muted)]">Needs review</span>
-                        ) : null}
-                        <OutcomePill mark={row.outcomeMark} />
+                        {easternDate(row.startsAt)}
                       </Link>
+                      <div className="min-w-0 flex-1">
+                        <MeetingTitleField
+                          prepId={row.id}
+                          title={row.title}
+                          className="truncate text-[16px] font-semibold"
+                        />
+                        {meta.length ? (
+                          <p className="mt-0.5 truncate text-[13px] text-[var(--jos-muted)]">
+                            {meta.join(" · ")}
+                          </p>
+                        ) : null}
+                      </div>
+                      {needsReview ? (
+                        <span className="text-[13px] text-[var(--jos-muted)]">Needs review</span>
+                      ) : null}
+                      <OutcomePill mark={row.outcomeMark} />
                     </li>
                   );
                 })}

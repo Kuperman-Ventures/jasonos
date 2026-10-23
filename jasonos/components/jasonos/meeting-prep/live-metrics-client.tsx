@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CaretLeft } from "@phosphor-icons/react";
 import { LIVE_SECTION_LABEL } from "@/components/jasonos/live";
 import { type RelationshipMetrics } from "@/lib/meeting-prep/metrics";
 import { cn } from "@/lib/utils";
@@ -125,15 +124,7 @@ export function LiveMetricsClient({
 
   return (
     <div className="px-10 py-8">
-      <Link
-        href="/live"
-        className="inline-flex items-center gap-1 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-      >
-        <CaretLeft size={14} weight="bold" aria-hidden />
-        Live
-      </Link>
-
-      <header className="mt-4 flex flex-wrap items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-[44px] font-extrabold leading-none tracking-[-0.02em]">Metrics</h1>
         <div className="flex gap-1">
           {windows.map((window) => (
