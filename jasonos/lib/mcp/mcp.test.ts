@@ -24,9 +24,11 @@ import {
   wwwAuthenticate,
 } from "./oauth.ts";
 import { FYB_TOOL_NAMES } from "./fyb-tools.ts";
+import { MEETING_PLAN_TOOL_NAMES, validatePlanPoints } from "./plan-points.ts";
 import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
+import { REACTION_SHAPES } from "../meeting-prep/reactions.ts";
 import {
   TODAY_TASK_COLUMNS,
   actionCardBody,
@@ -274,6 +276,9 @@ describe("registerJasonosTools", () => {
     for (const name of FYB_TOOL_NAMES) {
       assert.ok(registered.includes(name), `missing ${name}`);
     }
+    for (const name of MEETING_PLAN_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
     assert.ok(registered.includes("list_weekly_provocations"));
@@ -306,6 +311,13 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("list_weekly_provocations"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
+    assert.ok(tools.includes("build_meeting_plan"));
+    assert.ok(tools.includes("accept_meeting_plan"));
+    assert.ok(tools.includes("set_meeting_plan"));
+    assert.ok(tools.includes("create_guide"));
+    assert.ok(tools.includes("use_guide_for_meeting"));
+    assert.ok(tools.includes("get_meeting_plan"));
+    assert.ok(tools.includes("list_upcoming_meeting_preps"));
   });
 });
 
@@ -430,5 +442,82 @@ describe("add_action_card / update_card links", () => {
         ]),
       /Rejected: javascript:alert\(1\)/
     );
+  });
+});
+
+describe("validatePlanPoints", () => {
+  it("clamps headlines and details", () => {
+    const result = validatePlanPoints([
+      {
+        kind: "question",
+        headline: "  How is AI going?  ",
+        detail: "Listen for whether they have a house approach.",
+        listen_for: "house approach vs improvising",
+      },
+    ]);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.points[0].headline, "How is AI going?");
+    assert.equal(result.points[0].listenFor, "house approach vs improvising");
+  });
+
+  it("truncates headlines over 80 characters", () => {
+    const long = `Ask ${"x".repeat(100)}`;
+    const result = validatePlanPoints([{ kind: "ask", headline: long }]);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.points[0].headline.length <= 80, true);
+  });
+
+  it("truncates details over 400 characters", () => {
+    const result = validatePlanPoints([
+      {
+        kind: "point",
+        headline: "Open with the stake",
+        detail: "y".repeat(450),
+      },
+    ]);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal((result.points[0].detail ?? "").length <= 400, true);
+  });
+
+  it("rejects unknown kinds and empty lists", () => {
+    assert.equal(validatePlanPoints([]).ok, false);
+    assert.equal(
+      validatePlanPoints([{ kind: "slide", headline: "Nope" }]).ok,
+      false
+    );
+  });
+
+  it("rejects empty headlines", () => {
+    assert.equal(validatePlanPoints([{ kind: "point", headline: "   " }]).ok, false);
+  });
+
+  it("requires all six reaction shapes when reactions are provided", () => {
+    const incomplete = validatePlanPoints([
+      {
+        kind: "ask",
+        headline: "Can we set a date?",
+        reactions: [{ shape: "agree", soundsLike: "Yes", pivot: "Great" }],
+      },
+    ]);
+    assert.equal(incomplete.ok, false);
+
+    const full = validatePlanPoints([
+      {
+        kind: "ask",
+        headline: "Can we set a date?",
+        reactions: REACTION_SHAPES.map((shape) => ({
+          shape,
+          soundsLike: `Sounds like ${shape}`,
+          pivot: `Pivot for ${shape}`,
+        })),
+      },
+    ]);
+    assert.equal(full.ok, true);
+    if (!full.ok) return;
+    assert.equal(full.points[0].reactions?.length, 6);
+    assert.equal(full.points[0].prepareReactions, true);
   });
 });
