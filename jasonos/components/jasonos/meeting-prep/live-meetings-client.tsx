@@ -67,9 +67,17 @@ function relativeLabel(startsAt: string, endsAt: string, nowIso: string): string
 
 function personLabel(meeting: MeetingPrepSummary): string {
   if (meeting.primaryContactName?.trim()) return meeting.primaryContactName.trim();
-  const first = meeting.attendees.find((row) => row.name?.trim()) ?? meeting.attendees[0];
-  if (!first) return meeting.title;
-  return first.name?.trim() || first.email.split("@")[0] || first.email;
+  if (meeting.primaryCompanyName?.trim()) return meeting.primaryCompanyName.trim();
+  const named = meeting.attendees.find((row) => {
+    const name = row.name?.trim();
+    if (!name || name.includes("@")) return false;
+    const local = row.email.split("@")[0]?.toLowerCase() ?? "";
+    if (local && name.toLowerCase() === local) return false;
+    if (/^[a-z0-9._+-]+$/i.test(name) && name.includes(".") && !/\s/.test(name)) return false;
+    return true;
+  });
+  if (named?.name?.trim()) return named.name.trim();
+  return meeting.title;
 }
 
 type CardAction = "go_live" | "prepare" | "review";
@@ -569,11 +577,17 @@ export function LiveMeetingsClient({
                         href={`/meetings/${row.id}`}
                         className="flex flex-wrap items-center gap-3 py-3"
                       >
-                        <span className="w-14 shrink-0 text-[14px] tabular-nums text-[var(--jos-muted)]">
+                        <span className="w-[4.5rem] shrink-0 text-[15px] font-bold tabular-nums text-[var(--jos-ink)]">
                           {easternDate(row.startsAt)}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-[16px] font-semibold">
                           {row.attendeeName || row.title}
+                          {row.companyName && row.attendeeName && row.companyName !== row.attendeeName ? (
+                            <span className="font-normal text-[var(--jos-muted)]">
+                              {" · "}
+                              {row.companyName}
+                            </span>
+                          ) : null}
                           {row.strategyName ? (
                             <span className="font-normal text-[var(--jos-muted)]">
                               {" · "}
