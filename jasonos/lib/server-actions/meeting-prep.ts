@@ -64,6 +64,7 @@ export interface MeetingPrepSummary {
   scriptId: string | null;
   scriptName: string | null;
   planSource: string | null;
+  planBuiltAt: string | null;
   home: MeetingHomeContext;
   /** True when any attendee company was researched without reading its website. */
   researchUnverified: boolean;
@@ -148,6 +149,7 @@ interface PrepRow {
   email_context?: string | null;
   email_context_at?: string | null;
   plan_source?: string | null;
+  plan_built_at?: string | null;
   handoff_id?: string | null;
   packet_highlights?: string[] | null;
 }
@@ -160,7 +162,7 @@ const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outco
 const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
 const PREP_COLUMNS_WITH_COMPANY = `${PREP_COLUMNS_WITH_LINKS}, company_id`;
 const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_COMPANY}, track, research_ran_at, email_context, email_context_at`;
-const PREP_COLUMNS_WITH_PACKET = `${PREP_COLUMNS_WITH_RESEARCH}, plan_source, handoff_id, packet_highlights`;
+const PREP_COLUMNS_WITH_PACKET = `${PREP_COLUMNS_WITH_RESEARCH}, plan_source, plan_built_at, handoff_id, packet_highlights`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -260,6 +262,7 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     scriptId: row.script_id ?? null,
     scriptName: null,
     planSource: row.plan_source?.trim() || null,
+    planBuiltAt: row.plan_built_at ?? null,
     home: EMPTY_HOME_CONTEXT,
     researchUnverified: false,
   };
@@ -713,7 +716,7 @@ export async function getMeetingPrep(
     .select(PREP_COLUMNS_WITH_PACKET)
     .eq("id", id)
     .maybeSingle();
-  if (error && /plan_source|handoff_id|packet_highlights/.test(error.message)) {
+  if (error && /plan_source|plan_built_at|handoff_id|packet_highlights/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
       .select(PREP_COLUMNS_WITH_RESEARCH)
