@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
+import { CallSheetClient, type CallSheetView } from "@/components/jasonos/meeting-prep/call-sheet-client";
 import { MeetingPrepClient } from "@/components/jasonos/meeting-prep/meeting-prep-client";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { getCallSheet, getCallSheetPerson } from "@/lib/server-actions/call-sheet";
 import {
   getAdaptation,
   getLiveScript,
   getProposedAdaptation,
   listLiveScripts,
+  listPlaybooks,
 } from "@/lib/server-actions/live-scripts";
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep, listProjectsForPicker } from "@/lib/server-actions/meeting-prep";
@@ -14,16 +17,19 @@ import { getMeetingReview } from "@/lib/server-actions/meeting-reviews";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+const VIEWS = new Set<CallSheetView>(["read", "rehearse", "debrief"]);
+
 export default async function MeetingPrepPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ adapt?: string }>;
+  searchParams: Promise<{ adapt?: string; classic?: string; view?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const [result, contextResult, pointsResult, scriptsResult, projectsResult] = await Promise.all([
+  const classic = query.classic === "1";
+  const [result, contextResult, pointsResult] = await Promise.all([
     getMeetingPrep(id),
     loadMeetingContext(id).then(
       (context) => ({ ok: true as const, context }),
@@ -33,8 +39,6 @@ export default async function MeetingPrepPage({
       })
     ),
     getMeetingPoints(id),
-    listLiveScripts(),
-    listProjectsForPicker(),
   ]);
   if (!result.ok) {
     if (result.error === "Meeting prep not found.") notFound();
@@ -56,6 +60,36 @@ export default async function MeetingPrepPage({
     result.prep.scriptId ? getLiveScript(result.prep.scriptId) : Promise.resolve(null),
   ]);
   const rubric = scriptResult?.ok ? scriptResult.script.rubric : [];
+  const points = pointsResult.ok ? pointsResult.points : [];
+  const pointsError = pointsResult.ok ? null : pointsResult.error;
+  const review = reviewResult.ok ? reviewResult.review : null;
+
+  if (!classic) {
+    const [sheetResult, personResult, playbooksResult] = await Promise.all([
+      getCallSheet({ prepId: result.prep.id }),
+      getCallSheetPerson(result.prep.id),
+      listPlaybooks(),
+    ]);
+    const view = VIEWS.has(query.view as CallSheetView) ? (query.view as CallSheetView) : "read";
+    return (
+      <CallSheetClient
+        key={result.prep.id}
+        prep={result.prep}
+        context={contextResult.context}
+        sheet={sheetResult.ok ? sheetResult.sheet : null}
+        sheetError={sheetResult.ok ? null : sheetResult.error}
+        person={personResult.ok ? personResult.person : null}
+        playbooks={playbooksResult.ok ? playbooksResult.playbooks : []}
+        points={points}
+        pointsError={pointsError}
+        rubric={rubric}
+        review={review}
+        initialView={view}
+      />
+    );
+  }
+
+  const [scriptsResult, projectsResult] = await Promise.all([listLiveScripts(), listProjectsForPicker()]);
   const adaptId = typeof query.adapt === "string" ? query.adapt.trim() : "";
   const adaptationResult = adaptId
     ? await getAdaptation({ scriptId: adaptId, prepId: id })
@@ -69,11 +103,11 @@ export default async function MeetingPrepPage({
       key={result.prep.id}
       prep={result.prep}
       context={contextResult.context}
-      points={pointsResult.ok ? pointsResult.points : []}
-      pointsError={pointsResult.ok ? null : pointsResult.error}
+      points={points}
+      pointsError={pointsError}
       scripts={scriptsResult.ok ? scriptsResult.scripts : []}
       rubric={rubric}
-      review={reviewResult.ok ? reviewResult.review : null}
+      review={review}
       projects={projectsResult.ok ? projectsResult.projects : []}
       adaptation={adaptation}
     />

@@ -108,6 +108,9 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   emailContextAt: string | null;
   handoffId: string | null;
   packetHighlights: string[];
+  sheetReadyAt: string | null;
+  thankYouDraft: string | null;
+  thankYouSentAt: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -152,6 +155,9 @@ interface PrepRow {
   plan_built_at?: string | null;
   handoff_id?: string | null;
   packet_highlights?: string[] | null;
+  sheet_ready_at?: string | null;
+  thank_you_draft?: string | null;
+  thank_you_sent_at?: string | null;
 }
 
 const PREP_COLUMNS =
@@ -163,6 +169,7 @@ const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, prima
 const PREP_COLUMNS_WITH_COMPANY = `${PREP_COLUMNS_WITH_LINKS}, company_id`;
 const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_COMPANY}, track, research_ran_at, email_context, email_context_at`;
 const PREP_COLUMNS_WITH_PACKET = `${PREP_COLUMNS_WITH_RESEARCH}, plan_source, plan_built_at, handoff_id, packet_highlights`;
+const PREP_COLUMNS_WITH_SHEET = `${PREP_COLUMNS_WITH_PACKET}, sheet_ready_at, thank_you_draft, thank_you_sent_at`;
 
 function missingLiveColumn(message: string): boolean {
   return /live_started_at|live_ended_at/.test(message);
@@ -295,6 +302,9 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     packetHighlights: Array.isArray(row.packet_highlights)
       ? row.packet_highlights.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
       : [],
+    sheetReadyAt: row.sheet_ready_at ?? null,
+    thankYouDraft: row.thank_you_draft?.trim() || null,
+    thankYouSentAt: row.thank_you_sent_at ?? null,
     sources,
   };
 }
@@ -713,9 +723,16 @@ export async function getMeetingPrep(
   const sb = createServiceRoleClient();
   let { data, error } = await sb
     .from("meeting_preps")
-    .select(PREP_COLUMNS_WITH_PACKET)
+    .select(PREP_COLUMNS_WITH_SHEET)
     .eq("id", id)
     .maybeSingle();
+  if (error && /sheet_ready_at|thank_you_draft|thank_you_sent_at/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_PACKET)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error && /plan_source|plan_built_at|handoff_id|packet_highlights/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
