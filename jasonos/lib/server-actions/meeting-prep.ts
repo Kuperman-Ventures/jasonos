@@ -57,6 +57,7 @@ export interface MeetingPrepSummary {
   projectGoal: string | null;
   primaryContactId: string | null;
   primaryContactName: string | null;
+  companyId: string | null;
   primaryCompanyName: string | null;
   personalGoal: string | null;
   liveEndedAt: string | null;
@@ -139,6 +140,7 @@ interface PrepRow {
   outcome_marked_at?: string | null;
   project_id?: string | null;
   primary_contact_id?: string | null;
+  company_id?: string | null;
   script_id?: string | null;
   adapted_from_script_id?: string | null;
   track?: string | null;
@@ -156,7 +158,8 @@ const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`
 const PREP_COLUMNS_FULL = `${PREP_COLUMNS_WITH_LIVE}, script_id`;
 const PREP_COLUMNS_WITH_OUTCOME = `${PREP_COLUMNS_FULL}, outcome_sentence, outcome_mark, outcome_note, outcome_marked_at`;
 const PREP_COLUMNS_WITH_LINKS = `${PREP_COLUMNS_WITH_OUTCOME}, project_id, primary_contact_id, adapted_from_script_id, adapted_at`;
-const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_LINKS}, track, research_ran_at, email_context, email_context_at`;
+const PREP_COLUMNS_WITH_COMPANY = `${PREP_COLUMNS_WITH_LINKS}, company_id`;
+const PREP_COLUMNS_WITH_RESEARCH = `${PREP_COLUMNS_WITH_COMPANY}, track, research_ran_at, email_context, email_context_at`;
 const PREP_COLUMNS_WITH_PACKET = `${PREP_COLUMNS_WITH_RESEARCH}, plan_source, handoff_id, packet_highlights`;
 
 function missingLiveColumn(message: string): boolean {
@@ -188,6 +191,8 @@ function hasConfig() {
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function revalidatePrep(prepId?: string) {
   revalidatePath("/");
@@ -248,6 +253,7 @@ function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPr
     projectGoal: null,
     primaryContactId: row.primary_contact_id ?? null,
     primaryContactName: null,
+    companyId: row.company_id ?? null,
     primaryCompanyName: null,
     personalGoal: null,
     liveEndedAt: row.live_ended_at ?? null,
@@ -573,7 +579,10 @@ async function getMeetingPrepsForDays(
         ])
       ),
     ];
-    const [scriptsResult, contactsResult] = await Promise.all([
+    const companyIds = [
+      ...new Set(meetings.map((meeting) => meeting.companyId).filter((id): id is string => Boolean(id))),
+    ];
+    const [scriptsResult, contactsResult, companiesResult] = await Promise.all([
       scriptIds.length
         ? sb.from("live_scripts").select("id, name").in("id", scriptIds)
         : Promise.resolve({ data: [] as Array<{ id: string; name: string | null }>, error: null }),
@@ -594,9 +603,18 @@ async function getMeetingPrepsForDays(
             }>,
             error: null,
           }),
+      companyIds.length
+        ? sb.from("companies").select("id, name").in("id", companyIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string | null }>, error: null }),
     ]);
     const scriptNames = new Map(
       (scriptsResult.data ?? []).map((row) => [row.id as string, String(row.name ?? "").trim()])
+    );
+    const companyNames = new Map(
+      (companiesResult.data ?? []).map((row) => [
+        row.id as string,
+        String(row.name ?? "").trim(),
+      ])
     );
     const contactMeta = new Map(
       (contactsResult.data ?? []).map((row) => {
@@ -636,6 +654,10 @@ async function getMeetingPrepsForDays(
         meeting.primaryContactName = meta?.name ?? meeting.primaryContactName;
         meeting.primaryCompanyName = meta?.company ?? null;
         meeting.researchUnverified = Boolean(meta?.hasCompany && !meta.researchVerified);
+      }
+      if (meeting.companyId) {
+        const linked = companyNames.get(meeting.companyId);
+        if (linked) meeting.primaryCompanyName = linked;
       }
       // Also flag when any attendee contact's company is unverified.
       const attendeeIds = meeting.attendees
@@ -699,6 +721,13 @@ export async function getMeetingPrep(
       .maybeSingle());
   }
   if (error && /research_ran_at|email_context|column meeting_preps.track/.test(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS_WITH_COMPANY)
+      .eq("id", id)
+      .maybeSingle());
+  }
+  if (error && /company_id/.test(error.message)) {
     ({ data, error } = await sb
       .from("meeting_preps")
       .select(PREP_COLUMNS_WITH_LINKS)
@@ -802,11 +831,24 @@ export async function getMeetingPrep(
   if (prep.primaryContactId) {
     const { data: contact } = await sb
       .from("contacts")
-      .select("name, personal_goal")
+      .select("name, personal_goal, company_id, companies(name)")
       .eq("id", prep.primaryContactId)
       .maybeSingle();
     prep.primaryContactName = (contact?.name as string | undefined)?.trim() || null;
     prep.personalGoal = (contact?.personal_goal as string | undefined)?.trim() || null;
+    if (!prep.companyId) {
+      const linked = contact?.companies as { name?: string } | { name?: string }[] | null | undefined;
+      const fromContact = (Array.isArray(linked) ? linked[0]?.name : linked?.name)?.trim() || null;
+      prep.primaryCompanyName = fromContact;
+    }
+  }
+  if (prep.companyId) {
+    const { data: company } = await sb
+      .from("companies")
+      .select("name")
+      .eq("id", prep.companyId)
+      .maybeSingle();
+    prep.primaryCompanyName = (company?.name as string | undefined)?.trim() || prep.primaryCompanyName;
   }
   if (!prep.researchRanAt && startsWithinWeek(prep.startsAt)) {
     after(() => {
@@ -819,6 +861,94 @@ export async function getMeetingPrep(
   }
 
   return { ok: true, prep };
+}
+
+export async function setMeetingTitle(
+  prepId: string,
+  title: string
+): Promise<PrepResult<{ title: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const text = title.trim();
+  if (!text) return { ok: false, error: "Write a meeting name." };
+  if (text.length > 200) return { ok: false, error: "Keep the name under 200 characters." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .update({ title: text, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Meeting prep not found." };
+
+  revalidatePrep(id);
+  revalidatePath("/live");
+  return { ok: true, title: text };
+}
+
+export async function setMeetingCompany(
+  prepId: string,
+  companyId: string | null
+): Promise<PrepResult<{ companyId: string | null; companyName: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+  const next = companyId?.trim() || null;
+  if (next && !UUID_RE.test(next)) return { ok: false, error: "Unknown company." };
+
+  const sb = createServiceRoleClient();
+  let companyName: string | null = null;
+  if (next) {
+    const { data: company, error: companyError } = await sb
+      .from("companies")
+      .select("id, name")
+      .eq("id", next)
+      .maybeSingle();
+    if (companyError) return { ok: false, error: companyError.message };
+    if (!company) return { ok: false, error: "Unknown company." };
+    companyName = String(company.name ?? "").trim() || null;
+  }
+
+  const { error } = await sb
+    .from("meeting_preps")
+    .update({ company_id: next, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePrep(id);
+  revalidatePath("/live");
+  return { ok: true, companyId: next, companyName };
+}
+
+export async function searchCompaniesForMeeting(
+  query: string,
+  limit = 10
+): Promise<{ id: string; name: string }[]> {
+  if (!hasConfig()) return [];
+  const trimmed = query.trim();
+  if (trimmed.length < 1) return [];
+  const take = Math.min(Math.max(Math.floor(limit) || 10, 1), 20);
+  const sb = createServiceRoleClient();
+  const pattern = `%${trimmed.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+  const { data, error } = await sb
+    .from("companies")
+    .select("id, name")
+    .ilike("name", pattern)
+    .order("name", { ascending: true })
+    .limit(take);
+  if (error) {
+    console.error("[meeting-prep.searchCompanies]", error);
+    return [];
+  }
+  return (data ?? [])
+    .map((row) => ({
+      id: String(row.id),
+      name: String(row.name ?? "").trim(),
+    }))
+    .filter((row) => row.name);
 }
 
 export async function setMeetingPurpose(
@@ -944,7 +1074,9 @@ export interface RecentLiveMeeting {
   id: string;
   startsAt: string;
   title: string;
+  /** Best display label: contact, company, human attendee, or title. */
   attendeeName: string | null;
+  companyName: string | null;
   strategyName: string | null;
   outcomeMark: OutcomeMark | null;
   reviewed: boolean;
@@ -957,6 +1089,35 @@ interface RecentPrepRow {
   attendees: unknown;
   script_id: string | null;
   outcome_mark: string | null;
+  primary_contact_id?: string | null;
+  company_id?: string | null;
+}
+
+/** Prefer a real person name; never fall back to an email local-part like molly.millar. */
+function humanAttendeeName(attendees: MeetingPrepAttendee[]): string | null {
+  for (const row of attendees) {
+    const name = row.name?.trim() || null;
+    if (!name) continue;
+    if (name.includes("@")) continue;
+    const local = row.email.split("@")[0]?.toLowerCase() ?? "";
+    if (local && name.toLowerCase() === local) continue;
+    if (/^[a-z0-9._+-]+$/i.test(name) && name.includes(".") && !/\s/.test(name)) continue;
+    return name;
+  }
+  return null;
+}
+
+function recentDisplayName(input: {
+  title: string;
+  contactName: string | null;
+  companyName: string | null;
+  attendees: MeetingPrepAttendee[];
+}): string {
+  if (input.contactName) return input.contactName;
+  if (input.companyName) return input.companyName;
+  const human = humanAttendeeName(input.attendees);
+  if (human) return human;
+  return input.title;
 }
 
 export async function getRecentLiveMeetings(
@@ -965,29 +1126,71 @@ export async function getRecentLiveMeetings(
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const take = Math.min(Math.max(Math.floor(limit) || 10, 1), 50);
   const sb = createServiceRoleClient();
-  const { data, error } = await sb
+  const full = await sb
     .from("meeting_preps")
-    .select("id, title, starts_at, attendees, script_id, outcome_mark")
+    .select("id, title, starts_at, attendees, script_id, outcome_mark, primary_contact_id, company_id")
     .not("live_ended_at", "is", null)
     .order("live_ended_at", { ascending: false })
     .limit(take);
+  let rows: RecentPrepRow[] = [];
+  let error = full.error;
+  if (!error) {
+    rows = (full.data ?? []) as RecentPrepRow[];
+  } else if (/company_id/.test(error.message)) {
+    const withoutCompany = await sb
+      .from("meeting_preps")
+      .select("id, title, starts_at, attendees, script_id, outcome_mark, primary_contact_id")
+      .not("live_ended_at", "is", null)
+      .order("live_ended_at", { ascending: false })
+      .limit(take);
+    error = withoutCompany.error;
+    rows = (withoutCompany.data ?? []) as RecentPrepRow[];
+  }
+  if (error && /primary_contact_id/.test(error.message)) {
+    const bare = await sb
+      .from("meeting_preps")
+      .select("id, title, starts_at, attendees, script_id, outcome_mark")
+      .not("live_ended_at", "is", null)
+      .order("live_ended_at", { ascending: false })
+      .limit(take);
+    error = bare.error;
+    rows = (bare.data ?? []) as RecentPrepRow[];
+  }
   if (error) {
     if (missingLiveColumn(error.message)) return { ok: true, meetings: [] };
     return { ok: false, error: error.message };
   }
-
-  const rows = (data ?? []) as RecentPrepRow[];
   const prepIds = rows.map((row) => row.id);
   const scriptIds = [
     ...new Set(rows.map((row) => row.script_id).filter((id): id is string => Boolean(id))),
   ];
-  const [scriptsResult, reviewsResult] = await Promise.all([
+  const contactIds = [
+    ...new Set(rows.map((row) => row.primary_contact_id).filter((id): id is string => Boolean(id))),
+  ];
+  const companyIds = [
+    ...new Set(rows.map((row) => row.company_id).filter((id): id is string => Boolean(id))),
+  ];
+  const [scriptsResult, reviewsResult, contactsResult, companiesResult] = await Promise.all([
     scriptIds.length
       ? sb.from("live_scripts").select("id, name").in("id", scriptIds)
       : Promise.resolve({ data: [] as { id: string; name: string | null }[], error: null }),
     prepIds.length
       ? sb.from("meeting_reviews").select("prep_id").in("prep_id", prepIds)
       : Promise.resolve({ data: [] as { prep_id: string }[], error: null }),
+    contactIds.length
+      ? sb.from("contacts").select("id, name, company_id, companies(name)").in("id", contactIds)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            name: string | null;
+            company_id: string | null;
+            companies: { name?: string } | { name?: string }[] | null;
+          }>,
+          error: null,
+        }),
+    companyIds.length
+      ? sb.from("companies").select("id, name").in("id", companyIds)
+      : Promise.resolve({ data: [] as { id: string; name: string | null }[], error: null }),
   ]);
 
   const names = new Map<string, string>();
@@ -1003,16 +1206,47 @@ export async function getRecentLiveMeetings(
       if (row.prep_id) reviewedIds.add(row.prep_id);
     }
   }
+  const contactById = new Map<string, { name: string | null; company: string | null }>();
+  if (!contactsResult.error) {
+    for (const row of contactsResult.data ?? []) {
+      const linked = row.companies;
+      const company = (Array.isArray(linked) ? linked[0]?.name : linked?.name)?.trim() || null;
+      contactById.set(row.id, {
+        name: row.name?.trim() || null,
+        company,
+      });
+    }
+  }
+  const companyById = new Map<string, string>();
+  if (!companiesResult.error) {
+    for (const row of companiesResult.data ?? []) {
+      const name = row.name?.trim();
+      if (row.id && name) companyById.set(row.id, name);
+    }
+  }
 
   return {
     ok: true,
     meetings: rows.map((row) => {
-      const first = asAttendees(row.attendees)[0];
+      const attendees = asAttendees(row.attendees);
+      const contact = row.primary_contact_id ? contactById.get(row.primary_contact_id) : undefined;
+      const companyName =
+        (row.company_id ? companyById.get(row.company_id) ?? null : null) ||
+        contact?.company ||
+        null;
+      const title = row.title?.trim() || "Meeting";
+      const label = recentDisplayName({
+        title,
+        contactName: contact?.name ?? null,
+        companyName,
+        attendees,
+      });
       return {
         id: row.id,
         startsAt: row.starts_at,
-        title: row.title?.trim() || "Meeting",
-        attendeeName: first ? first.name || first.email.split("@")[0] || null : null,
+        title,
+        attendeeName: label === title ? null : label,
+        companyName,
         strategyName: row.script_id ? (names.get(row.script_id) ?? null) : null,
         outcomeMark: asOutcomeMark(row.outcome_mark),
         reviewed: reviewedIds.has(row.id),
@@ -1027,8 +1261,6 @@ export interface ProjectPickerOption {
   track: string;
   goalStatement: string;
 }
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function listProjectsForPicker(): Promise<PrepResult<{ projects: ProjectPickerOption[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
@@ -1101,6 +1333,7 @@ export async function setMeetingPrimaryContact(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePrep(id);
+  revalidatePath("/live");
   return { ok: true, contactId: next };
 }
 

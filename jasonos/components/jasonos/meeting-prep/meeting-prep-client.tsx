@@ -54,16 +54,20 @@ import {
 import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import { runMeetingResearch } from "@/lib/server-actions/meeting-research";
 import {
+  searchCompaniesForMeeting,
+  setMeetingCompany,
   setMeetingOutcomeMark,
   setMeetingOutcomeSentence,
   setMeetingPrimaryContact,
   setMeetingProject,
   setMeetingPurpose,
+  setMeetingTitle,
   setMeetingTrack,
   type MeetingPrepDetail,
   type OutcomeMark,
   type ProjectPickerOption,
 } from "@/lib/server-actions/meeting-prep";
+import { searchContactsForEmailTemplate } from "@/lib/server-actions/email-templates";
 import { TRACK_META, TRACKS, type Track } from "@/lib/types";
 import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import {
@@ -825,6 +829,128 @@ function OutcomeForMeeting({
   );
 }
 
+type EntityHit = { id: string; name: string; detail?: string | null };
+
+function MeetingEntityPicker({
+  label,
+  valueLabel,
+  emptyLabel,
+  ariaLabel,
+  onClear,
+  onPick,
+  kind,
+  roomOptions = [],
+}: {
+  label: string;
+  valueLabel: string | null;
+  emptyLabel: string;
+  ariaLabel: string;
+  onClear: () => void;
+  onPick: (hit: EntityHit) => void;
+  kind: "contact" | "company";
+  roomOptions?: EntityHit[];
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<EntityHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const roomKey = roomOptions.map((row) => row.id).join(",");
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults(roomOptions.slice(0, 8));
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      const run =
+        kind === "contact"
+          ? searchContactsForEmailTemplate(trimmed, 10).then((rows) =>
+              rows.map((row) => ({ id: row.id, name: row.name, detail: row.firm }))
+            )
+          : searchCompaniesForMeeting(trimmed, 10).then((rows) =>
+              rows.map((row) => ({ id: row.id, name: row.name }))
+            );
+      void run.then((rows) => {
+        if (cancelled) return;
+        setResults(rows);
+        setSearching(false);
+      });
+    }, 180);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+    // roomOptions identity changes every render; roomKey is the stable signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, kind, roomKey]);
+
+  return (
+    <label className="relative block space-y-1">
+      <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">{label}</span>
+      {valueLabel ? (
+        <div className="flex items-baseline justify-between gap-2 border-b-2 border-[var(--color-neutral-400)] py-1">
+          <span className="min-w-0 truncate text-[15px] font-semibold">{valueLabel}</span>
+          <button
+            type="button"
+            className="shrink-0 text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+            onClick={onClear}
+          >
+            Clear
+          </button>
+        </div>
+      ) : (
+        <input
+          value={query}
+          aria-label={ariaLabel}
+          placeholder={emptyLabel}
+          className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none placeholder:text-[var(--jos-muted)]"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => {
+            setOpen(true);
+            if (!query.trim()) setResults(roomOptions.slice(0, 8));
+          }}
+          onBlur={() => window.setTimeout(() => setOpen(false), 140)}
+        />
+      )}
+      {!valueLabel && open ? (
+        <div className="absolute top-[calc(100%+4px)] right-0 left-0 z-20 max-h-56 overflow-y-auto rounded-[2px] bg-[var(--jos-bg)] shadow-[var(--shadow-lg)]">
+          {searching && results.length === 0 ? (
+            <p className="px-3 py-2 text-[13px] text-[var(--jos-muted)]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-3 py-2 text-[13px] text-[var(--jos-muted)]">No matches.</p>
+          ) : (
+            results.map((hit) => (
+              <button
+                key={hit.id}
+                type="button"
+                className="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left hover:bg-[var(--jos-surface)]"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onPick(hit);
+                  setQuery("");
+                  setOpen(false);
+                }}
+              >
+                <span className="truncate text-[15px] font-semibold">{hit.name}</span>
+                {hit.detail ? (
+                  <span className="truncate text-[13px] text-[var(--jos-muted)]">{hit.detail}</span>
+                ) : null}
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </label>
+  );
+}
+
 function GoalLinks({
   prep,
   projects,
@@ -835,9 +961,15 @@ function GoalLinks({
   people: MeetingContextPerson[];
 }) {
   const router = useRouter();
-  const personId = prep.primaryContactId ?? people[0]?.contactId ?? "";
+  const personId = prep.primaryContactId ?? "";
   const person = people.find((item) => item.contactId === personId) ?? null;
+  const personLabel = person?.name ?? prep.primaryContactName;
   const project = projects.find((item) => item.id === prep.projectId) ?? null;
+  const roomPeople = people.map((item) => ({
+    id: item.contactId,
+    name: item.name,
+    detail: item.company,
+  }));
 
   const saveProject = (value: string) => {
     void setMeetingProject(prep.id, value || null).then((result) => {
@@ -849,12 +981,24 @@ function GoalLinks({
     });
   };
 
-  const savePerson = (value: string) => {
-    void setMeetingPrimaryContact(prep.id, value || null).then((result) => {
+  const savePerson = (value: string | null) => {
+    void setMeetingPrimaryContact(prep.id, value).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      toast.success(value ? "Person linked" : "Person cleared");
+      router.refresh();
+    });
+  };
+
+  const saveCompany = (value: string | null) => {
+    void setMeetingCompany(prep.id, value).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(value ? "Company linked" : "Company cleared");
       router.refresh();
     });
   };
@@ -871,7 +1015,7 @@ function GoalLinks({
   };
 
   return (
-    <div className="grid gap-3 pt-1 sm:grid-cols-3">
+    <div className="grid gap-3 pt-1 sm:grid-cols-2 min-[1100px]:grid-cols-4">
       <label className="block space-y-1">
         <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Project</span>
         <select
@@ -889,27 +1033,25 @@ function GoalLinks({
         </select>
         {project ? <p className="text-[14px] leading-snug text-[var(--jos-ink)]">{project.goalStatement}</p> : null}
       </label>
-      <label className="block space-y-1">
-        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Person</span>
-        <select
-          value={personId}
-          aria-label="Person"
-          className="w-full border-0 border-b-2 border-[var(--color-neutral-400)] bg-transparent py-1 text-[15px] outline-none"
-          onChange={(event) => savePerson(event.target.value)}
-        >
-          <option value="">No person</option>
-          {people.map((item) => (
-            <option key={item.contactId} value={item.contactId}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        {person?.personalGoal ? (
-          <p className="text-[14px] text-[var(--jos-muted)]">
-            Your goal for {person.name}: {person.personalGoal}
-          </p>
-        ) : null}
-      </label>
+      <MeetingEntityPicker
+        label="Person"
+        valueLabel={personLabel}
+        emptyLabel="Search contacts"
+        ariaLabel="Link a person"
+        kind="contact"
+        roomOptions={roomPeople}
+        onClear={() => savePerson(null)}
+        onPick={(hit) => savePerson(hit.id)}
+      />
+      <MeetingEntityPicker
+        label="Company"
+        valueLabel={prep.primaryCompanyName}
+        emptyLabel="Search companies"
+        ariaLabel="Link a company"
+        kind="company"
+        onClear={() => saveCompany(null)}
+        onPick={(hit) => saveCompany(hit.id)}
+      />
       <label className="block space-y-1">
         <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">Track</span>
         <select
@@ -928,6 +1070,11 @@ function GoalLinks({
           ))}
         </select>
       </label>
+      {(person?.personalGoal || prep.personalGoal) && personLabel ? (
+        <p className="text-[14px] text-[var(--jos-muted)] sm:col-span-2 min-[1100px]:col-span-4">
+          Your goal for {personLabel}: {person?.personalGoal || prep.personalGoal}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -1717,43 +1864,99 @@ export function MeetingPrepClient({
     status: item.status,
   }));
 
-  const modeToggle = (
-    <div className="flex items-center gap-1 text-[12px] font-bold uppercase tracking-[0.08em]">
-      <button
-        type="button"
-        className={mode === "before" ? "text-[var(--jos-ink)]" : "text-[var(--jos-muted)]"}
-        onClick={() => setMode("before")}
+  const modeNav = (
+    <nav
+      aria-label="Meeting view"
+      className="flex flex-wrap items-center gap-3"
+    >
+      <div
+        role="tablist"
+        aria-label="Before or after the call"
+        className="inline-flex rounded-[2px] border border-[var(--jos-ink)] p-0.5"
       >
-        Before
-      </button>
-      <span className="text-[var(--jos-muted)]">/</span>
-      <button
-        type="button"
-        className={mode === "after" ? "text-[var(--jos-ink)]" : "text-[var(--jos-muted)]"}
-        onClick={() => setMode("after")}
-      >
-        After
-      </button>
-    </div>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "before"}
+          className={cn(
+            "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
+            mode === "before"
+              ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+              : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+          )}
+          onClick={() => setMode("before")}
+        >
+          Before
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "after"}
+          className={cn(
+            "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
+            mode === "after"
+              ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+              : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+          )}
+          onClick={() => setMode("after")}
+        >
+          After
+        </button>
+      </div>
+      {prep.calendarUrl ? (
+        <a
+          href={prep.calendarUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-8 items-center gap-1.5 border border-[var(--jos-line)] bg-[var(--jos-surface)] px-3 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--color-calendar-700)] hover:border-[var(--jos-ink)]"
+        >
+          <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+          Calendar
+        </a>
+      ) : null}
+    </nav>
+  );
+
+  const titleField = (
+    <UnfinishedField
+      value={prep.title}
+      emptyLabel="Name this meeting"
+      placeholder="Meeting name"
+      aria-label="Meeting name"
+      inputClassName="text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em] break-words"
+      className="mt-2"
+      onSave={(next) => {
+        startTransition(async () => {
+          const result = await setMeetingTitle(prep.id, next);
+          if (!result.ok) {
+            toast.error(result.error);
+            return;
+          }
+          toast.success("Meeting name saved");
+          router.refresh();
+        });
+      }}
+    />
   );
 
   if (mode === "after") {
     return (
       <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
         <header className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--jos-ink)] px-10 py-6">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
               <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
               {kicker}
               {duration ? ` · ${duration}` : ""}
             </p>
-            <h1 className="mt-2 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em] break-words">
-              {prep.title}
-            </h1>
+            {titleField}
+            {(prep.primaryContactName || prep.primaryCompanyName) ? (
+              <p className="mt-2 text-[15px] text-[var(--jos-muted)]">
+                {[prep.primaryContactName, prep.primaryCompanyName].filter(Boolean).join(" · ")}
+              </p>
+            ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {modeToggle}
-          </div>
+          <div className="shrink-0">{modeNav}</div>
         </header>
         <div className="flex flex-col gap-8 min-[1100px]:flex-row">
           <div className="min-w-0 flex-[1.5]">
@@ -1803,17 +2006,12 @@ export function MeetingPrepClient({
       {showWhoTheyAre && primary ? <WhoTheyAreCard prep={prep} person={primary} /> : null}
       <header className="grid gap-6 border-b border-[var(--jos-ink)] px-10 py-7 min-[1100px]:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
-              <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
-              {kicker}
-              {duration ? ` · ${duration}` : ""}
-            </p>
-            {modeToggle}
-          </div>
-          <h1 className="mt-3 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em] break-words">
-            {prep.title}
-          </h1>
+          <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
+            <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+            {kicker}
+            {duration ? ` · ${duration}` : ""}
+          </p>
+          {titleField}
           {primary ? (
             <div className="mt-4 flex items-start gap-3">
               <div className="flex size-16 shrink-0 items-center justify-center bg-[var(--jos-surface)] text-[18px] font-bold">
@@ -1843,13 +2041,18 @@ export function MeetingPrepClient({
                 ) : null}
               </div>
             </div>
+          ) : prep.primaryContactName || prep.primaryCompanyName ? (
+            <p className="mt-3 text-[15px] text-[var(--jos-muted)]">
+              {[prep.primaryContactName, prep.primaryCompanyName].filter(Boolean).join(" · ")}
+            </p>
           ) : null}
           {prep.error ? (
             <p className="mt-3 text-[14px] font-medium text-[var(--color-accent-2-text)]">{prep.error}</p>
           ) : null}
         </div>
         <div className="min-w-0">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {modeNav}
             {join ? (
               <a
                 href={join}
@@ -1858,16 +2061,6 @@ export function MeetingPrepClient({
                 className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
               >
                 Join the call
-              </a>
-            ) : null}
-            {prep.calendarUrl ? (
-              <a
-                href={prep.calendarUrl}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
-              >
-                Calendar
               </a>
             ) : null}
           </div>
