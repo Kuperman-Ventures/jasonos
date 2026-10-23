@@ -1,11 +1,14 @@
 // Browning meeting reminder copy and timing.
-// ~24h before a booked call: email the contact a reminder, and email Jason
-// if they still have not accepted the calendar invite.
+// ~24h before a booked call: email the contact a reminder (BCC Jason), and
+// notify Jason if they still have not accepted the calendar invite.
 
 import { firstName, formatSlotLabel } from "./draft";
 
 /** Look ahead window for sending the reminder / RSVP alert. */
 export const MEETING_REMINDER_AHEAD_MS = 24 * 60 * 60 * 1000;
+
+/** Jason gets a BCC/copy of every attendee reminder, and RSVP alerts. */
+export const JASON_NOTIFY_EMAIL = "jskuperman@gmail.com";
 
 export type AttendeeRsvpStatus =
   | "accepted"

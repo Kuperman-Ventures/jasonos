@@ -5,6 +5,7 @@ import {
   attendeeReminderSubject,
   attendeeRsvpStatus,
   isInsideReminderWindow,
+  JASON_NOTIFY_EMAIL,
   needsRsvpAlert,
   rsvpAlertBody,
   rsvpAlertSubject,
@@ -69,7 +70,8 @@ describe("browning meeting reminders", () => {
 
   it("builds labeled test examples for Jason", () => {
     const samples = testReminderExamples(now);
-    assert.equal(samples.attendee.to, "jskuperman@gmail.com");
+    assert.equal(samples.attendee.to, JASON_NOTIFY_EMAIL);
+    assert.equal(samples.rsvpAlert.to, JASON_NOTIFY_EMAIL);
     assert.match(samples.attendee.subject, /^\[TEST\] Reminder/);
     assert.match(samples.attendee.body, /This is a TEST of the Browning attendee reminder/);
     assert.match(samples.rsvpAlert.subject, /^\[TEST\].*has not accepted/);

@@ -16,11 +16,14 @@ import {
   attendeeReminderSubject,
   attendeeRsvpStatus,
   isInsideReminderWindow,
+  JASON_NOTIFY_EMAIL,
   needsRsvpAlert,
   rsvpAlertBody,
   rsvpAlertSubject,
   testReminderExamples,
 } from "./reminders";
+
+export { JASON_NOTIFY_EMAIL };
 
 type Sb = ReturnType<typeof createServiceRoleClient>;
 
@@ -31,14 +34,13 @@ export type ReminderSyncResult = {
   warning?: string;
 };
 
-const JASON_NOTIFY_EMAIL = "jskuperman@gmail.com";
-
 async function advisorsToken(): Promise<string | null> {
   const tokens = await listGoogleAccessTokens();
   return tokens.find((row) => row.accountEmail === ADVISORS_ACCOUNT_EMAIL)?.token ?? null;
 }
 
-async function sendFromAdvisors(input: {
+/** Attendee reminder: prefer Gmail (BCC Jason). Calendar invite is the fallback. */
+async function sendAttendeeReminder(input: {
   token: string;
   to: string;
   subject: string;
@@ -47,20 +49,49 @@ async function sendFromAdvisors(input: {
   const gmail = await sendGmailMessage({
     accessToken: input.token,
     to: input.to,
+    bcc: JASON_NOTIFY_EMAIL,
     subject: input.subject,
     body: input.body,
   });
   if (gmail.ok) return { ok: true, via: "gmail" };
 
-  // Until Advisors is reconnected with gmail.send, calendar invite email still delivers.
-  const cal = await deliverEmailViaCalendarInvite({
+  // No gmail.send yet — calendar invite to the attendee; Jason gets a notify copy
+  // (not a second calendar invite).
+  const toAttendee = await deliverEmailViaCalendarInvite({
     token: input.token,
     to: input.to,
     subject: input.subject,
     body: input.body,
   });
-  if (cal.ok) return { ok: true, via: "calendar" };
-  return { ok: false, error: gmail.error || cal.error };
+  if (!toAttendee.ok) {
+    return { ok: false, error: gmail.error || toAttendee.error };
+  }
+  await notify({
+    source: "browning_networking",
+    title: `Copy — ${input.subject}`,
+    body: [`Reminder also sent to ${input.to}.`, "", input.body].join("\n"),
+    severity: "info",
+    category: "deadline",
+  });
+  return { ok: true, via: "calendar" };
+}
+
+/**
+ * RSVP alert to Jason: JasonOS notification only (Slack / Action Queue alerts).
+ * Never a Google Calendar invite — the attendee reminder is the Google path.
+ */
+async function sendRsvpAlertToJason(input: {
+  subject: string;
+  body: string;
+}): Promise<{ ok: true; via: "notify" }> {
+  await notify({
+    source: "browning_networking",
+    title: input.subject,
+    body: input.body,
+    severity: "warn",
+    category: "deadline",
+  });
+  return { ok: true, via: "notify" };
 }
 
 function meetUrlFromEvent(event: {
@@ -97,7 +128,6 @@ export async function syncBrowningMeetingReminders(
     .is("attendee_reminder_sent_at", null)
     .not("status", "eq", "dismissed")
     .limit(50);
-  // Also load rows that need RSVP alert even if reminder already sent.
   const { data: rsvpRows, error: rsvpError } = await sb
     .from("browning_handoffs")
     .select(
@@ -155,7 +185,12 @@ export async function syncBrowningMeetingReminders(
         meetUrl,
         callTitle: (row.call_title as string | null) ?? null,
       });
-      const sent = await sendFromAdvisors({ token, to: contactEmail, subject, body });
+      const sent = await sendAttendeeReminder({
+        token,
+        to: contactEmail,
+        subject,
+        body,
+      });
       if (sent.ok) {
         const { error: updateError } = await sb
           .from("browning_handoffs")
@@ -171,7 +206,6 @@ export async function syncBrowningMeetingReminders(
     if (!row.rsvp_alert_sent_at) {
       const rsvp = attendeeRsvpStatus(attendees, contactEmail);
       if (!needsRsvpAlert(rsvp)) {
-        // Accepted — stamp so we stop re-checking this call.
         await sb
           .from("browning_handoffs")
           .update({ rsvp_alert_sent_at: now.toISOString() })
@@ -186,31 +220,14 @@ export async function syncBrowningMeetingReminders(
           meetUrl,
           handoffId: id,
         });
-        const sent = await sendFromAdvisors({
-          token,
-          to: JASON_NOTIFY_EMAIL,
-          subject,
-          body,
-        });
+        const sent = await sendRsvpAlertToJason({ subject, body });
         if (sent.ok) {
           const { error: updateError } = await sb
             .from("browning_handoffs")
             .update({ rsvp_alert_sent_at: now.toISOString() })
             .eq("id", id);
-          if (!updateError) {
-            rsvpAlertsSent += 1;
-            await notify({
-              source: "browning_networking",
-              title: subject,
-              body,
-              severity: "warn",
-              category: "deadline",
-            });
-          } else {
-            warning = updateError.message;
-          }
-        } else {
-          warning = sent.error;
+          if (!updateError) rsvpAlertsSent += 1;
+          else warning = updateError.message;
         }
       }
     }
@@ -231,22 +248,27 @@ export async function sendBrowningReminderTestExamples(): Promise<
     return { ok: false, error: "Advisors Google is not connected." };
   }
   const samples = testReminderExamples();
-  const vias: string[] = [];
-  for (const sample of [samples.attendee, samples.rsvpAlert]) {
-    const sent = await sendFromAdvisors({
-      token,
-      to: sample.to,
-      subject: sample.subject,
-      body: sample.body,
-    });
-    if (!sent.ok) return { ok: false, error: sent.error };
-    vias.push(sent.via);
-  }
+
+  // Sample "attendee" is Jason — Gmail BCC also goes to him (harmless duplicate).
+  const reminder = await sendAttendeeReminder({
+    token,
+    to: samples.attendee.to,
+    subject: samples.attendee.subject,
+    body: samples.attendee.body,
+  });
+  if (!reminder.ok) return { ok: false, error: reminder.error };
+
+  const alert = await sendRsvpAlertToJason({
+    subject: samples.rsvpAlert.subject,
+    body: samples.rsvpAlert.body,
+  });
+
   return {
     ok: true,
-    via: vias.join("+"),
-    warning: vias.includes("calendar")
-      ? "Delivered as calendar invite emails (gmail.send not granted yet). Reconnect Advisors Google in Settings to send real Gmail."
-      : undefined,
+    via: `${reminder.via}+${alert.via}`,
+    warning:
+      reminder.via === "calendar"
+        ? "Attendee reminder sample used calendar delivery (reconnect Advisors Google for Gmail send + BCC). RSVP alert used JasonOS notify — not a calendar invite."
+        : undefined,
   };
 }
