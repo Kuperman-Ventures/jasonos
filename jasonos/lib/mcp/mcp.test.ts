@@ -24,8 +24,13 @@ import {
   wwwAuthenticate,
 } from "./oauth.ts";
 import { FYB_TOOL_NAMES } from "./fyb-tools.ts";
-import { MEETING_PLAN_TOOL_NAMES, validatePlanPoints } from "./plan-points.ts";
-import { registerJasonosTools } from "./register.ts";
+import {
+  CALL_SHEET_TOOL_NAMES,
+  MEETING_PLAN_TOOL_NAMES,
+  mergeSheetLines,
+  validatePlanPoints,
+} from "./plan-points.ts";
+import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
 import { REACTION_SHAPES } from "../meeting-prep/reactions.ts";
@@ -279,6 +284,11 @@ describe("registerJasonosTools", () => {
     for (const name of MEETING_PLAN_TOOL_NAMES) {
       assert.ok(registered.includes(name), `missing ${name}`);
     }
+    for (const name of CALL_SHEET_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
+    assert.ok(registered.includes("set_call_sheet"));
+    assert.ok(!registered.includes("list_people_in_motion"));
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
     assert.ok(registered.includes("list_weekly_provocations"));
@@ -318,6 +328,35 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("use_guide_for_meeting"));
     assert.ok(tools.includes("get_meeting_plan"));
     assert.ok(tools.includes("list_upcoming_meeting_preps"));
+    for (const name of CALL_SHEET_TOOL_NAMES) {
+      assert.ok(tools.includes(name), `area map missing ${name}`);
+    }
+  });
+
+  it("tells Claude to write call sheets with set_call_sheet in Jason's words", () => {
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /set_call_sheet/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /Why and What and how in Jason's words/);
+  });
+});
+
+describe("mergeSheetLines", () => {
+  it("replaces by label, then by position, and adds new labeled lines", () => {
+    const existing = [
+      { label: "Why them", text: "" },
+      { label: "Why now", text: "old" },
+      { label: "To discuss", text: "" },
+    ];
+    const merged = mergeSheetLines(existing, [
+      { label: "why now", text: "Tracy said they are hiring" },
+      { text: "They ran growth at Acme" },
+      { label: "Extra", text: "One more" },
+    ]);
+    assert.deepEqual(merged, [
+      { label: "Why them", text: "They ran growth at Acme" },
+      { label: "Why now", text: "Tracy said they are hiring" },
+      { label: "To discuss", text: "" },
+      { label: "Extra", text: "One more" },
+    ]);
   });
 });
 

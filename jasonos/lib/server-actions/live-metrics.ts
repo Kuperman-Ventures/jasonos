@@ -1,8 +1,11 @@
 "use server";
 
+import { countSecondCalls } from "@/lib/meeting-prep/people";
 import {
+  computeCallMetrics,
   computeRelationshipMetrics,
   metricsWindow,
+  type CallMetrics,
   type MetricCommitment,
   type MetricContact,
   type MetricMeeting,
@@ -47,9 +50,92 @@ function iso(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function contactIdOf(prep: Record<string, unknown>): string | null {
+  const primary = prep.primary_contact_id as string | null;
+  if (primary) return primary;
+  for (const attendee of Array.isArray(prep.attendees) ? (prep.attendees as Array<{ contact_id?: string | null }>) : []) {
+    if (attendee?.contact_id) return attendee.contact_id;
+  }
+  return null;
+}
+
+async function loadCallMetrics(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  fromIso: string,
+  toIso: string,
+  asks: Array<{ state?: unknown; confirmed_state?: unknown }>
+): Promise<MetricsResult<{ calls: CallMetrics }>> {
+  const [logsRes, referralsRes, bookedRes] = await Promise.all([
+    sb
+      .from("relationship_log")
+      .select("contact_id, prep_id, occurred_at, contacts_received, thank_you_sent_at")
+      .gte("occurred_at", fromIso)
+      .lte("occurred_at", toIso),
+    sb
+      .from("contacts")
+      .select("referral_received_at, first_contact_at")
+      .gte("referral_received_at", fromIso)
+      .lte("referral_received_at", toIso),
+    sb
+      .from("meeting_preps")
+      .select("id, starts_at, primary_contact_id, attendees")
+      .gte("created_at", fromIso)
+      .lte("created_at", toIso),
+  ]);
+  const failed = logsRes.error || referralsRes.error || bookedRes.error;
+  if (failed) return { ok: false, error: failed.message };
+  const logs = (logsRes.data ?? []) as Array<Record<string, unknown>>;
+
+  const prepIds = [...new Set(logs.map((log) => log.prep_id as string | null).filter((id): id is string => Boolean(id)))];
+  const endsAt = new Map<string, string>();
+  if (prepIds.length) {
+    const { data, error } = await sb.from("meeting_preps").select("id, ends_at").in("id", prepIds);
+    if (error) return { ok: false, error: error.message };
+    for (const row of data ?? []) if (row.ends_at) endsAt.set(String(row.id), String(row.ends_at));
+  }
+
+  const booked = ((bookedRes.data ?? []) as Array<Record<string, unknown>>)
+    .map((prep) => ({ id: String(prep.id), startsAt: String(prep.starts_at), contactId: contactIdOf(prep) }))
+    .filter((row): row is { id: string; startsAt: string; contactId: string } => Boolean(row.contactId));
+  let secondCalls = 0;
+  if (booked.length) {
+    const { data, error } = await sb
+      .from("relationship_log")
+      .select("contact_id, prep_id, occurred_at")
+      .in("contact_id", [...new Set(booked.map((row) => row.contactId))]);
+    if (error) return { ok: false, error: error.message };
+    secondCalls = countSecondCalls(
+      booked,
+      (data ?? []).map((row) => ({
+        contactId: String(row.contact_id),
+        prepId: (row.prep_id as string | null) ?? null,
+        occurredAt: String(row.occurred_at),
+      }))
+    );
+  }
+
+  return {
+    ok: true,
+    calls: computeCallMetrics({
+      logs: logs.map((log) => ({
+        contactId: String(log.contact_id),
+        endsAt: endsAt.get(String(log.prep_id)) ?? String(log.occurred_at),
+        thankYouSentAt: iso(log.thank_you_sent_at),
+        contactsReceived: Array.isArray(log.contacts_received) ? log.contacts_received.length : 0,
+      })),
+      referrals: ((referralsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        receivedAt: String(row.referral_received_at),
+        firstContactAt: iso(row.first_contact_at),
+      })),
+      asks: asks.map((row) => ({ state: String(row.confirmed_state || row.state || "open") })),
+      secondCallsScheduled: secondCalls,
+    }),
+  };
+}
+
 export async function getRelationshipMetrics(
   days: number
-): Promise<MetricsResult<{ metrics: RelationshipMetrics }>> {
+): Promise<MetricsResult<{ metrics: RelationshipMetrics; calls: CallMetrics }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
   const window = metricsWindow(days, today);
@@ -153,8 +239,12 @@ export async function getRelationshipMetrics(
     };
   });
 
+  const calls = await loadCallMetrics(sb, etBound(window.from, false), etBound(window.to, true), asks.data ?? []);
+  if (!calls.ok) return calls;
+
   return {
     ok: true,
+    calls: calls.calls,
     metrics: computeRelationshipMetrics({
       from: window.from,
       to: window.to,

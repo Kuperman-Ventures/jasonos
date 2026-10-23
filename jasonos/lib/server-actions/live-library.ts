@@ -1,6 +1,8 @@
 "use server";
 
 import { cadenceLabel, type CadenceInterval } from "@/lib/outreach/types";
+import { getCallSheet, type CallSheet } from "@/lib/server-actions/call-sheet";
+import { getRelationshipLogForMeeting, type RelationshipLogEntry } from "@/lib/server-actions/person";
 import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import type { MeetingPrepDetail, OutcomeMark } from "@/lib/server-actions/meeting-prep";
@@ -37,6 +39,8 @@ export interface LibraryMeeting {
   asksCovered: number;
   asksTotal: number;
   projectName: string | null;
+  /** This call's touch number in the relationship log; null when it was not logged. */
+  touchNumber: number | null;
 }
 
 export interface LibraryPersonFacet {
@@ -81,6 +85,8 @@ export interface LiveMeetingRecord {
   adaptation: { scriptName: string; adaptedAt: string | null } | null;
   granolaUrl: string | null;
   calendarUrl: string | null;
+  sheet: CallSheet | null;
+  log: RelationshipLogEntry | null;
 }
 
 type LibraryResult<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -223,7 +229,7 @@ export async function listLiveMeetings(
   const scriptIds = [...new Set(rows.map((row) => row.script_id).filter((id): id is string => Boolean(id)))];
   const projectIds = [...new Set(rows.map((row) => row.project_id).filter((id): id is string => Boolean(id)))];
 
-  const [contacts, scripts, projects, reviews, asks] = await Promise.all([
+  const [contacts, scripts, projects, reviews, asks, logs] = await Promise.all([
     contactIds.length
       ? sb.from("contacts").select("id, name, company_id").in("id", contactIds)
       : Promise.resolve({ data: [], error: null }),
@@ -239,9 +245,16 @@ export async function listLiveMeetings(
       .select("prep_id, state, confirmed_state")
       .in("prep_id", prepIds)
       .eq("kind", "ask"),
+    sb.from("relationship_log").select("prep_id, touch_number").in("prep_id", prepIds),
   ]);
-  const lookupError = contacts.error || scripts.error || projects.error || reviews.error || asks.error;
+  const lookupError =
+    contacts.error || scripts.error || projects.error || reviews.error || asks.error || logs.error;
   if (lookupError) return { ok: false, error: lookupError.message };
+  const touchByPrep = new Map(
+    (logs.data ?? [])
+      .filter((row) => typeof row.touch_number === "number")
+      .map((row) => [row.prep_id as string, row.touch_number as number])
+  );
 
   const companyIds = [
     ...new Set(
@@ -304,6 +317,7 @@ export async function listLiveMeetings(
         asksCovered: tally.covered,
         asksTotal: tally.total,
         projectName: row.project_id ? projectName.get(row.project_id) ?? null : null,
+        touchNumber: touchByPrep.get(row.id) ?? null,
       };
     }),
   };
@@ -435,7 +449,12 @@ export async function getLiveMeetingRecord(
   if (!prepResult.prep.liveEndedAt) {
     return { ok: false, error: "This meeting has not been run through Live." };
   }
-  const [pointsResult, reviewResult] = await Promise.all([getMeetingPoints(id), getMeetingReview(id)]);
+  const [pointsResult, reviewResult, sheetResult, logResult] = await Promise.all([
+    getMeetingPoints(id),
+    getMeetingReview(id),
+    getCallSheet({ prepId: id }),
+    getRelationshipLogForMeeting(id),
+  ]);
   if (!pointsResult.ok) return pointsResult;
   if (!reviewResult.ok) return reviewResult;
 
@@ -457,6 +476,8 @@ export async function getLiveMeetingRecord(
         : null,
       granolaUrl: reviewResult.review?.sourceUrl ?? null,
       calendarUrl: prepResult.prep.calendarUrl,
+      sheet: sheetResult.ok ? sheetResult.sheet : null,
+      log: logResult.ok ? logResult.log : null,
     },
   };
 }

@@ -143,7 +143,7 @@ function PlannedAgainstSaid({
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className={LIVE_SECTION_LABEL}>Planned against said</p>
+        <p className={LIVE_SECTION_LABEL}>Sheet against what was said</p>
         <button type="button" className={LINK} disabled={running} onClick={run}>
           {running ? "Reviewing…" : analyzed ? "Review again" : "Review the transcript"}
         </button>

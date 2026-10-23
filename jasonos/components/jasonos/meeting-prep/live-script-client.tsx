@@ -21,13 +21,12 @@ import {
 } from "@/components/ui/dialog";
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
+import { putSheetOnMeeting } from "@/lib/server-actions/call-sheet";
 import {
-  attachPlanToMeeting,
   createLiveScriptItem,
   deleteLiveScript,
   deleteLiveScriptItem,
   draftLiveScriptItems,
-  promotePlanToStrategy,
   reorderLiveScriptItems,
   updateLiveScript,
   draftScriptItemReactions,
@@ -96,7 +95,7 @@ function PlanFields({ script }: { script: LiveScript }) {
         <UnfinishedField
           value={whoFor}
           emptyLabel="Add a sentence"
-          placeholder="Who this guide is for"
+          placeholder="Who this sheet is for"
           inputClassName="text-[17px]"
           onSave={(next) => save({ description: next || null })}
         />
@@ -116,7 +115,7 @@ function PlanFields({ script }: { script: LiveScript }) {
         <UnfinishedField
           value={notes}
           emptyLabel="Add a sentence"
-          placeholder="Anything else to keep with this guide"
+          placeholder="Anything else to keep with this sheet"
           inputClassName="text-[17px]"
           onSave={(next) => save({ notes: next || null })}
         />
@@ -283,8 +282,6 @@ export function LiveScriptClient({
   const [prepId, setPrepId] = useState("");
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [confirmPromote, setConfirmPromote] = useState(false);
-  const [promoting, setPromoting] = useState(false);
   const isPlan = script.kind === "plan";
 
   const markable = items.some((item) => item.kind !== "agenda");
@@ -293,7 +290,7 @@ export function LiveScriptClient({
   const saveName = (next: string) => {
     const name = next.trim();
     if (!name) {
-      toast.error(isPlan ? "Name the guide." : "Name the playbook.");
+      toast.error(isPlan ? "Name the sheet." : "Name the playbook.");
       return;
     }
     void updateLiveScript(script.id, { name }).then((result) => {
@@ -329,7 +326,7 @@ export function LiveScriptClient({
   const runAttach = () => {
     if (!prepId) return;
     setApplying(true);
-    void attachPlanToMeeting({ scriptId: script.id, prepId, mode: "replace" }).then((result) => {
+    void putSheetOnMeeting({ sheetId: script.id, prepId }).then((result) => {
       setApplying(false);
       setConfirmReplace(false);
       if (!result.ok) {
@@ -337,7 +334,7 @@ export function LiveScriptClient({
         return;
       }
       setUseOpen(false);
-      router.push(`/meetings/${prepId}#step-plan`);
+      router.push(`/meetings/${prepId}`);
       router.refresh();
     });
   };
@@ -351,20 +348,6 @@ export function LiveScriptClient({
     runAttach();
   };
 
-  const promote = () => {
-    setPromoting(true);
-    void promotePlanToStrategy(script.id).then((result) => {
-      setPromoting(false);
-      setConfirmPromote(false);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("This is now a playbook.");
-      router.refresh();
-    });
-  };
-
   const usedLabel =
     script.useCount === 1 ? "USED 1 TIME" : `USED ${script.useCount} TIMES`;
 
@@ -374,12 +357,12 @@ export function LiveScriptClient({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>
-              {isPlan ? "Guide" : `Playbook · ${usedLabel}`}
+              {isPlan ? "Sheet" : `Playbook · ${usedLabel}`}
             </p>
             <InlineField
               value={script.name}
-              placeholder={isPlan ? "Guide name" : "Playbook name"}
-              emptyLabel={isPlan ? "Guide name" : "Playbook name"}
+              placeholder={isPlan ? "Sheet name" : "Playbook name"}
+              emptyLabel={isPlan ? "Sheet name" : "Playbook name"}
               maxLength={120}
               className="mt-1 text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
               onSave={saveName}
@@ -399,8 +382,7 @@ export function LiveScriptClient({
               </button>
             )}
             {isPlan ? (
-              <>
-                <Button
+              <Button
                   type="button"
                   variant="secondary"
                   size="sm"
@@ -412,32 +394,6 @@ export function LiveScriptClient({
                 >
                   Use for a meeting
                 </Button>
-                {confirmPromote ? (
-                  <p className="text-[13px]">
-                    Make it a playbook?{" "}
-                    <button
-                      type="button"
-                      className="font-semibold text-[var(--color-accent-700)] hover:underline"
-                      disabled={promoting}
-                      onClick={promote}
-                    >
-                      Confirm
-                    </button>
-                    {" · "}
-                    <button
-                      type="button"
-                      className="font-semibold hover:underline"
-                      onClick={() => setConfirmPromote(false)}
-                    >
-                      Cancel
-                    </button>
-                  </p>
-                ) : (
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPromote(true)}>
-                    Make it a playbook
-                  </Button>
-                )}
-              </>
             ) : null}
             {confirmDelete ? (
               <p className="text-[13px]">

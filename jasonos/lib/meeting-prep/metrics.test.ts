@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CADENCE_RULE,
+  computeCallMetrics,
   computeRelationshipMetrics,
   isWithinCadence,
   type MetricMeeting,
@@ -99,5 +100,38 @@ describe("computeRelationshipMetrics", () => {
     assert.equal(metrics.byPerson[0].openMine, 0);
     assert.equal(metrics.byPerson[0].nextTouchOverdue, true);
     assert.match(CADENCE_RULE, /last touch date plus the cadence interval/);
+  });
+});
+
+describe("computeCallMetrics", () => {
+  it("averages calls per person and contacts per call, and splits asks made from skipped", () => {
+    const metrics = computeCallMetrics({
+      logs: [
+        { contactId: "c1", endsAt: "2026-10-01T16:00:00Z", thankYouSentAt: "2026-10-01T20:00:00Z", contactsReceived: 2 },
+        { contactId: "c1", endsAt: "2026-10-08T16:00:00Z", thankYouSentAt: null, contactsReceived: 1 },
+        { contactId: "c2", endsAt: "2026-10-09T16:00:00Z", thankYouSentAt: "2026-10-11T16:00:00Z", contactsReceived: 0 },
+      ],
+      referrals: [
+        { receivedAt: "2026-10-01T12:00:00Z", firstContactAt: "2026-10-02T12:00:00Z" },
+        { receivedAt: "2026-10-05T12:00:00Z", firstContactAt: null },
+      ],
+      asks: [{ state: "covered" }, { state: "skipped" }, { state: "covered" }, { state: "open" }],
+      secondCallsScheduled: 1,
+    });
+    assert.equal(metrics.calls, 3);
+    assert.equal(metrics.people, 2);
+    assert.equal(metrics.touchesPerPerson, 1.5);
+    assert.equal(metrics.contactsReceived, 3);
+    assert.equal(metrics.contactsPerCall, 1);
+    assert.deepEqual(metrics.firstContactIn48h, { met: 1, of: 2 });
+    assert.deepEqual(metrics.thankYouIn24h, { met: 1, of: 3 });
+    assert.deepEqual(metrics.asks, { made: 2, skipped: 1 });
+    assert.equal(metrics.secondCallsScheduled, 1);
+  });
+
+  it("returns null averages when nothing was held", () => {
+    const metrics = computeCallMetrics({ logs: [], referrals: [], asks: [], secondCallsScheduled: 0 });
+    assert.equal(metrics.touchesPerPerson, null);
+    assert.equal(metrics.contactsPerCall, null);
   });
 });

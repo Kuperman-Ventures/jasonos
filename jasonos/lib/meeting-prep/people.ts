@@ -198,6 +198,26 @@ export function weeklyActivityCounts(input: {
   };
 }
 
+/**
+ * Second calls booked: meetings first seen in the window with someone who has exactly
+ * one held call before the meeting starts. Each person counts once.
+ */
+export function countSecondCalls(
+  meetings: Array<{ id: string; startsAt: string; contactId: string }>,
+  logs: Array<{ contactId: string; prepId: string | null; occurredAt: string }>
+): number {
+  const counted = new Set<string>();
+  for (const meeting of meetings) {
+    if (counted.has(meeting.contactId)) continue;
+    const start = Date.parse(meeting.startsAt);
+    const before = logs.filter(
+      (log) => log.contactId === meeting.contactId && log.prepId !== meeting.id && Date.parse(log.occurredAt) < start
+    );
+    if (before.length === 1) counted.add(meeting.contactId);
+  }
+  return counted.size;
+}
+
 /** Browning tracking-sheet columns, one row per held call. */
 export const ACTIVITY_LOG_COLUMNS = [
   "Date",

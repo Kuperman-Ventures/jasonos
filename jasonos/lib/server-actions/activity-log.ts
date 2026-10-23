@@ -5,6 +5,7 @@ import { asYmd } from "@/lib/meeting-prep/after";
 import {
   activityLogCsv,
   activityLogFilename,
+  countSecondCalls,
   etYmdOf,
   weeklyActivityCounts,
   type ActivityLogRow,
@@ -510,7 +511,7 @@ function contactIdOf(prep: Record<string, unknown>): string | null {
   return null;
 }
 
-/** Second calls booked this week: meetings first seen this week with someone who has exactly one held call before it. */
+/** Second calls booked in the window: meetings first seen then with someone who has exactly one held call before it. */
 async function countSecondCallsScheduled(
   sb: ReturnType<typeof createServiceRoleClient>,
   fromIso: string,
@@ -529,18 +530,14 @@ async function countSecondCallsScheduled(
     .from("relationship_log")
     .select("contact_id, prep_id, occurred_at")
     .in("contact_id", [...new Set(meetings.map((row) => row.contactId))]);
-  const counted = new Set<string>();
-  for (const meeting of meetings) {
-    if (counted.has(meeting.contactId)) continue;
-    const before = (logs ?? []).filter(
-      (log) =>
-        log.contact_id === meeting.contactId &&
-        log.prep_id !== meeting.id &&
-        Date.parse(String(log.occurred_at)) < Date.parse(meeting.startsAt)
-    );
-    if (before.length === 1) counted.add(meeting.contactId);
-  }
-  return counted.size;
+  return countSecondCalls(
+    meetings,
+    (logs ?? []).map((log) => ({
+      contactId: String(log.contact_id),
+      prepId: (log.prep_id as string | null) ?? null,
+      occurredAt: String(log.occurred_at),
+    }))
+  );
 }
 
 /** Referrals, first contacts inside 48 hours, held calls, contacts received, thank-yous inside 24 hours, second calls booked. */

@@ -22,6 +22,7 @@ export default async function LiveMetricsPage({
   return (
     <LiveMetricsClient
       metrics={result.ok ? result.metrics : null}
+      calls={result.ok ? result.calls : null}
       days={days}
       error={result.ok ? null : result.error}
     />

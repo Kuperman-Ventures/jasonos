@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LIVE_SECTION_LABEL } from "@/components/jasonos/live";
-import { type RelationshipMetrics } from "@/lib/meeting-prep/metrics";
+import type { CallMetrics, RelationshipMetrics } from "@/lib/meeting-prep/metrics";
 import { cn } from "@/lib/utils";
 
 function dayLabel(value: string | null): string {
@@ -66,55 +66,59 @@ function OutcomeBar({
   );
 }
 
+function rate(pair: { met: number; of: number }): string {
+  return pair.of ? `${Math.round((pair.met / pair.of) * 100)}%` : "n/a";
+}
+
+function average(value: number | null): string {
+  return value == null ? "n/a" : String(value);
+}
+
 export function LiveMetricsClient({
   metrics,
+  calls,
   days,
   error,
 }: {
   metrics: RelationshipMetrics | null;
+  calls: CallMetrics | null;
   days: number;
   error: string | null;
 }) {
   const router = useRouter();
   const windows = [30, 90, 180] as const;
-  const agreementPercent =
-    metrics && metrics.markAgreement.total
-      ? Math.round((metrics.markAgreement.agree / metrics.markAgreement.total) * 100)
-      : 0;
 
-  const tiles = metrics
+  const tiles: Array<{ label: string; value: string; sub: string | null }> = calls
     ? [
         {
-          label: "First meetings",
-          value: String(metrics.firstMeetings),
-          sub: null as string | null,
+          label: "Touches per person",
+          value: average(calls.touchesPerPerson),
+          sub: `${calls.calls} ${calls.calls === 1 ? "call" : "calls"} with ${calls.people} ${calls.people === 1 ? "person" : "people"}`,
         },
         {
-          label: "Repeat meetings",
-          value: String(metrics.repeatMeetings),
+          label: "Second calls scheduled",
+          value: String(calls.secondCallsScheduled),
           sub: null,
         },
         {
-          label: "Repeat within cadence",
-          value: String(metrics.repeatWithinCadence),
-          sub: `of ${metrics.repeatMeetings}`,
+          label: "Contacts received per call",
+          value: average(calls.contactsPerCall),
+          sub: `${calls.contactsReceived} received`,
         },
         {
-          label: "Commitments opened",
-          value: String(metrics.commitmentsOpened.mine),
-          sub: `${metrics.commitmentsOpened.theirs} theirs`,
-          unit: "yours",
+          label: "First contact within 48 h",
+          value: rate(calls.firstContactIn48h),
+          sub: `${calls.firstContactIn48h.met} of ${calls.firstContactIn48h.of} referrals`,
         },
         {
-          label: "Commitments closed",
-          value: String(metrics.commitmentsClosed.mine),
-          sub: `${metrics.commitmentsClosed.theirs} theirs`,
-          unit: "yours",
+          label: "Thank-you within 24 h",
+          value: rate(calls.thankYouIn24h),
+          sub: `${calls.thankYouIn24h.met} of ${calls.thankYouIn24h.of} calls`,
         },
         {
-          label: "Mark agreement",
-          value: `${agreementPercent}%`,
-          sub: "Your mark matches the review",
+          label: "Asks made vs skipped",
+          value: `${calls.asks.made} / ${calls.asks.skipped}`,
+          sub: `${calls.asks.made} made, ${calls.asks.skipped} skipped`,
         },
       ]
     : [];
@@ -155,11 +159,6 @@ export function LiveMetricsClient({
                 <p className={LIVE_SECTION_LABEL}>{tile.label}</p>
                 <p className="mt-2 text-[48px] font-extrabold leading-none tracking-tight tabular-nums">
                   {tile.value}
-                  {"unit" in tile && tile.unit ? (
-                    <span className="ml-2 text-[15px] font-medium text-[var(--jos-muted)]">
-                      {tile.unit}
-                    </span>
-                  ) : null}
                 </p>
                 {tile.sub ? (
                   <p className="mt-2 text-[14px] text-[#4a4747]">{tile.sub}</p>
@@ -255,7 +254,7 @@ export function LiveMetricsClient({
                         <tr key={row.id} className="border-t border-[var(--jos-line)]">
                           <td className="py-3 pr-3">
                             <Link
-                              href={`/live/library?person=${row.id}`}
+                              href={`/live/people/${row.id}`}
                               className="font-bold hover:underline"
                             >
                               {row.name}
