@@ -34,6 +34,19 @@ import {
   type Reaction,
   type ReactionShape,
 } from "@/lib/meeting-prep/reactions";
+import {
+  PLAYBOOK_FAMILIES,
+  asFamily,
+  asTopic,
+  parseBlocks,
+  parseObjections,
+  parseTimeBudget,
+  type PlaybookBlock,
+  type PlaybookFamily,
+  type PlaybookObjection,
+  type PlaybookTimeBudget,
+  type QuestionTopic,
+} from "@/lib/meeting-prep/playbook-blocks";
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -52,6 +65,10 @@ export interface LiveScript {
   attachedAt: string | null;
   rubric: string[];
   methodologySource: string | null;
+  family: PlaybookFamily;
+  blocks: PlaybookBlock[];
+  timeBudget: PlaybookTimeBudget | null;
+  objections: PlaybookObjection[];
   itemCount: number;
   useCount: number;
   lastUsedAt: string | null;
@@ -83,6 +100,10 @@ interface ScriptRow {
   attached_at?: string | null;
   rubric?: unknown;
   methodology_source?: string | null;
+  family?: string | null;
+  blocks?: unknown;
+  time_budget?: unknown;
+  objections?: unknown;
   use_count: number;
   last_used_at: string | null;
   updated_at: string;
@@ -103,7 +124,7 @@ interface ItemRow {
 const KINDS = new Set<PointKind>(["agenda", "point", "question", "ask"]);
 const SHAPE_SET = new Set<string>(REACTION_SHAPES);
 const SCRIPT_COLUMNS =
-  "id, name, description, kind, situation, success_sentence, outcome_sentence, notes, attached_prep_id, attached_at, rubric, methodology_source, use_count, last_used_at, updated_at";
+  "id, name, description, kind, situation, success_sentence, outcome_sentence, notes, attached_prep_id, attached_at, rubric, methodology_source, family, blocks, time_budget, objections, use_count, last_used_at, updated_at";
 const ITEM_COLUMNS =
   "id, script_id, position, kind, headline, detail, listen_for, prepare_reactions, reactions";
 
@@ -187,6 +208,7 @@ function hasConfig() {
 
 function revalidateScripts(scriptId?: string, prepId?: string) {
   revalidatePath("/live");
+  revalidatePath("/live/playbooks");
   if (scriptId) {
     revalidatePath(`/live/scripts/${scriptId}`);
     revalidatePath(`/live/scripts/${scriptId}/rehearse`);
@@ -236,6 +258,10 @@ function toScript(row: ScriptRow, itemCount: number): LiveScript {
     attachedAt: row.attached_at ?? null,
     rubric: rubricLines(row.rubric),
     methodologySource: row.methodology_source?.trim() || null,
+    family: asFamily(row.family),
+    blocks: parseBlocks(row.blocks),
+    timeBudget: parseTimeBudget(row.time_budget),
+    objections: parseObjections(row.objections),
     itemCount,
     useCount: row.use_count ?? 0,
     lastUsedAt: row.last_used_at,
@@ -286,6 +312,18 @@ export async function listLiveScripts(input?: {
   const { data, error } = await query;
   if (error) return { ok: false, error: error.message };
   return withItemCounts((data ?? []) as ScriptRow[]);
+}
+
+/** Playbooks (kind strategy) in family order, then by name. */
+export async function listPlaybooks(): Promise<PointResult<{ playbooks: LiveScript[] }>> {
+  const listed = await listLiveScripts({ kind: "strategy" });
+  if (!listed.ok) return listed;
+  const order = new Map<string, number>(PLAYBOOK_FAMILIES.map((family, index) => [family, index]));
+  const playbooks = [...listed.scripts].sort((a, b) => {
+    const byFamily = (order.get(a.family) ?? 99) - (order.get(b.family) ?? 99);
+    return byFamily || a.name.localeCompare(b.name);
+  });
+  return { ok: true, playbooks };
 }
 
 /** Unattached plans newest first, plus plans attached in the last 30 days. */
@@ -389,6 +427,10 @@ export async function createLiveScript(input: {
   kind?: LiveScriptKind;
   outcomeSentence?: string | null;
   notes?: string | null;
+  family?: PlaybookFamily;
+  blocks?: PlaybookBlock[];
+  timeBudget?: PlaybookTimeBudget | null;
+  objections?: PlaybookObjection[];
 }): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const name = cleanName(input.name);
@@ -405,6 +447,10 @@ export async function createLiveScript(input: {
       kind,
       outcome_sentence: kind === "plan" ? cleanLine(input.outcomeSentence) : null,
       notes: kind === "plan" ? cleanLine(input.notes, 2000) : null,
+      family: input.family ? asFamily(input.family) : "custom",
+      blocks: parseBlocks(input.blocks ?? []),
+      time_budget: parseTimeBudget(input.timeBudget ?? null),
+      objections: parseObjections(input.objections ?? []),
     })
     .select(SCRIPT_COLUMNS)
     .single();
@@ -435,12 +481,20 @@ export async function updateLiveScript(
     notes?: string | null;
     rubric?: string[];
     methodologySource?: string | null;
+    family?: PlaybookFamily;
+    blocks?: PlaybookBlock[];
+    timeBudget?: PlaybookTimeBudget | null;
+    objections?: PlaybookObjection[];
   }
 ): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = id.trim();
   if (!scriptId) return { ok: false, error: "Playbook not found." };
   const update: Record<string, unknown> = {};
+  if (patch.family !== undefined) update.family = asFamily(patch.family);
+  if (patch.blocks !== undefined) update.blocks = parseBlocks(patch.blocks);
+  if (patch.timeBudget !== undefined) update.time_budget = parseTimeBudget(patch.timeBudget);
+  if (patch.objections !== undefined) update.objections = parseObjections(patch.objections);
   if (patch.name != null) {
     const name = cleanName(patch.name);
     if (!name) return { ok: false, error: "Name the playbook." };
@@ -1493,4 +1547,146 @@ export async function discardAdaptation(
   if (updateError) return { ok: false, error: updateError.message };
   revalidateScripts(data.script_id as string, data.prep_id as string);
   return { ok: true, discarded: true };
+}
+
+export interface PlaybookQuestion {
+  id: string;
+  topic: QuestionTopic;
+  text: string;
+  spoken: string | null;
+  source: string | null;
+  playbookId: string | null;
+  position: number;
+}
+
+interface QuestionRow {
+  id: string;
+  topic: string;
+  text: string;
+  spoken: string | null;
+  source: string | null;
+  playbook_id: string | null;
+  position: number | null;
+}
+
+const QUESTION_COLUMNS = "id, topic, text, spoken, source, playbook_id, position";
+
+function toQuestion(row: QuestionRow): PlaybookQuestion {
+  return {
+    id: row.id,
+    topic: asTopic(row.topic),
+    text: row.text,
+    spoken: row.spoken?.trim() || null,
+    source: row.source?.trim() || null,
+    playbookId: row.playbook_id ?? null,
+    position: typeof row.position === "number" ? row.position : 0,
+  };
+}
+
+/** Shared questions plus questions owned by this playbook. Without an id, the whole shared bank. */
+export async function listPlaybookQuestions(
+  playbookId?: string | null
+): Promise<PointResult<{ questions: PlaybookQuestion[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sb = createServiceRoleClient();
+  let query = sb
+    .from("playbook_questions")
+    .select(QUESTION_COLUMNS)
+    .order("topic", { ascending: true })
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: true });
+  const id = playbookId?.trim();
+  query = id ? query.or(`playbook_id.is.null,playbook_id.eq.${id}`) : query.is("playbook_id", null);
+  const { data, error } = await query;
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, questions: ((data ?? []) as QuestionRow[]).map(toQuestion) };
+}
+
+export async function createPlaybookQuestion(input: {
+  playbookId?: string | null;
+  topic: QuestionTopic;
+  text: string;
+  spoken?: string | null;
+  source?: string | null;
+}): Promise<PointResult<{ question: PlaybookQuestion }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const text = cleanLine(input.text, 240);
+  if (!text) return { ok: false, error: "Write the question." };
+  const topic = asTopic(input.topic);
+  const playbookId = input.playbookId?.trim() || null;
+  const sb = createServiceRoleClient();
+  let last = sb
+    .from("playbook_questions")
+    .select("position")
+    .eq("topic", topic)
+    .order("position", { ascending: false })
+    .limit(1);
+  last = playbookId ? last.eq("playbook_id", playbookId) : last.is("playbook_id", null);
+  const { data: lastRow, error: lastError } = await last.maybeSingle();
+  if (lastError) return { ok: false, error: lastError.message };
+  const position = (typeof lastRow?.position === "number" ? lastRow.position : 0) + 1;
+  const { data, error } = await sb
+    .from("playbook_questions")
+    .insert({
+      topic,
+      text,
+      spoken: cleanLine(input.spoken, 600),
+      source: cleanLine(input.source, 200),
+      playbook_id: playbookId,
+      position,
+    })
+    .select(QUESTION_COLUMNS)
+    .single();
+  if (error) return { ok: false, error: error.message };
+  revalidateScripts(playbookId ?? undefined);
+  return { ok: true, question: toQuestion(data as QuestionRow) };
+}
+
+export async function updatePlaybookQuestion(
+  id: string,
+  patch: { topic?: QuestionTopic; text?: string; spoken?: string | null; source?: string | null }
+): Promise<PointResult<{ question: PlaybookQuestion }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const questionId = id.trim();
+  if (!questionId) return { ok: false, error: "Question not found." };
+  const update: Record<string, unknown> = {};
+  if (patch.topic !== undefined) update.topic = asTopic(patch.topic);
+  if (patch.text !== undefined) {
+    const text = cleanLine(patch.text, 240);
+    if (!text) return { ok: false, error: "Write the question." };
+    update.text = text;
+  }
+  if (patch.spoken !== undefined) update.spoken = cleanLine(patch.spoken, 600);
+  if (patch.source !== undefined) update.source = cleanLine(patch.source, 200);
+  if (!Object.keys(update).length) return { ok: false, error: "Nothing to change." };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("playbook_questions")
+    .update(update)
+    .eq("id", questionId)
+    .select(QUESTION_COLUMNS)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Question not found." };
+  revalidateScripts((data as QuestionRow).playbook_id ?? undefined);
+  return { ok: true, question: toQuestion(data as QuestionRow) };
+}
+
+export async function deletePlaybookQuestion(
+  id: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const questionId = id.trim();
+  if (!questionId) return { ok: false, error: "Question not found." };
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("playbook_questions")
+    .delete()
+    .eq("id", questionId)
+    .select("playbook_id")
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "Question not found." };
+  revalidateScripts((data.playbook_id as string | null) ?? undefined);
+  return { ok: true };
 }
