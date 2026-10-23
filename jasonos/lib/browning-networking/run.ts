@@ -24,6 +24,7 @@ import {
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
+import { applyReferral } from "@/lib/people/tracking";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, isBrowningHoldEvent, type CalendarGuestEvent } from "./booking";
 import { syncHandoffHolds, syncOpenHandoffHolds } from "./hold-sync";
@@ -323,6 +324,7 @@ async function harvestHandoffs(sb: Sb): Promise<{
       continue;
     }
     const handoffId = inserted.data.id as string;
+    await recordHandoffReferral(sb, match?.id ?? createdContactId, mail.receivedAt);
     tracked.push({ email: filled.email, name: filled.name });
     seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
     seenPeople.add(personKey(mail.accountEmail, mail.messageId, filled.name));
@@ -614,6 +616,7 @@ async function harvestFollowUps(sb: Sb): Promise<{ created: number; found: numbe
       console.error("[browning-networking] follow-up insert", inserted.error);
       continue;
     }
+    await recordHandoffReferral(sb, match?.id ?? createdContactId, mail.receivedAt);
     tracked.push({ email: parsed.email, name: parsed.name });
     seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
     rows.push({
@@ -1464,6 +1467,12 @@ async function linkBrowningReferrals(sb: Sb): Promise<void> {
       })
       .eq("id", contact.id as string);
   }
+}
+
+async function recordHandoffReferral(sb: Sb, contactId: string | null, receivedAt: string): Promise<void> {
+  if (!contactId) return;
+  const recorded = await applyReferral(sb, contactId, receivedAt);
+  if (!recorded.ok) console.error("[browning-networking] referral status", contactId, recorded.error);
 }
 
 async function insertContact(sb: Sb, parsed: ParsedHandoff): Promise<string | null> {

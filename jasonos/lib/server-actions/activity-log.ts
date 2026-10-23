@@ -1,5 +1,15 @@
 "use server";
 
+import { addDaysYmd, easternDayBounds, etToday, mondayStartOfWeekYmd } from "@/lib/dates";
+import { asYmd } from "@/lib/meeting-prep/after";
+import {
+  activityLogCsv,
+  activityLogFilename,
+  etYmdOf,
+  weeklyActivityCounts,
+  type ActivityLogRow,
+  type WeeklyActivityCounts,
+} from "@/lib/meeting-prep/people";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 // ---------------------------------------------------------------------------
@@ -460,5 +470,192 @@ export async function getWeeklyActivityLog(
         escalate: (d.escalate as boolean | null) ?? false,
       })),
     },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Browning activity from the relationship log: the weekly counts and the
+// nine-column tracking-sheet export. Weeks run Monday to Sunday, Eastern.
+// ---------------------------------------------------------------------------
+
+export interface WeeklyActivity extends WeeklyActivityCounts {
+  weekStart: string;
+  weekEnd: string;
+}
+
+type ActivityResult<T> = ({ ok: true } & T) | { ok: false; error: string };
+
+function weekWindow(weekStart?: string | null) {
+  const ref = weekStart && /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart : etToday();
+  const start = mondayStartOfWeekYmd(ref);
+  const end = addDaysYmd(start, 6);
+  return {
+    start,
+    end,
+    fromIso: easternDayBounds(start).start.toISOString(),
+    toIso: easternDayBounds(end).end.toISOString(),
+  };
+}
+
+function jsonCount(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function contactIdOf(prep: Record<string, unknown>): string | null {
+  const primary = prep.primary_contact_id as string | null;
+  if (primary) return primary;
+  for (const attendee of Array.isArray(prep.attendees) ? (prep.attendees as Array<{ contact_id?: string | null }>) : []) {
+    if (attendee?.contact_id) return attendee.contact_id;
+  }
+  return null;
+}
+
+/** Second calls booked this week: meetings first seen this week with someone who has exactly one held call before it. */
+async function countSecondCallsScheduled(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  fromIso: string,
+  toIso: string
+): Promise<number> {
+  const { data: preps } = await sb
+    .from("meeting_preps")
+    .select("id, starts_at, primary_contact_id, attendees")
+    .gte("created_at", fromIso)
+    .lte("created_at", toIso);
+  const meetings = ((preps ?? []) as Array<Record<string, unknown>>)
+    .map((prep) => ({ id: String(prep.id), startsAt: String(prep.starts_at), contactId: contactIdOf(prep) }))
+    .filter((row): row is { id: string; startsAt: string; contactId: string } => Boolean(row.contactId));
+  if (!meetings.length) return 0;
+  const { data: logs } = await sb
+    .from("relationship_log")
+    .select("contact_id, prep_id, occurred_at")
+    .in("contact_id", [...new Set(meetings.map((row) => row.contactId))]);
+  const counted = new Set<string>();
+  for (const meeting of meetings) {
+    if (counted.has(meeting.contactId)) continue;
+    const before = (logs ?? []).filter(
+      (log) =>
+        log.contact_id === meeting.contactId &&
+        log.prep_id !== meeting.id &&
+        Date.parse(String(log.occurred_at)) < Date.parse(meeting.startsAt)
+    );
+    if (before.length === 1) counted.add(meeting.contactId);
+  }
+  return counted.size;
+}
+
+/** Referrals, first contacts inside 48 hours, held calls, contacts received, thank-yous inside 24 hours, second calls booked. */
+export async function getWeeklyActivity(input: { weekStart?: string | null } = {}): Promise<
+  ActivityResult<{ activity: WeeklyActivity }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const week = weekWindow(input.weekStart);
+  const sb = createServiceRoleClient();
+  const [referralsRes, logsRes, secondCalls] = await Promise.all([
+    sb
+      .from("contacts")
+      .select("id, referral_received_at, first_contact_at")
+      .gte("referral_received_at", week.fromIso)
+      .lte("referral_received_at", week.toIso),
+    sb
+      .from("relationship_log")
+      .select("id, prep_id, occurred_at, contacts_received, thank_you_sent_at")
+      .gte("occurred_at", week.fromIso)
+      .lte("occurred_at", week.toIso),
+    countSecondCallsScheduled(sb, week.fromIso, week.toIso),
+  ]);
+  if (referralsRes.error) return { ok: false, error: referralsRes.error.message };
+  if (logsRes.error) return { ok: false, error: logsRes.error.message };
+  const logs = (logsRes.data ?? []) as Array<Record<string, unknown>>;
+  const endsAt = await prepEnds(sb, logs);
+  const counts = weeklyActivityCounts({
+    referrals: (referralsRes.data ?? []).map((row) => ({
+      receivedAt: String(row.referral_received_at),
+      firstContactAt: (row.first_contact_at as string | null) ?? null,
+    })),
+    calls: logs.map((log) => ({
+      endsAt: endsAt.get(String(log.prep_id)) ?? String(log.occurred_at),
+      thankYouSentAt: (log.thank_you_sent_at as string | null) ?? null,
+      contactsReceived: jsonCount(log.contacts_received),
+    })),
+    secondCallsScheduled: secondCalls,
+  });
+  return { ok: true, activity: { weekStart: week.start, weekEnd: week.end, ...counts } };
+}
+
+async function prepEnds(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  logs: Array<Record<string, unknown>>
+): Promise<Map<string, string>> {
+  const ids = [...new Set(logs.map((log) => log.prep_id as string | null).filter((id): id is string => Boolean(id)))];
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  const { data } = await sb.from("meeting_preps").select("id, ends_at").in("id", ids);
+  for (const row of data ?? []) {
+    if (row.ends_at) out.set(String(row.id), String(row.ends_at));
+  }
+  return out;
+}
+
+/** The week's held calls as the nine-column Browning tracking sheet. The browser downloads it. */
+export async function exportActivityLog(input: { weekStart?: string | null } = {}): Promise<
+  ActivityResult<{ filename: string; csv: string; rows: number }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const week = weekWindow(input.weekStart);
+  const sb = createServiceRoleClient();
+  const { data: logs, error } = await sb
+    .from("relationship_log")
+    .select("contact_id, prep_id, occurred_at, touch_number, conversation, contacts_received, follow_up_with, next_contact_at, thank_you_sent_at")
+    .gte("occurred_at", week.fromIso)
+    .lte("occurred_at", week.toIso)
+    .order("occurred_at", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  const rows = (logs ?? []) as Array<Record<string, unknown>>;
+  const contactIds = [...new Set(rows.map((row) => String(row.contact_id)))];
+  const contacts = new Map<string, { name: string; company: string | null }>();
+  if (contactIds.length) {
+    const { data } = await sb.from("contacts").select("id, name, tags, companies(name)").in("id", contactIds);
+    for (const row of data ?? []) {
+      const companies = row.companies as { name?: string } | Array<{ name?: string }> | null;
+      const linked = (Array.isArray(companies) ? companies[0]?.name : companies?.name)?.trim() || null;
+      contacts.set(String(row.id), {
+        name: String(row.name ?? "").trim() || "Unknown",
+        company: linked ?? firmFromTags((row.tags as string[] | null) ?? null),
+      });
+    }
+  }
+  const csvRows: ActivityLogRow[] = rows.map((row) => {
+    const person = contacts.get(String(row.contact_id));
+    const received = Array.isArray(row.contacts_received) ? (row.contacts_received as Array<Record<string, unknown>>) : [];
+    const follow = Array.isArray(row.follow_up_with) ? (row.follow_up_with as Array<unknown>) : [];
+    return {
+      date: etYmdOf(String(row.occurred_at)),
+      name: person?.name ?? "Unknown",
+      company: person?.company ?? null,
+      touchNumber: typeof row.touch_number === "number" ? row.touch_number : 1,
+      conversation: (row.conversation as string | null)?.trim() || null,
+      contactsReceived: received
+        .map((item) => ({
+          name: typeof item?.name === "string" ? item.name.trim() : "",
+          company: typeof item?.company === "string" && item.company.trim() ? item.company.trim() : null,
+        }))
+        .filter((item) => item.name),
+      followUpWith: follow
+        .map((item) => {
+          if (typeof item === "string") return { text: item.trim(), owner: "me" as const };
+          const value = item as Record<string, unknown> | null;
+          const text = typeof value?.text === "string" ? value.text.trim() : "";
+          return { text, owner: value?.owner === "them" ? ("them" as const) : ("me" as const) };
+        })
+        .filter((item) => item.text),
+      nextContact: asYmd(row.next_contact_at),
+      thankYouSentAt: (row.thank_you_sent_at as string | null) ?? null,
+    };
+  });
+  return {
+    ok: true,
+    filename: activityLogFilename(week.start),
+    csv: activityLogCsv(csvRows),
+    rows: csvRows.length,
   };
 }
