@@ -13,11 +13,12 @@ import {
 import { getMeetingPoints } from "@/lib/server-actions/meeting-points";
 import { getMeetingPrep, listProjectsForPicker } from "@/lib/server-actions/meeting-prep";
 import { getMeetingReview } from "@/lib/server-actions/meeting-reviews";
+import { getRelationshipLogForMeeting } from "@/lib/server-actions/person";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const VIEWS = new Set<CallSheetView>(["read", "rehearse", "debrief"]);
+const VIEWS = new Set<CallSheetView>(["read", "rehearse", "live", "debrief"]);
 
 export default async function MeetingPrepPage({
   params,
@@ -65,10 +66,11 @@ export default async function MeetingPrepPage({
   const review = reviewResult.ok ? reviewResult.review : null;
 
   if (!classic) {
-    const [sheetResult, personResult, playbooksResult] = await Promise.all([
+    const [sheetResult, personResult, playbooksResult, logResult] = await Promise.all([
       getCallSheet({ prepId: result.prep.id }),
       getCallSheetPerson(result.prep.id),
       listPlaybooks(),
+      getRelationshipLogForMeeting(result.prep.id),
     ]);
     const view = VIEWS.has(query.view as CallSheetView) ? (query.view as CallSheetView) : "read";
     return (
@@ -84,6 +86,7 @@ export default async function MeetingPrepPage({
         pointsError={pointsError}
         rubric={rubric}
         review={review}
+        log={logResult.ok ? logResult.log : null}
         initialView={view}
       />
     );

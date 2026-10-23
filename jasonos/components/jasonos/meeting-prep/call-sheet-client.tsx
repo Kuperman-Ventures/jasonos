@@ -13,7 +13,9 @@ import {
   LiveTertiaryNav,
   useLeaveGuard,
 } from "@/components/jasonos/live";
-import { AfterTheCall } from "@/components/jasonos/meeting-prep/after-call";
+import { CallSheetDebrief } from "@/components/jasonos/meeting-prep/call-sheet-debrief";
+import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
+import { RehearseSheetClient } from "@/components/jasonos/meeting-prep/rehearse-client";
 import {
   AfterBlockBody,
   AskBlockBody,
@@ -36,7 +38,10 @@ import {
   type CallSheetBlock,
 } from "@/lib/meeting-prep/call-sheet";
 import { easternDateLong, type MeetingContext, type MeetingContextPerson } from "@/lib/meeting-prep/context-model";
+import { buildLiveSheet } from "@/lib/meeting-prep/live-sheet";
 import { FAMILY_LABELS, type PlaybookFamily } from "@/lib/meeting-prep/playbook-blocks";
+import type { PointState } from "@/lib/meeting-prep/points";
+import type { ReactionShape } from "@/lib/meeting-prep/reactions";
 import {
   buildCallSheet,
   createCallSheet,
@@ -45,12 +50,20 @@ import {
   type CallSheetPerson,
 } from "@/lib/server-actions/call-sheet";
 import type { LiveScript } from "@/lib/server-actions/live-scripts";
-import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
-import type { MeetingPrepDetail } from "@/lib/server-actions/meeting-prep";
+import {
+  endLiveMeeting,
+  setMeetingPointNote,
+  setMeetingPointObservedReaction,
+  setMeetingPointState,
+  startLiveMeeting,
+  type MeetingPoint,
+} from "@/lib/server-actions/meeting-points";
+import { setMeetingOutcomeMark, type MeetingPrepDetail, type OutcomeMark } from "@/lib/server-actions/meeting-prep";
 import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
+import type { RelationshipLogEntry } from "@/lib/server-actions/person";
 import { cn } from "@/lib/utils";
 
-export type CallSheetView = "read" | "rehearse" | "debrief";
+export type CallSheetView = "read" | "rehearse" | "live" | "debrief";
 
 const LINK = "text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline";
 const KICKER =
@@ -291,17 +304,17 @@ function PlaybookPicker({
 /* ---------- 4b. Sheet header and view strip ---------- */
 
 function ViewStrip({
+  prepId,
   view,
   readyAt,
-  liveStarted,
+  debriefOpen,
   onView,
-  onLive,
 }: {
+  prepId: string;
   view: CallSheetView;
   readyAt: string | null;
-  liveStarted: boolean;
+  debriefOpen: boolean;
   onView: (view: CallSheetView) => void;
-  onLive: () => void;
 }) {
   const tab = (active: boolean, dimmed = false) =>
     cn(
@@ -324,10 +337,11 @@ function ViewStrip({
       </button>
       <button
         type="button"
-        className={tab(false, !readyAt)}
+        className={tab(view === "live", !readyAt)}
         disabled={!readyAt}
         title={readyAt ? undefined : "Mark ready first"}
-        onClick={onLive}
+        aria-current={view === "live" ? "page" : undefined}
+        onClick={() => onView("live")}
       >
         {readyAt ? null : <LockSimple size={14} weight="bold" aria-hidden />}
         Live
@@ -335,14 +349,19 @@ function ViewStrip({
       </button>
       <button
         type="button"
-        className={tab(view === "debrief", !liveStarted)}
-        disabled={!liveStarted}
-        title={liveStarted ? undefined : "After the call"}
+        className={tab(view === "debrief", !debriefOpen)}
+        disabled={!debriefOpen}
+        title={debriefOpen ? undefined : "After the call"}
         aria-current={view === "debrief" ? "page" : undefined}
         onClick={() => onView("debrief")}
       >
         Debrief
       </button>
+      {view === "live" ? (
+        <Link href={`/meetings/${prepId}/live`} className={cn(LINK, "mb-2.5 ml-auto")}>
+          Full screen
+        </Link>
+      ) : null}
     </nav>
   );
 }
@@ -600,63 +619,107 @@ function ReadView({
   );
 }
 
-function RehearseView({ playbookId }: { playbookId: string | null }) {
-  return (
-    <div className="mx-auto max-w-[700px] px-10 py-12">
-      <h2 className="text-[24px] font-extrabold tracking-[-0.02em]">Rehearse</h2>
-      <p className="mt-2 text-[16px] leading-relaxed text-[var(--jos-muted)]">
-        Rehearsing this sheet out loud comes next. Until then, run the playbook it came from.
-      </p>
-      {playbookId ? (
-        <Link href={`/live/scripts/${playbookId}/rehearse`} className={cn(buttonVariants({ variant: "secondary" }), "mt-5")}>
-          Rehearse the playbook
-        </Link>
-      ) : null}
-    </div>
+function sheetPersonName(prep: MeetingPrepDetail, primary: MeetingContextPerson | null, sheet: CallSheet): string {
+  return primary?.name || sheet.person?.name || prep.primaryContactName || prep.title;
+}
+
+function useSheetPlay(
+  prep: MeetingPrepDetail,
+  primary: MeetingContextPerson | null,
+  sheet: CallSheet,
+  points: MeetingPoint[],
+  mode: "live" | "rehearse"
+) {
+  const personName = sheetPersonName(prep, primary, sheet);
+  return useMemo(
+    () =>
+      buildLiveSheet({
+        blocks: sheet.blocks,
+        playbook: sheet.playbook,
+        touchNumber: sheet.person?.touchNumber ?? 0,
+        personName,
+        points,
+        mode,
+      }),
+    [sheet.blocks, sheet.playbook, sheet.person?.touchNumber, personName, points, mode]
   );
 }
 
-function DebriefView({
+function RehearseView({
   prep,
-  context,
+  primary,
+  sheet,
   points,
-  rubric,
-  review,
+  onDone,
 }: {
   prep: MeetingPrepDetail;
-  context: MeetingContext;
+  primary: MeetingContextPerson | null;
+  sheet: CallSheet;
   points: MeetingPoint[];
-  rubric: string[];
-  review: MeetingReview | null;
+  onDone: () => void;
 }) {
-  if (!prep.liveEndedAt) {
-    return (
-      <div className="mx-auto max-w-[700px] px-10 py-12">
-        <p className="text-[16px] text-[var(--jos-muted)]">The call is still going. Debrief opens when you end it.</p>
-        <Link href={`/meetings/${prep.id}/live`} className={cn(buttonVariants({ variant: "secondary" }), "mt-4")}>
-          Back to Live
-        </Link>
-      </div>
-    );
-  }
-  const commitments = context.brief.commitments.map((item) => ({
-    text: item.text,
-    direction: item.direction,
-    due: item.due,
-    personName: item.personName,
-    status: item.status,
-  }));
+  const { steps, feed } = useSheetPlay(prep, primary, sheet, points, "rehearse");
   return (
-    <div className="mx-auto max-w-[900px] px-10 py-8">
-      <AfterTheCall
-        prep={prep}
-        points={points}
-        rubric={rubric}
-        review={review}
-        commitments={commitments}
-        nextTouch={null}
-      />
-    </div>
+    <RehearseSheetClient
+      title={prep.title}
+      steps={steps}
+      sheet={feed}
+      backHref={`/meetings/${prep.id}`}
+      embedded
+      onEnded={onDone}
+    />
+  );
+}
+
+function LiveView({
+  prep,
+  primary,
+  sheet,
+  points,
+  onStarted,
+  onEnded,
+}: {
+  prep: MeetingPrepDetail;
+  primary: MeetingContextPerson | null;
+  sheet: CallSheet;
+  points: MeetingPoint[];
+  onStarted: (at: string) => void;
+  onEnded: () => void;
+}) {
+  const { steps, feed } = useSheetPlay(prep, primary, sheet, points, "live");
+  return (
+    <LiveCallClient
+      session={{
+        title: prep.title,
+        strategyName: feed.playbookName ?? prep.title,
+        personLabel: feed.personName,
+        companyLabel: primary?.company ?? prep.primaryCompanyName ?? null,
+        timeLabel: `${easternClock(prep.startsAt)}–${easternClock(prep.endsAt)} ET`,
+        joinHref: joinHref(prep),
+        backHref: `/meetings/${prep.id}?view=debrief`,
+        badge: "live",
+        startedAt: prep.liveStartedAt,
+        outcomeSentence: prep.outcomeSentence,
+        onDone: "mark",
+      }}
+      points={steps}
+      sheet={feed}
+      embedded
+      onEnded={onEnded}
+      actions={{
+        start: async () => {
+          const result = await startLiveMeeting(prep.id);
+          if (!result.ok) return result;
+          onStarted(result.liveStartedAt);
+          return { ok: true, startedAt: result.liveStartedAt };
+        },
+        setState: (id: string, state: PointState) => setMeetingPointState(id, state),
+        setNote: (id: string, note: string) => setMeetingPointNote(id, note),
+        end: () => endLiveMeeting(prep.id),
+        markOutcome: (mark: OutcomeMark, note: string) => setMeetingOutcomeMark(prep.id, { mark, note }),
+        setObservedReaction: (id: string, shape: ReactionShape | null) => setMeetingPointObservedReaction(id, shape),
+      }}
+    />
   );
 }
 
@@ -673,6 +736,7 @@ interface CallSheetClientProps {
   pointsError?: string | null;
   rubric: string[];
   review: MeetingReview | null;
+  log?: RelationshipLogEntry | null;
   initialView?: CallSheetView;
 }
 
@@ -693,11 +757,12 @@ function CallSheetPage({
   playbooks,
   points,
   pointsError,
-  rubric,
   review,
+  log = null,
   initialView = "read",
 }: CallSheetClientProps) {
   const router = useRouter();
+  const now = useNow();
   const { dirtyLabels, requestLeave } = useLeaveGuard();
   const [sheet, setSheet] = useState<CallSheet | null>(serverSheet);
   const [seenSheet, setSeenSheet] = useState(serverSheet);
@@ -705,10 +770,15 @@ function CallSheetPage({
     setSeenSheet(serverSheet);
     if (serverSheet) setSheet(serverSheet);
   }
-  const liveStarted = Boolean(prep.liveStartedAt || prep.liveEndedAt);
-  const [view, setViewState] = useState<CallSheetView>(
-    initialView === "debrief" && !liveStarted ? "read" : initialView
-  );
+  const [liveStartedAt, setLiveStartedAt] = useState(prep.liveStartedAt);
+  const liveStarted = Boolean(liveStartedAt || prep.liveEndedAt);
+  const meetingOver = now != null && Date.parse(prep.endsAt) < now;
+  const debriefOpen = liveStarted || meetingOver || Boolean(log);
+  const [view, setViewState] = useState<CallSheetView>(() => {
+    if (initialView === "debrief" && !(liveStarted || log || Date.parse(prep.endsAt) < Date.now())) return "read";
+    if (initialView === "live" && !serverSheet?.readyAt) return "read";
+    return initialView;
+  });
   const [startingId, setStartingId] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
   const [readyBusy, setReadyBusy] = useState(false);
@@ -720,15 +790,22 @@ function CallSheetPage({
     ? unsavedProblem(dirtyLabels) ?? readyProblem(sheet.blocks, pointCount)
     : null;
 
+  const showView = (next: CallSheetView) => {
+    setViewState(next);
+    const url = new URL(window.location.href);
+    if (next === "read") url.searchParams.delete("view");
+    else url.searchParams.set("view", next);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  };
+
   const setView = (next: CallSheetView) => {
     if (next === view) return;
-    requestLeave(() => {
-      setViewState(next);
-      const url = new URL(window.location.href);
-      if (next === "read") url.searchParams.delete("view");
-      else url.searchParams.set("view", next);
-      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-    });
+    requestLeave(() => showView(next));
+  };
+
+  const liveEnded = () => {
+    showView("debrief");
+    router.refresh();
   };
 
   const onSaved = useCallback((block: CallSheetBlock) => {
@@ -821,21 +898,23 @@ function CallSheetPage({
         </>
       ) : (
         <>
-          <SheetHeader
-            prep={prep}
-            primary={primary}
-            sheet={sheet}
-            building={building}
-            readyBusy={readyBusy}
-            onBuild={build}
-            onReady={ready}
-          />
+          {view === "live" || view === "rehearse" ? null : (
+            <SheetHeader
+              prep={prep}
+              primary={primary}
+              sheet={sheet}
+              building={building}
+              readyBusy={readyBusy}
+              onBuild={build}
+              onReady={ready}
+            />
+          )}
           <ViewStrip
+            prepId={prep.id}
             view={view}
             readyAt={sheet.readyAt}
-            liveStarted={liveStarted}
+            debriefOpen={debriefOpen}
             onView={setView}
-            onLive={() => requestLeave(() => router.push(`/meetings/${prep.id}/live`))}
           />
           {building ? (
             <p
@@ -859,9 +938,27 @@ function CallSheetPage({
               onSaved={onSaved}
             />
           ) : view === "rehearse" ? (
-            <RehearseView playbookId={sheet.playbook?.id ?? null} />
+            <RehearseView prep={prep} primary={primary} sheet={sheet} points={points} onDone={() => showView("read")} />
+          ) : view === "live" ? (
+            <LiveView
+              prep={prep}
+              primary={primary}
+              sheet={sheet}
+              points={points}
+              onStarted={setLiveStartedAt}
+              onEnded={liveEnded}
+            />
           ) : (
-            <DebriefView prep={prep} context={context} points={points} rubric={rubric} review={review} />
+            <CallSheetDebrief
+              prep={prep}
+              primary={primary}
+              sheet={sheet}
+              person={person}
+              points={points}
+              review={review}
+              log={log}
+              onSaved={onSaved}
+            />
           )}
         </>
       )}
