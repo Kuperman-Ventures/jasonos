@@ -197,7 +197,7 @@ function AboutMe({ settings, error }: { settings: LiveSettings; error: string | 
         />
       </label>
       <p className="mt-3 text-[13px] text-[var(--jos-muted)]">
-        Used by Adapt and the call screen.
+        Used when you build from a playbook and on the call screen.
       </p>
     </aside>
   );
@@ -211,8 +211,8 @@ function TodayCard({
   nowIso: string;
 }) {
   const action = cardAction(meeting, nowIso);
-  const strategy = meeting.scriptName?.trim() || "No strategy";
-  const browning = meeting.planSource === "browning_auto";
+  const strategy = meeting.scriptName?.trim() || "No playbook";
+  const browning = meeting.planSource === "playbook" && /browning/i.test(meeting.scriptName ?? "");
   const strategyLabel = browning ? `${strategy} · Browning` : strategy;
   const person = personLabel(meeting);
   const company = meeting.primaryCompanyName?.trim() || null;
@@ -358,7 +358,7 @@ export function LiveMeetingsClient({
   const create = () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Name the strategy.");
+      toast.error("Name the playbook.");
       return;
     }
     setSaving(true);
@@ -381,7 +381,7 @@ export function LiveMeetingsClient({
   const createPlan = () => {
     const trimmed = planName.trim();
     if (!trimmed) {
-      toast.error("Name the plan.");
+      toast.error("Name the guide.");
       return;
     }
     setPlanSaving(true);
@@ -417,7 +417,7 @@ export function LiveMeetingsClient({
           toast.error(result.error);
           return;
         }
-        toast.success(`Attached ${result.added === 1 ? "1 point" : `${result.added} points`}`);
+        toast.success(`Added ${result.added === 1 ? "1 point" : `${result.added} points`} to the meeting`);
         setAttachFor(null);
         setAttachPrepId("");
         router.refresh();
@@ -457,16 +457,16 @@ export function LiveMeetingsClient({
         <div className="min-w-0 flex-1 space-y-12">
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">Plans</h2>
+              <h2 className="text-[24px] font-extrabold tracking-tight">Guides</h2>
               <Button type="button" className="h-9 px-3" onClick={() => setPlanOpen(true)}>
-                New plan
+                New guide
               </Button>
             </div>
             {plansError ? (
               <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{plansError}</p>
             ) : null}
             {plans.length === 0 ? (
-              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No unattached plans.</p>
+              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No guides yet.</p>
             ) : (
               <div className="mt-4 space-y-0">
                 {plans.map((plan) => (
@@ -510,7 +510,7 @@ export function LiveMeetingsClient({
                           setAttachPrepId(upcomingMeetings[0]?.id ?? "");
                         }}
                       >
-                        Attach to a meeting
+                        Use for a meeting
                       </Button>
                     </div>
                   </div>
@@ -521,16 +521,16 @@ export function LiveMeetingsClient({
 
           <section>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">Strategies</h2>
+              <h2 className="text-[24px] font-extrabold tracking-tight">Playbooks</h2>
               <Button type="button" className="h-9 px-3" onClick={() => setOpen(true)}>
-                New strategy
+                Write a new playbook
               </Button>
             </div>
             {scriptsError ? (
               <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{scriptsError}</p>
             ) : null}
             {scripts.length === 0 ? (
-              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No strategies yet.</p>
+              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No playbooks yet.</p>
             ) : (
               <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-0 min-[900px]:grid-cols-2">
                 {scripts.map((script) => (
@@ -632,9 +632,9 @@ export function LiveMeetingsClient({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New strategy</DialogTitle>
+            <DialogTitle>New playbook</DialogTitle>
             <DialogDescription>
-              A named set of points you can rehearse, then apply to a meeting.
+              A named set of points you can rehearse, then use for a meeting.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -670,7 +670,7 @@ export function LiveMeetingsClient({
               <textarea
                 value={brief}
                 rows={4}
-                placeholder="Optional. Draft points from this."
+                placeholder="Optional. Generate points from this."
                 className={cn(LIVE_FIELD, "py-2")}
                 onChange={(event) => setBrief(event.target.value)}
               />
@@ -690,9 +690,9 @@ export function LiveMeetingsClient({
       <Dialog open={planOpen} onOpenChange={setPlanOpen}>
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New plan</DialogTitle>
+            <DialogTitle>New guide</DialogTitle>
             <DialogDescription>
-              A meeting plan that is not tied to the calendar yet. Rehearse it, then attach it.
+              A guide that is not tied to the calendar yet. Rehearse it, then use it for a meeting.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -742,7 +742,7 @@ export function LiveMeetingsClient({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Brief for AI draft</span>
+              <span className="text-[14px] font-semibold">Brief for AI</span>
               <textarea
                 value={planBrief}
                 rows={3}
@@ -774,7 +774,7 @@ export function LiveMeetingsClient({
       >
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Attach to a meeting</DialogTitle>
+            <DialogTitle>Use for a meeting</DialogTitle>
             <DialogDescription>Meetings in the next 14 days.</DialogDescription>
           </DialogHeader>
           {upcomingMeetings.length === 0 ? (
@@ -803,7 +803,7 @@ export function LiveMeetingsClient({
                   disabled={attaching || !attachPrepId}
                   onClick={() => attach("add")}
                 >
-                  Add
+                  Add points
                 </Button>
                 <Button
                   type="button"
@@ -811,7 +811,7 @@ export function LiveMeetingsClient({
                   disabled={attaching || !attachPrepId}
                   onClick={() => attach("replace")}
                 >
-                  Replace
+                  Replace plan
                 </Button>
               </div>
             </div>

@@ -311,7 +311,7 @@ function WhoTheyAreCard({
         toast.error(result.error);
         return;
       }
-      toast.success(result.built ? "Plan rebuilt from Browning strategy." : "Plan unchanged.");
+      toast.success(result.built ? "Plan rebuilt from Browning playbook." : "Plan unchanged.");
       router.refresh();
     });
   };
@@ -592,7 +592,7 @@ function ConnectionRead({ connection }: { connection: MeetingContextConnection }
       {connection.attachmentUrl ? (
         <p className="text-[14px]">
           <ExternalLink href={connection.attachmentUrl}>
-            {connection.attachmentLabel || "Attached resume"}
+            {connection.attachmentLabel || "Resume"}
           </ExternalLink>
         </p>
       ) : null}
@@ -1260,7 +1260,7 @@ function AdaptedPlan({
         toast.error(result.error);
         return;
       }
-      toast.success(mode === "replace" ? "Replaced with the adapted plan" : "Added the adapted plan");
+      toast.success(mode === "replace" ? "Plan replaced" : "Points added to the plan");
       onClose();
       router.replace(`/meetings/${proposal.prepId}`);
       router.refresh();
@@ -1296,7 +1296,7 @@ function AdaptedPlan({
 
   return (
     <section className="space-y-3 border border-[var(--color-neutral-400)] bg-[var(--jos-surface)] p-4">
-      <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Adapted plan</h2>
+      <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">Built for this meeting</h2>
       <div className="grid grid-cols-1 gap-4 min-[900px]:grid-cols-2">
         <div className="space-y-2">
           <h3 className="text-[14px] font-semibold text-[var(--jos-ink)]">{proposal.scriptName}</h3>
@@ -1463,7 +1463,7 @@ function PrepPoints({
         return;
       }
       const count = result.added === 1 ? "1 point" : `${result.added} points`;
-      toast.success(selected?.kind === "plan" ? `Attached ${count}` : `Added ${count}`);
+      toast.success(`Added ${count} to the meeting`);
       router.refresh();
     });
   };
@@ -1471,7 +1471,7 @@ function PrepPoints({
   const saveScript = () => {
     const name = saveName.trim();
     if (!name) {
-      toast.error("Name the strategy.");
+      toast.error("Name the playbook.");
       return;
     }
     setSaving(true);
@@ -1490,7 +1490,7 @@ function PrepPoints({
       setSaveDescription("");
       toast.success(
         <span>
-          Saved as strategy.{" "}
+          Saved as playbook.{" "}
           <a className="underline" href={`/live/scripts/${result.scriptId}`}>
             Open it
           </a>
@@ -1515,12 +1515,12 @@ function PrepPoints({
 
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[24px] font-extrabold tracking-tight">The plan</h2>
-        <label className="sr-only" htmlFor="plan-strategy">
-          Strategy
+        <label className="sr-only" htmlFor="plan-playbook">
+          Playbook
         </label>
         <select
-          id="plan-strategy"
-          aria-label="Strategy"
+          id="plan-playbook"
+          aria-label="Playbook"
           value={scriptId}
           className="h-8 max-w-[14rem] border-0 border-b-2 border-[#b5b2b2] bg-[var(--jos-surface)] px-2 text-[13px] font-bold outline-none"
           onChange={(event) => {
@@ -1528,7 +1528,7 @@ function PrepPoints({
             setConfirmReplace(false);
           }}
         >
-          <option value="">{prep.scriptName || "Start from a strategy"}</option>
+          <option value="">{prep.scriptName || "Start from a playbook"}</option>
           {scripts
             .filter((script) => script.kind !== "plan")
             .map((script) => (
@@ -1538,14 +1538,14 @@ function PrepPoints({
             ))}
           {scripts.some((script) => script.kind === "plan" && !script.attachedPrepId) ? (
             <option disabled value="">
-              ——— Plans ———
+              ——— Guides ———
             </option>
           ) : null}
           {scripts
             .filter((script) => script.kind === "plan" && !script.attachedPrepId)
             .map((script) => (
               <option key={script.id} value={script.id}>
-                Plan: {script.name}
+                Guide: {script.name}
               </option>
             ))}
         </select>
@@ -1569,14 +1569,14 @@ function PrepPoints({
           ) : (
             <>
               <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={() => apply("add")}>
-                Add
+                Add points
               </Button>
               <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={() => setConfirmReplace(true)}>
-                Replace
+                Replace plan
               </Button>
               {selectedScript?.kind !== "plan" ? (
                 <Button type="button" size="sm" variant="secondary" disabled={applying} onClick={adapt}>
-                  Adapt to {first}
+                  Build from playbook for {first}
                 </Button>
               ) : null}
             </>
@@ -1592,7 +1592,7 @@ function PrepPoints({
               if (firstStrategy) setScriptId(firstStrategy.id);
             }}
           >
-            Adapt to {first}
+            Build from playbook for {first}
           </Button>
         )}
         {selectedScript ? (
@@ -1600,21 +1600,21 @@ function PrepPoints({
             href={`/live/scripts/${selectedScript.id}`}
             className="ml-auto text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
           >
-            Edit plan
+            {selectedScript.kind === "plan" ? "Edit guide" : "Edit playbook"}
           </Link>
         ) : prep.scriptId ? (
           <Link
             href={`/live/scripts/${prep.scriptId}`}
             className="ml-auto text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
           >
-            Edit plan
+            Edit playbook
           </Link>
         ) : null}
       </div>
 
-      {prep.planSource === "browning_auto" ? (
+      {prep.handoffId ? (
         <p className="mt-2 text-[14px] text-[var(--jos-muted)]">
-          Built from the Browning first-call strategy and their resume. Edit anything.
+          Built from the Browning first-call playbook and their resume. Edit anything.
         </p>
       ) : null}
 
@@ -1622,7 +1622,7 @@ function PrepPoints({
         <span>
           {markable.length} points · {asks.length} asks
           {reactionsReady ? " · reactions ready" : ""}
-          {adaptedLabel ? ` · adapted ${adaptedLabel}` : ""}
+          {adaptedLabel ? ` · built ${adaptedLabel}` : ""}
         </span>
         {reactionsReady ? (
           <CheckCircle size={16} weight="duotone" className="text-[var(--color-done)]" style={{ color: "#006925" }} aria-hidden />
@@ -1665,7 +1665,7 @@ function PrepPoints({
             remove: (id) => deleteMeetingPoint(id),
             reorder: (ids) => reorderMeetingPoints(prep.id, ids),
           }}
-          draft={{ label: "Draft points", run: () => draftMeetingPoints(prep.id) }}
+          draft={{ label: "Generate points", run: () => draftMeetingPoints(prep.id) }}
         />
       </div>
 
@@ -1684,16 +1684,16 @@ function PrepPoints({
           </button>
         )}
         <Button type="button" size="sm" variant="secondary" disabled={markable.length === 0} onClick={() => setSaveOpen(true)}>
-          Save as strategy
+          Save as playbook
         </Button>
       </div>
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save as strategy</DialogTitle>
+            <DialogTitle>Save as playbook</DialogTitle>
             <DialogDescription>
-              Copies these points into a strategy. State and notes stay on this meeting.
+              Copies these points into a playbook. State and notes stay on this meeting.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -1865,12 +1865,43 @@ export function MeetingPrepClient({
     status: item.status,
   }));
 
-  const liveNav = (
-    <LiveTertiaryNav
-      meetingId={prep.id}
-      meetingMode={mode}
-      onMeetingMode={setMode}
-    />
+  const liveNav = <LiveTertiaryNav />;
+
+  const modeSwitch = (
+    <div
+      role="tablist"
+      aria-label="Meeting view"
+      className="inline-flex rounded-[2px] border border-[var(--jos-ink)] p-0.5"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "before"}
+        className={cn(
+          "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em]",
+          mode === "before"
+            ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+            : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+        )}
+        onClick={() => setMode("before")}
+      >
+        Prep
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={mode === "after"}
+        className={cn(
+          "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em]",
+          mode === "after"
+            ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
+            : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+        )}
+        onClick={() => setMode("after")}
+      >
+        Review
+      </button>
+    </div>
   );
 
   const titleField = (
@@ -1900,18 +1931,21 @@ export function MeetingPrepClient({
       <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
         {liveNav}
         <header className="border-b border-[var(--jos-ink)] px-10 py-6">
-          <div className="min-w-0">
-            <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
-              <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
-              {kicker}
-              {duration ? ` · ${duration}` : ""}
-            </p>
-            {titleField}
-            {(prep.primaryContactName || prep.primaryCompanyName) ? (
-              <p className="mt-2 text-[15px] text-[var(--jos-muted)]">
-                {[prep.primaryContactName, prep.primaryCompanyName].filter(Boolean).join(" · ")}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
+                <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+                {kicker}
+                {duration ? ` · ${duration}` : ""}
               </p>
-            ) : null}
+              {titleField}
+              {(prep.primaryContactName || prep.primaryCompanyName) ? (
+                <p className="mt-2 text-[15px] text-[var(--jos-muted)]">
+                  {[prep.primaryContactName, prep.primaryCompanyName].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+            </div>
+            {modeSwitch}
           </div>
         </header>
         <div className="flex flex-col gap-8 min-[1100px]:flex-row">
@@ -2008,17 +2042,20 @@ export function MeetingPrepClient({
           ) : null}
         </div>
         <div className="min-w-0">
-          {join ? (
-            <a
-              href={join}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
-            >
-              Join the call
-            </a>
-          ) : null}
-          <p className={cn(LIVE_SECTION_LABEL, join ? "mt-5" : "mt-0")}>What you want out of this</p>
+          <div className="flex flex-wrap items-center gap-3">
+            {modeSwitch}
+            {join ? (
+              <a
+                href={join}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
+              >
+                Join the call
+              </a>
+            ) : null}
+          </div>
+          <p className={cn(LIVE_SECTION_LABEL, "mt-5")}>What you want out of this</p>
           <div className="mt-2">
             <UnfinishedField
               value={stored}

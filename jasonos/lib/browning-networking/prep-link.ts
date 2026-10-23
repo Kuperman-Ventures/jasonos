@@ -322,7 +322,7 @@ export async function buildBrowningPlan(
   const scriptId = await lookupStrategyId(sb, strategyName);
   if (!scriptId) {
     console.error("[browning-networking] missing strategy", strategyName);
-    return { ok: false, error: `Strategy not found: ${strategyName}` };
+    return { ok: false, error: `Playbook not found: ${strategyName}` };
   }
 
   const proposed = await proposeAdaptation({ scriptId, prepId });
@@ -338,7 +338,7 @@ export async function buildBrowningPlan(
   await sb
     .from("meeting_preps")
     .update({
-      plan_source: "browning_auto",
+      plan_source: "playbook",
       packet_highlights: highlights.length ? highlights : null,
       track: "job_search",
       handoff_id: handoff.id,

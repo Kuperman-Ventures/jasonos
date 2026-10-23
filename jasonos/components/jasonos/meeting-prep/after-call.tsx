@@ -380,7 +380,7 @@ export function AfterTheCall({
             <p className={LIVE_SECTION_LABEL}>Checklist</p>
             {checklistFallback ? (
               <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
-                Checklist built from the outcome sentence and the asks; no strategy was applied
+                Checklist built from the outcome sentence and the asks; no playbook was used
               </p>
             ) : null}
             <ul className="mt-2 space-y-2">

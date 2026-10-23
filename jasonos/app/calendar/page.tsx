@@ -1,5 +1,4 @@
 import { WeekPlannerClient } from "@/components/jasonos/calendar/week-planner-client";
-import { LiveTertiaryNav } from "@/components/jasonos/live/live-tertiary-nav";
 import { fetchCalendarWeek, getAllocations } from "@/lib/server-actions/calendar";
 import { getTasks } from "@/lib/server-actions/tasks";
 import { formatLocalDate } from "@/lib/calendar/health-model";
@@ -25,16 +24,13 @@ export default async function CalendarPage() {
   ]);
 
   return (
-    <div className="flex flex-col" style={{ height: "calc(100vh - 3rem)" }}>
-      <LiveTertiaryNav />
-      <div className="min-h-0 flex-1">
-        <WeekPlannerClient
-          initialWeekData={weekData}
-          initialMondayStr={mondayStr}
-          initialAllocations={allocations}
-          taskLibrary={tasks}
-        />
-      </div>
+    <div style={{ height: "calc(100vh - 3rem)" }}>
+      <WeekPlannerClient
+        initialWeekData={weekData}
+        initialMondayStr={mondayStr}
+        initialAllocations={allocations}
+        taskLibrary={tasks}
+      />
     </div>
   );
 }
