@@ -27,6 +27,7 @@ import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, isBrowningHoldEvent, type CalendarGuestEvent } from "./booking";
 import { syncHandoffHolds, syncOpenHandoffHolds } from "./hold-sync";
+import { syncBrowningMeetingReminders } from "./reminder-sync";
 import { backfillMissingPackets, storeHandoffPacket } from "./packet-store";
 import {
   buildBrowningPlan,
@@ -151,6 +152,14 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
       if (!holds.ok) console.error("[browning-networking] tentative holds", holds.error);
     } catch (err) {
       console.error("[browning-networking] tentative holds", err);
+    }
+    try {
+      const reminders = await syncBrowningMeetingReminders(sb);
+      if (reminders.warning) {
+        console.error("[browning-networking] meeting reminders", reminders.warning);
+      }
+    } catch (err) {
+      console.error("[browning-networking] meeting reminders", err);
     }
     result.ok = true;
     return result;

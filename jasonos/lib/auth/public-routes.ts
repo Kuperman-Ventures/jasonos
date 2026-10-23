@@ -32,6 +32,7 @@ const CRON_PATHS = new Set([
   "/api/job-alerts/harvest",
   "/api/browning-networking/run",
   "/api/browning-networking/holds",
+  "/api/browning-networking/reminders",
 ]);
 
 export const PUBLIC_SURFACE_HEADER = "x-jasonos-public";
