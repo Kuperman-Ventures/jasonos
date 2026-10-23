@@ -170,7 +170,7 @@ export function LiveMetricsClient({
 
           <section className="mt-14">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">By strategy</h2>
+              <h2 className="text-[24px] font-extrabold tracking-tight">By playbook</h2>
               <div className="flex flex-wrap items-center gap-3 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
                 {[
                   { label: "Hit", color: "var(--color-done)" },
@@ -189,7 +189,7 @@ export function LiveMetricsClient({
               <table className="w-full min-w-[720px] text-left text-[14px]">
                 <thead>
                   <tr className={LIVE_SECTION_LABEL}>
-                    <th className="py-3 pr-3 font-bold">Strategy</th>
+                    <th className="py-3 pr-3 font-bold">Playbook</th>
                     <th className="py-3 pr-3 font-bold tabular-nums">Meetings</th>
                     <th className="py-3 pr-3 font-bold">Outcomes</th>
                     <th className="py-3 font-bold">Asks covered</th>

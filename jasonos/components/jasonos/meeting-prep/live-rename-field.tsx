@@ -55,7 +55,7 @@ export function ScriptTitleField({
   className?: string;
 }) {
   const router = useRouter();
-  const label = kind === "plan" ? "Plan name" : "Strategy name";
+  const label = kind === "plan" ? "Guide name" : "Playbook name";
   return (
     <InlineField
       value={name}
@@ -66,7 +66,7 @@ export function ScriptTitleField({
       onSave={(next) => {
         const trimmed = next.trim();
         if (!trimmed) {
-          toast.error(`Name the ${kind}.`);
+          toast.error(kind === "plan" ? "Name the guide." : "Name the playbook.");
           return;
         }
         void updateLiveScript(scriptId, { name: trimmed }).then((result) => {
@@ -74,7 +74,7 @@ export function ScriptTitleField({
             toast.error(result.error);
             return;
           }
-          toast.success(`${kind === "plan" ? "Plan" : "Strategy"} renamed`);
+          toast.success(`${kind === "plan" ? "Guide" : "Playbook"} renamed`);
           router.refresh();
         });
       }}

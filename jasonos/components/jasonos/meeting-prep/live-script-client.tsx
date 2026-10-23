@@ -140,7 +140,7 @@ function StrategyFields({ script }: { script: LiveScript }) {
         <UnfinishedField
           value={situation}
           emptyLabel="Add a sentence"
-          placeholder="When this strategy applies"
+          placeholder="When this playbook applies"
           inputClassName="text-[17px]"
           onSave={(next) => save({ situation: next || null })}
         />
@@ -200,7 +200,7 @@ function StrategyFields({ script }: { script: LiveScript }) {
         <UnfinishedField
           value={basedOn}
           emptyLabel="Add a sentence"
-          placeholder="Where this strategy came from"
+          placeholder="Where this playbook came from"
           inputClassName="text-[17px]"
           onSave={(next) => save({ methodologySource: next || null })}
         />
@@ -255,7 +255,7 @@ export function LiveScriptClient({
   const saveName = (next: string) => {
     const name = next.trim();
     if (!name) {
-      toast.error(isPlan ? "Name the plan." : "Name the strategy.");
+      toast.error(isPlan ? "Name the guide." : "Name the playbook.");
       return;
     }
     void updateLiveScript(script.id, { name }).then((result) => {
@@ -317,7 +317,7 @@ export function LiveScriptClient({
       const count = result.added === 1 ? "1 point" : `${result.added} points`;
       toast.success(
         <span>
-          {isPlan ? "Attached" : "Added"} {count}.{" "}
+          Added {count} to the meeting.{" "}
           <a className="underline" href={`/meetings/${prepId}`}>
             Open the meeting
           </a>
@@ -336,7 +336,7 @@ export function LiveScriptClient({
         toast.error(result.error);
         return;
       }
-      toast.success("This is now a strategy.");
+      toast.success("This is now a playbook.");
       router.refresh();
     });
   };
@@ -350,12 +350,12 @@ export function LiveScriptClient({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>
-              {isPlan ? "Plan" : `Strategy · ${usedLabel}`}
+              {isPlan ? "Guide" : `Playbook · ${usedLabel}`}
             </p>
             <InlineField
               value={script.name}
-              placeholder={isPlan ? "Plan name" : "Strategy name"}
-              emptyLabel={isPlan ? "Plan name" : "Strategy name"}
+              placeholder={isPlan ? "Guide name" : "Playbook name"}
+              emptyLabel={isPlan ? "Guide name" : "Playbook name"}
               maxLength={120}
               className="mt-1 text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
               onSave={saveName}
@@ -377,7 +377,7 @@ export function LiveScriptClient({
             {isPlan ? (
               confirmPromote ? (
                 <p className="text-[13px]">
-                  Make this a strategy?{" "}
+                  Make it a playbook?{" "}
                   <button
                     type="button"
                     className="font-semibold text-[var(--color-accent-700)] hover:underline"
@@ -397,7 +397,7 @@ export function LiveScriptClient({
                 </p>
               ) : (
                 <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPromote(true)}>
-                  Make this a strategy
+                  Make it a playbook
                 </Button>
               )
             ) : null}
@@ -444,7 +444,7 @@ export function LiveScriptClient({
             reorder: (ids) => reorderLiveScriptItems(script.id, ids),
           }}
           draft={{
-            label: "Draft points",
+            label: "Generate points",
             run: () =>
               new Promise((resolve) => {
                 draftDone.current = resolve;
@@ -457,7 +457,7 @@ export function LiveScriptClient({
 
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t-2 border-[var(--jos-ink)] bg-[var(--jos-surface)] px-10 py-3">
         <p className={LIVE_SECTION_LABEL}>
-          {isPlan ? "Attach to a meeting" : "Apply to a meeting"}
+          Use for a meeting
         </p>
         {meetings.length === 0 ? (
           <p className="text-[14px] text-[var(--jos-muted)]">
@@ -506,7 +506,7 @@ export function LiveScriptClient({
                   disabled={!prepId || applying}
                   onClick={() => apply("add")}
                 >
-                  Add
+                  Add points
                 </Button>
                 <Button
                   type="button"
@@ -515,7 +515,7 @@ export function LiveScriptClient({
                   disabled={!prepId || applying}
                   onClick={() => setConfirmReplace(true)}
                 >
-                  Replace
+                  Replace plan
                 </Button>
                 {!isPlan ? (
                   <Button
@@ -525,7 +525,7 @@ export function LiveScriptClient({
                     disabled={!prepId || applying}
                     onClick={adapt}
                   >
-                    Adapt to {adaptName}
+                    Build from playbook for {adaptName}
                   </Button>
                 ) : null}
               </>
@@ -547,7 +547,7 @@ export function LiveScriptClient({
       >
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Draft points</DialogTitle>
+            <DialogTitle>Generate points</DialogTitle>
             <DialogDescription>Describe the call. Existing headlines stay put.</DialogDescription>
           </DialogHeader>
           <form
@@ -583,7 +583,7 @@ export function LiveScriptClient({
                 Cancel
               </Button>
               <Button type="submit" variant="default" disabled={drafting}>
-                Draft
+                Generate
               </Button>
             </div>
           </form>

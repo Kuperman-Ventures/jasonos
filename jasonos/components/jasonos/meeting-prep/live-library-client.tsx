@@ -80,6 +80,12 @@ function replaceParam(params: URLSearchParams, key: string, value: string) {
   else params.delete(key);
 }
 
+function playbookColumnLabel(row: LibraryMeeting): string {
+  if (row.adapted) return "Guide";
+  if (row.strategyName) return row.strategyName;
+  return "No playbook";
+}
+
 export function LiveLibraryClient({
   meetings,
   facets,
@@ -148,7 +154,7 @@ export function LiveLibraryClient({
       });
     } else {
       groups.set(key, {
-        title: meeting.strategyName || "No strategy",
+        title: meeting.strategyName || "No playbook",
         meta: null,
         rows: [meeting],
       });
@@ -188,15 +194,15 @@ export function LiveLibraryClient({
         </label>
         <label className="space-y-1">
           <span className="block text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-            Strategy
+            Playbook
           </span>
           <select
-            aria-label="Strategy"
+            aria-label="Playbook"
             value={strategy}
             className="h-9 bg-transparent text-[14px] font-semibold outline-none"
             onChange={(event) => setFilter("strategy", event.target.value)}
           >
-            <option value="">All strategies</option>
+            <option value="">All playbooks</option>
             {facets.strategies.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name} ({item.count})
@@ -278,7 +284,7 @@ export function LiveLibraryClient({
           className={`text-[13px] font-semibold ${group === "strategy" ? "underline" : "text-[var(--jos-muted)]"}`}
           onClick={() => setFilter("group", "strategy")}
         >
-          By strategy
+          By playbook
         </button>
       </div>
 
@@ -322,7 +328,7 @@ export function LiveLibraryClient({
                         />
                       </div>
                       <span className="truncate text-[13px] text-[var(--jos-muted)]">
-                        {row.strategyName || "No strategy"}
+                        {playbookColumnLabel(row)}
                       </span>
                       <OutcomePill mark={row.outcomeMark} />
                       {row.asksTotal > 0 ? (

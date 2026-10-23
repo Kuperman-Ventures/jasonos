@@ -53,7 +53,7 @@ export type LiveWhoTheyAre = {
 
 export type LiveSession = {
   title: string;
-  /** Strategy name in the header; falls back to title. */
+  /** Playbook name in the header; falls back to title. */
   strategyName?: string | null;
   personLabel?: string | null;
   companyLabel?: string | null;

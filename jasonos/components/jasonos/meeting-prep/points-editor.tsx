@@ -716,8 +716,7 @@ export function PointsEditor({
     });
   };
 
-  const draftLabel =
-    draft && draft.label === "Draft points" && rows.length > 0 ? "Add more with AI" : draft?.label;
+  const draftLabel = draft && rows.length > 0 ? "Add more with AI" : draft?.label;
 
   const markable = rows.filter((point) => point.kind !== "agenda");
   const selected = rows.find((point) => point.id === selectedId) ?? null;

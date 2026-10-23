@@ -310,7 +310,7 @@ export async function getLiveScript(
 ): Promise<PointResult<{ script: LiveScript; items: LiveScriptItem[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
-  if (!id) return { ok: false, error: "Strategy not found." };
+  if (!id) return { ok: false, error: "Playbook not found." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
@@ -318,7 +318,7 @@ export async function getLiveScript(
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Strategy not found." };
+  if (!data) return { ok: false, error: "Playbook not found." };
 
   const { data: itemRows, error: itemError } = await sb
     .from("live_script_items")
@@ -340,8 +340,10 @@ export async function createLiveScript(input: {
 }): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const name = cleanName(input.name);
-  if (!name) return { ok: false, error: "Name the strategy." };
   const kind: LiveScriptKind = input.kind === "plan" ? "plan" : "strategy";
+  if (!name) {
+    return { ok: false, error: kind === "plan" ? "Name the guide." : "Name the playbook." };
+  }
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
@@ -360,8 +362,8 @@ export async function createLiveScript(input: {
         ok: false,
         error:
           kind === "plan"
-            ? "A plan with that name already exists."
-            : "A strategy with that name already exists.",
+            ? "A guide with that name already exists."
+            : "A playbook with that name already exists.",
       };
     }
     return { ok: false, error: error.message };
@@ -385,11 +387,11 @@ export async function updateLiveScript(
 ): Promise<PointResult<{ script: LiveScript }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = id.trim();
-  if (!scriptId) return { ok: false, error: "Strategy not found." };
+  if (!scriptId) return { ok: false, error: "Playbook not found." };
   const update: Record<string, unknown> = {};
   if (patch.name != null) {
     const name = cleanName(patch.name);
-    if (!name) return { ok: false, error: "Name the strategy." };
+    if (!name) return { ok: false, error: "Name the playbook." };
     update.name = name;
   }
   if (patch.description !== undefined) {
@@ -414,11 +416,11 @@ export async function updateLiveScript(
     .maybeSingle();
   if (error) {
     if (nameTaken(error.message, error.code)) {
-      return { ok: false, error: "A strategy with that name already exists." };
+      return { ok: false, error: "A playbook with that name already exists." };
     }
     return { ok: false, error: error.message };
   }
-  if (!data) return { ok: false, error: "Strategy not found." };
+  if (!data) return { ok: false, error: "Playbook not found." };
   const items = await sb
     .from("live_script_items")
     .select("id", { count: "exact", head: true })
@@ -432,7 +434,7 @@ export async function deleteLiveScript(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = id.trim();
-  if (!scriptId) return { ok: false, error: "Strategy not found." };
+  if (!scriptId) return { ok: false, error: "Playbook not found." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("live_scripts")
@@ -441,7 +443,7 @@ export async function deleteLiveScript(
     .select("id")
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Strategy not found." };
+  if (!data) return { ok: false, error: "Playbook not found." };
   revalidateScripts(scriptId);
   return { ok: true };
 }
@@ -471,7 +473,7 @@ export async function createLiveScriptItem(input: {
 }): Promise<PointResult<{ item: LiveScriptItem }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
-  if (!scriptId) return { ok: false, error: "Strategy not found." };
+  if (!scriptId) return { ok: false, error: "Playbook not found." };
   if (!KINDS.has(input.kind)) return { ok: false, error: "Pick a kind." };
   const headline = clampHeadline(input.headline);
   if (!headline) return { ok: false, error: "Write a headline." };
@@ -581,10 +583,10 @@ export async function reorderLiveScriptItems(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
-  if (!id) return { ok: false, error: "Strategy not found." };
+  if (!id) return { ok: false, error: "Playbook not found." };
   const ids = orderedIds.map((item) => item.trim()).filter(Boolean);
   if (new Set(ids).size !== ids.length) {
-    return { ok: false, error: "Point order does not match this strategy." };
+    return { ok: false, error: "Point order does not match this playbook." };
   }
   const sb = createServiceRoleClient();
   const { error } = await sb.rpc("reorder_live_script_items", {
@@ -603,7 +605,7 @@ export async function draftLiveScriptItems(
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = scriptId.trim();
   const note = brief.trim();
-  if (!id) return { ok: false, error: "Strategy not found." };
+  if (!id) return { ok: false, error: "Playbook not found." };
   if (!note) return { ok: false, error: "Write a brief first." };
 
   const loaded = await getLiveScript(id);
@@ -615,12 +617,12 @@ export async function draftLiveScriptItems(
       model: "claude-sonnet-4-6",
       maxTokens: 1200,
       system: `${meetingPointsSystemPrompt(NO_AI_SLOP_WRITING_RULES)}
-This is a reusable strategy, not a specific meeting, so use {{name}}, {{company}} and {{title}} where the line would otherwise name the person or company.`,
+This is a reusable playbook, not a specific meeting, so use {{name}}, {{company}} and {{title}} where the line would otherwise name the person or company.`,
       messages: [
         {
           role: "user",
           content: [
-            `Strategy: ${loaded.script.name}`,
+            `Playbook: ${loaded.script.name}`,
             loaded.script.description ? `Description: ${loaded.script.description}` : null,
             `Brief: ${note}`,
           ]
@@ -665,14 +667,14 @@ export async function applyLiveScript(input: {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
   const prepId = input.prepId.trim();
-  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
+  if (!scriptId || !prepId) return { ok: false, error: "Playbook or meeting not found." };
   if (input.mode !== "add" && input.mode !== "replace") {
     return { ok: false, error: "Pick add or replace." };
   }
 
   const loaded = await getLiveScript(scriptId);
   if (!loaded.ok) return loaded;
-  if (!loaded.items.length) return { ok: false, error: "This strategy has no points." };
+  if (!loaded.items.length) return { ok: false, error: "This playbook has no points." };
 
   let context;
   try {
@@ -772,7 +774,7 @@ export async function attachPlanToMeeting(input: {
   const loaded = await getLiveScript(scriptId);
   if (!loaded.ok) return loaded;
   if (loaded.script.kind !== "plan") {
-    return { ok: false, error: "Only a plan can be attached this way." };
+    return { ok: false, error: "Only a guide can be used for a meeting this way." };
   }
 
   const applied = await applyLiveScript({ scriptId, prepId, mode: input.mode });
@@ -882,7 +884,7 @@ export async function promotePlanToStrategy(
   if (!id) return { ok: false, error: "Plan not found." };
   const loaded = await getLiveScript(id);
   if (!loaded.ok) return loaded;
-  if (loaded.script.kind !== "plan") return { ok: false, error: "Only a plan can become a strategy." };
+  if (loaded.script.kind !== "plan") return { ok: false, error: "Only a guide can become a playbook." };
 
   const update: Record<string, unknown> = {
     kind: "strategy",
@@ -903,7 +905,7 @@ export async function promotePlanToStrategy(
     .select(SCRIPT_COLUMNS)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "Plan not found." };
+  if (!data) return { ok: false, error: "Guide not found." };
   revalidateScripts(id);
   return { ok: true, script: toScript(data as ScriptRow, loaded.items.length) };
 }
@@ -918,7 +920,7 @@ export async function saveMeetingPointsAsScript(input: {
   const prepId = input.prepId.trim();
   const name = cleanName(input.name);
   if (!prepId) return { ok: false, error: "Meeting prep not found." };
-  if (!name) return { ok: false, error: "Name the strategy." };
+  if (!name) return { ok: false, error: "Name the playbook." };
   const kind: LiveScriptKind = input.kind === "plan" ? "plan" : "strategy";
 
   const sb = createServiceRoleClient();
@@ -1134,7 +1136,7 @@ export async function getAdaptation(input: {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
   const prepId = input.prepId.trim();
-  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
+  if (!scriptId || !prepId) return { ok: false, error: "Playbook or meeting not found." };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("meeting_adaptations")
@@ -1174,11 +1176,11 @@ export async function proposeAdaptation(input: {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const scriptId = input.scriptId.trim();
   const prepId = input.prepId.trim();
-  if (!scriptId || !prepId) return { ok: false, error: "Strategy or meeting not found." };
+  if (!scriptId || !prepId) return { ok: false, error: "Playbook or meeting not found." };
 
   const loaded = await getLiveScript(scriptId);
   if (!loaded.ok) return loaded;
-  if (!loaded.items.length) return { ok: false, error: "This strategy has no points." };
+  if (!loaded.items.length) return { ok: false, error: "This playbook has no points." };
 
   const sb = createServiceRoleClient();
   const { data: existing, error: existingError } = await sb
@@ -1257,7 +1259,7 @@ export async function proposeAdaptation(input: {
       ],
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Could not adapt the strategy." };
+    return { ok: false, error: err instanceof Error ? err.message : "Could not build from this playbook." };
   }
 
   const parsed = parseAdaptation(text, loaded.items);

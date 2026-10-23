@@ -63,8 +63,8 @@ export function LiveRecordClient({ record }: { record: LiveMeetingRecord }) {
           )}
           {" · "}
           {prep.adaptedFromScriptName
-            ? `Adapted from ${prep.adaptedFromScriptName}`
-            : prep.scriptName || "No strategy"}
+            ? `Built from playbook ${prep.adaptedFromScriptName}`
+            : prep.scriptName || "No playbook"}
           {prep.projectName ? ` · ${prep.projectName}` : ""}
         </p>
       </header>
