@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LiveScriptClient } from "@/components/jasonos/meeting-prep/live-script-client";
+import { PlaybookClient } from "@/components/jasonos/meeting-prep/playbook-client";
 import { getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
-import { getLiveScript, listMeetingsUsingScript } from "@/lib/server-actions/live-scripts";
+import {
+  getLiveScript,
+  listMeetingsUsingScript,
+  listPlaybookQuestions,
+} from "@/lib/server-actions/live-scripts";
 
 export const dynamic = "force-dynamic";
 
@@ -33,19 +38,28 @@ export default async function LiveScriptPage({
       </div>
     );
   }
-  const isPlan = loaded.script.kind === "plan";
-  const [meetingsResult, usedOnResult] = await Promise.all([
-    isPlan ? getUpcomingMeetingPreps(14) : Promise.resolve({ ok: true as const, meetings: [] }),
-    isPlan
-      ? Promise.resolve({ ok: true as const, meetings: [] })
-      : listMeetingsUsingScript(id, 5),
-  ]);
+
+  if (loaded.script.kind === "strategy") {
+    const [questionsResult, usedOnResult] = await Promise.all([
+      listPlaybookQuestions(id),
+      listMeetingsUsingScript(id, 5),
+    ]);
+    return (
+      <PlaybookClient
+        script={loaded.script}
+        items={loaded.items}
+        questions={questionsResult.ok ? questionsResult.questions : []}
+        usedOn={usedOnResult.ok ? usedOnResult.meetings : []}
+      />
+    );
+  }
+
+  const meetingsResult = await getUpcomingMeetingPreps(14);
   return (
     <LiveScriptClient
       script={loaded.script}
       items={loaded.items}
       meetings={meetingsResult.ok ? meetingsResult.meetings : []}
-      usedOn={usedOnResult.ok ? usedOnResult.meetings : []}
     />
   );
 }

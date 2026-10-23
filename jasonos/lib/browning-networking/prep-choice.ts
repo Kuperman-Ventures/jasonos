@@ -1,5 +1,5 @@
-export const BROWNING_FIRST_CALL = "Browning Networking - First Call";
-export const BROWNING_SECOND_CALL = "Browning Networking - Second Call";
+export const BROWNING_FIRST_CALL = "Net 102 First Call";
+export const BROWNING_SECOND_CALL = "Net 102 Second Call";
 
 export function chooseBrowningStrategyName(hasPriorHeldMeeting: boolean): string {
   return hasPriorHeldMeeting ? BROWNING_SECOND_CALL : BROWNING_FIRST_CALL;

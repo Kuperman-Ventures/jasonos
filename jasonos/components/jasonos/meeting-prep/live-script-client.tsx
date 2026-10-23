@@ -125,7 +125,7 @@ function PlanFields({ script }: { script: LiveScript }) {
   );
 }
 
-function StrategyFields({ script }: { script: LiveScript }) {
+export function StrategyFields({ script }: { script: LiveScript }) {
   const router = useRouter();
   const serverKey = `${script.description ?? ""}\u0000${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}\u0000${script.methodologySource ?? ""}`;
   const [description, setDescription] = useState(script.description ?? "");

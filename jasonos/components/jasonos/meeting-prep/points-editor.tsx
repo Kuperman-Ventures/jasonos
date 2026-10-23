@@ -562,6 +562,7 @@ export function PointsEditor({
   belowTitle,
   detailBox = false,
   layout = "list",
+  title = "Points to make",
   selectedId: controlledSelectedId,
   onSelectedIdChange,
 }: {
@@ -579,6 +580,8 @@ export function PointsEditor({
   belowTitle?: ReactNode;
   detailBox?: boolean;
   layout?: "list" | "split" | "outline";
+  /** List layout heading. Null hides it. */
+  title?: string | null;
   selectedId?: string | null;
   onSelectedIdChange?: (id: string | null) => void;
 }) {
@@ -822,7 +825,7 @@ export function PointsEditor({
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-[20px] font-extrabold tracking-tight">Points to make</h2>
+          {title ? <h2 className="text-[20px] font-extrabold tracking-tight">{title}</h2> : null}
           {note ? <div className="mt-1 text-[13px] text-[var(--jos-muted)]">{note}</div> : null}
           {belowTitle}
         </div>

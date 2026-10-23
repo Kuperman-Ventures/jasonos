@@ -4,26 +4,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export type LiveTertiaryKey = "live" | "playbooks" | "guides" | "library" | "metrics";
+export type LiveTertiaryKey = "live" | "people" | "playbooks" | "library" | "metrics";
 
 const LINKS: Array<{ key: LiveTertiaryKey; href: string; label: string }> = [
   { key: "live", href: "/live", label: "Live" },
+  { key: "people", href: "/live/people", label: "People" },
   { key: "playbooks", href: "/live/playbooks", label: "Playbooks" },
-  { key: "guides", href: "/live/guides", label: "Guides" },
   { key: "library", href: "/live/library", label: "Library" },
   { key: "metrics", href: "/live/metrics", label: "Metrics" },
 ];
 
 function activeKey(pathname: string): LiveTertiaryKey {
   if (pathname === "/live" || pathname === "/live/") return "live";
+  if (pathname.startsWith("/live/people")) return "people";
   if (pathname.startsWith("/live/playbooks")) return "playbooks";
-  if (pathname.startsWith("/live/guides")) return "guides";
+  // Guides are kept at /live/guides but no longer have their own tab.
+  if (pathname.startsWith("/live/guides")) return "playbooks";
+  if (pathname.startsWith("/live/scripts/")) return "playbooks";
   if (pathname.startsWith("/live/library")) return "library";
   if (pathname.startsWith("/live/metrics")) return "metrics";
-  if (pathname.startsWith("/live/scripts/")) {
-    return "live";
-  }
-  if (pathname.startsWith("/live/")) return "live";
   return "live";
 }
 
