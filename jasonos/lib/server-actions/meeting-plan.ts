@@ -208,3 +208,40 @@ export async function acceptMeetingPlan(input: {
   const mode = input.mode === "add" ? "add" : "replace";
   return acceptAdaptation({ adaptationId: input.adaptationId, mode });
 }
+
+/** Force attendee research and refresh email context for the Who step. */
+export async function recheckMeetingWho(prepId: string): Promise<
+  PlanResult<{ researched: string[]; errors: string[] }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = prepId.trim();
+  if (!id) return { ok: false, error: "Meeting prep not found." };
+
+  const research = await runMeetingResearch(id, { force: true });
+  if (!research.ok) return research;
+
+  const prepResult = await getMeetingPrep(id);
+  if (!prepResult.ok) return prepResult;
+  const prep = prepResult.prep;
+
+  try {
+    if (!prep.emailContext?.trim() || emailContextIsStale(prep.emailContextAt)) {
+      await buildEmailContext({
+        id: prep.id,
+        attendees: prep.attendees,
+      });
+    } else {
+      await ensureEmailContext({
+        id: prep.id,
+        attendees: prep.attendees,
+        emailContext: prep.emailContext,
+        emailContextAt: prep.emailContextAt,
+      });
+    }
+  } catch (err) {
+    console.error("[recheckMeetingWho] email context", err);
+  }
+
+  revalidateMeeting(id);
+  return { ok: true, researched: research.researched, errors: research.errors };
+}
