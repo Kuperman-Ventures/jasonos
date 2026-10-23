@@ -417,10 +417,10 @@ function MailAccountsCard({
           <p className="mt-1 text-xs text-muted-foreground">
             Sync reads mail from each connected account. Advisors and Personal Gmail
             are separate Google logins — sharing a calendar is not enough. Outlook.com
-            uses Microsoft and is separate from those Gmail forwards. A Google Meet
-            invite is sent from the Advisors calendar. Reconnect Advisors Google once
-            and allow adding events. Status below is live, including when Settings is
-            in preview.
+            uses Microsoft and is separate from those Gmail forwards. Meet invites and
+            Browning meeting reminders send from the Advisors calendar/Gmail. Reconnect
+            Advisors Google once and allow calendar events plus Gmail send. Status below
+            is live, including when Settings is in preview.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {connectedCount} of 3 connected

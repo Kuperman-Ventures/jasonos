@@ -1035,9 +1035,68 @@ function encodeBase64Url(value: string): string {
 }
 
 /**
- * Save a reply in Gmail Drafts. The connected Google account is read-only
- * today, so this returns ok:false and the caller opens a prefilled compose
- * window instead. Nothing is sent either way.
+ * Send a plain-text email from the connected Google account.
+ * Needs the gmail.send scope (reconnect Advisors Google in Settings after deploy).
+ */
+export async function sendGmailMessage(input: {
+  accessToken: string;
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  body: string;
+  threadId?: string | null;
+  inReplyTo?: string | null;
+}): Promise<
+  | { ok: true; id: string }
+  | { ok: false; error: string; needsReconnect?: boolean }
+> {
+  const headers = [
+    `To: ${input.to}`,
+    input.cc ? `Cc: ${input.cc}` : null,
+    input.bcc ? `Bcc: ${input.bcc}` : null,
+    `Subject: ${input.subject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    input.inReplyTo ? `In-Reply-To: ${input.inReplyTo}` : null,
+    input.inReplyTo ? `References: ${input.inReplyTo}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\r\n");
+  const raw = encodeBase64Url(`${headers}\r\n\r\n${input.body}`);
+  const payload: { raw: string; threadId?: string } = { raw };
+  if (input.threadId) payload.threadId = input.threadId;
+
+  const res = await fetch(`${GMAIL_BASE}/users/me/messages/send`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    const needsReconnect =
+      res.status === 401 ||
+      res.status === 403 ||
+      /insufficient|insufficientPermissions|Mail service not enabled/i.test(txt);
+    return {
+      ok: false,
+      needsReconnect,
+      error: needsReconnect
+        ? "Reconnect Advisors Google in Settings and allow Gmail send."
+        : `Gmail send ${res.status}: ${txt.slice(0, 180)}`,
+    };
+  }
+  const json = (await res.json()) as { id?: string };
+  if (!json.id) return { ok: false, error: "Gmail send response had no id." };
+  return { ok: true, id: json.id };
+}
+
+/**
+ * Save a reply in Gmail Drafts. Needs gmail.compose. When the connection
+ * cannot write drafts, the caller opens a prefilled compose window instead.
  */
 export async function createGmailDraft(input: {
   accessToken: string;

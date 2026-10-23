@@ -42,6 +42,7 @@ export const config: VercelConfig = {
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/holds/route.ts": { maxDuration: 60 },
+    "app/api/browning-networking/reminders/route.ts": { maxDuration: 60 },
     // Daily Sync: Gmail/Outlook/Calendar/Beeper + follow-up capture.
     "app/api/sync/daily/route.ts": { maxDuration: 300 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
@@ -75,6 +76,12 @@ export const config: VercelConfig = {
     {
       path: "/api/browning-networking/holds?source=cron",
       schedule: "5 * * * 1-5",
+    },
+    // Browning meeting reminders — weekdays every hour (EDT). Attendee
+    // reminder + Jason RSVP alert inside the 24h window.
+    {
+      path: "/api/browning-networking/reminders?source=cron",
+      schedule: "20 * * * 1-5",
     },
   ],
 };

@@ -1,7 +1,8 @@
 // GET /api/auth/google
 // Redirects to Google OAuth consent screen.
-// Scopes: Gmail read, Calendar read, and Calendar events so a Meet invite can be created.
+// Scopes: Gmail read/send, Calendar read, and Calendar events (Meet invites + reminders).
 // ?account=gmail stores a second token for personal Gmail (provider=google_gmail).
+// After deploy, reconnect Advisors Google once so gmail.send is granted.
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -18,6 +19,7 @@ export const runtime = "nodejs";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/calendar.events",
   "email",

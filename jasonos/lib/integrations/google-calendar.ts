@@ -665,6 +665,98 @@ export async function updateTentativeHold(input: {
   return { ok: true };
 }
 
+export async function getPrimaryCalendarEvent(
+  token: string,
+  eventId: string
+): Promise<
+  | { ok: true; event: CalendarApiEvent }
+  | { ok: false; error: string; needsReconnect: boolean }
+> {
+  const res = await fetch(
+    `${CAL_BASE}/calendars/primary/events/${encodeURIComponent(eventId)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }
+  );
+  const text = await res.text();
+  if (!res.ok) {
+    const needsReconnect = res.status === 401 || res.status === 403;
+    return {
+      ok: false,
+      needsReconnect,
+      error: needsReconnect
+        ? "Reconnect Advisors Google in Settings."
+        : `Google Calendar could not load the event (${res.status}).`,
+    };
+  }
+  try {
+    const event = JSON.parse(text) as CalendarApiEvent;
+    return { ok: true, event };
+  } catch {
+    return {
+      ok: false,
+      needsReconnect: false,
+      error: "Google Calendar returned an unreadable event.",
+    };
+  }
+}
+
+/**
+ * Deliver a review copy by calendar invite email (works with calendar.events
+ * when gmail.send is not granted yet). Creates a short event, emails the
+ * guest, then deletes the event so the calendar stays clean.
+ */
+export async function deliverEmailViaCalendarInvite(input: {
+  token: string;
+  to: string;
+  subject: string;
+  body: string;
+}): Promise<{ ok: true } | { ok: false; error: string; needsReconnect: boolean }> {
+  const start = new Date(Date.now() + 2 * 60 * 60_000);
+  const end = new Date(start.getTime() + 15 * 60_000);
+  const params = new URLSearchParams({ sendUpdates: "all" });
+  const createRes = await fetch(`${CAL_BASE}/calendars/primary/events?${params}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      summary: input.subject.slice(0, 1024),
+      description: input.body,
+      start: { dateTime: start.toISOString() },
+      end: { dateTime: end.toISOString() },
+      attendees: [{ email: input.to }],
+      reminders: { useDefault: false },
+      transparency: "transparent",
+      status: "tentative",
+    }),
+    cache: "no-store",
+  });
+  const createText = await createRes.text();
+  if (!createRes.ok) {
+    const needsReconnect = createRes.status === 401 || createRes.status === 403;
+    return {
+      ok: false,
+      needsReconnect,
+      error: needsReconnect
+        ? "Reconnect Advisors Google in Settings."
+        : `Could not deliver review email via Calendar (${createRes.status}).`,
+    };
+  }
+  let eventId = "";
+  try {
+    eventId = String((JSON.parse(createText) as { id?: string }).id ?? "");
+  } catch {
+    eventId = "";
+  }
+  if (eventId) {
+    await deletePrimaryCalendarEvent(input.token, eventId);
+  }
+  return { ok: true };
+}
+
 export async function deletePrimaryCalendarEvent(
   token: string,
   eventId: string
