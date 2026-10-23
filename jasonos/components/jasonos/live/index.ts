@@ -27,3 +27,4 @@ export {
   writeModeOverride,
   type MeetingPageMode,
 } from "./meeting-mode";
+export { LiveTertiaryNav, type LiveTertiaryKey } from "./live-tertiary-nav";

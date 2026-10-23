@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   CollapsibleSection,
   LIVE_SECTION_LABEL,
+  LiveTertiaryNav,
   UnfinishedField,
   deriveMeetingMode,
   readModeOverride,
@@ -1864,57 +1865,12 @@ export function MeetingPrepClient({
     status: item.status,
   }));
 
-  const modeNav = (
-    <nav
-      aria-label="Meeting view"
-      className="flex flex-wrap items-center gap-3"
-    >
-      <div
-        role="tablist"
-        aria-label="Before or after the call"
-        className="inline-flex rounded-[2px] border border-[var(--jos-ink)] p-0.5"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "before"}
-          className={cn(
-            "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
-            mode === "before"
-              ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
-              : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
-          )}
-          onClick={() => setMode("before")}
-        >
-          Before
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === "after"}
-          className={cn(
-            "min-w-[4.5rem] px-3 py-1.5 text-[12px] font-bold uppercase tracking-[0.08em] transition-colors",
-            mode === "after"
-              ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
-              : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
-          )}
-          onClick={() => setMode("after")}
-        >
-          After
-        </button>
-      </div>
-      {prep.calendarUrl ? (
-        <a
-          href={prep.calendarUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-8 items-center gap-1.5 border border-[var(--jos-line)] bg-[var(--jos-surface)] px-3 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--color-calendar-700)] hover:border-[var(--jos-ink)]"
-        >
-          <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
-          Calendar
-        </a>
-      ) : null}
-    </nav>
+  const liveNav = (
+    <LiveTertiaryNav
+      meetingId={prep.id}
+      meetingMode={mode}
+      onMeetingMode={setMode}
+    />
   );
 
   const titleField = (
@@ -1942,8 +1898,9 @@ export function MeetingPrepClient({
   if (mode === "after") {
     return (
       <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
-        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--jos-ink)] px-10 py-6">
-          <div className="min-w-0 flex-1">
+        {liveNav}
+        <header className="border-b border-[var(--jos-ink)] px-10 py-6">
+          <div className="min-w-0">
             <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
               <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
               {kicker}
@@ -1956,7 +1913,6 @@ export function MeetingPrepClient({
               </p>
             ) : null}
           </div>
-          <div className="shrink-0">{modeNav}</div>
         </header>
         <div className="flex flex-col gap-8 min-[1100px]:flex-row">
           <div className="min-w-0 flex-[1.5]">
@@ -2003,6 +1959,7 @@ export function MeetingPrepClient({
 
   return (
     <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
+      {liveNav}
       {showWhoTheyAre && primary ? <WhoTheyAreCard prep={prep} person={primary} /> : null}
       <header className="grid gap-6 border-b border-[var(--jos-ink)] px-10 py-7 min-[1100px]:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0">
@@ -2051,20 +2008,17 @@ export function MeetingPrepClient({
           ) : null}
         </div>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {modeNav}
-            {join ? (
-              <a
-                href={join}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
-              >
-                Join the call
-              </a>
-            ) : null}
-          </div>
-          <p className={cn(LIVE_SECTION_LABEL, "mt-5")}>What you want out of this</p>
+          {join ? (
+            <a
+              href={join}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "secondary", size: "sm" }) + " h-9"}
+            >
+              Join the call
+            </a>
+          ) : null}
+          <p className={cn(LIVE_SECTION_LABEL, join ? "mt-5" : "mt-0")}>What you want out of this</p>
           <div className="mt-2">
             <UnfinishedField
               value={stored}

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { cadenceLabel, type CadenceInterval } from "@/lib/outreach/types";
+import { MeetingTitleField } from "@/components/jasonos/meeting-prep/live-rename-field";
 import type { OutcomeMark } from "@/lib/server-actions/meeting-prep";
 import type {
   LibraryFacets,
@@ -161,19 +161,12 @@ export function LiveLibraryClient({
   });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <Link
-        href="/live"
-        className="inline-flex items-center gap-1 text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline"
-      >
-        <ChevronLeft className="size-4" />
-        Live
-      </Link>
-      <header className="flex flex-wrap items-baseline justify-between gap-3">
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 min-[900px]:px-10">
+      <header>
         <h1 className="text-[28px] font-extrabold tracking-tight text-[var(--jos-ink)]">Library</h1>
-        <Link href="/live/metrics" className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline">
-          Metrics
-        </Link>
+        <p className="mt-1 text-[14px] text-[var(--jos-muted)]">
+          Click a meeting name to retitle it. Open for the full record.
+        </p>
       </header>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -311,34 +304,47 @@ export function LiveLibraryClient({
                   const mismatch =
                     row.outcomeMark && row.suggestedMark && row.outcomeMark !== row.suggestedMark;
                   return (
-                    <li key={row.id}>
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3"
+                    >
                       <Link
                         href={`/live/library/${row.id}`}
-                        className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 hover:underline"
+                        className="text-[13px] text-[var(--jos-muted)] hover:underline"
                       >
-                        <span className="text-[13px] text-[var(--jos-muted)]">{easternDate(row.startsAt)}</span>
-                        <span className="min-w-0 flex-1 truncate text-[16px] font-semibold tracking-tight">
-                          {row.title}
+                        {easternDate(row.startsAt)}
+                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <MeetingTitleField
+                          prepId={row.id}
+                          title={row.title}
+                          className="truncate text-[16px] font-semibold tracking-tight"
+                        />
+                      </div>
+                      <span className="truncate text-[13px] text-[var(--jos-muted)]">
+                        {row.strategyName || "No strategy"}
+                      </span>
+                      <OutcomePill mark={row.outcomeMark} />
+                      {row.asksTotal > 0 ? (
+                        <span className="text-[13px] text-[var(--jos-ink)]">
+                          Asks {row.asksCovered}/{row.asksTotal}
                         </span>
-                        <span className="truncate text-[13px] text-[var(--jos-muted)]">
-                          {row.strategyName || "No strategy"}
+                      ) : null}
+                      {row.hasReview ? (
+                        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                          Reviewed
                         </span>
-                        <OutcomePill mark={row.outcomeMark} />
-                        {row.asksTotal > 0 ? (
-                          <span className="text-[13px] text-[var(--jos-ink)]">
-                            Asks {row.asksCovered}/{row.asksTotal}
-                          </span>
-                        ) : null}
-                        {row.hasReview ? (
-                          <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                            Reviewed
-                          </span>
-                        ) : null}
-                        {mismatch ? (
-                          <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--color-accent-2-text)]">
-                            Mismatch
-                          </span>
-                        ) : null}
+                      ) : null}
+                      {mismatch ? (
+                        <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--color-accent-2-text)]">
+                          Mismatch
+                        </span>
+                      ) : null}
+                      <Link
+                        href={`/live/library/${row.id}`}
+                        className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+                      >
+                        Open
                       </Link>
                     </li>
                   );
