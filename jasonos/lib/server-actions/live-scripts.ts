@@ -1374,15 +1374,20 @@ export async function acceptAdaptation(input: {
     ? fillAppliedText(loaded.script.successSentence, person, settings, narratives)
     : null;
   const existingOutcome = prepResult.prep.outcomeSentence?.trim() ?? "";
+  const nowIso = new Date().toISOString();
   const prepUpdate: {
     script_id: string;
     adapted_from_script_id: string;
     adapted_at: string;
+    plan_built_at: string;
+    plan_source: string;
     outcome_sentence?: string;
   } = {
     script_id: row.script_id,
     adapted_from_script_id: row.script_id,
-    adapted_at: new Date().toISOString(),
+    adapted_at: nowIso,
+    plan_built_at: nowIso,
+    plan_source: "playbook",
   };
   if (!existingOutcome && success) prepUpdate.outcome_sentence = success;
 
