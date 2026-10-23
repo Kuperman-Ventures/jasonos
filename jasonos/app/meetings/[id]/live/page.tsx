@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { easternClock, joinHref } from "@/components/jasonos/meeting-prep/meeting-prep-bits";
 import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
 import { loadMeetingContext } from "@/lib/meeting-prep/context";
+import { buildLiveSheet } from "@/lib/meeting-prep/live-sheet";
+import { getCallSheet } from "@/lib/server-actions/call-sheet";
 import type { PointState } from "@/lib/meeting-prep/points";
 import {
   endLiveMeeting,
@@ -60,10 +62,11 @@ export default async function LiveMeetingPage({
     return setMeetingPointObservedReaction(pointId, shape);
   }
 
-  const [prepResult, pointsResult, context] = await Promise.all([
+  const [prepResult, pointsResult, context, sheetResult] = await Promise.all([
     getMeetingPrep(id),
     getMeetingPoints(id),
     loadMeetingContext(id).catch(() => null),
+    getCallSheet({ prepId: id }),
   ]);
   if (!prepResult.ok) {
     if (prepResult.error === "Meeting prep not found.") notFound();
@@ -108,23 +111,35 @@ export default async function LiveMeetingPage({
           introReason: person.packet.introReason,
         }
       : null;
+  const sheet = sheetResult.ok ? sheetResult.sheet : null;
+  const played = sheet
+    ? buildLiveSheet({
+        blocks: sheet.blocks,
+        playbook: sheet.playbook,
+        touchNumber: sheet.person?.touchNumber ?? 0,
+        personName: personLabel ?? sheet.person?.name ?? prep.title,
+        points: pointsResult.points,
+        mode: "live",
+      })
+    : null;
   return (
     <LiveCallClient
       session={{
         title: prep.title,
-        strategyName: prep.scriptName ?? prep.title,
+        strategyName: played?.feed.playbookName ?? prep.scriptName ?? prep.title,
         personLabel,
         companyLabel: person?.company ?? null,
         timeLabel: `${easternClock(prep.startsAt)}–${easternClock(prep.endsAt)} ET`,
         joinHref: joinHref(prep),
-        backHref: `/meetings/${prep.id}`,
+        backHref: played ? `/meetings/${prep.id}?view=debrief` : `/meetings/${prep.id}`,
         badge: "live",
         startedAt: prep.liveStartedAt,
         outcomeSentence: prep.outcomeSentence,
         onDone: "mark",
         whoTheyAre,
       }}
-      points={pointsResult.points}
+      points={played?.steps ?? pointsResult.points}
+      sheet={played?.feed ?? null}
       actions={{ start, setState, setNote, end, markOutcome, setObservedReaction }}
     />
   );

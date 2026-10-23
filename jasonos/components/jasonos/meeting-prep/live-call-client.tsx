@@ -32,6 +32,18 @@ import {
   type OutcomeChoice,
 } from "@/components/jasonos/live";
 import {
+  BudgetBar,
+  LiveNoteField,
+  LiveSheetRail,
+  PinnedHelp,
+  ReactionTray,
+  SheetLiveHeader,
+  SheetStage,
+  useFillHeight,
+  useLiveNote,
+} from "@/components/jasonos/meeting-prep/live-sheet-parts";
+import { isSheetStep, topicFor, type LiveSheetFeed } from "@/lib/meeting-prep/live-sheet";
+import {
   firstOpenIndex,
   formatElapsed,
   markableIndexAt,
@@ -39,9 +51,11 @@ import {
   nextOpenIndex,
   type PointState,
 } from "@/lib/meeting-prep/points";
-import { REACTION_LABELS, REACTION_SHAPES, type ReactionShape } from "@/lib/meeting-prep/reactions";
+import { REACTION_SHAPES, type ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { MeetingPoint, PointResult } from "@/lib/server-actions/meeting-points";
 import { cn } from "@/lib/utils";
+
+const LOCAL_OK: PointResult<object> = { ok: true };
 
 export type LiveWhoTheyAre = {
   name: string;
@@ -145,14 +159,29 @@ export function LiveCallClient({
   actions,
   extraControls,
   onReset,
+  sheet,
+  embedded = false,
+  onEnded,
 }: {
   session: LiveSession;
   points: MeetingPoint[];
   actions: LiveCallActions;
   extraControls?: ReactNode | ((controls: { drill: boolean; setDrill: (on: boolean) => void }) => ReactNode);
   onReset?: () => void;
+  /** Call sheet layout: budget bar, conversation / then / reference rail, saved point note. */
+  sheet?: LiveSheetFeed | null;
+  /** Inside the call sheet page instead of over the whole window. */
+  embedded?: boolean;
+  /** After End call. Defaults to going to session.backHref. */
+  onEnded?: () => void;
 }) {
   const router = useRouter();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const fillHeight = useFillHeight(rootRef, embedded);
+  const exit = () => {
+    if (onEnded) onEnded();
+    else router.push(session.backHref);
+  };
   const signature = pointSignature(points);
   const [seen, setSeen] = useState(signature);
   const [rows, setRows] = useState(points);
@@ -274,7 +303,7 @@ export function LiveCallClient({
       setCurrentId(id);
     }
     startTransition(async () => {
-      const result = await actionsRef.current.setState(id, state);
+      const result = isSheetStep(id) ? LOCAL_OK : await actionsRef.current.setState(id, state);
       if (!result.ok) {
         setRows(previous);
         setCurrentId(previousId);
@@ -289,8 +318,8 @@ export function LiveCallClient({
     selectedReactionRef.current = shape;
     startTransition(async () => {
       const record = actionsRef.current.setObservedReaction;
-      if (!record) return;
-      const result = await record(id, shape);
+      if (!record && !isSheetStep(id)) return;
+      const result = isSheetStep(id) || !record ? LOCAL_OK : await record(id, shape);
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -316,7 +345,8 @@ export function LiveCallClient({
         toast.error(result.error);
         return;
       }
-      router.push(session.backHref);
+      setMarking(false);
+      exit();
     });
   };
 
@@ -340,7 +370,8 @@ export function LiveCallClient({
         toast.error(ended.error);
         return;
       }
-      router.push(session.backHref);
+      setMarking(false);
+      exit();
     });
   };
 
@@ -528,6 +559,171 @@ export function LiveCallClient({
       ? "Rehearsal"
       : [session.personLabel, session.companyLabel].filter(Boolean).join(" · ") || session.timeLabel;
   const listening = listenForStrip(rows, currentId);
+  const extra =
+    typeof extraControls === "function"
+      ? extraControls({
+          drill: drillOn,
+          setDrill: (on) => {
+            setPivotShown(false);
+            if (on) setDrillIndex(stableDrillIndex(currentId ?? ""));
+            setDrillOn(on);
+          },
+        })
+      : extraControls;
+  const saveNote = (id: string, note: string) =>
+    isSheetStep(id) ? Promise.resolve(LOCAL_OK) : actions.setNote(id, note);
+  const setLocalNote = (id: string, note: string | null) =>
+    setRows((list) => list.map((row) => (row.id === id ? { ...row, note } : row)));
+
+  const outcomeDialog = (
+    <Dialog
+      open={marking}
+      onOpenChange={(open) => {
+        if (!open) {
+          setMarking(false);
+          setAskGuard(null);
+          setAskGuardCleared(false);
+        }
+      }}
+    >
+      <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-[560px]">
+        <DialogHeader>
+          <DialogTitle className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
+            Outcome
+          </DialogTitle>
+        </DialogHeader>
+        {askGuard && !askGuardCleared ? (
+          <div className="space-y-4">
+            <p className="text-[18px] font-semibold leading-snug">
+              The ask was not made: {askGuard.headline}. Mark anyway?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => {
+                  setMarking(false);
+                  setAskGuardCleared(false);
+                  setAskGuard(null);
+                  select(askGuard.id);
+                }}
+              >
+                Go back to the ask
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setAskGuardCleared(true)}>
+                Continue
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <OutcomeDialogBody
+            sentence={session.outcomeSentence}
+            chosen={chosen}
+            note={outcomeNote}
+            onChoose={(markChoice) => {
+              chosenRef.current = markChoice;
+              setChosen(markChoice);
+            }}
+            onNote={(value) => {
+              outcomeNoteRef.current = value;
+              setOutcomeNote(value);
+            }}
+            onConfirm={confirmOutcome}
+            onSkip={leave}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (sheet) {
+    const thenIds = new Set(sheet.thenIds);
+    const conversationSlots = pills.filter((item) => !thenIds.has(item.point.id));
+    const thenSlots = pills.filter((item) => thenIds.has(item.point.id));
+    let kicker = "";
+    if (current && currentSlot) {
+      if (thenIds.has(current.id)) {
+        const at = thenSlots.findIndex((item) => item.point.id === current.id) + 1;
+        kicker = `Then · ${at} of ${thenSlots.length}`;
+      } else {
+        const at = conversationSlots.findIndex((item) => item.point.id === current.id) + 1;
+        const topic = topicFor(rows, current.id) ?? LIVE_KIND_LABELS[current.kind];
+        kicker = `Point ${at} of ${conversationSlots.length} · ${topic}`;
+      }
+    }
+    const onStage = current && current.kind !== "agenda" && !showAllCovered ? current : null;
+    return (
+      <div
+        ref={rootRef}
+        className={cn(
+          "flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]",
+          embedded ? "relative" : "fixed inset-0 z-30"
+        )}
+        style={embedded ? { height: fillHeight ?? 640 } : undefined}
+      >
+        <SheetLiveHeader
+          feed={sheet}
+          badge={session.badge}
+          startedAt={startedAt}
+          position={currentSlot?.number ?? 0}
+          total={pills.length}
+          joinHref={session.joinHref}
+          extra={extra}
+          onReset={onReset}
+          onEnd={finish}
+        />
+        {sheet.budget.length ? <BudgetBar segments={sheet.budget} startedAt={startedAt} /> : null}
+        <div className="flex min-h-0 flex-1">
+          <LiveSheetRail
+            rows={rows}
+            thenIds={thenIds}
+            reference={sheet.reference}
+            referenceLabel={session.badge === "rehearsal" ? "The sheet" : "Reference"}
+            currentId={currentId}
+            finished={finished}
+            onSelect={select}
+          />
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8 min-[1100px]:px-12">
+              {showAllCovered ? (
+                <div className="flex h-full max-w-[780px] flex-col justify-center">
+                  <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">All points covered</h2>
+                  <Button type="button" variant="default" className="mt-8 h-12 w-fit" onClick={finish}>
+                    {session.badge === "live" ? "End call" : "Done"}
+                  </Button>
+                </div>
+              ) : onStage ? (
+                <SheetStage point={onStage} kicker={kicker} />
+              ) : (
+                <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">No points to mark</h2>
+              )}
+            </div>
+            {sheet.helpThem ? <PinnedHelp text={sheet.helpThem} /> : null}
+            {onStage ? (
+              <SheetTray
+                key={onStage.id}
+                point={onStage}
+                trayActive={trayActive}
+                selectedReaction={selectedReaction}
+                drillOn={drillOn && session.badge === "rehearsal"}
+                drillIndex={drillIndex}
+                pivotShown={pivotShown}
+                trayRef={trayRef}
+                noteRef={noteRef}
+                nextHeadline={followingPoint?.headline ?? null}
+                saveNote={(note) => saveNote(onStage.id, note)}
+                onNoted={(note) => setLocalNote(onStage.id, note)}
+                onSelectReaction={(shape) => toggleReaction(onStage.id, shape)}
+                onSkip={() => mark(onStage.id, "skipped")}
+                onNext={() => mark(onStage.id, "covered")}
+              />
+            ) : null}
+          </section>
+        </div>
+        {outcomeDialog}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]">
@@ -562,16 +758,7 @@ export function LiveCallClient({
           </p>
         ) : null}
         <div className="flex shrink-0 items-center gap-2">
-          {typeof extraControls === "function"
-            ? extraControls({
-                drill: drillOn,
-                setDrill: (on) => {
-                  setPivotShown(false);
-                  if (on) setDrillIndex(stableDrillIndex(currentId ?? ""));
-                  setDrillOn(on);
-                },
-              })
-            : extraControls}
+          {extra}
           {session.joinHref ? (
             <a
               href={session.joinHref}
@@ -751,71 +938,17 @@ export function LiveCallClient({
         </section>
       </div>
 
-      <Dialog
-        open={marking}
-        onOpenChange={(open) => {
-          if (!open) {
-            setMarking(false);
-            setAskGuard(null);
-            setAskGuardCleared(false);
-          }
-        }}
-      >
-        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
-              Outcome
-            </DialogTitle>
-          </DialogHeader>
-          {askGuard && !askGuardCleared ? (
-            <div className="space-y-4">
-              <p className="text-[18px] font-semibold leading-snug">
-                The ask was not made: {askGuard.headline}. Mark anyway?
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="default"
-                  onClick={() => {
-                    setMarking(false);
-                    setAskGuardCleared(false);
-                    setAskGuard(null);
-                    select(askGuard.id);
-                  }}
-                >
-                  Go back to the ask
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setAskGuardCleared(true)}
-                >
-                  Continue
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <OutcomeDialogBody
-              sentence={session.outcomeSentence}
-              chosen={chosen}
-              note={outcomeNote}
-              onChoose={(markChoice) => {
-                chosenRef.current = markChoice;
-                setChosen(markChoice);
-              }}
-              onNote={(value) => {
-                outcomeNoteRef.current = value;
-                setOutcomeNote(value);
-              }}
-              onConfirm={confirmOutcome}
-              onSkip={leave}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {outcomeDialog}
     </div>
   );
 }
+
+const LIVE_KIND_LABELS: Record<MeetingPoint["kind"], string> = {
+  agenda: "Agenda",
+  point: "Point",
+  question: "Question",
+  ask: "Ask",
+};
 
 function StagePoint({
   point,
@@ -836,11 +969,6 @@ function StagePoint({
   trayRef: RefObject<HTMLDivElement | null>;
   onSelectReaction: (shape: ReactionShape) => void;
 }) {
-  const selected = selectedReaction
-    ? point.reactions.find((reaction) => reaction.shape === selectedReaction) ?? null
-    : null;
-  const drill = drillOn ? point.reactions[drillIndex] ?? null : null;
-
   return (
     <div className="flex min-h-full flex-col">
       <KindLabel kind={point.kind} />
@@ -863,67 +991,98 @@ function StagePoint({
         <div
           ref={trayRef}
           tabIndex={-1}
-          className="mt-auto outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--jos-focus)]"
+          className="mt-auto pt-10 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--jos-focus)]"
         >
-          <p className={cn(LIVE_SECTION_LABEL, "mt-10")}>If they say</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 min-[900px]:grid-cols-6">
-            {REACTION_SHAPES.map((shape, index) => {
-              const active = selectedReaction === shape;
-              return (
-                <button
-                  key={shape}
-                  type="button"
-                  onClick={() => onSelectReaction(shape)}
-                  className={cn(
-                    "flex min-h-14 flex-col items-start justify-center gap-0.5 px-2.5 py-2 text-left",
-                    active
-                      ? "bg-[var(--jos-ink)] text-[var(--jos-bg)]"
-                      : "bg-[var(--jos-surface)] text-[var(--jos-ink)]"
-                  )}
-                >
-                  <span className="text-[15px] font-extrabold tabular-nums">{index + 1}</span>
-                  <span className="text-[12px] font-bold uppercase tracking-[0.06em] leading-tight">
-                    {REACTION_LABELS[shape]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-3 bg-[var(--jos-surface)] px-5 py-4">
-            {drillOn && drill ? (
-              <div className="grid gap-4 min-[900px]:grid-cols-2">
-                <div>
-                  <p className={LIVE_SECTION_LABEL}>Sounds like</p>
-                  <p className="mt-2 text-[16px] leading-snug">{drill.soundsLike}</p>
-                </div>
-                <div>
-                  <p className={LIVE_SECTION_LABEL}>Bring it back</p>
-                  {pivotShown ? (
-                    <p className="mt-2 text-[16px] font-bold leading-snug">{drill.pivot}</p>
-                  ) : (
-                    <p className="mt-2 text-[16px] text-[var(--jos-muted)]">Press Enter</p>
-                  )}
-                </div>
-              </div>
-            ) : selected ? (
-              <div className="grid gap-4 min-[900px]:grid-cols-2">
-                <div>
-                  <p className={LIVE_SECTION_LABEL}>Sounds like</p>
-                  <p className="mt-2 text-[16px] leading-snug">{selected.soundsLike}</p>
-                </div>
-                <div>
-                  <p className={LIVE_SECTION_LABEL}>Bring it back</p>
-                  <p className="mt-2 text-[16px] font-bold leading-snug">{selected.pivot}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-[16px] text-[var(--jos-muted)]">Press 1 to 6</p>
-            )}
-          </div>
+          <ReactionTray
+            point={point}
+            trayActive
+            selectedReaction={selectedReaction}
+            drillOn={drillOn}
+            drillIndex={drillIndex}
+            pivotShown={pivotShown}
+            onSelectReaction={onSelectReaction}
+          />
         </div>
       ) : (
         <div className="mt-auto" />
       )}
+    </div>
+  );
+}
+
+/** Call sheet tray: six reactions, the point note (saves on blur and Next), Skip and Next point. */
+function SheetTray({
+  point,
+  trayActive,
+  selectedReaction,
+  drillOn,
+  drillIndex,
+  pivotShown,
+  trayRef,
+  noteRef,
+  nextHeadline,
+  saveNote,
+  onNoted,
+  onSelectReaction,
+  onSkip,
+  onNext,
+}: {
+  point: MeetingPoint;
+  trayActive: boolean;
+  selectedReaction: ReactionShape | null;
+  drillOn: boolean;
+  drillIndex: number;
+  pivotShown: boolean;
+  trayRef: RefObject<HTMLDivElement | null>;
+  noteRef: RefObject<HTMLTextAreaElement | null>;
+  nextHeadline: string | null;
+  saveNote: (note: string) => Promise<PointResult<object>>;
+  onNoted: (note: string | null) => void;
+  onSelectReaction: (shape: ReactionShape) => void;
+  onSkip: () => void;
+  onNext: () => void;
+}) {
+  const note = useLiveNote({ point, saveNote, onNoted });
+  const [advancing, setAdvancing] = useState(false);
+  const advance = (then: () => void) => {
+    setAdvancing(true);
+    void note.flush().then((saved) => {
+      setAdvancing(false);
+      if (saved) then();
+    });
+  };
+  return (
+    <div className="shrink-0 space-y-3 border-t border-[var(--jos-line)] px-8 py-3 min-[1100px]:px-12">
+      <div
+        ref={trayRef}
+        tabIndex={-1}
+        className="outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--jos-focus)]"
+      >
+        <ReactionTray
+          point={point}
+          trayActive={trayActive}
+          selectedReaction={selectedReaction}
+          drillOn={drillOn}
+          drillIndex={drillIndex}
+          pivotShown={pivotShown}
+          label="They said"
+          onSelectReaction={onSelectReaction}
+        />
+      </div>
+      <LiveNoteField note={note} noteRef={noteRef} />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="secondary" className="h-12 px-4" disabled={advancing} onClick={() => advance(onSkip)}>
+          Skip
+          <span className="ml-1 text-[12px] font-semibold opacity-70">s</span>
+        </Button>
+        <Button type="button" variant="default" className="h-12 gap-2 px-5" disabled={advancing} onClick={() => advance(onNext)}>
+          {point.state === "covered" ? "Next point" : "Covered, next point"}
+          <span className="ml-1 text-[12px] font-semibold opacity-80">Enter</span>
+        </Button>
+        <p className="ml-auto max-w-[40%] truncate text-[14px] text-[var(--jos-muted)]">
+          {nextHeadline ? `Next: ${nextHeadline}` : ""}
+        </p>
+      </div>
     </div>
   );
 }
