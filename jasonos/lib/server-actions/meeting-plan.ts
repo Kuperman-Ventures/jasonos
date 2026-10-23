@@ -55,7 +55,8 @@ export async function markPlanBuilt(
   return { ok: true, planBuiltAt: now, planSource: source };
 }
 
-async function ensureResearchAndEmail(prepId: string): Promise<
+/** Research + email when stale; Used / Missing for Research, Email thread, Brief. */
+export async function ensureResearchAndEmail(prepId: string): Promise<
   PlanResult<{
     contextUsed: string[];
     contextMissing: string[];

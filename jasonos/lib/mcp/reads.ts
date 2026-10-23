@@ -59,7 +59,19 @@ export function listJasonosAreas() {
         ],
       },
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
-      { area: "meetings", tools: ["list_meetings"] },
+      {
+        area: "meetings",
+        tools: [
+          "list_meetings",
+          "list_upcoming_meeting_preps",
+          "get_meeting_plan",
+          "build_meeting_plan",
+          "accept_meeting_plan",
+          "set_meeting_plan",
+          "create_guide",
+          "use_guide_for_meeting",
+        ],
+      },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
       { area: "post_master", tools: ["list_post_master_projects", "list_weekly_provocations"] },
@@ -329,6 +341,17 @@ export async function listMeetings(input: { limit?: number } = {}) {
     .limit(limit);
   if (error) throw new Error(error.message);
   return { meetings: data ?? [] };
+}
+
+/** Live meeting plan reads (server actions). Loaded lazily for MCP unit tests. */
+export async function getMeetingPlan(input: { prep_id: string }) {
+  const { getMeetingPlan: read } = await import("./plans");
+  return read(input);
+}
+
+export async function listUpcomingMeetingPreps(input: { days?: number } = {}) {
+  const { listUpcomingMeetingPreps: list } = await import("./plans");
+  return list(input);
 }
 
 export async function getJobAlerts(input: { limit?: number } = {}) {

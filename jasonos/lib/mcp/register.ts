@@ -20,6 +20,7 @@ import {
   getContact,
   getInboxDispatch,
   getJobAlerts,
+  getMeetingPlan,
   getMorningBrief,
   getOutreachQueue,
   listAlerts,
@@ -31,6 +32,7 @@ import {
   listProjectLinks,
   listProjects,
   listSuggestedContacts,
+  listUpcomingMeetingPreps,
   listWeeklyProvocations,
 } from "./reads";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
@@ -39,11 +41,18 @@ import { registerConnectionsTools } from "./connections-tools";
 import { registerFybTools } from "./fyb-tools";
 import { jsonResult, runTool } from "./result";
 
+/** Lazy-load plan tools so MCP unit tests do not pull server-only modules. */
+async function plans() {
+  return import("./plans");
+}
+
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
 
 You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
-Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch, build_meeting_plan, accept_meeting_plan, set_meeting_plan, create_guide, use_guide_for_meeting) change live JasonOS data — say what you changed.
+
+Plan meetings with Jason in conversation. Write the plan with set_meeting_plan or create_guide. Never write meeting_points through SQL.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -379,6 +388,123 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (args) => runTool(() => listMeetings(args))
+  );
+
+  const planPointSchema = z.object({
+    kind: z.enum(["agenda", "point", "question", "ask"]),
+    headline: z.string().min(1).max(80),
+    detail: z.string().max(400).optional(),
+    listen_for: z.string().max(160).optional(),
+    prepare_reactions: z.boolean().optional(),
+    reactions: z.array(z.unknown()).optional(),
+  });
+
+  server.registerTool(
+    "build_meeting_plan",
+    {
+      title: "Build meeting plan",
+      description:
+        "Build a Live meeting plan from a playbook (proposal only — call accept_meeting_plan to write), a guide (writes), or blank (AI draft). Returns Used / Missing context.",
+      inputSchema: z.object({
+        prep_id: z.string().uuid(),
+        from: z.enum(["playbook", "guide", "blank"]),
+        script_id: z.string().uuid().optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).buildMeetingPlanTool(args))
+  );
+
+  server.registerTool(
+    "accept_meeting_plan",
+    {
+      title: "Accept meeting plan",
+      description:
+        "Accept a playbook adaptation from build_meeting_plan and write the kept points onto the meeting.",
+      inputSchema: z.object({
+        adaptation_id: z.string().uuid(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).acceptMeetingPlanTool(args))
+  );
+
+  server.registerTool(
+    "set_meeting_plan",
+    {
+      title: "Set meeting plan",
+      description:
+        "Write outcome sentence and points onto a meeting prep through JasonOS server actions (clamps, research, email context). Sets plan_source to chat. Never insert meeting_points via SQL.",
+      inputSchema: z.object({
+        prep_id: z.string().uuid(),
+        outcome_sentence: z.string().max(400).optional(),
+        points: z.array(planPointSchema).min(1).max(20),
+        mode: z.enum(["add", "replace"]),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).setMeetingPlan(args))
+  );
+
+  server.registerTool(
+    "create_guide",
+    {
+      title: "Create guide",
+      description:
+        "Create a reusable Live guide (kind=plan) with points. Returns id and /live/scripts/{id} URL. Use use_guide_for_meeting to put it on a meeting.",
+      inputSchema: z.object({
+        name: z.string().min(1).max(120),
+        for: z.string().max(400).optional(),
+        outcome_sentence: z.string().max(400).optional(),
+        notes: z.string().max(2000).optional(),
+        points: z.array(planPointSchema).min(1).max(20),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).createGuide(args))
+  );
+
+  server.registerTool(
+    "use_guide_for_meeting",
+    {
+      title: "Use guide for meeting",
+      description:
+        "Attach a Live guide to a meeting prep (replace mode). Runs research and email context when needed.",
+      inputSchema: z.object({
+        script_id: z.string().uuid(),
+        prep_id: z.string().uuid(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).useGuideForMeeting(args))
+  );
+
+  server.registerTool(
+    "get_meeting_plan",
+    {
+      title: "Get meeting plan",
+      description:
+        "Outcome sentence, points with live and confirmed states, review summary, and Granola URL for a meeting prep.",
+      inputSchema: z.object({
+        prep_id: z.string().uuid(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getMeetingPlan(args))
+  );
+
+  server.registerTool(
+    "list_upcoming_meeting_preps",
+    {
+      title: "Upcoming meeting preps",
+      description:
+        "Upcoming Live meeting preps for the next N Eastern days (default 7): id, title, starts_at, attendees, track, has_plan, research_verified.",
+      inputSchema: z.object({
+        days: z.number().int().min(1).max(30).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listUpcomingMeetingPreps(args))
   );
 
   server.registerTool(
