@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LiveScriptClient } from "@/components/jasonos/meeting-prep/live-script-client";
 import { getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
-import { getLiveScript } from "@/lib/server-actions/live-scripts";
+import { getLiveScript, listMeetingsUsingScript } from "@/lib/server-actions/live-scripts";
 
 export const dynamic = "force-dynamic";
 
@@ -33,14 +33,19 @@ export default async function LiveScriptPage({
       </div>
     );
   }
-  const meetingsResult = await getUpcomingMeetingPreps(
-    loaded.script.kind === "plan" ? 14 : 2
-  );
+  const isPlan = loaded.script.kind === "plan";
+  const [meetingsResult, usedOnResult] = await Promise.all([
+    isPlan ? getUpcomingMeetingPreps(14) : Promise.resolve({ ok: true as const, meetings: [] }),
+    isPlan
+      ? Promise.resolve({ ok: true as const, meetings: [] })
+      : listMeetingsUsingScript(id, 5),
+  ]);
   return (
     <LiveScriptClient
       script={loaded.script}
       items={loaded.items}
       meetings={meetingsResult.ok ? meetingsResult.meetings : []}
+      usedOn={usedOnResult.ok ? usedOnResult.meetings : []}
     />
   );
 }
