@@ -22,9 +22,7 @@ import {
 import type { PointResult } from "@/lib/server-actions/meeting-points";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
 import {
-  applyLiveScript,
   attachPlanToMeeting,
-  proposeAdaptation,
   createLiveScriptItem,
   deleteLiveScript,
   deleteLiveScriptItem,
@@ -36,27 +34,55 @@ import {
   updateLiveScriptItem,
   type LiveScript,
   type LiveScriptItem,
+  type ScriptUsedOnMeeting,
 } from "@/lib/server-actions/live-scripts";
 import { cn } from "@/lib/utils";
 
+function easternDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function meetingLabel(meeting: MeetingPrepSummary): string {
+  const when = new Date(meeting.startsAt).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const person = meeting.primaryContactName?.trim() || meeting.title;
+  return `${person} · ${when}`;
+}
+
 function PlanFields({ script }: { script: LiveScript }) {
   const router = useRouter();
-  const serverKey = `${script.outcomeSentence ?? ""}\u0000${script.notes ?? ""}`;
+  const serverKey = `${script.description ?? ""}\u0000${script.outcomeSentence ?? ""}\u0000${script.notes ?? ""}`;
+  const [whoFor, setWhoFor] = useState(script.description ?? "");
   const [outcome, setOutcome] = useState(script.outcomeSentence ?? "");
   const [notes, setNotes] = useState(script.notes ?? "");
   const [seen, setSeen] = useState(serverKey);
   if (serverKey !== seen) {
     setSeen(serverKey);
+    setWhoFor(script.description ?? "");
     setOutcome(script.outcomeSentence ?? "");
     setNotes(script.notes ?? "");
   }
 
-  const save = (patch: { outcomeSentence?: string | null; notes?: string | null }) => {
+  const save = (patch: {
+    description?: string | null;
+    outcomeSentence?: string | null;
+    notes?: string | null;
+  }) => {
     void updateLiveScript(script.id, patch).then((result) => {
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      if (patch.description !== undefined) setWhoFor(patch.description ?? "");
       if (patch.outcomeSentence !== undefined) setOutcome(patch.outcomeSentence ?? "");
       if (patch.notes !== undefined) setNotes(patch.notes ?? "");
       router.refresh();
@@ -66,7 +92,17 @@ function PlanFields({ script }: { script: LiveScript }) {
   return (
     <div className="mt-5 grid gap-5 min-[900px]:grid-cols-2">
       <label className="block space-y-1">
-        <span className={LIVE_SECTION_LABEL}>Outcome sentence</span>
+        <span className={LIVE_SECTION_LABEL}>Who it is for</span>
+        <UnfinishedField
+          value={whoFor}
+          emptyLabel="Add a sentence"
+          placeholder="Who this guide is for"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ description: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>What you want out of it</span>
         <UnfinishedField
           value={outcome}
           emptyLabel="Add a sentence"
@@ -75,12 +111,12 @@ function PlanFields({ script }: { script: LiveScript }) {
           onSave={(next) => save({ outcomeSentence: next || null })}
         />
       </label>
-      <label className="block space-y-1">
+      <label className="block space-y-1 min-[900px]:col-span-2">
         <span className={LIVE_SECTION_LABEL}>Notes</span>
         <UnfinishedField
           value={notes}
           emptyLabel="Add a sentence"
-          placeholder="Who it is for, what you know"
+          placeholder="Anything else to keep with this guide"
           inputClassName="text-[17px]"
           onSave={(next) => save({ notes: next || null })}
         />
@@ -91,7 +127,8 @@ function PlanFields({ script }: { script: LiveScript }) {
 
 function StrategyFields({ script }: { script: LiveScript }) {
   const router = useRouter();
-  const serverKey = `${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}\u0000${script.methodologySource ?? ""}`;
+  const serverKey = `${script.description ?? ""}\u0000${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}\u0000${script.methodologySource ?? ""}`;
+  const [description, setDescription] = useState(script.description ?? "");
   const [situation, setSituation] = useState(script.situation ?? "");
   const [success, setSuccess] = useState(script.successSentence ?? "");
   const [rubric, setRubric] = useState(script.rubric);
@@ -99,6 +136,7 @@ function StrategyFields({ script }: { script: LiveScript }) {
   const [seen, setSeen] = useState(serverKey);
   if (serverKey !== seen) {
     setSeen(serverKey);
+    setDescription(script.description ?? "");
     setSituation(script.situation ?? "");
     setSuccess(script.successSentence ?? "");
     setRubric(script.rubric);
@@ -106,6 +144,7 @@ function StrategyFields({ script }: { script: LiveScript }) {
   }
 
   const save = (patch: {
+    description?: string | null;
     situation?: string | null;
     successSentence?: string | null;
     rubric?: string[];
@@ -116,6 +155,7 @@ function StrategyFields({ script }: { script: LiveScript }) {
         toast.error(result.error);
         return;
       }
+      if (patch.description !== undefined) setDescription(patch.description ?? "");
       if (patch.situation !== undefined) setSituation(patch.situation ?? "");
       if (patch.successSentence !== undefined) setSuccess(patch.successSentence ?? "");
       if (patch.rubric !== undefined) setRubric(patch.rubric);
@@ -135,18 +175,28 @@ function StrategyFields({ script }: { script: LiveScript }) {
 
   return (
     <div className="mt-5 grid gap-5 min-[900px]:grid-cols-2">
+      <label className="block space-y-1 min-[900px]:col-span-2">
+        <span className={LIVE_SECTION_LABEL}>Description</span>
+        <UnfinishedField
+          value={description}
+          emptyLabel="Add a sentence"
+          placeholder="What this playbook covers"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ description: next || null })}
+        />
+      </label>
       <label className="block space-y-1">
         <span className={LIVE_SECTION_LABEL}>Situation</span>
         <UnfinishedField
           value={situation}
           emptyLabel="Add a sentence"
-          placeholder="When this playbook applies"
+          placeholder="When this playbook fits"
           inputClassName="text-[17px]"
           onSave={(next) => save({ situation: next || null })}
         />
       </label>
       <label className="block space-y-1">
-        <span className={LIVE_SECTION_LABEL}>Success looks like</span>
+        <span className={LIVE_SECTION_LABEL}>What success looks like</span>
         <UnfinishedField
           value={success}
           emptyLabel="Add a sentence"
@@ -209,25 +259,16 @@ function StrategyFields({ script }: { script: LiveScript }) {
   );
 }
 
-function meetingLabel(meeting: MeetingPrepSummary): string {
-  const when = new Date(meeting.startsAt).toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const person = meeting.primaryContactName?.trim() || meeting.title;
-  return `${person} · ${when}`;
-}
-
 export function LiveScriptClient({
   script,
   items,
   meetings,
+  usedOn = [],
 }: {
   script: LiveScript;
   items: LiveScriptItem[];
   meetings: MeetingPrepSummary[];
+  usedOn?: ScriptUsedOnMeeting[];
 }) {
   const router = useRouter();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -238,6 +279,7 @@ export function LiveScriptClient({
   const draftDone = useRef<((result: PointResult<{ added: number; quiet?: boolean }>) => void) | null>(
     null
   );
+  const [useOpen, setUseOpen] = useState(false);
   const [prepId, setPrepId] = useState("");
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -247,10 +289,6 @@ export function LiveScriptClient({
 
   const markable = items.some((item) => item.kind !== "agenda");
   const selected = meetings.find((meeting) => meeting.id === prepId) ?? null;
-  const adaptName =
-    selected?.primaryContactName?.trim().split(/\s+/)[0] ||
-    selected?.title.split(/[:·-]/)[0]?.trim() ||
-    "them";
 
   const saveName = (next: string) => {
     const name = next.trim();
@@ -288,43 +326,29 @@ export function LiveScriptClient({
     draftDone.current = null;
   };
 
-  const adapt = () => {
+  const runAttach = () => {
     if (!prepId) return;
     setApplying(true);
-    void proposeAdaptation({ scriptId: script.id, prepId }).then((result) => {
-      setApplying(false);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.push(`/meetings/${prepId}?adapt=${script.id}`);
-    });
-  };
-
-  const apply = (mode: "add" | "replace") => {
-    if (!prepId) return;
-    setApplying(true);
-    const run = isPlan
-      ? attachPlanToMeeting({ scriptId: script.id, prepId, mode })
-      : applyLiveScript({ scriptId: script.id, prepId, mode });
-    void run.then((result) => {
+    void attachPlanToMeeting({ scriptId: script.id, prepId, mode: "replace" }).then((result) => {
       setApplying(false);
       setConfirmReplace(false);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
-      const count = result.added === 1 ? "1 point" : `${result.added} points`;
-      toast.success(
-        <span>
-          Added {count} to the meeting.{" "}
-          <a className="underline" href={`/meetings/${prepId}`}>
-            Open the meeting
-          </a>
-        </span>
-      );
+      setUseOpen(false);
+      router.push(`/meetings/${prepId}#step-plan`);
       router.refresh();
     });
+  };
+
+  const requestAttach = () => {
+    if (!prepId) return;
+    if (selected && selected.pointCount > 0) {
+      setConfirmReplace(true);
+      return;
+    }
+    runAttach();
   };
 
   const promote = () => {
@@ -361,7 +385,7 @@ export function LiveScriptClient({
               onSave={saveName}
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {markable ? (
               <Link
                 href={`/live/scripts/${script.id}/rehearse`}
@@ -375,31 +399,45 @@ export function LiveScriptClient({
               </button>
             )}
             {isPlan ? (
-              confirmPromote ? (
-                <p className="text-[13px]">
-                  Make it a playbook?{" "}
-                  <button
-                    type="button"
-                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
-                    disabled={promoting}
-                    onClick={promote}
-                  >
-                    Confirm
-                  </button>
-                  {" · "}
-                  <button
-                    type="button"
-                    className="font-semibold hover:underline"
-                    onClick={() => setConfirmPromote(false)}
-                  >
-                    Cancel
-                  </button>
-                </p>
-              ) : (
-                <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPromote(true)}>
-                  Make it a playbook
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setPrepId(meetings[0]?.id ?? "");
+                    setConfirmReplace(false);
+                    setUseOpen(true);
+                  }}
+                >
+                  Use for a meeting
                 </Button>
-              )
+                {confirmPromote ? (
+                  <p className="text-[13px]">
+                    Make it a playbook?{" "}
+                    <button
+                      type="button"
+                      className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                      disabled={promoting}
+                      onClick={promote}
+                    >
+                      Confirm
+                    </button>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="font-semibold hover:underline"
+                      onClick={() => setConfirmPromote(false)}
+                    >
+                      Cancel
+                    </button>
+                  </p>
+                ) : (
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmPromote(true)}>
+                    Make it a playbook
+                  </Button>
+                )}
+              </>
             ) : null}
             {confirmDelete ? (
               <p className="text-[13px]">
@@ -425,6 +463,31 @@ export function LiveScriptClient({
           </div>
         </div>
         {isPlan ? <PlanFields script={script} /> : <StrategyFields script={script} />}
+        {!isPlan ? (
+          <div className="mt-5">
+            <p className={LIVE_SECTION_LABEL}>Used on</p>
+            {usedOn.length === 0 ? (
+              <p className="mt-1 text-[14px] text-[var(--jos-muted)]">Not used on a meeting yet.</p>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {usedOn.map((meeting) => (
+                  <li key={meeting.id}>
+                    <Link
+                      href={`/meetings/${meeting.id}`}
+                      className="text-[15px] font-semibold text-[var(--jos-ink)] hover:underline"
+                    >
+                      {meeting.title}
+                      <span className="font-normal text-[var(--jos-muted)]">
+                        {", "}
+                        {easternDate(meeting.startsAt)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -455,84 +518,79 @@ export function LiveScriptClient({
         />
       </div>
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t-2 border-[var(--jos-ink)] bg-[var(--jos-surface)] px-10 py-3">
-        <p className={LIVE_SECTION_LABEL}>
-          Use for a meeting
-        </p>
-        {meetings.length === 0 ? (
-          <p className="text-[14px] text-[var(--jos-muted)]">
-            {isPlan ? "No meetings in the next 14 days." : "No meetings today or tomorrow."}
-          </p>
-        ) : (
-          <>
-            <select
-              aria-label="Meeting"
-              value={prepId}
-              className="h-9 min-w-[14rem] border-0 border-b-2 border-[#b5b2b2] bg-transparent text-[14px] font-semibold outline-none"
-              onChange={(event) => {
-                setPrepId(event.target.value);
-                setConfirmReplace(false);
-              }}
-            >
-              <option value="">Choose a meeting</option>
-              {meetings.map((meeting) => (
-                <option key={meeting.id} value={meeting.id}>
-                  {meetingLabel(meeting)}
-                </option>
-              ))}
-            </select>
-            {confirmReplace && selected ? (
-              <span className="text-[13px]">
-                Replace {selected.pointCount} existing points?{" "}
-                <button
-                  type="button"
-                  className="font-semibold text-[var(--color-accent-700)] hover:underline"
-                  disabled={applying}
-                  onClick={() => apply("replace")}
-                >
-                  Confirm
-                </button>
-                {" · "}
-                <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmReplace(false)}>
-                  Cancel
-                </button>
-              </span>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={!prepId || applying}
-                  onClick={() => apply("add")}
-                >
-                  Add points
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={!prepId || applying}
-                  onClick={() => setConfirmReplace(true)}
-                >
-                  Replace plan
-                </Button>
-                {!isPlan ? (
+      <Dialog
+        open={useOpen}
+        onOpenChange={(next) => {
+          setUseOpen(next);
+          if (!next) {
+            setConfirmReplace(false);
+            setPrepId("");
+          }
+        }}
+      >
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Use for a meeting</DialogTitle>
+            <DialogDescription>Meetings in the next 14 days.</DialogDescription>
+          </DialogHeader>
+          {meetings.length === 0 ? (
+            <p className="text-[14px] text-[var(--jos-muted)]">No meetings in the next 14 days.</p>
+          ) : (
+            <div className="space-y-4">
+              <select
+                aria-label="Meeting"
+                value={prepId}
+                className={cn(LIVE_FIELD, "h-11")}
+                onChange={(event) => {
+                  setPrepId(event.target.value);
+                  setConfirmReplace(false);
+                }}
+              >
+                {meetings.map((meeting) => (
+                  <option key={meeting.id} value={meeting.id}>
+                    {meetingLabel(meeting)}
+                  </option>
+                ))}
+              </select>
+              {confirmReplace && selected ? (
+                <p className="text-[14px]">
+                  Replace {selected.pointCount} existing points?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                    disabled={applying}
+                    onClick={runAttach}
+                  >
+                    Confirm
+                  </button>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="font-semibold hover:underline"
+                    onClick={() => setConfirmReplace(false)}
+                  >
+                    Cancel
+                  </button>
+                </p>
+              ) : (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setUseOpen(false)}>
+                    Cancel
+                  </Button>
                   <Button
                     type="button"
-                    size="sm"
                     variant="default"
                     disabled={!prepId || applying}
-                    onClick={adapt}
+                    onClick={requestAttach}
                   >
-                    Build from playbook for {adaptName}
+                    Use for this meeting
                   </Button>
-                ) : null}
-              </>
-            )}
-          </>
-        )}
-      </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={briefOpen}

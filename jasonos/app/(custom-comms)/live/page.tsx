@@ -3,7 +3,6 @@ import { LiveMeetingsClient } from "@/components/jasonos/meeting-prep/live-meeti
 import { getLiveSettings } from "@/lib/server-actions/live-settings";
 import {
   getRecentLiveMeetings,
-  getTodaysMeetingPreps,
   getUpcomingMeetingPreps,
 } from "@/lib/server-actions/meeting-prep";
 import { listLivePlans, listLiveScripts } from "@/lib/server-actions/live-scripts";
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function LiveMeetingsPage() {
   const [result, scriptsResult, plansResult, upcomingResult, recentResult, settingsResult] =
     await Promise.all([
-      getTodaysMeetingPreps(),
+      getUpcomingMeetingPreps(2),
       listLiveScripts({ kind: "strategy" }),
       listLivePlans(),
       getUpcomingMeetingPreps(14),

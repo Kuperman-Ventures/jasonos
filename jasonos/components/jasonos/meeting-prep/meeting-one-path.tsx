@@ -203,9 +203,12 @@ function planProvenanceLine(prep: MeetingPrepDetail): string | null {
     return "Built from the Browning first-call playbook and their resume. Edit anything.";
   }
   const source = prep.planSource?.trim();
-  if (source === "playbook" && prep.scriptName) return `Built from ${prep.scriptName}`;
+  const named = prep.scriptName?.trim() || null;
+  const guideName = named?.replace(/^From plan:\s*/i, "").trim() || null;
+  const playbookName = prep.adaptedFromScriptName?.trim() || named;
+  if (source === "playbook" && playbookName) return `Built from ${playbookName}`;
   if (source === "playbook") return "Built from a playbook";
-  if (source === "guide" && prep.scriptName) return `Built from guide: ${prep.scriptName}`;
+  if (source === "guide" && guideName) return `Built from guide: ${guideName}`;
   if (source === "guide") return "Built from a guide";
   if (source === "blank") return "Written from what JasonOS knew";
   if (source === "chat") return "Written in chat";

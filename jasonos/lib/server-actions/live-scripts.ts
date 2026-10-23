@@ -331,6 +331,58 @@ export async function getLiveScript(
   return { ok: true, script: toScript(data as ScriptRow, items.length), items };
 }
 
+export interface ScriptUsedOnMeeting {
+  id: string;
+  title: string;
+  startsAt: string;
+}
+
+/** Meetings that used this playbook directly or via adaptation, newest first. */
+export async function listMeetingsUsingScript(
+  scriptId: string,
+  limit = 5
+): Promise<PointResult<{ meetings: ScriptUsedOnMeeting[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = scriptId.trim();
+  if (!id) return { ok: false, error: "Playbook not found." };
+  const take = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 20) : 5;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meeting_preps")
+    .select("id, title, starts_at")
+    .or(`script_id.eq.${id},adapted_from_script_id.eq.${id}`)
+    .order("starts_at", { ascending: false })
+    .limit(take);
+  if (error) {
+    if (/adapted_from_script_id/i.test(error.message)) {
+      const fallback = await sb
+        .from("meeting_preps")
+        .select("id, title, starts_at")
+        .eq("script_id", id)
+        .order("starts_at", { ascending: false })
+        .limit(take);
+      if (fallback.error) return { ok: false, error: fallback.error.message };
+      return {
+        ok: true,
+        meetings: (fallback.data ?? []).map((row) => ({
+          id: row.id as string,
+          title: String(row.title ?? "").trim() || "Meeting",
+          startsAt: row.starts_at as string,
+        })),
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+  return {
+    ok: true,
+    meetings: (data ?? []).map((row) => ({
+      id: row.id as string,
+      title: String(row.title ?? "").trim() || "Meeting",
+      startsAt: row.starts_at as string,
+    })),
+  };
+}
+
 export async function createLiveScript(input: {
   name: string;
   description?: string | null;
@@ -794,6 +846,8 @@ export async function attachPlanToMeeting(input: {
     typeof prepRow.outcome_sentence === "string" ? prepRow.outcome_sentence.trim() : "";
   const prepUpdate: Record<string, unknown> = {
     script_id: null,
+    plan_built_at: now,
+    plan_source: "guide",
     updated_at: now,
   };
   if (!existingOutcome && loaded.script.outcomeSentence) {

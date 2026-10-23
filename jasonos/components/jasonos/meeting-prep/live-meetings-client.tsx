@@ -3,15 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  CalendarBlank,
-  CheckCircle,
-  CircleDashed,
-  ClipboardText,
-  ListChecks,
-  Play,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, Play } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
@@ -23,16 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { LIVE_FIELD, LIVE_SECTION_LABEL } from "@/components/jasonos/live";
-import {
-  MeetingTitleField,
-  ScriptTitleField,
-} from "@/components/jasonos/meeting-prep/live-rename-field";
+import { MeetingTitleField } from "@/components/jasonos/meeting-prep/live-rename-field";
 import { updateLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import type { MeetingPrepSummary, OutcomeMark, RecentLiveMeeting } from "@/lib/server-actions/meeting-prep";
 import {
   attachPlanToMeeting,
   createLiveScript,
-  draftLiveScriptItems,
+  promotePlanToStrategy,
   type LiveScript,
 } from "@/lib/server-actions/live-scripts";
 import { cn } from "@/lib/utils";
@@ -83,15 +72,17 @@ function personLabel(meeting: MeetingPrepSummary): string {
   return meeting.title;
 }
 
-type CardAction = "go_live" | "prepare" | "review";
+/** Plan exists when there is at least one point or plan_built_at is set. */
+function hasPlan(meeting: MeetingPrepSummary): boolean {
+  return Boolean(meeting.planBuiltAt) || meeting.pointCount > 0;
+}
 
-function cardAction(meeting: MeetingPrepSummary, nowIso: string): CardAction {
-  const ended =
-    Boolean(meeting.liveEndedAt) ||
-    (!Number.isNaN(Date.parse(meeting.endsAt)) && Date.parse(meeting.endsAt) < Date.parse(nowIso));
-  if (ended) return "review";
-  if (meeting.pointCount <= 0) return "prepare";
-  return "go_live";
+function planSourceLabel(meeting: MeetingPrepSummary): string | null {
+  const raw = meeting.scriptName?.trim();
+  if (!raw) return null;
+  const fromGuide = raw.match(/^From plan:\s*(.+)$/i);
+  if (fromGuide?.[1]) return fromGuide[1].trim();
+  return raw;
 }
 
 function OutcomePill({ mark }: { mark: OutcomeMark | null }) {
@@ -143,6 +134,15 @@ function AboutMe({ settings, error }: { settings: LiveSettings; error: string | 
     setCompanies(storedCompanies);
   }
 
+  const companyCount = settings.targetCompanies.length;
+  const summaryParts: string[] = [];
+  if (storedSnapshot.trim()) summaryParts.push("Snapshot set");
+  else summaryParts.push("No snapshot");
+  summaryParts.push(
+    companyCount === 1 ? "1 target company" : `${companyCount} target companies`
+  );
+  const summary = summaryParts.join(" · ");
+
   const saveSnapshot = () => {
     if (snapshot.trim() === storedSnapshot.trim()) return;
     void updateLiveSettings({ snapshot }).then((result) => {
@@ -170,10 +170,21 @@ function AboutMe({ settings, error }: { settings: LiveSettings; error: string | 
   };
 
   return (
-    <aside className="w-full shrink-0 border-[var(--jos-line)] min-[1100px]:w-[340px] min-[1100px]:border-l min-[1100px]:pl-8">
-      <h2 className="text-[20px] font-extrabold tracking-tight">About me</h2>
+    <details className="group border-t border-[var(--jos-line)] pt-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[24px] font-extrabold tracking-tight">About me</h2>
+          <p className="mt-1 text-[14px] text-[var(--jos-muted)]">{summary}</p>
+        </div>
+        <CaretDown
+          size={18}
+          weight="bold"
+          className="shrink-0 text-[var(--jos-muted)] transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
       {error ? <p className="mt-2 text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
-      <label className="mt-5 block space-y-1">
+      <label className="mt-5 block max-w-xl space-y-1">
         <span className={LIVE_SECTION_LABEL}>60-second snapshot</span>
         <textarea
           value={snapshot}
@@ -185,7 +196,7 @@ function AboutMe({ settings, error }: { settings: LiveSettings; error: string | 
           onBlur={saveSnapshot}
         />
       </label>
-      <label className="mt-5 block space-y-1">
+      <label className="mt-5 block max-w-xl space-y-1">
         <span className={LIVE_SECTION_LABEL}>Target companies</span>
         <textarea
           value={companies}
@@ -199,7 +210,7 @@ function AboutMe({ settings, error }: { settings: LiveSettings; error: string | 
       <p className="mt-3 text-[13px] text-[var(--jos-muted)]">
         Used when you build from a playbook and on the call screen.
       </p>
-    </aside>
+    </details>
   );
 }
 
@@ -210,38 +221,22 @@ function TodayCard({
   meeting: MeetingPrepSummary;
   nowIso: string;
 }) {
-  const action = cardAction(meeting, nowIso);
-  const strategy = meeting.scriptName?.trim() || "No playbook";
-  const browning = meeting.planSource === "playbook" && /browning/i.test(meeting.scriptName ?? "");
-  const strategyLabel = browning ? `${strategy} · Browning` : strategy;
+  const ready = hasPlan(meeting);
+  const source = planSourceLabel(meeting);
   const person = personLabel(meeting);
   const company = meeting.primaryCompanyName?.trim() || null;
   const relative = relativeLabel(meeting.startsAt, meeting.endsAt, nowIso);
 
-  let topBar = "#d8d6d6";
-  if (action === "go_live") topBar = "var(--color-accent-700)";
-  if (action === "review") topBar = "var(--color-done)";
+  let statusLine = "No plan yet";
+  if (ready) statusLine = source ? `Plan ready · from ${source}` : "Plan ready";
+  else if (meeting.researchUnverified) statusLine = "Research unverified";
 
-  let StateIcon = CircleDashed;
-  let stateColor = "var(--jos-muted)";
-  let stateLine = strategyLabel;
-  if (action === "prepare") {
-    StateIcon = WarningCircle;
-    stateColor = "var(--color-accent-2)";
-    stateLine = `${strategyLabel} · needs points first`;
-  } else if (action === "go_live") {
-    StateIcon = CheckCircle;
-    stateColor = "#006925";
-    stateLine = strategyLabel;
-  } else if (!meeting.outcomeMark) {
-    StateIcon = CircleDashed;
-    stateColor = "var(--jos-muted)";
-    stateLine = strategyLabel;
-  } else {
-    StateIcon = CheckCircle;
-    stateColor = "#006925";
-    stateLine = strategyLabel;
-  }
+  const whoLine = [person !== meeting.title ? person : null, company]
+    .filter(Boolean)
+    .join(" · ");
+
+  let topBar = "#d8d6d6";
+  if (ready) topBar = "var(--color-accent-700)";
 
   return (
     <article className="bg-[var(--jos-surface)]" style={{ borderTop: `4px solid ${topBar}` }}>
@@ -257,47 +252,25 @@ function TodayCard({
           title={meeting.title}
           className="mt-2 text-[18px] font-bold leading-snug"
         />
-        {person !== meeting.title ? (
-          <p className="mt-0.5 text-[14px] text-[var(--jos-muted)]">{person}</p>
-        ) : null}
-        {company ? <p className="text-[14px] text-[var(--jos-muted)]">{company}</p> : null}
-        {meeting.researchUnverified ? (
-          <p className="mt-1 text-[12px] font-semibold text-[var(--color-accent-2-text)]">
-            Research unverified
-          </p>
-        ) : null}
-        <p className="mt-2 flex items-start gap-1.5 text-[14px] leading-snug text-[var(--jos-muted)]">
-          <StateIcon size={16} weight="duotone" className="mt-0.5 shrink-0" style={{ color: stateColor }} aria-hidden />
-          <span>{stateLine}</span>
-        </p>
+        <p className="mt-2 text-[14px] leading-snug text-[var(--jos-muted)]">{statusLine}</p>
+        {whoLine ? <p className="mt-2 text-[14px] text-[var(--jos-muted)]">{whoLine}</p> : null}
         <div className="mt-4">
-          {action === "go_live" ? (
+          {ready ? (
             <Link
               href={`/meetings/${meeting.id}/live`}
               className={cn(buttonVariants({ variant: "default" }), "h-9 gap-1.5 px-3")}
             >
               <Play size={16} weight="fill" aria-hidden />
-              Go live
+              Live
             </Link>
-          ) : null}
-          {action === "prepare" ? (
+          ) : (
             <Link
-              href={`/meetings/${meeting.id}`}
-              className={cn(buttonVariants({ variant: "secondary" }), "h-9 gap-1.5 px-3")}
+              href={`/meetings/${meeting.id}#step-plan`}
+              className={cn(buttonVariants({ variant: "secondary" }), "h-9 px-3")}
             >
-              <ListChecks size={16} weight="duotone" aria-hidden />
-              Prepare
+              Build plan
             </Link>
-          ) : null}
-          {action === "review" ? (
-            <Link
-              href={`/meetings/${meeting.id}`}
-              className={cn(buttonVariants({ variant: "secondary" }), "h-9 gap-1.5 px-3")}
-            >
-              <ClipboardText size={16} weight="duotone" aria-hidden />
-              Review
-            </Link>
-          ) : null}
+          )}
         </div>
       </div>
     </article>
@@ -334,49 +307,24 @@ export function LiveMeetingsClient({
   settingsError: string | null;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [brief, setBrief] = useState("");
-  const [saving, setSaving] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const [planName, setPlanName] = useState("");
   const [planFor, setPlanFor] = useState("");
   const [planOutcome, setPlanOutcome] = useState("");
-  const [planNotes, setPlanNotes] = useState("");
-  const [planBrief, setPlanBrief] = useState("");
   const [planSaving, setPlanSaving] = useState(false);
   const [attachFor, setAttachFor] = useState<string | null>(null);
   const [attachPrepId, setAttachPrepId] = useState("");
   const [attaching, setAttaching] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [promoteFor, setPromoteFor] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
+  const [creatingPlaybook, setCreatingPlaybook] = useState(false);
 
-  const today = [...meetings].sort(
+  const upcoming = [...meetings].sort(
     (a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)
   );
   const recentRows = recent.slice(0, 6);
-
-  const create = () => {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      toast.error("Name the playbook.");
-      return;
-    }
-    setSaving(true);
-    void createLiveScript({ name: trimmed, description }).then(async (created) => {
-      if (!created.ok) {
-        setSaving(false);
-        toast.error(created.error);
-        return;
-      }
-      if (brief.trim()) {
-        const drafted = await draftLiveScriptItems(created.script.id, brief);
-        if (!drafted.ok) toast.error(drafted.error);
-      }
-      setSaving(false);
-      setOpen(false);
-      router.push(`/live/scripts/${created.script.id}`);
-    });
-  };
+  const selectedMeeting = upcomingMeetings.find((row) => row.id === attachPrepId) ?? null;
 
   const createPlan = () => {
     const trimmed = planName.trim();
@@ -390,39 +338,74 @@ export function LiveMeetingsClient({
       kind: "plan",
       description: planFor.trim() || null,
       outcomeSentence: planOutcome.trim() || null,
-      notes: planNotes.trim() || null,
-    }).then(async (created) => {
+    }).then((created) => {
+      setPlanSaving(false);
       if (!created.ok) {
-        setPlanSaving(false);
         toast.error(created.error);
         return;
       }
-      if (planBrief.trim()) {
-        const drafted = await draftLiveScriptItems(created.script.id, planBrief);
-        if (!drafted.ok) toast.error(drafted.error);
-      }
-      setPlanSaving(false);
       setPlanOpen(false);
+      setPlanName("");
+      setPlanFor("");
+      setPlanOutcome("");
       router.push(`/live/scripts/${created.script.id}`);
     });
   };
 
-  const attach = (mode: "add" | "replace") => {
+  const createPlaybook = () => {
+    if (creatingPlaybook) return;
+    setCreatingPlaybook(true);
+    void createLiveScript({ name: "New playbook" }).then((created) => {
+      setCreatingPlaybook(false);
+      if (!created.ok) {
+        toast.error(created.error);
+        return;
+      }
+      router.push(`/live/scripts/${created.script.id}`);
+    });
+  };
+
+  const runAttach = () => {
     if (!attachFor || !attachPrepId) return;
     setAttaching(true);
-    void attachPlanToMeeting({ scriptId: attachFor, prepId: attachPrepId, mode }).then(
+    void attachPlanToMeeting({ scriptId: attachFor, prepId: attachPrepId, mode: "replace" }).then(
       (result) => {
         setAttaching(false);
         if (!result.ok) {
           toast.error(result.error);
           return;
         }
-        toast.success(`Added ${result.added === 1 ? "1 point" : `${result.added} points`} to the meeting`);
+        const prepId = attachPrepId;
         setAttachFor(null);
         setAttachPrepId("");
+        setConfirmReplace(false);
+        router.push(`/meetings/${prepId}#step-plan`);
         router.refresh();
       }
     );
+  };
+
+  const requestAttach = () => {
+    if (!attachFor || !attachPrepId) return;
+    if (selectedMeeting && selectedMeeting.pointCount > 0) {
+      setConfirmReplace(true);
+      return;
+    }
+    runAttach();
+  };
+
+  const promote = (scriptId: string) => {
+    setPromoting(true);
+    void promotePlanToStrategy(scriptId).then((result) => {
+      setPromoting(false);
+      setPromoteFor(null);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Moved to Playbooks.");
+      router.refresh();
+    });
   };
 
   return (
@@ -440,259 +423,220 @@ export function LiveMeetingsClient({
       <section className="mt-8">
         <p className="inline-flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--color-calendar-700)]">
           <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
-          Today · {today.length} {today.length === 1 ? "call" : "calls"}
+          Today and tomorrow
         </p>
-        {today.length === 0 ? (
-          <p className="mt-4 text-[16px] text-[var(--jos-muted)]">No calls today.</p>
+        {upcoming.length === 0 ? (
+          <p className="mt-4 text-[16px] text-[var(--jos-muted)]">No meetings in the next 48 hours.</p>
         ) : (
           <div className="mt-4 grid grid-cols-1 gap-5 min-[900px]:grid-cols-2 min-[1280px]:grid-cols-3">
-            {today.map((meeting) => (
+            {upcoming.map((meeting) => (
               <TodayCard key={meeting.id} meeting={meeting} nowIso={nowIso} />
             ))}
           </div>
         )}
       </section>
 
-      <div className="mt-14 flex flex-col gap-10 min-[1100px]:flex-row">
-        <div className="min-w-0 flex-1 space-y-12">
-          <section>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">Guides</h2>
-              <Button type="button" className="h-9 px-3" onClick={() => setPlanOpen(true)}>
-                New guide
-              </Button>
+      <div className="mt-14 space-y-12">
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-[24px] font-extrabold tracking-tight">Guides</h2>
+            <Button type="button" className="h-9 px-3" onClick={() => setPlanOpen(true)}>
+              New guide
+            </Button>
+          </div>
+          {plansError ? (
+            <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{plansError}</p>
+          ) : null}
+          {plans.length === 0 ? (
+            <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No guides yet.</p>
+          ) : (
+            <div className="mt-4 space-y-0">
+              {plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/live/scripts/${plan.id}`}
+                      className="truncate text-[16px] font-bold hover:underline"
+                    >
+                      {plan.name}
+                    </Link>
+                    <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
+                      {plan.itemCount} {plan.itemCount === 1 ? "point" : "points"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {promoteFor === plan.id ? (
+                      <p className="text-[13px]">
+                        Make it a playbook?{" "}
+                        <button
+                          type="button"
+                          className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                          disabled={promoting}
+                          onClick={() => promote(plan.id)}
+                        >
+                          Confirm
+                        </button>
+                        {" · "}
+                        <button
+                          type="button"
+                          className="font-semibold hover:underline"
+                          onClick={() => setPromoteFor(null)}
+                        >
+                          Cancel
+                        </button>
+                      </p>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          onClick={() => {
+                            setAttachFor(plan.id);
+                            setAttachPrepId(upcomingMeetings[0]?.id ?? "");
+                            setConfirmReplace(false);
+                          }}
+                        >
+                          Use for a meeting
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          onClick={() => setPromoteFor(plan.id)}
+                        >
+                          Make it a playbook
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            {plansError ? (
-              <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{plansError}</p>
-            ) : null}
-            {plans.length === 0 ? (
-              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No guides yet.</p>
-            ) : (
-              <div className="mt-4 space-y-0">
-                {plans.map((plan) => (
-                  <div
-                    key={plan.id}
+          )}
+        </section>
+
+        <section>
+          <h2 className="text-[24px] font-extrabold tracking-tight">Playbooks</h2>
+          {scriptsError ? (
+            <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{scriptsError}</p>
+          ) : null}
+          {scripts.length === 0 ? (
+            <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No playbooks yet.</p>
+          ) : (
+            <div className="mt-4 space-y-0">
+              {scripts.map((script) => (
+                <Link
+                  key={script.id}
+                  href={`/live/scripts/${script.id}`}
+                  className="flex flex-col gap-0.5 border-t border-[var(--jos-line)] py-3 first:border-t-0 hover:bg-[var(--jos-surface)]"
+                >
+                  <span className="truncate text-[16px] font-bold text-[var(--jos-ink)]">
+                    {script.name}
+                  </span>
+                  <span className="truncate text-[14px] text-[var(--jos-muted)]">
+                    {script.successSentence?.trim() || script.description?.trim() || "No success sentence"}
+                  </span>
+                  <span className="text-[13px] tabular-nums text-[var(--jos-muted)]">
+                    {script.itemCount} {script.itemCount === 1 ? "point" : "points"} · used{" "}
+                    {script.useCount} {script.useCount === 1 ? "time" : "times"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+          <p className="mt-4">
+            <button
+              type="button"
+              className="text-[14px] font-semibold text-[var(--color-accent-700)] hover:underline disabled:opacity-60"
+              disabled={creatingPlaybook}
+              onClick={createPlaybook}
+            >
+              Write a new playbook
+            </button>
+          </p>
+        </section>
+
+        <section>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-[24px] font-extrabold tracking-tight">Recent</h2>
+            <Link
+              href="/live/after"
+              className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+            >
+              All after
+            </Link>
+          </div>
+          {recentError ? (
+            <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{recentError}</p>
+          ) : null}
+          {recentRows.length === 0 ? (
+            <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No finished live meetings yet.</p>
+          ) : (
+            <ul className="mt-3">
+              {recentRows.map((row) => {
+                const needsReview = !row.reviewed || !row.outcomeMark;
+                const meta = [row.attendeeName, row.companyName, row.strategyName]
+                  .filter((value): value is string => Boolean(value && value !== row.title))
+                  .filter((value, index, all) => all.indexOf(value) === index);
+                return (
+                  <li
+                    key={row.id}
                     className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
                   >
-                    <div className="min-w-0 flex-1">
-                      <ScriptTitleField
-                        scriptId={plan.id}
-                        name={plan.name}
-                        kind="plan"
-                        className="truncate text-[16px] font-bold"
-                      />
-                      <Link
-                        href={`/live/scripts/${plan.id}`}
-                        className="mt-0.5 block truncate text-[14px] text-[var(--jos-muted)] hover:underline"
-                      >
-                        {plan.outcomeSentence?.trim() || plan.description?.trim() || "No outcome sentence"}
-                      </Link>
-                      <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
-                        {plan.itemCount} points
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      {plan.itemCount > 0 ? (
-                        <Link
-                          href={`/live/scripts/${plan.id}/rehearse`}
-                          className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "h-8")}
-                        >
-                          Rehearse
-                        </Link>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="h-8"
-                        onClick={() => {
-                          setAttachFor(plan.id);
-                          setAttachPrepId(upcomingMeetings[0]?.id ?? "");
-                        }}
-                      >
-                        Use for a meeting
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">Playbooks</h2>
-              <Button type="button" className="h-9 px-3" onClick={() => setOpen(true)}>
-                Write a new playbook
-              </Button>
-            </div>
-            {scriptsError ? (
-              <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{scriptsError}</p>
-            ) : null}
-            {scripts.length === 0 ? (
-              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No playbooks yet.</p>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-0 min-[900px]:grid-cols-2">
-                {scripts.map((script) => (
-                  <div
-                    key={script.id}
-                    className="flex items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0 min-[900px]:[&:nth-child(-n+2)]:border-t-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <ScriptTitleField
-                        scriptId={script.id}
-                        name={script.name}
-                        kind="strategy"
-                        className="truncate text-[16px] font-bold"
-                      />
-                      <Link
-                        href={`/live/scripts/${script.id}`}
-                        className="mt-0.5 block truncate text-[14px] text-[var(--jos-muted)] hover:underline"
-                      >
-                        {script.successSentence?.trim() || script.description?.trim() || "No success sentence"}
-                      </Link>
-                      <p className="mt-0.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
-                        {script.itemCount} points · used {script.useCount}
-                      </p>
-                    </div>
-                    {script.itemCount > 0 ? (
-                      <Link
-                        href={`/live/scripts/${script.id}/rehearse`}
-                        className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "h-8 shrink-0")}
-                      >
-                        Rehearse
-                      </Link>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <div className="flex items-baseline justify-between gap-3">
-              <h2 className="text-[24px] font-extrabold tracking-tight">Recent</h2>
-              <Link
-                href="/live/after"
-                className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
-              >
-                All after
-              </Link>
-            </div>
-            {recentError ? (
-              <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{recentError}</p>
-            ) : null}
-            {recentRows.length === 0 ? (
-              <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No finished live meetings yet.</p>
-            ) : (
-              <ul className="mt-3">
-                {recentRows.map((row) => {
-                  const needsReview = !row.reviewed || !row.outcomeMark;
-                  const meta = [row.attendeeName, row.companyName, row.strategyName]
-                    .filter((value): value is string => Boolean(value && value !== row.title))
-                    .filter((value, index, all) => all.indexOf(value) === index);
-                  return (
-                    <li
-                      key={row.id}
-                      className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
+                    <Link
+                      href={`/meetings/${row.id}`}
+                      className="w-[4.5rem] shrink-0 text-[15px] font-bold tabular-nums text-[var(--jos-ink)] hover:underline"
                     >
-                      <Link
-                        href={`/meetings/${row.id}`}
-                        className="w-[4.5rem] shrink-0 text-[15px] font-bold tabular-nums text-[var(--jos-ink)] hover:underline"
-                      >
-                        {easternDate(row.startsAt)}
-                      </Link>
-                      <div className="min-w-0 flex-1">
-                        <MeetingTitleField
-                          prepId={row.id}
-                          title={row.title}
-                          className="truncate text-[16px] font-semibold"
-                        />
-                        {meta.length ? (
-                          <p className="mt-0.5 truncate text-[13px] text-[var(--jos-muted)]">
-                            {meta.join(" · ")}
-                          </p>
-                        ) : null}
-                      </div>
-                      {needsReview ? (
-                        <span className="text-[13px] text-[var(--jos-muted)]">Needs review</span>
+                      {easternDate(row.startsAt)}
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      <MeetingTitleField
+                        prepId={row.id}
+                        title={row.title}
+                        className="truncate text-[16px] font-semibold"
+                      />
+                      {meta.length ? (
+                        <p className="mt-0.5 truncate text-[13px] text-[var(--jos-muted)]">
+                          {meta.join(" · ")}
+                        </p>
                       ) : null}
-                      <OutcomePill mark={row.outcomeMark} />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        </div>
+                    </div>
+                    {needsReview ? (
+                      <span className="text-[13px] text-[var(--jos-muted)]">Needs review</span>
+                    ) : null}
+                    <OutcomePill mark={row.outcomeMark} />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
         <AboutMe settings={settings} error={settingsError} />
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>New playbook</DialogTitle>
-            <DialogDescription>
-              A named set of points you can rehearse, then use for a meeting.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              create();
-            }}
-          >
-            <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">
-                Name <span className="text-[var(--jos-danger)]">*</span>
-              </span>
-              <input
-                required
-                value={name}
-                maxLength={120}
-                className={cn(LIVE_FIELD, "h-11")}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Description</span>
-              <textarea
-                value={description}
-                rows={2}
-                className={cn(LIVE_FIELD, "py-2")}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Brief</span>
-              <textarea
-                value={brief}
-                rows={4}
-                placeholder="Optional. Generate points from this."
-                className={cn(LIVE_FIELD, "py-2")}
-                onChange={(event) => setBrief(event.target.value)}
-              />
-            </label>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="default" disabled={saving}>
-                Save
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={planOpen} onOpenChange={setPlanOpen}>
+      <Dialog
+        open={planOpen}
+        onOpenChange={(next) => {
+          setPlanOpen(next);
+          if (!next) {
+            setPlanName("");
+            setPlanFor("");
+            setPlanOutcome("");
+          }
+        }}
+      >
         <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New guide</DialogTitle>
             <DialogDescription>
-              A guide that is not tied to the calendar yet. Rehearse it, then use it for a meeting.
+              Name it, who it is for, and what you want out of it.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -724,31 +668,12 @@ export function LiveMeetingsClient({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Outcome sentence</span>
+              <span className="text-[14px] font-semibold">What you want out of it</span>
               <textarea
                 value={planOutcome}
                 rows={2}
                 className={cn(LIVE_FIELD, "py-2")}
                 onChange={(event) => setPlanOutcome(event.target.value)}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Notes</span>
-              <textarea
-                value={planNotes}
-                rows={2}
-                className={cn(LIVE_FIELD, "py-2")}
-                onChange={(event) => setPlanNotes(event.target.value)}
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-[14px] font-semibold">Brief for AI</span>
-              <textarea
-                value={planBrief}
-                rows={3}
-                placeholder="Optional"
-                className={cn(LIVE_FIELD, "py-2")}
-                onChange={(event) => setPlanBrief(event.target.value)}
               />
             </label>
             <div className="flex justify-end gap-2">
@@ -769,6 +694,7 @@ export function LiveMeetingsClient({
           if (!openState) {
             setAttachFor(null);
             setAttachPrepId("");
+            setConfirmReplace(false);
           }
         }}
       >
@@ -785,7 +711,10 @@ export function LiveMeetingsClient({
                 aria-label="Meeting"
                 value={attachPrepId}
                 className={cn(LIVE_FIELD, "h-11")}
-                onChange={(event) => setAttachPrepId(event.target.value)}
+                onChange={(event) => {
+                  setAttachPrepId(event.target.value);
+                  setConfirmReplace(false);
+                }}
               >
                 {upcomingMeetings.map((meeting) => (
                   <option key={meeting.id} value={meeting.id}>
@@ -793,27 +722,41 @@ export function LiveMeetingsClient({
                   </option>
                 ))}
               </select>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setAttachFor(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={attaching || !attachPrepId}
-                  onClick={() => attach("add")}
-                >
-                  Add points
-                </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  disabled={attaching || !attachPrepId}
-                  onClick={() => attach("replace")}
-                >
-                  Replace plan
-                </Button>
-              </div>
+              {confirmReplace && selectedMeeting ? (
+                <p className="text-[14px]">
+                  Replace {selectedMeeting.pointCount} existing points?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--color-accent-700)] hover:underline"
+                    disabled={attaching}
+                    onClick={runAttach}
+                  >
+                    Confirm
+                  </button>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="font-semibold hover:underline"
+                    onClick={() => setConfirmReplace(false)}
+                  >
+                    Cancel
+                  </button>
+                </p>
+              ) : (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setAttachFor(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    disabled={attaching || !attachPrepId}
+                    onClick={requestAttach}
+                  >
+                    Use for this meeting
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
