@@ -34,6 +34,7 @@ import {
   type TouchObjective,
 } from "@/lib/outreach/types";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
+import { applyFirstContactFromTouches } from "@/lib/people/tracking";
 
 export type TouchChannel =
   | "email"
@@ -125,6 +126,8 @@ export async function insertContactTouches(
 
   const withDedup = touches.filter((t) => t.external_id);
   const noDedup = touches.filter((t) => !t.external_id);
+  const written: Array<{ contact_id: string; channel: string | null; direction: string | null; touched_at: string }> = [];
+  const insertedColumns = "id, contact_id, channel, direction, touched_at";
 
   if (withDedup.length) {
     const sources = Array.from(
@@ -180,11 +183,12 @@ export async function insertContactTouches(
         const { data, error } = await client
           .from("contact_touches")
           .insert(newRows)
-          .select("id, contact_id");
+          .select(insertedColumns);
         if (error) {
           result.errors.push(`insert(dedup): ${error.message}`);
         } else {
           result.inserted += data?.length ?? 0;
+          written.push(...((data ?? []) as typeof written));
         }
       }
     }
@@ -194,15 +198,20 @@ export async function insertContactTouches(
     const { data, error } = await client
       .from("contact_touches")
       .insert(noDedup)
-      .select("id, contact_id");
+      .select(insertedColumns);
     if (error) {
       result.errors.push(`insert(no-dedup): ${error.message}`);
     } else {
       result.inserted += data?.length ?? 0;
+      written.push(...((data ?? []) as typeof written));
     }
   }
 
   if (!result.inserted) return result;
+
+  await applyFirstContactFromTouches(client, written).catch((err) => {
+    console.error("[touches.firstContact]", err);
+  });
 
   // ---- Step 2: figure out which contacts had a NEW touch (latest per
   // contact) so we advance their cadence.

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getUnscoredTouches } from "@/lib/browning/data";
+import { applyFirstContactFromTouches } from "@/lib/people/tracking";
 import type {
   BrowningChannel,
   BrowningDeliveredStatus,
@@ -446,6 +447,10 @@ export async function markBrowningTouchSent(
     );
     return { ok: false, error: updateContactError.message };
   }
+
+  await applyFirstContactFromTouches(sb, [
+    { contact_id: input.contactId, channel: "linkedin", direction: "outbound", touched_at: touchedAt },
+  ]).catch((err) => console.error("[browning.markBrowningTouchSent] first contact", err));
 
   if (input.cardId) {
     // Action the card only if it's currently open — never overwrite a card
