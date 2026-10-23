@@ -8,6 +8,7 @@ import {
   callOfThree,
   carryDiscussNext,
   comparePeople,
+  countSecondCalls,
   countsAsFirstContact,
   heldOfThree,
   isOverdueNext,
@@ -232,5 +233,22 @@ describe("activityLogCsv", () => {
     );
     assert.match(csv, /Dana Ruiz \(Horizon\); Sam Lee,Me: Send my profile; Them: Intro to Dana,2026-11-03,2026-10-20\r\n$/);
     assert.equal(activityLogFilename("2026-10-19"), "Activity Log 2026-10-19.csv");
+  });
+});
+
+describe("countSecondCalls", () => {
+  it("counts each person once when exactly one call was held before the meeting", () => {
+    const logs = [
+      { contactId: "c1", prepId: "p0", occurredAt: "2026-10-01T15:00:00Z" },
+      { contactId: "c2", prepId: "p1", occurredAt: "2026-10-01T15:00:00Z" },
+      { contactId: "c2", prepId: "p2", occurredAt: "2026-10-05T15:00:00Z" },
+    ];
+    const meetings = [
+      { id: "m1", startsAt: "2026-10-20T15:00:00Z", contactId: "c1" },
+      { id: "m2", startsAt: "2026-10-21T15:00:00Z", contactId: "c1" },
+      { id: "m3", startsAt: "2026-10-20T15:00:00Z", contactId: "c2" },
+      { id: "m4", startsAt: "2026-10-20T15:00:00Z", contactId: "c3" },
+    ];
+    assert.equal(countSecondCalls(meetings, logs), 1);
   });
 });

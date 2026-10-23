@@ -18,7 +18,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const loaded = await getLiveScript(id);
-  const fallback = loaded.ok ? (loaded.script.kind === "plan" ? "Guide" : "Playbook") : "Playbook";
+  const fallback = loaded.ok ? (loaded.script.kind === "plan" ? "Sheet" : "Playbook") : "Playbook";
   const name = loaded.ok ? loaded.script.name : fallback;
   return { title: `${name} · Live · JasonOS` };
 }

@@ -443,7 +443,7 @@ function OutlineList({
   return (
     <aside className="flex w-full shrink-0 flex-col border-r border-[var(--jos-line)] min-[1100px]:w-[380px]">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <h2 className="text-[20px] font-extrabold tracking-tight">Plan</h2>
+        <h2 className="text-[20px] font-extrabold tracking-tight">Points</h2>
         <button
           type="button"
           className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"

@@ -42,8 +42,10 @@ import {
   fillScriptPlaceholders,
   fillStrategySettings,
 } from "@/lib/meeting-prep/points";
+import { callOfThree } from "@/lib/meeting-prep/people";
 import {
   acceptAdaptation,
+  attachPlanToMeeting,
   createLiveScript,
   getLiveScript,
   proposeAdaptation,
@@ -992,4 +994,119 @@ export async function attachSheetToMeeting(input: {
   if (!sheet.sheet) return { ok: false, error: "Could not read the sheet." };
   revalidateSheet(prepId);
   return { ok: true, sheet: sheet.sheet };
+}
+
+/**
+ * Put a sheet without a date on a meeting. Sheets with blocks move onto the meeting;
+ * older point-only sheets copy their points onto it and replace what was there.
+ */
+export async function putSheetOnMeeting(input: {
+  sheetId: string;
+  prepId: string;
+}): Promise<SheetResult<{ prepId: string; moved: "blocks" | "points"; added: number }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const sheetId = input.sheetId.trim();
+  const prepId = input.prepId.trim();
+  if (!sheetId || !prepId) return { ok: false, error: "Sheet or meeting not found." };
+  const blocks = await loadBlocks({ sheetId });
+  if (!blocks.ok) return blocks;
+  if (blocks.blocks.length) {
+    const holder = await getLiveScript(sheetId);
+    const added = holder.ok ? holder.items.length : 0;
+    const attached = await attachSheetToMeeting({ sheetId, prepId });
+    if (!attached.ok) return attached;
+    return { ok: true, prepId, moved: "blocks", added };
+  }
+  const attached = await attachPlanToMeeting({ scriptId: sheetId, prepId, mode: "replace" });
+  if (!attached.ok) return attached;
+  revalidateSheet(prepId);
+  return { ok: true, prepId, moved: "points", added: attached.added };
+}
+
+export type HomeSheetStatus = "ready" | "why_missing" | "not_ready" | "none";
+
+export interface MeetingSheetStatus {
+  prepId: string;
+  status: HomeSheetStatus;
+  /** "Call 2 of 3" when the person is in the networking pipeline or the playbook is Browning. */
+  callLabel: string | null;
+  playbookName: string | null;
+}
+
+/** Sheet state and call number for each meeting on Live home. */
+export async function getSheetStatuses(
+  meetings: Array<{ id: string; primaryContactId: string | null; attendeeContactIds: string[] }>
+): Promise<SheetResult<{ statuses: Record<string, MeetingSheetStatus> }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const statuses: Record<string, MeetingSheetStatus> = {};
+  if (!meetings.length) return { ok: true, statuses };
+  const prepIds = meetings.map((meeting) => meeting.id);
+  const contactOf = new Map(
+    meetings.map((meeting) => [meeting.id, meeting.primaryContactId ?? meeting.attendeeContactIds[0] ?? null])
+  );
+  const contactIds = [...new Set([...contactOf.values()].filter((id): id is string => Boolean(id)))];
+
+  const sb = createServiceRoleClient();
+  const [blocksRes, prepsRes, logsRes, contactsRes] = await Promise.all([
+    sb.from("call_sheet_blocks").select("prep_id, key, kind, body, lines").in("prep_id", prepIds),
+    sb.from("meeting_preps").select("id, script_id, sheet_ready_at").in("id", prepIds),
+    sb.from("relationship_log").select("prep_id, touch_number").in("prep_id", prepIds),
+    contactIds.length
+      ? sb.from("contacts").select("id, networking_status, touch_count").in("id", contactIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null }),
+  ]);
+  const failed = blocksRes.error || prepsRes.error || logsRes.error || contactsRes.error;
+  if (failed) return { ok: false, error: failed.message };
+
+  const scriptIds = [
+    ...new Set(
+      (prepsRes.data ?? []).map((row) => row.script_id as string | null).filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const scripts = new Map<string, { name: string; family: PlaybookFamily }>();
+  if (scriptIds.length) {
+    const { data } = await sb.from("live_scripts").select("id, name, family").in("id", scriptIds);
+    for (const row of data ?? []) {
+      scripts.set(String(row.id), { name: String(row.name ?? "").trim() || "Playbook", family: asFamily(row.family) });
+    }
+  }
+  const blocksByPrep = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of (blocksRes.data ?? []) as Array<Record<string, unknown>>) {
+    const id = String(row.prep_id);
+    blocksByPrep.set(id, [...(blocksByPrep.get(id) ?? []), row]);
+  }
+  const prepById = new Map(((prepsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.id), row]));
+  const loggedTouch = new Map(
+    ((logsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.prep_id), row.touch_number])
+  );
+  const contactById = new Map(
+    ((contactsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => [String(row.id), row])
+  );
+
+  for (const prepId of prepIds) {
+    const prep = prepById.get(prepId);
+    const script = prep?.script_id ? scripts.get(String(prep.script_id)) ?? null : null;
+    const blocks = blocksByPrep.get(prepId) ?? [];
+    let status: HomeSheetStatus = "none";
+    if (blocks.length) {
+      const why = blocks.find((row) => row.key === "why" && row.kind === "lines");
+      const whyWritten =
+        !why || blockIsFilled({ kind: "lines", body: null, lines: parseSheetLines(why.lines) });
+      if (prep?.sheet_ready_at) status = "ready";
+      else status = whyWritten ? "not_ready" : "why_missing";
+    }
+    const contactId = contactOf.get(prepId) ?? null;
+    const contact = contactId ? contactById.get(contactId) : undefined;
+    const touchCount = typeof contact?.touch_count === "number" ? contact.touch_count : 0;
+    const logged = loggedTouch.get(prepId);
+    const touchNumber = typeof logged === "number" ? logged : touchCount + 1;
+    const tracked = Boolean(contact?.networking_status) || Boolean(script && BROWNING_FAMILIES.has(script.family));
+    statuses[prepId] = {
+      prepId,
+      status,
+      callLabel: contact && tracked ? callOfThree(touchNumber) : null,
+      playbookName: script?.name ?? null,
+    };
+  }
+  return { ok: true, statuses };
 }

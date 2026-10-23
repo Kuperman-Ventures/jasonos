@@ -1,4 +1,5 @@
 import { CADENCE_DAYS, type CadenceInterval } from "../outreach/types";
+import { weeklyActivityCounts } from "./people";
 
 export const CADENCE_RULE =
   "Repeat within cadence means the meeting date is on or before last touch date plus the cadence interval. Next-touch history is not kept.";
@@ -79,6 +80,52 @@ export interface RelationshipMetrics {
   }>;
 }
 
+export interface CallMetrics {
+  calls: number;
+  people: number;
+  /** Held calls per person with a held call in the window. */
+  touchesPerPerson: number | null;
+  secondCallsScheduled: number;
+  contactsReceived: number;
+  contactsPerCall: number | null;
+  firstContactIn48h: { met: number; of: number };
+  thankYouIn24h: { met: number; of: number };
+  asks: { made: number; skipped: number };
+}
+
+function oneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/** Browning call numbers for a window. Logs are held calls; asks are ask points on held meetings. */
+export function computeCallMetrics(input: {
+  logs: Array<{ contactId: string; endsAt: string; thankYouSentAt: string | null; contactsReceived: number }>;
+  referrals: Array<{ receivedAt: string; firstContactAt: string | null }>;
+  asks: Array<{ state: string }>;
+  secondCallsScheduled: number;
+}): CallMetrics {
+  const counts = weeklyActivityCounts({
+    referrals: input.referrals,
+    calls: input.logs,
+    secondCallsScheduled: input.secondCallsScheduled,
+  });
+  const people = new Set(input.logs.map((log) => log.contactId)).size;
+  return {
+    calls: counts.callsHeld,
+    people,
+    touchesPerPerson: people ? oneDecimal(counts.callsHeld / people) : null,
+    secondCallsScheduled: counts.secondCallsScheduled,
+    contactsReceived: counts.contactsReceived,
+    contactsPerCall: counts.callsHeld ? oneDecimal(counts.contactsReceived / counts.callsHeld) : null,
+    firstContactIn48h: counts.firstContactsIn48h,
+    thankYouIn24h: counts.thankYouIn24h,
+    asks: {
+      made: input.asks.filter((ask) => ask.state === "covered").length,
+      skipped: input.asks.filter((ask) => ask.state === "skipped").length,
+    },
+  };
+}
+
 function etDateKey(iso: string): string {
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
@@ -153,7 +200,7 @@ export function computeRelationshipMetrics(input: {
     if (existing) return existing;
     const row = {
       id,
-      name: id ? strategyName.get(id) ?? "Strategy" : "No strategy",
+      name: id ? strategyName.get(id) ?? "Playbook" : "No playbook",
       meetings: 0,
       hit: 0,
       partial: 0,

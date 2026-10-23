@@ -9,6 +9,18 @@ import { parseReactions, type Reaction } from "../meeting-prep/reactions";
 
 const KIND_SET = new Set<string>(POINT_KINDS);
 
+export const CALL_SHEET_TOOL_NAMES = [
+  "build_call_sheet",
+  "set_call_sheet",
+  "create_sheet",
+  "use_sheet_for_meeting",
+  "get_call_sheet",
+  "get_person",
+  "list_people",
+  "list_upcoming_meeting_preps",
+] as const;
+
+/** Earlier names, kept registered for one release. */
 export const MEETING_PLAN_TOOL_NAMES = [
   "build_meeting_plan",
   "accept_meeting_plan",
@@ -18,6 +30,38 @@ export const MEETING_PLAN_TOOL_NAMES = [
   "get_meeting_plan",
   "list_upcoming_meeting_preps",
 ] as const;
+
+export type SheetBlockInput = {
+  key: string;
+  body?: string | null;
+  lines?: Array<{ label?: string; text: string }>;
+};
+
+/**
+ * Lines for a lines block after a write: each input line replaces the line with the same
+ * label, or the line at its position when it has no label. Extra labeled lines are added.
+ */
+export function mergeSheetLines(
+  existing: Array<{ label: string; text: string; sourceHint?: string | null }>,
+  input: Array<{ label?: string; text: string }>
+): Array<{ label: string; text: string }> {
+  const next = existing.map((line) => ({ label: line.label, text: line.text }));
+  let unlabeled = 0;
+  for (const line of input) {
+    const label = line.label?.trim() ?? "";
+    const text = String(line.text ?? "").trim();
+    const byLabel = label ? next.findIndex((row) => row.label.trim().toLowerCase() === label.toLowerCase()) : -1;
+    if (byLabel >= 0) {
+      next[byLabel] = { label: next[byLabel].label, text };
+    } else if (!label && unlabeled < existing.length) {
+      next[unlabeled] = { label: next[unlabeled].label, text };
+      unlabeled += 1;
+    } else {
+      next.push({ label: label || "Line", text });
+    }
+  }
+  return next;
+}
 
 export type PlanPointInput = {
   kind: string;

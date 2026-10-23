@@ -1063,7 +1063,7 @@ export async function startNextSheet(contactId: string): Promise<
 
   const meeting = await nextMeetingFor(sb, id);
   if (meeting) {
-    const href = `/meetings/${meeting.prepId}#step-plan`;
+    const href = `/meetings/${meeting.prepId}`;
     if (meeting.hasSheet) {
       const existing = await getCallSheet({ prepId: meeting.prepId });
       const carried = existing.ok && existing.sheet ? await carryIntoWhy(sb, existing.sheet.blocks, toDiscussNext) : false;

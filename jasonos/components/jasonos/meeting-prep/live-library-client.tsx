@@ -81,9 +81,7 @@ function replaceParam(params: URLSearchParams, key: string, value: string) {
 }
 
 function playbookColumnLabel(row: LibraryMeeting): string {
-  if (row.adapted) return "Guide";
-  if (row.strategyName) return row.strategyName;
-  return "No playbook";
+  return row.strategyName || "No playbook";
 }
 
 export function LiveLibraryClient({
@@ -301,7 +299,13 @@ export function LiveLibraryClient({
           {ordered.map(([key, groupRow]) => (
             <section key={key || "none"} className="space-y-2">
               <h2 className="text-[14px] font-semibold text-[var(--jos-ink)]">
-                {groupRow.title}{" "}
+                {group === "person" && key ? (
+                  <Link href={`/live/people/${key}`} className="hover:underline">
+                    {groupRow.title}
+                  </Link>
+                ) : (
+                  groupRow.title
+                )}{" "}
                 <span className="font-normal text-[var(--jos-muted)]">{groupRow.rows.length}</span>
               </h2>
               {groupRow.meta ? <p className="text-[13px] text-[var(--jos-muted)]">{groupRow.meta}</p> : null}
@@ -320,12 +324,25 @@ export function LiveLibraryClient({
                       >
                         {easternDate(row.startsAt)}
                       </Link>
+                      {row.touchNumber ? (
+                        <span className="text-[13px] font-bold tabular-nums text-[var(--jos-ink)]">
+                          Call {row.touchNumber}
+                        </span>
+                      ) : null}
                       <div className="min-w-0 flex-1">
                         <MeetingTitleField
                           prepId={row.id}
                           title={row.title}
                           className="truncate text-[16px] font-semibold tracking-tight"
                         />
+                        {row.primaryContactId && row.primaryContactName ? (
+                          <Link
+                            href={`/live/people/${row.primaryContactId}`}
+                            className="block truncate text-[13px] font-semibold text-[var(--jos-muted)] hover:underline"
+                          >
+                            {row.primaryContactName}
+                          </Link>
+                        ) : null}
                       </div>
                       <span className="truncate text-[13px] text-[var(--jos-muted)]">
                         {playbookColumnLabel(row)}

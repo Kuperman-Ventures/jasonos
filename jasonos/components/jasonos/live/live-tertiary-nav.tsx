@@ -18,8 +18,6 @@ function activeKey(pathname: string): LiveTertiaryKey {
   if (pathname === "/live" || pathname === "/live/") return "live";
   if (pathname.startsWith("/live/people")) return "people";
   if (pathname.startsWith("/live/playbooks")) return "playbooks";
-  // Guides are kept at /live/guides but no longer have their own tab.
-  if (pathname.startsWith("/live/guides")) return "playbooks";
   if (pathname.startsWith("/live/scripts/")) return "playbooks";
   if (pathname.startsWith("/live/library")) return "library";
   if (pathname.startsWith("/live/metrics")) return "metrics";
@@ -30,7 +28,7 @@ export function LiveTertiaryNav({
   active,
   className,
 }: {
-  /** Override active tab (e.g. playbook vs guide on /live/scripts/[id]). */
+  /** Override active tab (e.g. playbook vs sheet on /live/scripts/[id]). */
   active?: LiveTertiaryKey | null;
   className?: string;
 }) {
