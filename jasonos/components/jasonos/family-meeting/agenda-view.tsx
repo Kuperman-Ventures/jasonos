@@ -1,10 +1,23 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState, useTransition } from "react";
 import { FamilyMeetingEventIcon } from "@/components/jasonos/family-meeting/event-icon";
 import { splitAgendaLists } from "@/lib/family-meeting/collapse";
 import { groupEventsByDay } from "@/lib/family-meeting/days";
 import { discernEventIcon, locationForDisplay } from "@/lib/family-meeting/icons";
-import type { FamilyMeetingAgenda, FamilyMeetingEvent } from "@/lib/family-meeting/types";
+import type {
+  FamilyMeetingAgenda,
+  FamilyMeetingEvent,
+} from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
+import {
+  archiveFamilyMeetingSeries,
+  demoteFamilyMeetingSeries,
+  hideFamilyMeetingOccurrence,
+  promoteFamilyMeetingSeries,
+  resetFamilyMeetingPresentation,
+} from "@/lib/server-actions/family-meeting";
 
 function formatEventClock(ev: FamilyMeetingEvent): string {
   if (ev.allDay) return "All day";
@@ -31,7 +44,39 @@ function formatRoutineMeta(parts: {
   return `${when} · ${dates}`;
 }
 
+function seriesEvents(
+  laneEvents: FamilyMeetingEvent[],
+  seriesKey: string
+): FamilyMeetingEvent[] {
+  return laneEvents.filter((e) => e.seriesKey === seriesKey);
+}
+
 export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgenda }) {
+  const [printOpen, setPrintOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const printSheets = useMemo(
+    () =>
+      agenda.groups.map((lane) => ({
+        id: lane.group.id,
+        label:
+          lane.group.id === "family"
+            ? "Kuperman Family"
+            : lane.group.label,
+        accent: lane.group.accent,
+      })),
+    [agenda.groups]
+  );
+
+  function run(label: string, fn: () => Promise<{ ok: true } | { ok: false; error: string }>) {
+    setActionError(null);
+    startTransition(async () => {
+      const result = await fn();
+      if (!result.ok) setActionError(`${label}: ${result.error}`);
+    });
+  }
+
   return (
     <div className="fm-root">
       <div className="fm-shell">
@@ -40,18 +85,19 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
             <span className="fm-kicker-dot" aria-hidden />
             <span>Family Meeting</span>
             <span>·</span>
-            <span>Next two weeks</span>
+            <span>Editor · next two weeks</span>
           </div>
           <h1 className="fm-title">
             Coming up, <em>{agenda.weekendLabel}</em>
           </h1>
           <p className="fm-lede">
-            Agenda from the Kuperman Family, Kat &amp; Jason, Kyle, and Wyatt
-            calendars — weekdays and weekends for the next two weeks.
+            Edit the Kuperman Family, Kat &amp; Jason, Kyle, and Wyatt boards.
+            Hide one showing, archive a whole series, or move items between
+            spotlight and weekly rhythm. Print sheets freeze Friday 11:59pm ET.
           </p>
           <div className="fm-meta">
             <span className="fm-chip">
-              <strong>{agenda.totalEvents}</strong> items
+              <strong>{agenda.totalEvents}</strong> visible
             </span>
             <span className="fm-chip">
               2 weeks · {agenda.timezone.replace("_", " ")}
@@ -61,7 +107,26 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                 iCloud <strong>{agenda.appleIdMasked}</strong>
               </span>
             ) : null}
+            {agenda.loggedDayCount > 0 ? (
+              <span className="fm-chip">
+                Logged <strong>{agenda.loggedDayCount}</strong> past day
+                {agenda.loggedDayCount === 1 ? "" : "s"}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              className="fm-chip fm-chip-btn"
+              onClick={() => setPrintOpen(true)}
+            >
+              Print 4 sheets
+            </button>
           </div>
+          {pending ? <p className="fm-pending">Saving…</p> : null}
+          {actionError ? (
+            <p className="fm-action-error" role="alert">
+              {actionError}
+            </p>
+          ) : null}
         </header>
 
         {!agenda.connected ? (
@@ -132,6 +197,10 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                   ev.location
                                 );
                                 const loc = locationForDisplay(ev.location);
+                                const peers = seriesEvents(
+                                  lane.events,
+                                  ev.seriesKey ?? ""
+                                );
                                 return (
                                   <article
                                     key={ev.id}
@@ -142,7 +211,9 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                       className="fm-event-when"
                                       aria-label={time}
                                     >
-                                      <span className="fm-event-clock">{time}</span>
+                                      <span className="fm-event-clock">
+                                        {time}
+                                      </span>
                                     </div>
                                     <div className="fm-event-copy">
                                       <h4 className="fm-event-title">
@@ -151,6 +222,65 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                       {loc ? (
                                         <p className="fm-event-loc">{loc}</p>
                                       ) : null}
+                                      <div className="fm-event-actions">
+                                        <button
+                                          type="button"
+                                          disabled={pending}
+                                          onClick={() =>
+                                            run("Hide", () =>
+                                              hideFamilyMeetingOccurrence(ev)
+                                            )
+                                          }
+                                        >
+                                          Hide
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={pending}
+                                          onClick={() =>
+                                            run("Archive", () =>
+                                              archiveFamilyMeetingSeries({
+                                                seriesKey: ev.seriesKey!,
+                                                title: ev.title,
+                                                events: peers,
+                                              })
+                                            )
+                                          }
+                                        >
+                                          Archive
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={pending}
+                                          onClick={() =>
+                                            run("Demote", () =>
+                                              demoteFamilyMeetingSeries({
+                                                seriesKey: ev.seriesKey!,
+                                                events: peers,
+                                              })
+                                            )
+                                          }
+                                        >
+                                          → Rhythm
+                                        </button>
+                                        {ev.presentation &&
+                                        ev.presentation !== "auto" ? (
+                                          <button
+                                            type="button"
+                                            disabled={pending}
+                                            onClick={() =>
+                                              run("Reset", () =>
+                                                resetFamilyMeetingPresentation({
+                                                  seriesKey: ev.seriesKey!,
+                                                  events: peers,
+                                                })
+                                              )
+                                            }
+                                          >
+                                            Auto
+                                          </button>
+                                        ) : null}
+                                      </div>
                                     </div>
                                     <span className="fm-event-icon" aria-hidden>
                                       <FamilyMeetingEventIcon id={icon} />
@@ -171,6 +301,8 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                           {routines.map((row) => {
                             const icon = discernEventIcon(row.title);
                             const meta = formatRoutineMeta(row);
+                            const seriesKey =
+                              row.occurrences[0]?.seriesKey ?? row.key;
                             return (
                               <li
                                 key={row.key}
@@ -184,6 +316,56 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                   {row.title}
                                 </span>
                                 <span className="fm-rhythm-meta">{meta}</span>
+                                <div className="fm-rhythm-actions">
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run("Promote", () =>
+                                        promoteFamilyMeetingSeries({
+                                          seriesKey,
+                                          events: row.occurrences,
+                                        })
+                                      )
+                                    }
+                                  >
+                                    Promote
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run("Hide", async () => {
+                                        for (const occ of row.occurrences) {
+                                          const r =
+                                            await hideFamilyMeetingOccurrence(
+                                              occ
+                                            );
+                                          if (!r.ok) return r;
+                                        }
+                                        return { ok: true as const };
+                                      })
+                                    }
+                                    title="Hide these showings; later calendar dates can reappear"
+                                  >
+                                    Hide
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() =>
+                                      run("Archive", () =>
+                                        archiveFamilyMeetingSeries({
+                                          seriesKey,
+                                          title: row.title,
+                                          events: row.occurrences,
+                                        })
+                                      )
+                                    }
+                                  >
+                                    Archive
+                                  </button>
+                                </div>
                               </li>
                             );
                           })}
@@ -197,6 +379,61 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
           })}
         </div>
       </div>
+
+      {printOpen ? (
+        <div
+          className="fm-print-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Print four sheets"
+        >
+          <div className="fm-print-panel">
+            <div className="fm-print-panel-head">
+              <div>
+                <h2>Print pack · wireframe</h2>
+                <p>
+                  Four letter pages (one lane each). Content freezes at{" "}
+                  <strong>{agenda.printFreezeLabel}</strong> and covers the
+                  immediate week ahead. Layout guidance comes next.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="fm-chip fm-chip-btn"
+                onClick={() => setPrintOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="fm-print-sheets">
+              {printSheets.map((sheet, i) => (
+                <article
+                  key={sheet.id}
+                  className="fm-print-sheet"
+                  style={{ ["--lane-accent" as string]: sheet.accent }}
+                >
+                  <header>
+                    <span className="fm-print-sheet-num">Page {i + 1}</span>
+                    <h3>{sheet.label}</h3>
+                  </header>
+                  <div className="fm-print-sheet-body">
+                    <p>PDF sheet placeholder</p>
+                    <ul>
+                      <li>Day-grouped spotlight events</li>
+                      <li>Weekly rhythm block</li>
+                      <li>Frozen Fri 11:59pm ET · week ahead</li>
+                    </ul>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p className="fm-print-footnote">
+              Export to PDF is stubbed — editor edits above already persist and
+              will feed this pack in the next phase.
+            </p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

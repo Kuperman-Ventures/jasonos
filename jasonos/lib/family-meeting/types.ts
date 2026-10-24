@@ -14,6 +14,8 @@ export interface FamilyCalendarGroup {
   ink: string;
 }
 
+export type FamilyMeetingPresentation = "auto" | "spotlight" | "routine";
+
 export interface FamilyMeetingEvent {
   id: string;
   uid: string;
@@ -31,6 +33,12 @@ export interface FamilyMeetingEvent {
    * Rendered with a quieter list treatment.
    */
   routine?: boolean;
+  /** Stable keys for editor persistence. */
+  seriesKey?: string;
+  occurrenceKey?: string;
+  dayKey?: string;
+  /** Persisted presentation override after edits are applied. */
+  presentation?: FamilyMeetingPresentation;
 }
 
 export interface FamilyMeetingGroupAgenda {
@@ -52,4 +60,10 @@ export interface FamilyMeetingAgenda {
   warnings: string[];
   groups: FamilyMeetingGroupAgenda[];
   totalEvents: number;
+  /** YYYY-MM-DD open day keys in the rolling two-week editor window. */
+  openDayKeys: string[];
+  /** How many past day blocks were flipped to logged on this load. */
+  loggedDayCount: number;
+  /** Wireframe print freeze cue (Fri 11:59pm ET). */
+  printFreezeLabel: string;
 }
