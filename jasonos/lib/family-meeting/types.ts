@@ -23,7 +23,11 @@ export interface FamilyCalendarGroupView {
   ink: string;
 }
 
-export type FamilyMeetingPresentation = "auto" | "spotlight" | "routine";
+export type FamilyMeetingPresentation =
+  | "auto"
+  | "spotlight"
+  | "routine"
+  | "heads_up";
 
 export interface FamilyMeetingEvent {
   id: string;

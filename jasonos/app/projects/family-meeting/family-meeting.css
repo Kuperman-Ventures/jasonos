@@ -147,6 +147,133 @@
   color: #e8a090;
 }
 
+.fm-undo {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--fm-line);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.fm-undo h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--fm-display);
+  font-size: 1.2rem;
+  font-weight: 500;
+}
+
+.fm-undo-lede {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--fm-paper-muted);
+}
+
+.fm-undo-cols {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .fm-undo-cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.fm-undo h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fm-paper-faint);
+}
+
+.fm-undo ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fm-undo li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.82rem;
+}
+
+.fm-undo li em {
+  font-style: normal;
+  color: var(--fm-paper-faint);
+  font-size: 0.72rem;
+}
+
+.fm-undo li button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--fm-paper);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.fm-headsup {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 0.75rem;
+  border: 1px dashed color-mix(in srgb, var(--lane-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--lane-accent) 10%, transparent);
+}
+
+.fm-headsup-label {
+  margin: 0 0 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--lane-accent) 80%, white);
+}
+
+.fm-headsup ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fm-headsup li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fm-paper);
+}
+
+.fm-print-hint {
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--fm-paper-faint);
+}
+
+a.fm-chip-btn {
+  text-decoration: none;
+}
+
 .fm-board {
   display: grid;
   gap: 1rem;

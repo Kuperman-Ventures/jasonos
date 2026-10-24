@@ -5,7 +5,11 @@ import {
   seriesKeyForEvent,
 } from "./keys";
 
-export type PresentationOverride = "auto" | "spotlight" | "routine";
+export type PresentationOverride =
+  | "auto"
+  | "spotlight"
+  | "routine"
+  | "heads_up";
 
 export interface OccurrenceEdit {
   occurrence_key: string;
@@ -76,6 +80,9 @@ export function applyFamilyMeetingEdits(
     } else if (occ?.presentation === "routine") {
       routine = true;
       presentation = "routine";
+    } else if (occ?.presentation === "heads_up") {
+      routine = false;
+      presentation = "heads_up";
     }
     out.push({ ...ev, routine, presentation });
   }

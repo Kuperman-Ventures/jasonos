@@ -33,6 +33,7 @@ const CRON_PATHS = new Set([
   "/api/browning-networking/run",
   "/api/browning-networking/holds",
   "/api/browning-networking/reminders",
+  "/api/family-meeting/freeze-print",
 ]);
 
 export const PUBLIC_SURFACE_HEADER = "x-jasonos-public";
@@ -74,6 +75,7 @@ export function hidesJasonosChrome(pathname: string): boolean {
     matchesPathPrefix(path, "/login") ||
     matchesPathPrefix(path, "/auth") ||
     matchesPathPrefix(path, "/iugr") ||
-    matchesPathPrefix(path, "/projects/ski-tracker")
+    matchesPathPrefix(path, "/projects/ski-tracker") ||
+    matchesPathPrefix(path, "/projects/family-meeting/print")
   );
 }
