@@ -698,7 +698,7 @@ export function LiveCallClient({
                 <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">No points to mark</h2>
               )}
             </div>
-            {sheet.helpThem ? <PinnedHelp text={sheet.helpThem} /> : null}
+            {sheet.helpThem && !marking ? <PinnedHelp text={sheet.helpThem} /> : null}
             {onStage ? (
               <SheetTray
                 key={onStage.id}

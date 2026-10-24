@@ -64,7 +64,7 @@ export function PlaybooksIndexClient({
       }
       setOpen(false);
       setName("");
-      router.push(`/live/scripts/${result.script.id}`);
+      router.push(`/live/playbooks/${result.script.id}`);
       router.refresh();
     });
   };
@@ -94,7 +94,7 @@ export function PlaybooksIndexClient({
               <li key={playbook.id} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={`/live/scripts/${playbook.id}`}
+                    href={`/live/playbooks/${playbook.id}`}
                     className="text-[16px] font-bold text-[var(--jos-ink)] hover:underline"
                   >
                     {playbook.name}

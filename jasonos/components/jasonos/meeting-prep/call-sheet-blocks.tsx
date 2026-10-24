@@ -10,6 +10,7 @@ import {
   FieldSaveRow,
   LIVE_FIELD,
   LIVE_SECTION_LABEL,
+  useLeaveGuard,
   useSavedField,
   type SaveOutcome,
 } from "@/components/jasonos/live";
@@ -417,6 +418,7 @@ export function ConversationBlockBody({
   pointsError?: string | null;
   playbookId: string | null;
 }) {
+  const { requestLeave } = useLeaveGuard();
   const [showAll, setShowAll] = useState(false);
   const [editing, setEditing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -453,7 +455,7 @@ export function ConversationBlockBody({
             reorder: (ids) => reorderMeetingPoints(prepId, ids),
           }}
         />
-        <button type="button" className={LINK} onClick={() => setEditing(false)}>
+        <button type="button" className={LINK} onClick={() => requestLeave(() => setEditing(false))}>
           Done editing points
         </button>
       </div>
@@ -504,7 +506,7 @@ export function ConversationBlockBody({
         <button type="button" className={LINK} onClick={() => setEditing(true)}>
           Edit points
         </button>
-        <Link href={playbookId ? `/live/scripts/${playbookId}#questions` : "/live/playbooks"} className={LINK}>
+        <Link href={playbookId ? `/live/playbooks/${playbookId}#questions` : "/live/playbooks#questions"} className={LINK}>
           Add from question bank
         </Link>
       </p>

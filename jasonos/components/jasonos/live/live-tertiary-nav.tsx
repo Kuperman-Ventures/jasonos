@@ -19,6 +19,7 @@ function activeKey(pathname: string): LiveTertiaryKey {
   if (pathname.startsWith("/live/people")) return "people";
   if (pathname.startsWith("/live/playbooks")) return "playbooks";
   if (pathname.startsWith("/live/scripts/")) return "playbooks";
+  if (pathname.startsWith("/live/sheets/")) return "live";
   if (pathname.startsWith("/live/library")) return "library";
   if (pathname.startsWith("/live/metrics")) return "metrics";
   return "live";
@@ -28,7 +29,7 @@ export function LiveTertiaryNav({
   active,
   className,
 }: {
-  /** Override active tab (e.g. playbook vs sheet on /live/scripts/[id]). */
+  /** Override active tab (e.g. a sheet opened from the Library). */
   active?: LiveTertiaryKey | null;
   className?: string;
 }) {

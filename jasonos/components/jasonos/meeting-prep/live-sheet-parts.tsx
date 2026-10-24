@@ -356,9 +356,8 @@ export function PinnedHelp({ text }: { text: string }) {
   return (
     <div className="flex shrink-0 items-start gap-2.5 bg-[var(--jos-surface)] px-8 py-2.5 min-[1100px]:px-12">
       <HandHeart size={20} weight="duotone" className="mt-0.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
-      <p className="min-w-0 text-[15px] leading-snug">
-        <span className="mr-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">How I can help them</span>
-        {text}
+      <p className="min-w-0 text-[14px] leading-snug text-[var(--jos-muted)]">
+        <span className="font-semibold">How I can help them:</span> {text}
       </p>
     </div>
   );

@@ -9,7 +9,8 @@ import type { ReactionShape } from "@/lib/meeting-prep/reactions";
 import type { MeetingPoint } from "@/lib/server-actions/meeting-points";
 import type { LiveScript, LiveScriptItem } from "@/lib/server-actions/live-scripts";
 
-function toPoints(items: LiveScriptItem[]): MeetingPoint[] {
+/** Script items in the shape the call screen plays. */
+export function scriptItemsAsPoints(items: LiveScriptItem[]): MeetingPoint[] {
   return items.map((item) => ({
     id: item.id,
     prepId: "",
@@ -95,7 +96,7 @@ export function RehearseClient({
   script: LiveScript;
   items: LiveScriptItem[];
 }) {
-  const run = useLocalRun(() => toPoints(items));
+  const run = useLocalRun(() => scriptItemsAsPoints(items));
 
   return (
     <LiveCallClient
@@ -107,7 +108,7 @@ export function RehearseClient({
         companyLabel: null,
         timeLabel: null,
         joinHref: null,
-        backHref: `/live/scripts/${script.id}`,
+        backHref: `/live/playbooks/${script.id}`,
         badge: "rehearsal",
         startedAt: null,
         outcomeSentence: null,

@@ -297,7 +297,7 @@ function UndatedSheets({
               className="flex flex-wrap items-center gap-3 border-t border-[var(--jos-line)] py-3 first:border-t-0"
             >
               <div className="min-w-0 flex-1">
-                <Link href={`/live/scripts/${sheet.id}`} className="block truncate text-[16px] font-bold hover:underline">
+                <Link href={`/live/sheets/${sheet.id}`} className="block truncate text-[16px] font-bold hover:underline">
                   {sheet.name}
                 </Link>
                 <p className="mt-0.5 truncate text-[13px] text-[var(--jos-muted)]">
@@ -306,7 +306,7 @@ function UndatedSheets({
                     .join(" · ")}
                 </p>
               </div>
-              <Link href={`/live/scripts/${sheet.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Link href={`/live/sheets/${sheet.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Open
               </Link>
               <Button
@@ -383,7 +383,7 @@ function Playbooks({ playbooks, error }: { playbooks: LiveScript[]; error: strin
         <ul className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 min-[900px]:grid-cols-2">
           {playbooks.map((playbook) => (
             <li key={playbook.id} className="min-w-0">
-              <Link href={`/live/scripts/${playbook.id}`} className="text-[15px] font-semibold hover:underline">
+              <Link href={`/live/playbooks/${playbook.id}`} className="text-[15px] font-semibold hover:underline">
                 {playbook.name}
               </Link>
               {playbook.successSentence?.trim() ? (

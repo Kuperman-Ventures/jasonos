@@ -1,11 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { InlineField } from "@/components/jasonos/meeting-prep/points-editor";
-import { updateLiveScript } from "@/lib/server-actions/live-scripts";
+import { SavedTextField } from "@/components/jasonos/live";
 import { setMeetingTitle } from "@/lib/server-actions/meeting-prep";
-import { cn } from "@/lib/utils";
 
 export function MeetingTitleField({
   prepId,
@@ -18,65 +15,19 @@ export function MeetingTitleField({
 }) {
   const router = useRouter();
   return (
-    <InlineField
+    <SavedTextField
       value={title}
+      label="Meeting name"
+      name="name"
       placeholder="Meeting name"
-      emptyLabel="Name this meeting"
       maxLength={200}
-      className={cn("min-w-0", className)}
-      onSave={(next) => {
-        const trimmed = next.trim();
-        if (!trimmed) {
-          toast.error("Write a meeting name.");
-          return;
-        }
-        void setMeetingTitle(prepId, trimmed).then((result) => {
-          if (!result.ok) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success("Meeting name saved");
-          router.refresh();
-        });
-      }}
-    />
-  );
-}
-
-export function ScriptTitleField({
-  scriptId,
-  name,
-  kind,
-  className,
-}: {
-  scriptId: string;
-  name: string;
-  kind: "plan" | "strategy";
-  className?: string;
-}) {
-  const router = useRouter();
-  const label = kind === "plan" ? "Sheet name" : "Playbook name";
-  return (
-    <InlineField
-      value={name}
-      placeholder={label}
-      emptyLabel={label}
-      maxLength={120}
-      className={cn("min-w-0", className)}
-      onSave={(next) => {
-        const trimmed = next.trim();
-        if (!trimmed) {
-          toast.error(kind === "plan" ? "Name the sheet." : "Name the playbook.");
-          return;
-        }
-        void updateLiveScript(scriptId, { name: trimmed }).then((result) => {
-          if (!result.ok) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success(`${kind === "plan" ? "Sheet" : "Playbook"} renamed`);
-          router.refresh();
-        });
+      inputClassName={className}
+      validate={(next) => (next ? null : "Write a meeting name.")}
+      onSave={async (next) => {
+        const result = await setMeetingTitle(prepId, next);
+        if (!result.ok) return result;
+        router.refresh();
+        return { ok: true, value: next };
       }}
     />
   );
