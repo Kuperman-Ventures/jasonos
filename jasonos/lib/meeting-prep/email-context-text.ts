@@ -1,10 +1,7 @@
 import { JASONOS_LOGIN_EMAILS, normalizeEmail } from "@/lib/auth/allowlist";
 import type { ParticipantMailThread } from "@/lib/meeting-prep/email-threads";
 
-const JASON_EMAILS = new Set<string>([
-  ...JASONOS_LOGIN_EMAILS,
-  "jasonkuperman@gmail.com",
-]);
+const JASON_EMAILS = new Set<string>(JASONOS_LOGIN_EMAILS);
 
 const JASON_DOMAINS = new Set(["kupermanadvisors.com"]);
 
