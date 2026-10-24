@@ -50,9 +50,9 @@ export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal co
 
 You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
-Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch, build_call_sheet, set_call_sheet, create_sheet, use_sheet_for_meeting) change live JasonOS data — say what you changed.
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch, build_call_sheet, set_call_sheet, create_sheet, use_sheet_for_meeting, mark_sheet_ready) change live JasonOS data — say what you changed.
 
-Live calls run on a call sheet: one page per call, built from a playbook (Who, Why, What and how, Rapport, The conversation, Turn to me, The ask, Close, After for Browning calls). Plan the call sheet with Jason in conversation. Start from list_upcoming_meeting_preps, get_call_sheet, and get_person or list_people for his history with the person. Fill Why and What and how in Jason's words, from what he tells you, not from your guesses. Write with set_call_sheet (blocks by key, plus points and the outcome sentence). build_call_sheet drafts the empty parts from research; Jason still confirms them. Use create_sheet for a call with no meeting yet and use_sheet_for_meeting to put it on one. Never write call_sheet_blocks or meeting_points through SQL. The older names build_meeting_plan, set_meeting_plan, create_guide, use_guide_for_meeting, accept_meeting_plan, and get_meeting_plan still work for one release; prefer the call sheet tools.
+Live calls run on a call sheet: one page per call, built from a playbook (Who, Why, What and how, Rapport, The conversation, Turn to me, The ask, Close, After for Browning calls). Plan the call sheet with Jason in conversation. Fill the Why and What-and-how lines in his words with set_call_sheet. Never write meeting_points or call_sheet_blocks through SQL. Start from list_upcoming_meeting_preps, get_call_sheet, and get_person or list_people for his history with the person. Write what he tells you, not your guesses, using the block keys and line labels get_call_sheet returns. build_call_sheet drafts the empty parts from research; Jason still confirms them. When he says the sheet is done, call mark_sheet_ready and tell him the refusal if it gives one. Use create_sheet for a call with no meeting yet and use_sheet_for_meeting to put it on one. The older names build_meeting_plan, set_meeting_plan, create_guide, use_guide_for_meeting, accept_meeting_plan, and get_meeting_plan still work for one release; prefer the call sheet tools.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -434,9 +434,10 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Set call sheet",
       description:
-        "Write a meeting's call sheet in Jason's words: blocks by key (Why and What and how as lines), the outcome sentence, and points for The conversation (mode add or replace). Starts the sheet from playbook_id or the suggested playbook when blocks are given and the meeting has none. Written blocks count as confirmed.",
+        "Write a call sheet in Jason's words: blocks by key (Why and What and how as lines, labels from get_call_sheet), the outcome sentence, and points for The conversation (mode add or replace). Pass exactly one of prep_id (a meeting's sheet) or sheet_id (a sheet with no meeting). Unknown block keys and line labels are refused before anything is written. For a meeting with no sheet, starts it from playbook_id or the suggested playbook when blocks are given. Written blocks count as confirmed.",
       inputSchema: z.object({
-        prep_id: z.string().uuid(),
+        prep_id: z.string().uuid().optional(),
+        sheet_id: z.string().uuid().optional(),
         playbook_id: z.string().uuid().optional(),
         blocks: z.array(sheetBlockSchema).max(20).optional(),
         outcome_sentence: z.string().max(400).optional(),
@@ -453,7 +454,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Create sheet",
       description:
-        "Create a call sheet with no meeting yet. With playbook_id it gets the playbook's blocks (fill them with blocks); without, it needs a name and points. Returns id and /live/scripts/{id}. Put it on a meeting with use_sheet_for_meeting.",
+        "Create a call sheet with no meeting yet. With playbook_id it gets the playbook's blocks (fill them with blocks); without, it needs a name and points. Returns id and /live/sheets/{id}. Put it on a meeting with use_sheet_for_meeting.",
       inputSchema: z.object({
         name: z.string().max(120).optional(),
         playbook_id: z.string().uuid().optional(),
@@ -481,6 +482,20 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (args) => runTool(async () => (await plans()).putSheetOnMeetingTool(args))
+  );
+
+  server.registerTool(
+    "mark_sheet_ready",
+    {
+      title: "Mark sheet ready",
+      description:
+        "Mark a meeting's call sheet ready for Live. Refuses while a required block is empty or The conversation has no points, and returns the refusal to tell Jason.",
+      inputSchema: z.object({
+        prep_id: z.string().uuid(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(async () => (await plans()).markSheetReadyTool(args))
   );
 
   server.registerTool(
@@ -578,7 +593,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Create guide (earlier name)",
       description:
-        "Earlier name for create_sheet without a playbook, kept for one release. Creates a sheet with points and no meeting. Returns id and /live/scripts/{id} URL.",
+        "Earlier name for create_sheet without a playbook, kept for one release. Creates a sheet with points and no meeting. Returns id and /live/sheets/{id} URL.",
       inputSchema: z.object({
         name: z.string().min(1).max(120),
         for: z.string().max(400).optional(),
@@ -625,7 +640,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Upcoming meeting preps",
       description:
-        "Upcoming Live meeting preps for the next N Eastern days (default 7): id, title, starts_at, attendees, track, has_sheet, sheet_status (ready, why_missing, not_ready, none), call number, playbook, research_verified.",
+        "Upcoming Live meeting preps for the next N Eastern days (default 7): id, title, starts_at, attendees, track, has_sheet, sheet_ready, sheet_status (ready, why_missing, not_ready, none), touch_number, call number, playbook, research_verified.",
       inputSchema: z.object({
         days: z.number().int().min(1).max(30).optional(),
       }),

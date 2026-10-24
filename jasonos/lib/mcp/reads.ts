@@ -69,6 +69,7 @@ export function listJasonosAreas() {
           "set_call_sheet",
           "create_sheet",
           "use_sheet_for_meeting",
+          "mark_sheet_ready",
           "get_meeting_plan",
           "build_meeting_plan",
           "accept_meeting_plan",

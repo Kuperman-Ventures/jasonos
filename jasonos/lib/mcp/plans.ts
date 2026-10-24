@@ -5,6 +5,7 @@ import {
   getCallSheet,
   getCallSheetPerson,
   getSheetStatuses,
+  markSheetReady,
   putSheetOnMeeting,
   updateCallSheetBlock,
   type CallSheet,
@@ -12,7 +13,10 @@ import {
 import {
   createLiveScript,
   createLiveScriptItem,
+  deleteLiveScriptItem,
+  getLiveScript,
   listPlaybooks,
+  reorderLiveScriptItems,
   updateLiveScript,
   updateLiveScriptItem,
 } from "@/lib/server-actions/live-scripts";
@@ -42,12 +46,14 @@ import {
   type PlanPointInput,
   type SheetBlockInput,
   validatePlanPoints,
+  validateSheetBlocks,
 } from "./plan-points";
 
 export {
   CALL_SHEET_TOOL_NAMES,
   MEETING_PLAN_TOOL_NAMES,
   validatePlanPoints,
+  validateSheetBlocks,
   type PlanPointInput,
 } from "./plan-points";
 
@@ -59,7 +65,7 @@ function sheetPayload(sheet: CallSheet, pointCount = 0) {
   return {
     prep_id: sheet.prepId,
     sheet_id: sheet.sheetId,
-    url: sheet.prepId ? `${APP_URL}/meetings/${sheet.prepId}` : `${APP_URL}/live/scripts/${sheet.sheetId}`,
+    url: sheet.prepId ? `${APP_URL}/meetings/${sheet.prepId}` : `${APP_URL}/live/sheets/${sheet.sheetId}`,
     playbook: sheet.playbook ? { id: sheet.playbook.id, name: sheet.playbook.name, family: sheet.playbook.family } : null,
     ready_at: sheet.readyAt,
     person: sheet.person
@@ -122,6 +128,8 @@ function findBlock(blocks: CallSheetBlock[], key: string): CallSheetBlock {
 
 /** Write blocks in Jason's words. Each write confirms the block. */
 async function writeBlocks(sheet: CallSheet, inputs: SheetBlockInput[]): Promise<string[]> {
+  const checked = validateSheetBlocks(sheet.blocks, inputs);
+  if (!checked.ok) throw new Error(checked.error);
   const written: string[] = [];
   for (const input of inputs) {
     const block = findBlock(sheet.blocks, input.key);
@@ -211,24 +219,93 @@ export async function buildCallSheetTool(input: { prep_id: string; playbook_id?:
   };
 }
 
+/** Points onto a sheet with no meeting (live_script_items), add or replace. */
+async function writeSheetItems(sheetId: string, points: PlanPointInput[] | undefined, mode?: "add" | "replace") {
+  if (!points?.length) return { added: 0 };
+  if (mode !== "add" && mode !== "replace") throw new Error("mode must be add or replace.");
+  const validated = validatePlanPoints(points);
+  if (!validated.ok) throw new Error(validated.error);
+  const loaded = await getLiveScript(sheetId);
+  if (!loaded.ok) throw new Error(loaded.error);
+  if (mode === "replace") {
+    for (const item of loaded.items) {
+      const deleted = await deleteLiveScriptItem(item.id);
+      if (!deleted.ok) throw new Error(deleted.error);
+    }
+  }
+  const createdIds: string[] = [];
+  for (const point of validated.points) {
+    const item = await createLiveScriptItem({
+      scriptId: sheetId,
+      kind: point.kind,
+      headline: point.headline,
+      detail: point.detail,
+      listenFor: point.listenFor,
+    });
+    if (!item.ok) throw new Error(item.error);
+    createdIds.push(item.item.id);
+    if (point.prepareReactions || point.reactions) {
+      const updated = await updateLiveScriptItem(item.item.id, {
+        prepareReactions: point.prepareReactions,
+        reactions: point.reactions ?? undefined,
+      });
+      if (!updated.ok) throw new Error(updated.error);
+    }
+  }
+  if (mode === "add" && loaded.items.length) {
+    const reordered = await reorderLiveScriptItems(sheetId, [...loaded.items.map((item) => item.id), ...createdIds]);
+    if (!reordered.ok) throw new Error(reordered.error);
+  }
+  return { added: createdIds.length };
+}
+
 /**
- * Write a meeting's call sheet: blocks in Jason's words, the outcome sentence, and points.
- * Starts the sheet from playbook_id (or the playbook his status suggests) when blocks are
- * given and the meeting has none.
+ * Write a call sheet in Jason's words: blocks, the outcome sentence, and points. Exactly one of
+ * prep_id (a meeting's sheet) or sheet_id (a sheet with no meeting). For a meeting, starts the
+ * sheet from playbook_id (or the playbook his status suggests) when blocks are given and it has
+ * none, and records the plan as written in chat.
  */
 export async function setCallSheet(input: {
-  prep_id: string;
+  prep_id?: string;
+  sheet_id?: string;
   playbook_id?: string;
   blocks?: SheetBlockInput[];
   outcome_sentence?: string;
   points?: PlanPointInput[];
   mode?: "add" | "replace";
 }) {
-  const prepId = input.prep_id.trim();
-  if (!prepId) throw new Error("prep_id is required.");
+  const prepId = input.prep_id?.trim() ?? "";
+  const sheetId = input.sheet_id?.trim() ?? "";
+  if (Boolean(prepId) === Boolean(sheetId)) throw new Error("Pass exactly one of prep_id or sheet_id.");
   const blocks = input.blocks ?? [];
   if (!blocks.length && !input.points?.length && input.outcome_sentence === undefined) {
     throw new Error("Pass blocks, points, or outcome_sentence.");
+  }
+  if (input.points?.length && input.mode !== "add" && input.mode !== "replace") {
+    throw new Error("mode must be add or replace.");
+  }
+
+  if (sheetId) {
+    const current = await getCallSheet({ sheetId });
+    if (!current.ok) throw new Error(current.error);
+    if (blocks.length && !current.sheet) throw new Error("This sheet has no blocks. Pass points instead.");
+    const written = current.sheet && blocks.length ? await writeBlocks(current.sheet, blocks) : [];
+    if (input.outcome_sentence !== undefined) {
+      const saved = await updateLiveScript(sheetId, { outcomeSentence: input.outcome_sentence.trim() || null });
+      if (!saved.ok) throw new Error(saved.error);
+    }
+    const items = await writeSheetItems(sheetId, input.points, input.mode);
+    const [sheet, loaded] = await Promise.all([getCallSheet({ sheetId }), getLiveScript(sheetId)]);
+    if (!sheet.ok) throw new Error(sheet.error);
+    return {
+      ok: true,
+      sheet_id: sheetId,
+      created: false,
+      blocks_written: written,
+      points_added: items.added,
+      mode: input.mode ?? null,
+      sheet: sheet.sheet ? sheetPayload(sheet.sheet, loaded.ok ? loaded.items.length : 0) : null,
+    };
   }
 
   let created = false;
@@ -250,6 +327,8 @@ export async function setCallSheet(input: {
   if (points.added) {
     context = await ensureResearchAndEmail(prepId);
     if (!context.ok) throw new Error(context.error);
+  }
+  if (points.added || written.length) {
     const marked = await markPlanBuilt(prepId, "chat");
     if (!marked.ok) throw new Error(marked.error);
   }
@@ -268,6 +347,15 @@ export async function setCallSheet(input: {
     context_missing: context?.ok ? context.contextMissing : [],
     research_verified: context?.ok ? context.researchVerified : null,
   };
+}
+
+/** Marks a meeting's sheet ready. Returns the refusal when a required block is empty or there are no points. */
+export async function markSheetReadyTool(input: { prep_id: string }) {
+  const prepId = input.prep_id.trim();
+  if (!prepId) throw new Error("prep_id is required.");
+  const result = await markSheetReady(prepId);
+  if (!result.ok) return { ok: false, prep_id: prepId, ready: false, refusal: result.error };
+  return { ok: true, prep_id: prepId, ready: true, ready_at: result.readyAt, url: `${APP_URL}/meetings/${prepId}` };
 }
 
 /** A sheet with no meeting yet. From a playbook when playbook_id is given; otherwise from points. */
@@ -335,7 +423,7 @@ export async function createSheet(input: {
   return {
     ok: true,
     id: sheetId,
-    url: `/live/scripts/${sheetId}`,
+    url: `/live/sheets/${sheetId}`,
     point_count: validated?.ok ? validated.points.length : 0,
   };
 }
@@ -609,7 +697,9 @@ export async function listUpcomingMeetingPreps(input: { days?: number } = {}) {
         track: trackById.get(meeting.id) ?? null,
         primary_contact_id: meeting.primaryContactId,
         has_sheet: sheet ? sheet.status !== "none" : null,
+        sheet_ready: sheet ? sheet.status === "ready" : null,
         sheet_status: sheet?.status ?? null,
+        touch_number: sheet?.touchNumber ?? null,
         call: sheet?.callLabel ?? null,
         playbook: sheet?.playbookName ?? null,
         has_plan: Boolean(meeting.planBuiltAt) || meeting.pointCount > 0,

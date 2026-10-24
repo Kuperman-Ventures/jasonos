@@ -1088,5 +1088,5 @@ export async function startNextSheet(contactId: string): Promise<
   const sheetId = created.sheet.sheetId as string;
   const carried = await carryIntoWhy(sb, created.sheet.blocks, toDiscussNext);
   revalidatePeople(id);
-  return { ok: true, href: `/live/scripts/${sheetId}`, prepId: null, sheetId, playbookName, created: true, carried };
+  return { ok: true, href: `/live/sheets/${sheetId}`, prepId: null, sheetId, playbookName, created: true, carried };
 }

@@ -14,6 +14,7 @@ export const CALL_SHEET_TOOL_NAMES = [
   "set_call_sheet",
   "create_sheet",
   "use_sheet_for_meeting",
+  "mark_sheet_ready",
   "get_call_sheet",
   "get_person",
   "list_people",
@@ -36,6 +37,58 @@ export type SheetBlockInput = {
   body?: string | null;
   lines?: Array<{ label?: string; text: string }>;
 };
+
+type SheetBlockShape = {
+  key: string;
+  title: string;
+  kind: string;
+  lines: Array<{ label: string }>;
+};
+
+/**
+ * Refuses a set_call_sheet write before anything is saved: unknown block keys, blocks that
+ * are not written here (points, After), lines on a text block, and line labels the block
+ * does not have.
+ */
+export function validateSheetBlocks(
+  blocks: SheetBlockShape[],
+  inputs: SheetBlockInput[]
+): { ok: true } | { ok: false; error: string } {
+  const keys = blocks.map((block) => block.key).join(", ");
+  for (const input of inputs) {
+    const wanted = input.key.trim().toLowerCase();
+    const block =
+      blocks.find((row) => row.key.toLowerCase() === wanted) ??
+      blocks.find((row) => row.title.trim().toLowerCase() === wanted);
+    if (!block) return { ok: false, error: `No block "${input.key}" on this sheet. Blocks: ${keys}.` };
+    if (block.kind === "after") return { ok: false, error: "After is written on Debrief, not with set_call_sheet." };
+    if (block.kind === "points") {
+      return { ok: false, error: `${block.title} holds points. Pass them as points, not as a block.` };
+    }
+    if (input.lines === undefined) continue;
+    if (block.kind !== "lines") return { ok: false, error: `${block.title} takes a body, not lines.` };
+    const labels = block.lines.map((line) => line.label.trim());
+    const known = new Set(labels.map((label) => label.toLowerCase()));
+    let unlabeled = 0;
+    for (const line of input.lines) {
+      const label = line.label?.trim() ?? "";
+      if (!label) {
+        unlabeled += 1;
+        continue;
+      }
+      if (!known.has(label.toLowerCase())) {
+        return {
+          ok: false,
+          error: `${block.title} has no line "${label}". Lines: ${labels.join(", ") || "none"}.`,
+        };
+      }
+    }
+    if (unlabeled > labels.length) {
+      return { ok: false, error: `${block.title} has ${labels.length} lines; ${unlabeled} were given without labels.` };
+    }
+  }
+  return { ok: true };
+}
 
 /**
  * Lines for a lines block after a write: each input line replaces the line with the same
