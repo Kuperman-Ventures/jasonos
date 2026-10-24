@@ -9,12 +9,12 @@ import type {
   SeriesEdit,
 } from "./edits";
 import { dayKeyForEvent, todayKeyEt } from "./keys";
+import type { FamilyMeetingPrintPackPayload } from "./print-pack";
+import { freezeFridayKeyFor } from "./print-window";
 import type { FamilyMeetingEvent } from "./types";
 import {
   FAMILY_MEETING_LOOKAHEAD_DAYS,
-  FAMILY_MEETING_TIMEZONE,
   upcomingAgendaWindow,
-  zonedLocalDate,
 } from "./weekend";
 
 function fail(error: { message: string }): never {
@@ -183,6 +183,12 @@ export async function unarchiveSeries(seriesKey: string): Promise<void> {
       { onConflict: "series_key" }
     );
   if (error) fail(error);
+  // Clear occurrence hides that archive applied for this series.
+  const { error: hideError } = await db
+    .from("family_meeting_occurrence_edits")
+    .update({ hidden: false })
+    .eq("series_key", seriesKey);
+  if (hideError) fail(hideError);
 }
 
 /** Promote/demote every occurrence of a series currently in the provided event list. */
@@ -200,33 +206,133 @@ export async function setSeriesPresentation(input: {
   }
 }
 
-/** Friday 11:59pm ET freeze label for the print pack (week-ahead). Wireframe only for now. */
+/** Friday 11:59pm ET freeze label for the print pack. */
 export function printFreezeLabel(now: Date = new Date()): {
   freezeFridayKey: string;
   freezeAtLabel: string;
 } {
-  const today = todayKeyEt(now);
-  const { year, month, day } = ymdParts(today);
-  const noon = zonedLocalDate(FAMILY_MEETING_TIMEZONE, year, month, day, 12, 0);
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: FAMILY_MEETING_TIMEZONE,
-    weekday: "short",
-  }).format(noon);
-  const map: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
-  const dow = map[weekday] ?? 0;
-  // This Friday if still Friday; otherwise the upcoming Friday.
-  const friDelta = dow === 5 ? 0 : dow === 6 ? 6 : 5 - dow;
-  const freezeFridayKey = addDaysKey(today, friDelta);
+  const freezeFridayKey = freezeFridayKeyFor(now);
   return {
     freezeFridayKey,
     freezeAtLabel: `Fri ${freezeFridayKey} · 11:59pm ET`,
   };
+}
+
+export async function listHiddenOccurrences(): Promise<OccurrenceEdit[]> {
+  const { data, error } = await jasonosDb()
+    .from("family_meeting_occurrence_edits")
+    .select(
+      "occurrence_key,series_key,group_id,day_key,title,starts_at,hidden,presentation"
+    )
+    .eq("hidden", true)
+    .order("starts_at", { ascending: true });
+  if (error) fail(error);
+  return (data ?? []) as OccurrenceEdit[];
+}
+
+export async function listArchivedSeries(): Promise<SeriesEdit[]> {
+  const { data, error } = await jasonosDb()
+    .from("family_meeting_series_edits")
+    .select("series_key,title,archived")
+    .eq("archived", true)
+    .order("title", { ascending: true });
+  if (error) fail(error);
+  return (data ?? []) as SeriesEdit[];
+}
+
+export async function unhideOccurrenceKey(occurrenceKey: string): Promise<void> {
+  const { error } = await jasonosDb()
+    .from("family_meeting_occurrence_edits")
+    .update({ hidden: false })
+    .eq("occurrence_key", occurrenceKey);
+  if (error) fail(error);
+}
+
+export async function savePrintPack(input: {
+  freezeFriday: string;
+  payload: FamilyMeetingPrintPackPayload;
+}): Promise<{ id: string; created: boolean }> {
+  const db = jasonosDb();
+  const { data: existing } = await db
+    .from("family_meeting_print_packs")
+    .select("id")
+    .eq("freeze_friday", input.freezeFriday)
+    .maybeSingle();
+  if (existing?.id) {
+    const { error } = await db
+      .from("family_meeting_print_packs")
+      .update({
+        range_start: input.payload.rangeStart,
+        range_end: input.payload.rangeEnd,
+        label: input.payload.label,
+        payload: input.payload,
+      })
+      .eq("id", existing.id);
+    if (error) fail(error);
+    return { id: existing.id as string, created: false };
+  }
+  const { data, error } = await db
+    .from("family_meeting_print_packs")
+    .insert({
+      freeze_friday: input.freezeFriday,
+      range_start: input.payload.rangeStart,
+      range_end: input.payload.rangeEnd,
+      label: input.payload.label,
+      payload: input.payload,
+    })
+    .select("id")
+    .single();
+  if (error) fail(error);
+  return { id: data.id as string, created: true };
+}
+
+export async function getLatestPrintPack(): Promise<{
+  id: string;
+  freeze_friday: string;
+  label: string;
+  payload: FamilyMeetingPrintPackPayload;
+} | null> {
+  const { data, error } = await jasonosDb()
+    .from("family_meeting_print_packs")
+    .select("id,freeze_friday,label,payload")
+    .order("freeze_friday", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) fail(error);
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    freeze_friday: data.freeze_friday as string,
+    label: data.label as string,
+    payload: data.payload as FamilyMeetingPrintPackPayload,
+  };
+}
+
+export async function getPrintPackById(id: string): Promise<{
+  id: string;
+  freeze_friday: string;
+  label: string;
+  payload: FamilyMeetingPrintPackPayload;
+} | null> {
+  const { data, error } = await jasonosDb()
+    .from("family_meeting_print_packs")
+    .select("id,freeze_friday,label,payload")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fail(error);
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    freeze_friday: data.freeze_friday as string,
+    label: data.label as string,
+    payload: data.payload as FamilyMeetingPrintPackPayload,
+  };
+}
+
+export async function markPrintPackEmailed(id: string): Promise<void> {
+  const { error } = await jasonosDb()
+    .from("family_meeting_print_packs")
+    .update({ emailed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) fail(error);
 }

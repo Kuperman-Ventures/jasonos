@@ -83,5 +83,11 @@ export const config: VercelConfig = {
       path: "/api/browning-networking/reminders?source=cron",
       schedule: "20 * * * 1-5",
     },
+    // Family Meeting print freeze — Saturday 03:59 UTC ≈ Friday 11:59pm ET (EDT).
+    // Handler also accepts early Saturday ET and is idempotent per Friday.
+    {
+      path: "/api/family-meeting/freeze-print?source=cron",
+      schedule: "59 3 * * 6",
+    },
   ],
 };
