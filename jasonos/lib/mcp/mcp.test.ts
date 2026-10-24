@@ -28,6 +28,7 @@ import {
   CALL_SHEET_TOOL_NAMES,
   MEETING_PLAN_TOOL_NAMES,
   mergeSheetLines,
+  validateSheetBlocks,
   validatePlanPoints,
 } from "./plan-points.ts";
 import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "./register.ts";
@@ -335,7 +336,76 @@ describe("JasonOS area map", () => {
 
   it("tells Claude to write call sheets with set_call_sheet in Jason's words", () => {
     assert.match(JASONOS_MCP_INSTRUCTIONS, /set_call_sheet/);
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /Why and What and how in Jason's words/);
+    assert.match(
+      JASONOS_MCP_INSTRUCTIONS,
+      /Plan the call sheet with Jason in conversation\. Fill the Why and What-and-how lines in his words with set_call_sheet/
+    );
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /Never write meeting_points or call_sheet_blocks through SQL\./);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /mark_sheet_ready/);
+  });
+
+  it("registers mark_sheet_ready and keeps the earlier names", () => {
+    const server = new McpServer({ name: "jasonos-test", version: "0.0.0" });
+    registerJasonosTools(server);
+    const registered = Object.keys(
+      (server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools
+    );
+    assert.ok(registered.includes("mark_sheet_ready"));
+    for (const name of ["build_meeting_plan", "set_meeting_plan", "create_guide", "use_guide_for_meeting"]) {
+      assert.ok(registered.includes(name), `missing alias ${name}`);
+    }
+  });
+});
+
+describe("validateSheetBlocks", () => {
+  const blocks = [
+    { key: "who", title: "Who", kind: "text", lines: [] },
+    {
+      key: "why",
+      title: "Why",
+      kind: "lines",
+      lines: [{ label: "Why them" }, { label: "Why now" }, { label: "To discuss" }],
+    },
+    { key: "conversation", title: "The conversation", kind: "points", lines: [] },
+    { key: "after", title: "After", kind: "after", lines: [] },
+  ];
+
+  it("accepts known keys, block titles, and matching line labels", () => {
+    assert.deepEqual(
+      validateSheetBlocks(blocks, [
+        { key: "who", body: "Ran growth at Acme" },
+        { key: "Why", lines: [{ label: "why now", text: "Hiring" }, { text: "Unlabeled fills by position" }] },
+      ]),
+      { ok: true }
+    );
+  });
+
+  it("rejects an unknown block key and lists the keys", () => {
+    const result = validateSheetBlocks(blocks, [{ key: "rapport", body: "x" }]);
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.match(result.error, /No block "rapport"/);
+      assert.match(result.error, /who, why, conversation, after/);
+    }
+  });
+
+  it("rejects a line label the block does not have", () => {
+    const result = validateSheetBlocks(blocks, [{ key: "why", lines: [{ label: "Why me", text: "x" }] }]);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.match(result.error, /no line "Why me".*Why them, Why now, To discuss/);
+  });
+
+  it("rejects more unlabeled lines than the block has", () => {
+    const result = validateSheetBlocks(blocks, [
+      { key: "why", lines: [{ text: "a" }, { text: "b" }, { text: "c" }, { text: "d" }] },
+    ]);
+    assert.equal(result.ok, false);
+  });
+
+  it("rejects lines on a text block, and points or After blocks", () => {
+    assert.equal(validateSheetBlocks(blocks, [{ key: "who", lines: [{ text: "x" }] }]).ok, false);
+    assert.equal(validateSheetBlocks(blocks, [{ key: "conversation", body: "x" }]).ok, false);
+    assert.equal(validateSheetBlocks(blocks, [{ key: "after", body: "x" }]).ok, false);
   });
 });
 
