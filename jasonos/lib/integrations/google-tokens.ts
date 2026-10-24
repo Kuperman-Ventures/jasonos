@@ -2,27 +2,23 @@ import "server-only";
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { envConfigured } from "@/lib/integrations/_base";
+import {
+  ADVISORS_ACCOUNT_EMAIL,
+  GMAIL_ACCOUNT_EMAIL,
+} from "@/lib/integrations/account-emails";
+
+export {
+  ADVISORS_ACCOUNT_EMAIL,
+  GMAIL_ACCOUNT_EMAIL,
+  GMAIL_ACCOUNT_EMAIL_ALIASES,
+  isPersonalGmailAccount,
+} from "@/lib/integrations/account-emails";
 
 export const GOOGLE_ADVISORS = "google";
 export const GOOGLE_GMAIL = "google_gmail";
 export const GOOGLE_PROVIDERS = [GOOGLE_ADVISORS, GOOGLE_GMAIL] as const;
 
 export type GoogleProvider = (typeof GOOGLE_PROVIDERS)[number];
-
-/** Preferred personal Gmail address shown in Settings / login hints. */
-export const GMAIL_ACCOUNT_EMAIL = "jasonkuperman@gmail.com";
-/** Older personal Gmail that still holds mail history — accept either. */
-export const GMAIL_ACCOUNT_EMAIL_ALIASES = [
-  "jasonkuperman@gmail.com",
-  "jskuperman@gmail.com",
-] as const;
-export const ADVISORS_ACCOUNT_EMAIL = "jason@kupermanadvisors.com";
-
-export function isPersonalGmailAccount(email: string | null | undefined): boolean {
-  const e = (email ?? "").trim().toLowerCase();
-  if (!e) return false;
-  return (GMAIL_ACCOUNT_EMAIL_ALIASES as readonly string[]).includes(e);
-}
 
 export interface GoogleAccessToken {
   provider: GoogleProvider;
