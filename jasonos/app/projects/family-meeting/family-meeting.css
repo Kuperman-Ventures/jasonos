@@ -122,6 +122,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+.fm-chip-btn {
+  cursor: pointer;
+  color: var(--fm-paper);
+  background: color-mix(in srgb, var(--fm-gold) 16%, transparent);
+  border-color: color-mix(in srgb, var(--fm-gold) 40%, transparent);
+}
+
+.fm-chip-btn:hover {
+  background: color-mix(in srgb, var(--fm-gold) 28%, transparent);
+}
+
+.fm-pending,
+.fm-action-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+}
+
+.fm-pending {
+  color: var(--fm-paper-faint);
+}
+
+.fm-action-error {
+  color: #e8a090;
+}
+
 .fm-board {
   display: grid;
   gap: 1rem;
@@ -312,6 +337,42 @@
   color: var(--fm-paper-faint);
 }
 
+.fm-event-actions,
+.fm-rhythm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.fm-event-actions button,
+.fm-rhythm-actions button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fm-paper-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.fm-event-actions button:hover:not(:disabled),
+.fm-rhythm-actions button:hover:not(:disabled) {
+  color: var(--fm-paper);
+  border-color: color-mix(in srgb, var(--lane-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--lane-accent) 16%, transparent);
+}
+
+.fm-event-actions button:disabled,
+.fm-rhythm-actions button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
 /* Collapsed week-to-week chores — quiet footer block */
 .fm-rhythm {
   margin-top: 1rem;
@@ -341,9 +402,14 @@
   display: grid;
   grid-template-columns: 1.15rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.45rem 0.55rem;
-  padding: 0.28rem 0.15rem;
-  opacity: 0.7;
+  gap: 0.35rem 0.55rem;
+  padding: 0.35rem 0.15rem;
+  opacity: 0.85;
+}
+
+.fm-rhythm-row .fm-rhythm-actions {
+  grid-column: 2 / -1;
+  margin-top: 0.15rem;
 }
 
 .fm-rhythm-row:hover {
@@ -459,6 +525,111 @@
 @keyframes fm-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.15); opacity: 0.7; }
+}
+
+/* Print pack wireframe */
+.fm-print-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(6, 14, 16, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.fm-print-panel {
+  width: min(960px, 100%);
+  max-height: min(90dvh, 920px);
+  overflow: auto;
+  padding: 1.25rem 1.35rem 1.5rem;
+  border-radius: 1.1rem;
+  border: 1px solid var(--fm-line);
+  background: linear-gradient(165deg, #132f34, #0f2428 55%, #0c1f23);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.fm-print-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.fm-print-panel-head h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--fm-display);
+  font-size: 1.45rem;
+  font-weight: 500;
+}
+
+.fm-print-panel-head p {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--fm-paper-muted);
+}
+
+.fm-print-sheets {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 720px) {
+  .fm-print-sheets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.fm-print-sheet {
+  --lane-accent: var(--fm-gold);
+  min-height: 11rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px dashed color-mix(in srgb, var(--lane-accent) 45%, transparent);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.fm-print-sheet-num {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fm-paper-faint);
+}
+
+.fm-print-sheet h3 {
+  margin: 0.2rem 0 0.65rem;
+  font-family: var(--fm-display);
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--lane-accent) 80%, white);
+}
+
+.fm-print-sheet-body {
+  font-size: 0.78rem;
+  color: var(--fm-paper-muted);
+}
+
+.fm-print-sheet-body p {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+  color: var(--fm-paper);
+}
+
+.fm-print-sheet-body ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.fm-print-footnote {
+  margin: 1rem 0 0;
+  font-size: 0.75rem;
+  color: var(--fm-paper-faint);
 }
 
 @media (prefers-reduced-motion: reduce) {

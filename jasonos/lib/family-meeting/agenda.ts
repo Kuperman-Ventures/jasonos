@@ -14,8 +14,14 @@ import {
   pickBestCalendarForGroup,
   scoreCalendarGroupMatch,
 } from "./groups";
+import { applyFamilyMeetingEdits, withEventKeys } from "./edits";
 import { maskAppleId, resolveICloudCalendarConnection } from "./icloud";
 import { markRoutineEvents } from "./routine";
+import {
+  loadFamilyMeetingEdits,
+  printFreezeLabel,
+  syncFamilyMeetingDayBlocks,
+} from "./store";
 import type {
   FamilyMeetingAgenda,
   FamilyMeetingEvent,
@@ -32,6 +38,9 @@ function emptyAgenda(partial: {
   error: string | null;
   warnings?: string[];
   window: ReturnType<typeof upcomingAgendaWindow>;
+  openDayKeys?: string[];
+  loggedDayCount?: number;
+  printFreezeLabel?: string;
 }): FamilyMeetingAgenda {
   const groups: FamilyMeetingGroupAgenda[] = FAMILY_CALENDAR_GROUPS.map(
     (group) => ({
@@ -53,6 +62,9 @@ function emptyAgenda(partial: {
     warnings: partial.warnings ?? [],
     groups,
     totalEvents: 0,
+    openDayKeys: partial.openDayKeys ?? [],
+    loggedDayCount: partial.loggedDayCount ?? 0,
+    printFreezeLabel: partial.printFreezeLabel ?? printFreezeLabel().freezeAtLabel,
   };
 }
 
@@ -60,6 +72,22 @@ export async function loadFamilyMeetingAgenda(
   now: Date = new Date()
 ): Promise<FamilyMeetingAgenda> {
   const window = upcomingAgendaWindow(now);
+  const freeze = printFreezeLabel(now);
+
+  let openDayKeys: string[] = [];
+  let loggedDayCount = 0;
+  let edits = { occurrences: [], series: [] } as Awaited<
+    ReturnType<typeof loadFamilyMeetingEdits>
+  >;
+  try {
+    const synced = await syncFamilyMeetingDayBlocks(now);
+    openDayKeys = synced.openDays;
+    loggedDayCount = synced.loggedCount;
+    edits = await loadFamilyMeetingEdits();
+  } catch (error) {
+    console.error("[family-meeting.edits]", error);
+  }
+
   const creds = await resolveICloudCalendarConnection();
 
   if (!creds) {
@@ -68,6 +96,9 @@ export async function loadFamilyMeetingAgenda(
       appleIdMasked: null,
       error: null,
       window,
+      openDayKeys,
+      loggedDayCount,
+      printFreezeLabel: freeze.freezeAtLabel,
     });
   }
 
@@ -78,6 +109,9 @@ export async function loadFamilyMeetingAgenda(
       appleIdMasked: maskAppleId(creds.appleId),
       error: listed.error,
       window,
+      openDayKeys,
+      loggedDayCount,
+      printFreezeLabel: freeze.freezeAtLabel,
     });
   }
 
@@ -143,7 +177,10 @@ export async function loadFamilyMeetingAgenda(
   const groups: FamilyMeetingGroupAgenda[] = FAMILY_CALENDAR_GROUPS.map(
     (group) => {
       const lane = rawLanes.find((l) => l.groupId === group.id);
-      const events = markRoutineEvents(deduped.get(group.id) ?? []);
+      const marked = markRoutineEvents(deduped.get(group.id) ?? []).map(
+        withEventKeys
+      );
+      const events = applyFamilyMeetingEdits(marked, edits);
       return {
         group,
         calendarName: lane?.calendarName ?? null,
@@ -174,5 +211,8 @@ export async function loadFamilyMeetingAgenda(
     warnings,
     groups,
     totalEvents,
+    openDayKeys,
+    loggedDayCount,
+    printFreezeLabel: freeze.freezeAtLabel,
   };
 }
