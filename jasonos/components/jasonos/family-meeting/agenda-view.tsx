@@ -1,37 +1,18 @@
 import Link from "next/link";
 import { FamilyMeetingEventIcon } from "@/components/jasonos/family-meeting/event-icon";
 import { splitAgendaLists } from "@/lib/family-meeting/collapse";
+import { groupEventsByDay } from "@/lib/family-meeting/days";
 import { discernEventIcon, locationForDisplay } from "@/lib/family-meeting/icons";
 import type { FamilyMeetingAgenda, FamilyMeetingEvent } from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
 
-function formatEventTime(ev: FamilyMeetingEvent): {
-  weekday: string;
-  date: string;
-  time: string;
-} {
-  const start = new Date(ev.startsAt);
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: FAMILY_MEETING_TIMEZONE,
-    weekday: "short",
-  }).format(start);
-  const date = new Intl.DateTimeFormat("en-US", {
-    timeZone: FAMILY_MEETING_TIMEZONE,
-    month: "short",
-    day: "numeric",
-  }).format(start);
-
-  if (ev.allDay) {
-    return { weekday, date, time: "All day" };
-  }
-
-  const time = new Intl.DateTimeFormat("en-US", {
+function formatEventClock(ev: FamilyMeetingEvent): string {
+  if (ev.allDay) return "All day";
+  return new Intl.DateTimeFormat("en-US", {
     timeZone: FAMILY_MEETING_TIMEZONE,
     hour: "numeric",
     minute: "2-digit",
-  }).format(start);
-
-  return { weekday, date, time };
+  }).format(new Date(ev.startsAt));
 }
 
 function formatRoutineMeta(parts: {
@@ -42,9 +23,7 @@ function formatRoutineMeta(parts: {
 }): string {
   const when = parts.timeLabel
     ? `${parts.weekdayLabel} · ${parts.timeLabel}`
-    : parts.allDay
-      ? parts.weekdayLabel
-      : parts.weekdayLabel;
+    : parts.weekdayLabel;
   const dates =
     parts.dateLabels.length <= 2
       ? parts.dateLabels.join(" & ")
@@ -106,6 +85,7 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
         <div className="fm-board">
           {agenda.groups.map((lane) => {
             const { spotlight, routines } = splitAgendaLists(lane.events);
+            const days = groupEventsByDay(spotlight);
             const displayCount = spotlight.length + routines.length;
             return (
               <section
@@ -136,33 +116,51 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                   </p>
                 ) : (
                   <>
-                    {spotlight.length ? (
-                      <div className="fm-events">
-                        {spotlight.map((ev) => {
-                          const { weekday, date, time } = formatEventTime(ev);
-                          const whenLabel = `${weekday} ${date}, ${time}`;
-                          const icon = discernEventIcon(ev.title, ev.location);
-                          const loc = locationForDisplay(ev.location);
-                          return (
-                            <article key={ev.id} className="fm-event">
-                              <div
-                                className="fm-event-when"
-                                aria-label={whenLabel}
-                              >
-                                <span className="fm-event-weekday">{weekday}</span>
-                                <span className="fm-event-date">{date}</span>
-                                <span className="fm-event-clock">{time}</span>
-                              </div>
-                              <div className="fm-event-copy">
-                                <h3 className="fm-event-title">{ev.title}</h3>
-                                {loc ? <p className="fm-event-loc">{loc}</p> : null}
-                              </div>
-                              <span className="fm-event-icon" aria-hidden>
-                                <FamilyMeetingEventIcon id={icon} />
-                              </span>
-                            </article>
-                          );
-                        })}
+                    {days.length ? (
+                      <div className="fm-days">
+                        {days.map((day) => (
+                          <div key={day.key} className="fm-day">
+                            <h3 className="fm-day-head">
+                              <span className="fm-day-weekday">{day.weekday}</span>
+                              <span className="fm-day-date">{day.date}</span>
+                            </h3>
+                            <div className="fm-events">
+                              {day.events.map((ev) => {
+                                const time = formatEventClock(ev);
+                                const icon = discernEventIcon(
+                                  ev.title,
+                                  ev.location
+                                );
+                                const loc = locationForDisplay(ev.location);
+                                return (
+                                  <article
+                                    key={ev.id}
+                                    className="fm-event"
+                                    aria-label={`${day.weekday} ${day.date}, ${time}: ${ev.title}`}
+                                  >
+                                    <div
+                                      className="fm-event-when"
+                                      aria-label={time}
+                                    >
+                                      <span className="fm-event-clock">{time}</span>
+                                    </div>
+                                    <div className="fm-event-copy">
+                                      <h4 className="fm-event-title">
+                                        {ev.title}
+                                      </h4>
+                                      {loc ? (
+                                        <p className="fm-event-loc">{loc}</p>
+                                      ) : null}
+                                    </div>
+                                    <span className="fm-event-icon" aria-hidden>
+                                      <FamilyMeetingEventIcon id={icon} />
+                                    </span>
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : null}
 
@@ -182,7 +180,9 @@ export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgend
                                 <span className="fm-rhythm-icon" aria-hidden>
                                   <FamilyMeetingEventIcon id={icon} />
                                 </span>
-                                <span className="fm-rhythm-title">{row.title}</span>
+                                <span className="fm-rhythm-title">
+                                  {row.title}
+                                </span>
                                 <span className="fm-rhythm-meta">{meta}</span>
                               </li>
                             );
