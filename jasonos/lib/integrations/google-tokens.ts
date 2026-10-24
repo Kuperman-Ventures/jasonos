@@ -5,6 +5,7 @@ import { envConfigured } from "@/lib/integrations/_base";
 import {
   ADVISORS_ACCOUNT_EMAIL,
   GMAIL_ACCOUNT_EMAIL,
+  isPersonalGmailAccount,
 } from "@/lib/integrations/account-emails";
 
 export {
