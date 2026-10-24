@@ -119,6 +119,7 @@ function revalidateSheet(prepId?: string | null) {
       revalidatePath(`/meetings/${prepId}/live`);
     }
     revalidatePath("/meetings/[id]", "page");
+    revalidatePath("/live/sheets/[id]", "page");
   } catch {
     // Outside a Next request revalidatePath throws.
   }
@@ -1030,6 +1031,8 @@ export interface MeetingSheetStatus {
   status: HomeSheetStatus;
   /** "Call 2 of 3" when the person is in the networking pipeline or the playbook is Browning. */
   callLabel: string | null;
+  /** This call's number with the person; null when the call is not tracked. */
+  touchNumber: number | null;
   playbookName: string | null;
 }
 
@@ -1048,7 +1051,7 @@ export async function getSheetStatuses(
 
   const sb = createServiceRoleClient();
   const [blocksRes, prepsRes, logsRes, contactsRes] = await Promise.all([
-    sb.from("call_sheet_blocks").select("prep_id, key, kind, body, lines").in("prep_id", prepIds),
+    sb.from("call_sheet_blocks").select("prep_id, key, kind, required, body, lines").in("prep_id", prepIds),
     sb.from("meeting_preps").select("id, script_id, sheet_ready_at").in("id", prepIds),
     sb.from("relationship_log").select("prep_id, touch_number").in("prep_id", prepIds),
     contactIds.length
@@ -1089,11 +1092,18 @@ export async function getSheetStatuses(
     const blocks = blocksByPrep.get(prepId) ?? [];
     let status: HomeSheetStatus = "none";
     if (blocks.length) {
-      const why = blocks.find((row) => row.key === "why" && row.kind === "lines");
-      const whyWritten =
-        !why || blockIsFilled({ kind: "lines", body: null, lines: parseSheetLines(why.lines) });
+      // Points are counted when the sheet is marked ready; here only written blocks gate the pill.
+      const requiredEmpty = blocks.some((row) => {
+        if (!row.required || row.kind === "points") return false;
+        const kind = KIND_SET.has(String(row.kind)) ? (row.kind as BlockKind) : "text";
+        return !blockIsFilled({
+          kind,
+          body: typeof row.body === "string" ? row.body : null,
+          lines: parseSheetLines(row.lines),
+        });
+      });
       if (prep?.sheet_ready_at) status = "ready";
-      else status = whyWritten ? "not_ready" : "why_missing";
+      else status = requiredEmpty ? "why_missing" : "not_ready";
     }
     const contactId = contactOf.get(prepId) ?? null;
     const contact = contactId ? contactById.get(contactId) : undefined;
@@ -1105,6 +1115,7 @@ export async function getSheetStatuses(
       prepId,
       status,
       callLabel: contact && tracked ? callOfThree(touchNumber) : null,
+      touchNumber: contact && tracked ? touchNumber : null,
       playbookName: script?.name ?? null,
     };
   }

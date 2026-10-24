@@ -81,7 +81,7 @@ function replaceParam(params: URLSearchParams, key: string, value: string) {
 }
 
 function playbookColumnLabel(row: LibraryMeeting): string {
-  return row.strategyName || "No playbook";
+  return row.playbookName || "No playbook";
 }
 
 export function LiveLibraryClient({
@@ -105,9 +105,9 @@ export function LiveLibraryClient({
     setQ(urlQ);
   }
 
-  const group = params.get("group") === "strategy" ? "strategy" : "person";
+  const group = ["playbook", "strategy"].includes(params.get("group") ?? "") ? "playbook" : "person";
   const person = params.get("person") ?? "";
-  const strategy = params.get("strategy") ?? "";
+  const playbook = params.get("playbook") ?? params.get("strategy") ?? "";
   const mark = params.get("mark") ?? "";
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
@@ -119,6 +119,7 @@ export function LiveLibraryClient({
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params.toString());
+    if (key === "playbook") next.delete("strategy");
     replaceParam(next, key, value);
     push(next);
   };
@@ -127,7 +128,7 @@ export function LiveLibraryClient({
   const groups = new Map<string, { title: string; meta: string | null; rows: LibraryMeeting[] }>();
   for (const meeting of meetings) {
     const key =
-      group === "person" ? meeting.primaryContactId ?? "" : meeting.strategyId ?? "";
+      group === "person" ? meeting.primaryContactId ?? "" : meeting.playbookId ?? "";
     const existing = groups.get(key);
     if (existing) {
       existing.rows.push(meeting);
@@ -152,7 +153,7 @@ export function LiveLibraryClient({
       });
     } else {
       groups.set(key, {
-        title: meeting.strategyName || "No playbook",
+        title: meeting.playbookName || "No playbook",
         meta: null,
         rows: [meeting],
       });
@@ -196,12 +197,12 @@ export function LiveLibraryClient({
           </span>
           <select
             aria-label="Playbook"
-            value={strategy}
+            value={playbook}
             className="h-9 bg-transparent text-[14px] font-semibold outline-none"
-            onChange={(event) => setFilter("strategy", event.target.value)}
+            onChange={(event) => setFilter("playbook", event.target.value)}
           >
             <option value="">All playbooks</option>
-            {facets.strategies.map((item) => (
+            {facets.playbooks.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name} ({item.count})
               </option>
@@ -278,9 +279,9 @@ export function LiveLibraryClient({
         </button>
         <button
           type="button"
-          aria-pressed={group === "strategy"}
-          className={`text-[13px] font-semibold ${group === "strategy" ? "underline" : "text-[var(--jos-muted)]"}`}
-          onClick={() => setFilter("group", "strategy")}
+          aria-pressed={group === "playbook"}
+          className={`text-[13px] font-semibold ${group === "playbook" ? "underline" : "text-[var(--jos-muted)]"}`}
+          onClick={() => setFilter("group", "playbook")}
         >
           By playbook
         </button>

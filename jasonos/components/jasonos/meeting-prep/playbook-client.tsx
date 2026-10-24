@@ -5,9 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Trash, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { StrategyFields } from "@/components/jasonos/meeting-prep/live-script-client";
-import { InlineField, PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
-import { LIVE_FIELD, LIVE_SECTION_LABEL, UnfinishedField } from "@/components/jasonos/live";
+import { PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
+import {
+  LeaveGuardProvider,
+  LIVE_FIELD,
+  LIVE_FIELD_UNFINISHED,
+  LIVE_SECTION_LABEL,
+  SavedTextField,
+  UnfinishedField,
+  type SaveOutcome,
+} from "@/components/jasonos/live";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   BLOCK_KINDS,
@@ -50,6 +57,12 @@ const BROWNING_KEYS = new Set<string>(BROWNING_BLOCK_KEYS);
 
 const LINK_BUTTON = "text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline";
 
+type Saved = SaveOutcome<unknown>;
+
+function toastFailure(result: Saved) {
+  if (!result.ok) toast.error(result.error);
+}
+
 function easternDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     timeZone: "America/New_York",
@@ -89,10 +102,12 @@ function LinesEditor({
   onSave,
 }: {
   lines: PlaybookLine[];
-  onSave: (next: PlaybookLine[]) => void;
+  onSave: (next: PlaybookLine[]) => Promise<Saved>;
 }) {
   const replace = (index: number, patch: Partial<PlaybookLine>) =>
     onSave(lines.map((line, at) => (at === index ? { ...line, ...patch } : line)));
+  const replaceOrToast = (index: number, patch: Partial<PlaybookLine>) =>
+    void replace(index, patch).then(toastFailure);
 
   return (
     <div className="space-y-4">
@@ -103,21 +118,25 @@ function LinesEditor({
           {lines.map((line, index) => (
             <li key={`${index}-${line.label}`} className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <InlineField
-                    value={line.label}
-                    placeholder="Label"
-                    emptyLabel="Label"
-                    maxLength={120}
-                    className={LIVE_SECTION_LABEL}
-                    onSave={(next) => replace(index, { label: next.trim() })}
-                  />
-                </div>
+                <SavedTextField
+                  value={line.label}
+                  label={`${line.label || "Line"} label`}
+                  name="label"
+                  placeholder="Label"
+                  maxLength={120}
+                  className="flex-1"
+                  inputClassName={LIVE_SECTION_LABEL}
+                  validate={(next) => (next ? null : "Write a label.")}
+                  onSave={async (next) => {
+                    const result = await replace(index, { label: next });
+                    return result.ok ? { ok: true, value: next } : result;
+                  }}
+                />
                 <button
                   type="button"
                   aria-label={`Remove ${line.label || "line"}`}
                   className="text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
-                  onClick={() => onSave(lines.filter((_, at) => at !== index))}
+                  onClick={() => void onSave(lines.filter((_, at) => at !== index)).then(toastFailure)}
                 >
                   <X size={14} weight="bold" aria-hidden />
                 </button>
@@ -129,7 +148,7 @@ function LinesEditor({
                 placeholder={line.label || "Line"}
                 aria-label={line.label || "Line"}
                 inputClassName="whitespace-pre-line text-[17px] leading-relaxed"
-                onSave={(next) => replace(index, { text: next })}
+                onSave={(next) => replaceOrToast(index, { text: next })}
               />
             </li>
           ))}
@@ -138,7 +157,7 @@ function LinesEditor({
       <button
         type="button"
         className={LINK_BUTTON}
-        onClick={() => onSave([...lines, { label: "New line", text: "" }])}
+        onClick={() => void onSave([...lines, { label: "New line", text: "" }]).then(toastFailure)}
       >
         Add line
       </button>
@@ -154,9 +173,10 @@ function BlockSection({
 }: {
   index: number;
   block: PlaybookBlock;
-  onPatch: (patch: Partial<PlaybookBlock>) => void;
+  onPatch: (patch: Partial<PlaybookBlock>) => Promise<Saved>;
   points: ReactNode;
 }) {
+  const patchOrToast = (patch: Partial<PlaybookBlock>) => void onPatch(patch).then(toastFailure);
   let body: ReactNode;
   if (block.kind === "lines") {
     body = <LinesEditor lines={linesDefault(block)} onSave={(next) => onPatch({ default: next })} />;
@@ -171,7 +191,7 @@ function BlockSection({
         placeholder={block.title}
         aria-label={block.title}
         inputClassName="whitespace-pre-line text-[17px] leading-relaxed"
-        onSave={(next) => onPatch({ default: next || null })}
+        onSave={(next) => patchOrToast({ default: next || null })}
       />
     );
   }
@@ -186,22 +206,20 @@ function BlockSection({
           <span className="shrink-0 text-[13px] font-bold tabular-nums text-[var(--jos-muted)]">
             {index}
           </span>
-          <div className="min-w-0 flex-1">
-            <InlineField
-              value={block.title}
-              placeholder="Block title"
-              emptyLabel="Block title"
-              maxLength={120}
-              className="text-[22px] font-extrabold tracking-tight text-[var(--jos-ink)]"
-              onSave={(next) => {
-                if (!next.trim()) {
-                  toast.error("Name the block.");
-                  return;
-                }
-                onPatch({ title: next.trim() });
-              }}
-            />
-          </div>
+          <SavedTextField
+            value={block.title}
+            label={`${block.title || "Block"} title`}
+            name="title"
+            placeholder="Block title"
+            maxLength={120}
+            className="flex-1"
+            inputClassName="text-[22px] font-extrabold tracking-tight text-[var(--jos-ink)]"
+            validate={(next) => (next ? null : "Name the block.")}
+            onSave={async (next) => {
+              const result = await onPatch({ title: next });
+              return result.ok ? { ok: true, value: next } : result;
+            }}
+          />
           {block.required ? (
             <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--color-accent-2-text)]">
               Required
@@ -219,7 +237,7 @@ function BlockSection({
           placeholder="The rule for this block"
           aria-label={`Rule for ${block.title}`}
           inputClassName="text-[15px] leading-snug text-[var(--jos-muted)]"
-          onSave={(next) => onPatch({ rule: next || null })}
+          onSave={(next) => patchOrToast({ rule: next || null })}
         />
       </aside>
     </section>
@@ -404,7 +422,7 @@ function ObjectionsTable({
   onSave,
 }: {
   objections: PlaybookObjection[];
-  onSave: (next: PlaybookObjection[]) => void;
+  onSave: (next: PlaybookObjection[]) => Promise<Saved>;
 }) {
   const [shape, setShape] = useState<ReactionShape>("agree");
   const [soundsLike, setSoundsLike] = useState("");
@@ -412,6 +430,10 @@ function ObjectionsTable({
 
   const replace = (index: number, patch: Partial<PlaybookObjection>) =>
     onSave(objections.map((row, at) => (at === index ? { ...row, ...patch } : row)));
+  const saveText = async (index: number, key: "soundsLike" | "pivot", next: string): Promise<SaveOutcome<string>> => {
+    const result = await replace(index, { [key]: next });
+    return result.ok ? { ok: true, value: next } : result;
+  };
 
   return (
     <section className="space-y-3 border-t border-[var(--jos-ink)] py-6">
@@ -437,7 +459,9 @@ function ObjectionsTable({
                       aria-label="Reaction"
                       value={row.shape}
                       className="bg-transparent text-[14px] font-semibold outline-none"
-                      onChange={(event) => replace(index, { shape: event.target.value as ReactionShape })}
+                      onChange={(event) =>
+                        void replace(index, { shape: event.target.value as ReactionShape }).then(toastFailure)
+                      }
                     >
                       {REACTION_SHAPES.map((option) => (
                         <option key={option} value={option}>
@@ -447,23 +471,27 @@ function ObjectionsTable({
                     </select>
                   </td>
                   <td className="py-2 pr-3">
-                    <InlineField
+                    <SavedTextField
                       value={row.soundsLike}
+                      label={`${REACTION_LABELS[row.shape]}: what they say`}
+                      name="line"
                       placeholder="What they say"
-                      emptyLabel="What they say"
                       maxLength={240}
-                      className="text-[15px] leading-snug"
-                      onSave={(next) => replace(index, { soundsLike: next.trim() })}
+                      inputClassName="text-[15px] leading-snug"
+                      validate={(next) => (next ? null : "Write what they say.")}
+                      onSave={(next) => saveText(index, "soundsLike", next)}
                     />
                   </td>
                   <td className="py-2 pr-3">
-                    <InlineField
+                    <SavedTextField
                       value={row.pivot}
+                      label={`${REACTION_LABELS[row.shape]}: pivot`}
+                      name="pivot"
                       placeholder="Your pivot"
-                      emptyLabel="Your pivot"
                       maxLength={400}
-                      className="text-[15px] font-semibold leading-snug"
-                      onSave={(next) => replace(index, { pivot: next.trim() })}
+                      inputClassName="text-[15px] font-semibold leading-snug"
+                      validate={(next) => (next ? null : "Write your pivot.")}
+                      onSave={(next) => saveText(index, "pivot", next)}
                     />
                   </td>
                   <td className="py-2">
@@ -471,7 +499,7 @@ function ObjectionsTable({
                       type="button"
                       aria-label="Remove objection"
                       className="text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
-                      onClick={() => onSave(objections.filter((_, at) => at !== index))}
+                      onClick={() => void onSave(objections.filter((_, at) => at !== index)).then(toastFailure)}
                     >
                       <Trash size={16} weight="duotone" aria-hidden />
                     </button>
@@ -490,7 +518,9 @@ function ObjectionsTable({
             toast.error("Write what they say and your pivot.");
             return;
           }
-          onSave([...objections, { shape, soundsLike: soundsLike.trim(), pivot: pivot.trim() }]);
+          void onSave([...objections, { shape, soundsLike: soundsLike.trim(), pivot: pivot.trim() }]).then(
+            toastFailure
+          );
           setSoundsLike("");
           setPivot("");
         }}
@@ -659,17 +689,156 @@ function QuestionsSection({
   );
 }
 
-export function PlaybookClient({
-  script,
-  items,
-  questions,
-  usedOn = [],
-}: {
+function PlaybookDetails({ script }: { script: LiveScript }) {
+  const router = useRouter();
+  const serverKey = `${script.description ?? ""}\u0000${script.situation ?? ""}\u0000${script.successSentence ?? ""}\u0000${script.rubric.join("\n")}\u0000${script.methodologySource ?? ""}`;
+  const [description, setDescription] = useState(script.description ?? "");
+  const [situation, setSituation] = useState(script.situation ?? "");
+  const [success, setSuccess] = useState(script.successSentence ?? "");
+  const [rubric, setRubric] = useState(script.rubric);
+  const [basedOn, setBasedOn] = useState(script.methodologySource ?? "");
+  const [seen, setSeen] = useState(serverKey);
+  if (serverKey !== seen) {
+    setSeen(serverKey);
+    setDescription(script.description ?? "");
+    setSituation(script.situation ?? "");
+    setSuccess(script.successSentence ?? "");
+    setRubric(script.rubric);
+    setBasedOn(script.methodologySource ?? "");
+  }
+
+  const save = (patch: {
+    description?: string | null;
+    situation?: string | null;
+    successSentence?: string | null;
+    rubric?: string[];
+    methodologySource?: string | null;
+  }) => {
+    void updateLiveScript(script.id, patch).then((result) => {
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (patch.description !== undefined) setDescription(patch.description ?? "");
+      if (patch.situation !== undefined) setSituation(patch.situation ?? "");
+      if (patch.successSentence !== undefined) setSuccess(patch.successSentence ?? "");
+      if (patch.rubric !== undefined) setRubric(patch.rubric);
+      if (patch.methodologySource !== undefined) setBasedOn(patch.methodologySource ?? "");
+      router.refresh();
+    });
+  };
+
+  const [editingChecklist, setEditingChecklist] = useState(false);
+  const [checklistText, setChecklistText] = useState(rubric.join("\n"));
+  const rubricKey = rubric.join("\n");
+  const [seenRubric, setSeenRubric] = useState(rubricKey);
+  if (rubricKey !== seenRubric) {
+    setSeenRubric(rubricKey);
+    setChecklistText(rubricKey);
+  }
+
+  return (
+    <div className="mt-5 grid gap-5 min-[900px]:grid-cols-2">
+      <label className="block space-y-1 min-[900px]:col-span-2">
+        <span className={LIVE_SECTION_LABEL}>Description</span>
+        <UnfinishedField
+          value={description}
+          emptyLabel="Add a sentence"
+          placeholder="What this playbook covers"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ description: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Situation</span>
+        <UnfinishedField
+          value={situation}
+          emptyLabel="Add a sentence"
+          placeholder="When this playbook fits"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ situation: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>What success looks like</span>
+        <UnfinishedField
+          value={success}
+          emptyLabel="Add a sentence"
+          placeholder="One sentence you can score the meeting against"
+          inputClassName="text-[17px] font-semibold"
+          onSave={(next) => save({ successSentence: next || null })}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Checklist</span>
+        {editingChecklist ? (
+          <textarea
+            autoFocus
+            value={checklistText}
+            rows={Math.min(8, Math.max(3, checklistText.split("\n").filter(Boolean).length || 3))}
+            placeholder="One item per line"
+            aria-label="Checklist"
+            className={cn(LIVE_FIELD, !rubric.length && LIVE_FIELD_UNFINISHED, "min-h-24 py-2 text-[16px]")}
+            onChange={(event) => setChecklistText(event.target.value)}
+            onBlur={() => {
+              setEditingChecklist(false);
+              const next = checklistText
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .slice(0, 12);
+              if (next.join("\n") === rubricKey) return;
+              save({ rubric: next });
+            }}
+          />
+        ) : rubric.length === 0 ? (
+          <button
+            type="button"
+            className={cn(LIVE_FIELD, LIVE_FIELD_UNFINISHED, "min-h-11 text-left text-[17px] font-medium text-[var(--color-accent-2-text)]")}
+            onClick={() => setEditingChecklist(true)}
+          >
+            Add a sentence
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="block w-full text-left text-[17px] font-medium leading-snug text-[var(--jos-ink)]"
+            onClick={() => setEditingChecklist(true)}
+          >
+            {rubric.join(" · ")}
+          </button>
+        )}
+      </label>
+      <label className="block space-y-1">
+        <span className={LIVE_SECTION_LABEL}>Based on</span>
+        <UnfinishedField
+          value={basedOn}
+          emptyLabel="Add a sentence"
+          placeholder="Where this playbook came from"
+          inputClassName="text-[17px]"
+          onSave={(next) => save({ methodologySource: next || null })}
+        />
+      </label>
+    </div>
+  );
+}
+
+interface PlaybookClientProps {
   script: LiveScript;
   items: LiveScriptItem[];
   questions: PlaybookQuestion[];
   usedOn?: ScriptUsedOnMeeting[];
-}) {
+}
+
+export function PlaybookClient(props: PlaybookClientProps) {
+  return (
+    <LeaveGuardProvider>
+      <PlaybookPage {...props} />
+    </LeaveGuardProvider>
+  );
+}
+
+function PlaybookPage({ script, items, questions, usedOn = [] }: PlaybookClientProps) {
   const router = useRouter();
   const blocksKey = JSON.stringify(script.blocks);
   const [blocks, setBlocks] = useState(script.blocks);
@@ -694,48 +863,38 @@ export function PlaybookClient({
   const markable = items.some((item) => item.kind !== "agenda");
   const hasPointsBlock = blocks.some((block) => block.kind === "points");
 
-  const saveBlocks = (next: PlaybookBlock[]) => {
+  const saveBlocks = async (next: PlaybookBlock[]): Promise<Saved> => {
     const previous = blocks;
     setBlocks(next);
-    void updateLiveScript(script.id, { blocks: next }).then((result) => {
-      if (!result.ok) {
-        setBlocks(previous);
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+    const result = await updateLiveScript(script.id, { blocks: next });
+    if (!result.ok) {
+      setBlocks(previous);
+      return { ok: false, error: result.error };
+    }
+    router.refresh();
+    return { ok: true };
   };
 
   const patchBlock = (key: string, patch: Partial<PlaybookBlock>) =>
     saveBlocks(blocks.map((block) => (block.key === key ? { ...block, ...patch } : block)));
 
-  const saveObjections = (next: PlaybookObjection[]) => {
+  const saveObjections = async (next: PlaybookObjection[]): Promise<Saved> => {
     const previous = objections;
     setObjections(next);
-    void updateLiveScript(script.id, { objections: next }).then((result) => {
-      if (!result.ok) {
-        setObjections(previous);
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+    const result = await updateLiveScript(script.id, { objections: next });
+    if (!result.ok) {
+      setObjections(previous);
+      return { ok: false, error: result.error };
+    }
+    router.refresh();
+    return { ok: true };
   };
 
-  const saveName = (next: string) => {
-    const name = next.trim();
-    if (!name) {
-      toast.error("Name the playbook.");
-      return;
-    }
-    void updateLiveScript(script.id, { name }).then((result) => {
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+  const saveName = async (name: string): Promise<SaveOutcome<string>> => {
+    const result = await updateLiveScript(script.id, { name });
+    if (!result.ok) return { ok: false, error: result.error };
+    router.refresh();
+    return { ok: true, value: name };
   };
 
   const remove = () => {
@@ -777,12 +936,15 @@ export function PlaybookClient({
             <p className={cn(LIVE_SECTION_LABEL, "text-[var(--color-accent-700)]")}>
               Playbook · {FAMILY_LABELS[script.family]}
             </p>
-            <InlineField
+            <SavedTextField
               value={script.name}
+              label="Playbook name"
+              name="name"
               placeholder="Playbook name"
-              emptyLabel="Playbook name"
               maxLength={120}
-              className="mt-1 text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
+              className="mt-1"
+              inputClassName="text-[36px] font-extrabold tracking-tight text-[var(--jos-ink)]"
+              validate={(next) => (next ? null : "Name the playbook.")}
               onSave={saveName}
             />
             <p className="mt-2 text-[14px] tabular-nums text-[var(--jos-muted)]">
@@ -802,7 +964,7 @@ export function PlaybookClient({
             </Button>
             {markable ? (
               <Link
-                href={`/live/scripts/${script.id}/rehearse`}
+                href={`/live/playbooks/${script.id}/rehearse`}
                 className={buttonVariants({ variant: "secondary", size: "sm" })}
               >
                 Rehearse
@@ -831,7 +993,13 @@ export function PlaybookClient({
             )}
           </div>
         </div>
-        {editingBlocks ? <BlocksControl blocks={blocks} browning={browning} onSave={saveBlocks} /> : null}
+        {editingBlocks ? (
+          <BlocksControl
+            blocks={blocks}
+            browning={browning}
+            onSave={(next) => void saveBlocks(next).then(toastFailure)}
+          />
+        ) : null}
       </header>
 
       {blocks.length === 0 ? (
@@ -861,7 +1029,7 @@ export function PlaybookClient({
 
       <section className="border-t border-[var(--jos-ink)] py-6">
         <h2 className="text-[22px] font-extrabold tracking-tight">Details</h2>
-        <StrategyFields script={script} />
+        <PlaybookDetails script={script} />
         <div className="mt-5">
           <p className={LIVE_SECTION_LABEL}>Used on</p>
           {usedOn.length === 0 ? (

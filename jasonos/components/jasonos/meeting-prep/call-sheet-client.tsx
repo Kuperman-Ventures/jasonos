@@ -6,16 +6,21 @@ import { useRouter } from "next/navigation";
 import { CalendarBlank, LockSimple } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   CollapsibleSection,
+  LIVE_FIELD,
   LIVE_SECTION_LABEL,
   LeaveGuardProvider,
   LiveTertiaryNav,
+  SavedTextField,
   useLeaveGuard,
+  type SaveOutcome,
 } from "@/components/jasonos/live";
 import { CallSheetDebrief } from "@/components/jasonos/meeting-prep/call-sheet-debrief";
 import { LiveCallClient } from "@/components/jasonos/meeting-prep/live-call-client";
-import { RehearseSheetClient } from "@/components/jasonos/meeting-prep/rehearse-client";
+import { PointsEditor } from "@/components/jasonos/meeting-prep/points-editor";
+import { RehearseSheetClient, scriptItemsAsPoints } from "@/components/jasonos/meeting-prep/rehearse-client";
 import {
   AfterBlockBody,
   AskBlockBody,
@@ -46,10 +51,21 @@ import {
   buildCallSheet,
   createCallSheet,
   markSheetReady,
+  putSheetOnMeeting,
   type CallSheet,
   type CallSheetPerson,
 } from "@/lib/server-actions/call-sheet";
-import type { LiveScript } from "@/lib/server-actions/live-scripts";
+import {
+  createLiveScriptItem,
+  deleteLiveScript,
+  deleteLiveScriptItem,
+  draftScriptItemReactions,
+  reorderLiveScriptItems,
+  updateLiveScript,
+  updateLiveScriptItem,
+  type LiveScript,
+  type LiveScriptItem,
+} from "@/lib/server-actions/live-scripts";
 import {
   endLiveMeeting,
   setMeetingPointNote,
@@ -58,7 +74,12 @@ import {
   startLiveMeeting,
   type MeetingPoint,
 } from "@/lib/server-actions/meeting-points";
-import { setMeetingOutcomeMark, type MeetingPrepDetail, type OutcomeMark } from "@/lib/server-actions/meeting-prep";
+import {
+  setMeetingOutcomeMark,
+  type MeetingPrepDetail,
+  type MeetingPrepSummary,
+  type OutcomeMark,
+} from "@/lib/server-actions/meeting-prep";
 import type { MeetingReview } from "@/lib/server-actions/meeting-reviews";
 import type { RelationshipLogEntry } from "@/lib/server-actions/person";
 import { cn } from "@/lib/utils";
@@ -962,6 +983,414 @@ function CallSheetPage({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ---------- Sheet without a date ---------- */
+
+function meetingLabel(meeting: MeetingPrepSummary): string {
+  const when = new Date(meeting.startsAt).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const person = meeting.primaryContactName?.trim() || meeting.title;
+  return `${person} · ${when}`;
+}
+
+function UseForMeetingDialog({
+  sheetId,
+  meetings,
+  open,
+  onOpenChange,
+}: {
+  sheetId: string;
+  meetings: MeetingPrepSummary[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const [prepId, setPrepId] = useState(meetings[0]?.id ?? "");
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const selected = meetings.find((meeting) => meeting.id === prepId) ?? null;
+
+  const run = () => {
+    if (!prepId) return;
+    setApplying(true);
+    void putSheetOnMeeting({ sheetId, prepId }).then((result) => {
+      setApplying(false);
+      setConfirmReplace(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      onOpenChange(false);
+      router.push(`/meetings/${prepId}`);
+      router.refresh();
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange(next);
+        if (!next) setConfirmReplace(false);
+      }}
+    >
+      <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Use for a meeting</DialogTitle>
+          <DialogDescription>Meetings in the next 14 days.</DialogDescription>
+        </DialogHeader>
+        {meetings.length === 0 ? (
+          <p className="text-[14px] text-[var(--jos-muted)]">No meetings in the next 14 days.</p>
+        ) : (
+          <div className="space-y-4">
+            <select
+              aria-label="Meeting"
+              value={prepId}
+              className={cn(LIVE_FIELD, "h-11")}
+              onChange={(event) => {
+                setPrepId(event.target.value);
+                setConfirmReplace(false);
+              }}
+            >
+              {meetings.map((meeting) => (
+                <option key={meeting.id} value={meeting.id}>
+                  {meetingLabel(meeting)}
+                </option>
+              ))}
+            </select>
+            {confirmReplace && selected ? (
+              <p className="text-[14px]">
+                Replace {selected.pointCount} existing points?{" "}
+                <button type="button" className={LINK} disabled={applying} onClick={run}>
+                  Confirm
+                </button>
+                {" · "}
+                <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmReplace(false)}>
+                  Cancel
+                </button>
+              </p>
+            ) : (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!prepId || applying}
+                  onClick={() => (selected && selected.pointCount > 0 ? setConfirmReplace(true) : run())}
+                >
+                  {applying ? "Putting it on…" : "Use for this meeting"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SheetPoints({ script, items }: { script: LiveScript; items: LiveScriptItem[] }) {
+  return (
+    <PointsEditor
+      layout="outline"
+      points={items}
+      actions={{
+        create: async (input) => {
+          const result = await createLiveScriptItem({ scriptId: script.id, ...input });
+          if (!result.ok) return result;
+          return { ok: true, id: result.item.id };
+        },
+        update: (id, patch) => updateLiveScriptItem(id, patch),
+        draftReactions: (id) => draftScriptItemReactions(id),
+        remove: (id) => deleteLiveScriptItem(id),
+        reorder: (ids) => reorderLiveScriptItems(script.id, ids),
+      }}
+    />
+  );
+}
+
+function UnattachedReadView({
+  sheet,
+  script,
+  items,
+  dirtyTitles,
+  readyMessage,
+  onSaved,
+}: {
+  sheet: CallSheet | null;
+  script: LiveScript;
+  items: LiveScriptItem[];
+  dirtyTitles: Set<string>;
+  readyMessage: string;
+  onSaved: (block: CallSheetBlock) => void;
+}) {
+  const blocks = sheet?.blocks ?? [];
+  const [activeId, setActiveId] = useActiveBlock(blocks);
+  const budget = sheet?.playbook?.timeBudget ?? null;
+  const pointCount = items.filter((item) => item.kind !== "agenda").length;
+
+  if (!sheet) {
+    return (
+      <div className="mx-auto max-w-[760px] px-10 pb-24 pt-6">
+        <SheetPoints script={script} items={items} />
+      </div>
+    );
+  }
+
+  const body = (block: CallSheetBlock) => {
+    switch (block.kind) {
+      case "lines":
+        return <LinesBlockBody block={block} onSaved={onSaved} />;
+      case "points":
+        return <SheetPoints script={script} items={items} />;
+      case "ask":
+        return <AskBlockBody block={block} objections={sheet.playbook?.objections ?? []} onSaved={onSaved} />;
+      case "after":
+        return <AfterBlockBody />;
+      default:
+        return <TextBlockBody block={block} onSaved={onSaved} />;
+    }
+  };
+
+  return (
+    <div className="mx-auto grid max-w-[1100px] gap-12 px-10 pb-24 pt-4 min-[1100px]:grid-cols-[minmax(0,700px)_300px]">
+      <div className="min-w-0">
+        {blocks.map((block, index) => (
+          <BlockFrame
+            key={block.id}
+            block={block}
+            number={index + 1}
+            minutes={blockMinutes(block.key, budget)}
+            needed={block.required && !blockIsFilled(block, pointCount)}
+            onActive={() => setActiveId(block.id)}
+          >
+            {body(block)}
+          </BlockFrame>
+        ))}
+      </div>
+      <SheetRail
+        blocks={blocks}
+        activeId={activeId}
+        pointCount={pointCount}
+        dirtyTitles={dirtyTitles}
+        readyAt={null}
+        readyMessage={readyMessage}
+        onJump={(block) => {
+          setActiveId(block.id);
+          scrollToBlock(block);
+        }}
+      />
+    </div>
+  );
+}
+
+function UnattachedRehearseView({
+  sheet,
+  script,
+  items,
+  onDone,
+}: {
+  sheet: CallSheet | null;
+  script: LiveScript;
+  items: LiveScriptItem[];
+  onDone: () => void;
+}) {
+  const points = useMemo(() => scriptItemsAsPoints(items), [items]);
+  const { steps, feed } = useMemo(
+    () =>
+      buildLiveSheet({
+        blocks: sheet?.blocks ?? [],
+        playbook: sheet?.playbook ?? null,
+        touchNumber: 0,
+        personName: script.name,
+        points,
+        mode: "rehearse",
+      }),
+    [sheet?.blocks, sheet?.playbook, script.name, points]
+  );
+  return (
+    <RehearseSheetClient
+      title={script.name}
+      steps={steps}
+      sheet={feed}
+      backHref={`/live/sheets/${script.id}`}
+      embedded
+      onEnded={onDone}
+    />
+  );
+}
+
+interface UnattachedSheetClientProps {
+  sheet: CallSheet | null;
+  script: LiveScript;
+  items: LiveScriptItem[];
+  meetings: MeetingPrepSummary[];
+  initialView?: "read" | "rehearse";
+}
+
+/** A sheet with no meeting yet. Points live on the sheet until it goes on a meeting. */
+export function UnattachedSheetClient(props: UnattachedSheetClientProps) {
+  return (
+    <LeaveGuardProvider>
+      <UnattachedSheetPage {...props} />
+    </LeaveGuardProvider>
+  );
+}
+
+function UnattachedSheetPage({
+  sheet: serverSheet,
+  script,
+  items,
+  meetings,
+  initialView = "read",
+}: UnattachedSheetClientProps) {
+  const router = useRouter();
+  const { dirtyLabels, requestLeave } = useLeaveGuard();
+  const [sheet, setSheet] = useState<CallSheet | null>(serverSheet);
+  const [seenSheet, setSeenSheet] = useState(serverSheet);
+  if (seenSheet !== serverSheet) {
+    setSeenSheet(serverSheet);
+    setSheet(serverSheet);
+  }
+  const [view, setViewState] = useState<"read" | "rehearse">(initialView);
+  const [useOpen, setUseOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const dirtyTitles = useMemo(() => new Set(dirtyLabels), [dirtyLabels]);
+  const family = sheet?.playbook?.family ?? script.family;
+
+  const showView = (next: "read" | "rehearse") => {
+    setViewState(next);
+    const url = new URL(window.location.href);
+    if (next === "read") url.searchParams.delete("view");
+    else url.searchParams.set("view", next);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  };
+
+  const onSaved = useCallback((block: CallSheetBlock) => {
+    setSheet((current) =>
+      current ? { ...current, blocks: current.blocks.map((item) => (item.id === block.id ? block : item)) } : current
+    );
+  }, []);
+
+  const saveName = async (next: string): Promise<SaveOutcome<string>> => {
+    const result = await updateLiveScript(script.id, { name: next });
+    if (!result.ok) return result;
+    router.refresh();
+    return { ok: true, value: next };
+  };
+
+  const remove = () => {
+    setDeleting(true);
+    void deleteLiveScript(script.id).then((result) => {
+      setDeleting(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      router.push("/live");
+      router.refresh();
+    });
+  };
+
+  const tab = (active: boolean) =>
+    cn(
+      "-mb-px inline-flex items-center border-b-[3px] px-1 pb-2.5 pt-3 text-[15px] font-semibold",
+      active
+        ? "border-[var(--color-accent-700)] text-[var(--jos-ink)]"
+        : "border-transparent text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+    );
+
+  return (
+    <div className="min-h-[calc(100vh-var(--jos-nav-h))]">
+      <LiveTertiaryNav />
+      {view === "read" ? (
+        <header className="px-10 pb-5 pt-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className={KICKER}>
+                <CalendarBlank size={14} weight="duotone" className="text-[var(--color-calendar)]" aria-hidden />
+                Sheet without a date · {FAMILY_LABELS[family]}
+              </p>
+              <SavedTextField
+                value={script.name}
+                label="Sheet name"
+                name="name"
+                placeholder="Sheet name"
+                maxLength={120}
+                className="mt-2"
+                inputClassName="h-auto py-1 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]"
+                validate={(next) => (next ? null : "Name the sheet.")}
+                onSave={saveName}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={() => setUseOpen(true)}>
+                Use for a meeting
+              </Button>
+              {confirmDelete ? (
+                <p className="text-[14px]">
+                  Delete this sheet?{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-[var(--color-accent-2-text)] hover:underline"
+                    disabled={deleting}
+                    onClick={remove}
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                  {" · "}
+                  <button type="button" className="font-semibold hover:underline" onClick={() => setConfirmDelete(false)}>
+                    Cancel
+                  </button>
+                </p>
+              ) : (
+                <Button type="button" variant="ghost" onClick={() => setConfirmDelete(true)}>
+                  Delete
+                </Button>
+              )}
+            </div>
+          </div>
+        </header>
+      ) : null}
+      <nav aria-label="Sheet views" className="flex flex-wrap items-end gap-x-7 border-b border-[var(--jos-line)] px-10">
+        {(["read", "rehearse"] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            className={tab(view === item)}
+            aria-current={view === item ? "page" : undefined}
+            onClick={() => {
+              if (item !== view) requestLeave(() => showView(item));
+            }}
+          >
+            {item === "read" ? "Read" : "Rehearse"}
+          </button>
+        ))}
+      </nav>
+      {view === "read" ? (
+        <UnattachedReadView
+          sheet={sheet}
+          script={script}
+          items={items}
+          dirtyTitles={dirtyTitles}
+          readyMessage={unsavedProblem(dirtyLabels) ?? "Put it on a meeting to mark it ready."}
+          onSaved={onSaved}
+        />
+      ) : (
+        <UnattachedRehearseView sheet={sheet} script={script} items={items} onDone={() => showView("read")} />
+      )}
+      <UseForMeetingDialog sheetId={script.id} meetings={meetings} open={useOpen} onOpenChange={setUseOpen} />
     </div>
   );
 }

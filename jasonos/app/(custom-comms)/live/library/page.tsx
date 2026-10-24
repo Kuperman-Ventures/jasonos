@@ -26,7 +26,7 @@ export default async function LiveLibraryPage({
   const person = one(query.person);
   const filters = {
     person,
-    strategy: one(query.strategy),
+    playbook: one(query.playbook) || one(query.strategy),
     mark: MARKS.has(mark as LibraryMark) ? (mark as LibraryMark) : null,
     from: one(query.from),
     to: one(query.to),
@@ -50,7 +50,7 @@ export default async function LiveLibraryPage({
       facets={
         facetsResult.ok
           ? facetsResult.facets
-          : { people: [], strategies: [], marks: { all: 0, hit: 0, partial: 0, missed: 0, unmarked: 0 } }
+          : { people: [], playbooks: [], marks: { all: 0, hit: 0, partial: 0, missed: 0, unmarked: 0 } }
       }
       relationship={relationshipResult && relationshipResult.ok ? relationshipResult.relationship : null}
       error={error}

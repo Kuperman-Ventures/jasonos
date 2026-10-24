@@ -15,6 +15,8 @@ export type LibraryMark = OutcomeMark | "unmarked";
 
 export interface LibraryFilters {
   person?: string | null;
+  playbook?: string | null;
+  /** Earlier name for playbook. */
   strategy?: string | null;
   mark?: LibraryMark | null;
   from?: string | null;
@@ -29,8 +31,8 @@ export interface LibraryMeeting {
   primaryContactId: string | null;
   primaryContactName: string | null;
   company: string | null;
-  strategyId: string | null;
-  strategyName: string | null;
+  playbookId: string | null;
+  playbookName: string | null;
   adapted: boolean;
   outcomeMark: OutcomeMark | null;
   outcomeSentence: string | null;
@@ -54,7 +56,7 @@ export interface LibraryPersonFacet {
 
 export interface LibraryFacets {
   people: LibraryPersonFacet[];
-  strategies: Array<{ id: string; name: string; count: number }>;
+  playbooks: Array<{ id: string; name: string; count: number }>;
   marks: Record<LibraryMark | "all", number>;
 }
 
@@ -195,11 +197,11 @@ export async function listLiveMeetings(
     .limit(200);
 
   const person = uuid(filters.person);
-  const strategy = uuid(filters.strategy);
+  const playbook = uuid(filters.playbook) ?? uuid(filters.strategy);
   const from = day(filters.from);
   const to = day(filters.to);
   if (person) query = query.eq("primary_contact_id", person);
-  if (strategy) query = query.eq("script_id", strategy);
+  if (playbook) query = query.eq("script_id", playbook);
   if (filters.mark === "unmarked") query = query.is("outcome_mark", null);
   else if (filters.mark && MARKS.has(filters.mark)) query = query.eq("outcome_mark", filters.mark);
   if (from) query = query.gte("starts_at", etMidnight(from, false));
@@ -307,8 +309,8 @@ export async function listLiveMeetings(
         primaryContactId: row.primary_contact_id,
         primaryContactName: contact?.name ?? null,
         company: contact?.company ?? null,
-        strategyId: row.script_id,
-        strategyName: row.script_id ? scriptName.get(row.script_id) ?? null : null,
+        playbookId: row.script_id,
+        playbookName: row.script_id ? scriptName.get(row.script_id) ?? null : null,
         adapted: Boolean(row.adapted_from_script_id),
         outcomeMark: markOf(row.outcome_mark),
         outcomeSentence: row.outcome_sentence?.trim() || null,
@@ -334,14 +336,14 @@ export async function listLibraryFacets(): Promise<LibraryResult<{ facets: Libra
   const rows = data ?? [];
 
   const peopleCount = new Map<string, number>();
-  const strategyCount = new Map<string, number>();
+  const playbookCount = new Map<string, number>();
   const marks: LibraryFacets["marks"] = { all: rows.length, hit: 0, partial: 0, missed: 0, unmarked: 0 };
   for (const row of rows) {
     if (row.primary_contact_id) {
       peopleCount.set(row.primary_contact_id as string, (peopleCount.get(row.primary_contact_id as string) ?? 0) + 1);
     }
     if (row.script_id) {
-      strategyCount.set(row.script_id as string, (strategyCount.get(row.script_id as string) ?? 0) + 1);
+      playbookCount.set(row.script_id as string, (playbookCount.get(row.script_id as string) ?? 0) + 1);
     }
     const mark = markOf(row.outcome_mark);
     if (mark) marks[mark] += 1;
@@ -349,7 +351,7 @@ export async function listLibraryFacets(): Promise<LibraryResult<{ facets: Libra
   }
 
   const contactIds = [...peopleCount.keys()];
-  const scriptIds = [...strategyCount.keys()];
+  const scriptIds = [...playbookCount.keys()];
   const [contacts, scripts] = await Promise.all([
     contactIds.length
       ? sb
@@ -374,15 +376,15 @@ export async function listLibraryFacets(): Promise<LibraryResult<{ facets: Libra
       lastTouchChannel: typeof row.last_touch_channel === "string" ? row.last_touch_channel : null,
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  const strategies = (scripts.data ?? [])
+  const playbooks = (scripts.data ?? [])
     .map((row) => ({
       id: row.id as string,
       name: String(row.name),
-      count: strategyCount.get(row.id as string) ?? 0,
+      count: playbookCount.get(row.id as string) ?? 0,
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-  return { ok: true, facets: { people, strategies, marks } };
+  return { ok: true, facets: { people, playbooks, marks } };
 }
 
 export async function getLibraryRelationship(

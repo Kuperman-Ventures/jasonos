@@ -210,10 +210,12 @@ function revalidateScripts(scriptId?: string, prepId?: string) {
   revalidatePath("/live");
   revalidatePath("/live/playbooks");
   if (scriptId) {
-    revalidatePath(`/live/scripts/${scriptId}`);
-    revalidatePath(`/live/scripts/${scriptId}/rehearse`);
+    revalidatePath(`/live/playbooks/${scriptId}`);
+    revalidatePath(`/live/playbooks/${scriptId}/rehearse`);
+    revalidatePath(`/live/sheets/${scriptId}`);
   }
-  revalidatePath("/live/scripts/[id]", "page");
+  revalidatePath("/live/playbooks/[id]", "page");
+  revalidatePath("/live/sheets/[id]", "page");
   if (prepId) {
     revalidatePath(`/meetings/${prepId}`);
     revalidatePath(`/meetings/${prepId}/live`);

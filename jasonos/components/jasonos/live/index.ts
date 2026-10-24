@@ -29,6 +29,7 @@ export {
 } from "./meeting-mode";
 export { LiveTertiaryNav, type LiveTertiaryKey } from "./live-tertiary-nav";
 export { SaveRow, FieldSaveRow, savedLabel } from "./save-row";
+export { SavedTextField } from "./saved-text-field";
 export {
   useSavedField,
   savedFieldReducer,
