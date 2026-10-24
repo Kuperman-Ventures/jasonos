@@ -16,7 +16,7 @@ import {
 import { FieldSaveRow, LIVE_FIELD, LIVE_SECTION_LABEL, useSavedField } from "@/components/jasonos/live";
 import { ExportLog } from "@/components/jasonos/people/export-log";
 import { shortDay } from "@/components/jasonos/people/people-pills";
-import type { WeeklyActivity } from "@/lib/server-actions/activity-log";
+import { getWeeklyActivity, type WeeklyActivity } from "@/lib/server-actions/activity-log";
 import { putSheetOnMeeting, type HomeSheetStatus, type MeetingSheetStatus } from "@/lib/server-actions/call-sheet";
 import { updateLiveSettings, type LiveSettings } from "@/lib/server-actions/live-settings";
 import type { LiveScript } from "@/lib/server-actions/live-scripts";
@@ -56,10 +56,10 @@ const PILL =
   "inline-flex h-7 shrink-0 items-center justify-center rounded-[2px] px-2 text-[11px] font-extrabold uppercase tracking-[0.08em]";
 
 const STATUS_PILL: Record<HomeSheetStatus, { label: string; className: string }> = {
-  ready: { label: "Ready", className: "bg-[var(--color-done)] text-white" },
-  why_missing: { label: "Why not written", className: "bg-[var(--color-accent-2)] text-white" },
-  not_ready: { label: "Not ready", className: "bg-[var(--jos-surface)] text-[var(--jos-ink)]" },
-  none: { label: "No sheet yet", className: "bg-[var(--jos-surface)] text-[var(--jos-muted)]" },
+  ready: { label: "READY", className: "bg-[var(--color-done)] text-white" },
+  why_missing: { label: "WHY NOT WRITTEN", className: "bg-[var(--color-accent-2)] text-white" },
+  not_ready: { label: "WHY NOT WRITTEN", className: "bg-[var(--color-accent-2)] text-white" },
+  none: { label: "NO SHEET YET", className: "bg-[var(--jos-surface)] text-[var(--jos-muted)]" },
 };
 
 function StatusPill({ status }: { status: HomeSheetStatus }) {
@@ -95,7 +95,7 @@ function CallRow({ meeting, sheet }: { meeting: MeetingPrepSummary; sheet: Meeti
       <Link
         href={`/meetings/${meeting.id}`}
         className={cn(
-          buttonVariants({ variant: status === "ready" ? "default" : "secondary", size: "sm" }),
+          buttonVariants({ variant: status === "ready" ? "default" : "outline", size: "sm" }),
           "col-start-2 justify-self-start min-[700px]:col-start-auto"
         )}
       >
@@ -158,16 +158,49 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function lastMonday(monday: string): string {
+  const date = new Date(`${monday}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 7);
+  return date.toISOString().slice(0, 10);
+}
+
 function ThisWeek({
-  activity,
-  error,
+  activity: thisWeek,
+  error: thisWeekError,
   weekStart,
 }: {
   activity: WeeklyActivity | null;
   error: string | null;
   weekStart: string;
 }) {
-  const start = activity?.weekStart ?? weekStart;
+  const [showLast, setShowLast] = useState(false);
+  const [lastWeek, setLastWeek] = useState<WeeklyActivity | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const thisStart = thisWeek?.weekStart ?? weekStart;
+
+  const toggle = () => {
+    if (showLast) {
+      setShowLast(false);
+      return;
+    }
+    setShowLast(true);
+    if (lastWeek || loading) return;
+    setLoading(true);
+    void getWeeklyActivity({ weekStart: lastMonday(thisStart) }).then((result) => {
+      setLoading(false);
+      if (result.ok) {
+        setLastWeek(result.activity);
+        setLastError(null);
+      } else {
+        setLastError(result.error);
+      }
+    });
+  };
+
+  const activity = showLast ? lastWeek : thisWeek;
+  const error = showLast ? lastError : thisWeekError;
+  const start = showLast ? (lastWeek?.weekStart ?? lastMonday(thisStart)) : thisStart;
   const end = activity?.weekEnd ?? null;
   const ofText = (pair: { met: number; of: number }) => `${pair.met} of ${pair.of}`;
   const stats = activity
@@ -184,7 +217,7 @@ function ThisWeek({
     <section aria-labelledby="live-week">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="live-week" className="text-[24px] font-extrabold tracking-tight">
-          This week
+          {showLast ? "Last week" : "This week"}
         </h2>
         <p className="text-[13px] tabular-nums text-[var(--jos-muted)]">
           {shortDay(start)}
@@ -192,6 +225,7 @@ function ThisWeek({
         </p>
       </div>
       {error ? <p className="mt-3 text-[14px] text-[var(--color-accent-2-text)]">{error}</p> : null}
+      {loading && showLast ? <p className="mt-3 text-[14px] text-[var(--jos-muted)]">Loading last week…</p> : null}
       {stats.length ? (
         <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 min-[700px]:grid-cols-3 min-[1280px]:grid-cols-2">
           {stats.map((stat) => (
@@ -199,8 +233,15 @@ function ThisWeek({
           ))}
         </div>
       ) : null}
-      <div className="mt-5">
-        <ExportLog weekStart={start} pickWeek={false} label="Export log" />
+      <div className="mt-5 space-y-2">
+        <ExportLog key={start} weekStart={start} pickWeek={false} label="Export log" />
+        <button
+          type="button"
+          onClick={toggle}
+          className="text-[13px] font-semibold text-[var(--color-accent-700)] hover:underline"
+        >
+          {showLast ? "This week" : "Last week"}
+        </button>
       </div>
     </section>
   );
@@ -265,7 +306,7 @@ function UndatedSheets({
                     .join(" · ")}
                 </p>
               </div>
-              <Link href={`/live/scripts/${sheet.id}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+              <Link href={`/live/scripts/${sheet.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 Open
               </Link>
               <Button
@@ -339,15 +380,17 @@ function Playbooks({ playbooks, error }: { playbooks: LiveScript[]; error: strin
       {playbooks.length === 0 ? (
         <p className="mt-3 text-[15px] text-[var(--jos-muted)]">No playbooks yet.</p>
       ) : (
-        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+        <ul className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 min-[900px]:grid-cols-2">
           {playbooks.map((playbook) => (
-            <li key={playbook.id}>
+            <li key={playbook.id} className="min-w-0">
               <Link href={`/live/scripts/${playbook.id}`} className="text-[15px] font-semibold hover:underline">
                 {playbook.name}
               </Link>
-              <span className="ml-1.5 text-[13px] tabular-nums text-[var(--jos-muted)]">
-                {playbook.useCount === 1 ? "used once" : `used ${playbook.useCount} times`}
-              </span>
+              {playbook.successSentence?.trim() ? (
+                <p className="mt-0.5 line-clamp-2 text-[13px] text-[var(--jos-muted)]">
+                  {playbook.successSentence.trim()}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>
