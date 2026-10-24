@@ -7,7 +7,7 @@ import { splitAgendaLists } from "@/lib/family-meeting/collapse";
 import { groupEventsByDay } from "@/lib/family-meeting/days";
 import { discernEventIcon, locationForDisplay } from "@/lib/family-meeting/icons";
 import type {
-  FamilyMeetingAgenda,
+  FamilyMeetingAgendaView,
   FamilyMeetingEvent,
 } from "@/lib/family-meeting/types";
 import { FAMILY_MEETING_TIMEZONE } from "@/lib/family-meeting/weekend";
@@ -51,7 +51,11 @@ function seriesEvents(
   return laneEvents.filter((e) => e.seriesKey === seriesKey);
 }
 
-export function FamilyMeetingAgendaView({ agenda }: { agenda: FamilyMeetingAgenda }) {
+export function FamilyMeetingAgendaView({
+  agenda,
+}: {
+  agenda: FamilyMeetingAgendaView;
+}) {
   const [printOpen, setPrintOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);

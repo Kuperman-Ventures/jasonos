@@ -14,6 +14,15 @@ export interface FamilyCalendarGroup {
   ink: string;
 }
 
+/** Serializable lane chrome for the client editor (no RegExp). */
+export interface FamilyCalendarGroupView {
+  id: FamilyCalendarGroupId;
+  label: string;
+  shortLabel: string;
+  accent: string;
+  ink: string;
+}
+
 export type FamilyMeetingPresentation = "auto" | "spotlight" | "routine";
 
 export interface FamilyMeetingEvent {
@@ -48,6 +57,13 @@ export interface FamilyMeetingGroupAgenda {
   missingCalendar: boolean;
 }
 
+export interface FamilyMeetingGroupAgendaView {
+  group: FamilyCalendarGroupView;
+  calendarName: string | null;
+  events: FamilyMeetingEvent[];
+  missingCalendar: boolean;
+}
+
 export interface FamilyMeetingAgenda {
   generatedAt: string;
   weekendLabel: string;
@@ -66,4 +82,31 @@ export interface FamilyMeetingAgenda {
   loggedDayCount: number;
   /** Wireframe print freeze cue (Fri 11:59pm ET). */
   printFreezeLabel: string;
+}
+
+/** Agenda payload safe to pass into Client Components. */
+export interface FamilyMeetingAgendaView
+  extends Omit<FamilyMeetingAgenda, "groups"> {
+  groups: FamilyMeetingGroupAgendaView[];
+}
+
+/** Drop RegExp nameMatchers so the agenda can cross the RSC → client boundary. */
+export function toClientFamilyMeetingAgenda(
+  agenda: FamilyMeetingAgenda
+): FamilyMeetingAgendaView {
+  return {
+    ...agenda,
+    groups: agenda.groups.map((lane) => ({
+      calendarName: lane.calendarName,
+      events: lane.events,
+      missingCalendar: lane.missingCalendar,
+      group: {
+        id: lane.group.id,
+        label: lane.group.label,
+        shortLabel: lane.group.shortLabel,
+        accent: lane.group.accent,
+        ink: lane.group.ink,
+      },
+    })),
+  };
 }
