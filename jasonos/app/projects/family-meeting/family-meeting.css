@@ -204,18 +204,48 @@
   font-weight: 600;
 }
 
+.fm-days {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.fm-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0 0 0.5rem;
+  padding: 0 0.15rem;
+}
+
+.fm-day-weekday {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--lane-accent) 88%, white);
+}
+
+.fm-day-date {
+  font-family: var(--fm-display);
+  font-size: 1.15rem;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  color: var(--fm-paper);
+}
+
 .fm-events {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.45rem;
 }
 
 .fm-event {
   display: grid;
-  grid-template-columns: 5.6rem minmax(0, 1fr) 2.35rem;
+  grid-template-columns: 4.4rem minmax(0, 1fr) 2.35rem;
   gap: 0.7rem;
   align-items: center;
-  padding: 0.85rem 0.85rem;
+  padding: 0.7rem 0.8rem;
   border-radius: 0.85rem;
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -230,33 +260,13 @@
 .fm-event-when {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  justify-content: center;
   min-width: 0;
-  padding: 0.15rem 0.45rem 0.25rem 0;
+  padding: 0.1rem 0.45rem 0.1rem 0;
   border-right: 2px solid color-mix(in srgb, var(--lane-accent) 70%, transparent);
 }
 
-.fm-event-weekday {
-  font-family: var(--fm-body);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--lane-accent) 88%, white);
-  line-height: 1.1;
-}
-
-.fm-event-date {
-  font-family: var(--fm-display);
-  font-size: 1.2rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  color: var(--fm-paper);
-}
-
 .fm-event-clock {
-  margin-top: 0.15rem;
   font-family: var(--fm-mono);
   font-size: 0.78rem;
   font-weight: 600;
