@@ -16,7 +16,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Import a Network Screen",
       description:
-        "Replace the captured people on a Network Screen. Call this after paging the connector's visible LinkedIn connections. Do not score, rank, or draft. Max 200 people.",
+        "Send a connector's visible LinkedIn connections so JasonOS can choose three people Jason should ask to be introduced to. The list is not added to contacts. Do not score, rank, or draft. Max 200 people.",
       inputSchema: z.object({
         screen_id: z.string().uuid(),
         connector_degree: degree.describe("Degree shown on the connector's profile."),
@@ -55,7 +55,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Read a Network Screen",
       description:
-        "Read one Network Screen: connector, counts by bucket and tier, Tier 1 and Tier 2 lists, and the draft if one exists. Does not change anything.",
+        "Read one Network Screen: the connector and the three intro recommendations, plus the draft if one exists. Does not change anything.",
       inputSchema: z.object({
         screen_id: z.string().uuid(),
       }),
@@ -115,7 +115,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Pending intro requests",
       description:
-        "Tier 1 people still queued or already requested, across every Network Screen, with the connector's name. Read-only.",
+        "Intro recommendations still queued or already requested, across every Network Screen, with the connector's name. Read-only.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

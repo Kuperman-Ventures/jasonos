@@ -14,7 +14,7 @@ import {
   importedSiblingId,
   type ScreenSnapshot,
 } from "@/lib/network-screen/follow-import";
-import { applyScoreRules } from "@/lib/network-screen/score";
+import { selectIntroRecommendations, type IntroPick } from "@/lib/network-screen/score";
 import { DRAFT_RULES, NETWORK_SCREEN_STRATEGY } from "@/lib/network-screen/strategy";
 import {
   isBucket,
@@ -38,7 +38,6 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 type ActionError = { ok: false; error: string };
 
 const SCREEN_URL = "https://jasonos.vercel.app/email-templates";
-const SCORE_CHUNK = 120;
 const BUCKET_RANK: Record<Bucket, number> = {
   hiring_path: 0,
   recruiter: 1,
@@ -525,22 +524,32 @@ export async function listNetworkScreens(): Promise<
   };
 }
 
-type ScoredPerson = {
+type RecommendationEntry = {
   id?: unknown;
   bucket?: unknown;
-  tier?: unknown;
   title?: unknown;
   company?: unknown;
   why?: unknown;
   ask?: unknown;
-  next_action?: unknown;
 };
 
-async function scoreChunk(
+async function jobSearchBrief(sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
+  const fallback = "Full-time CMO or SVP Marketing at a B2B tech company.";
+  const [settings, narrative] = await Promise.all([
+    sb.from("live_settings").select("snapshot").limit(1).maybeSingle(),
+    sb.from("narratives").select("body").eq("key", "job_search_positioning").maybeSingle(),
+  ]);
+  const parts = [blank(narrative.data?.body), blank(settings.data?.snapshot)].filter(
+    (part): part is string => Boolean(part)
+  );
+  return parts.length ? parts.join("\n\n") : fallback;
+}
+
+async function chooseIntros(
   screen: NetworkScreenDetail,
-  people: NetworkScreenCandidate[]
-): Promise<{ partnerNote: string | null; rows: Map<string, ReturnType<typeof applyScoreRules>> }> {
-  const payload = people.map((person) => ({
+  brief: string
+): Promise<ReturnType<typeof selectIntroRecommendations>> {
+  const payload = screen.candidates.map((person) => ({
     id: person.id,
     name: person.name,
     headline: person.headline,
@@ -550,49 +559,41 @@ async function scoreChunk(
   }));
   const { text } = await generateText({
     model: heavyModel(),
-    maxOutputTokens: 16000,
+    maxOutputTokens: 4000,
     system: NETWORK_SCREEN_STRATEGY,
     messages: [
       {
         role: "user",
-        content: `Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.connectorHeadline}` : ""}${screen.connectorCompany ? ` at ${screen.connectorCompany}` : ""}.
+        content: `What Jason is looking for:
+${brief}
+
+Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.connectorHeadline}` : ""}${screen.connectorCompany ? ` at ${screen.connectorCompany}` : ""}.
 
 Return STRICT JSON only:
-{"partner_note":"","candidates":[{"id":"","bucket":"hiring_path|recruiter|peer_referral|speaking_content|not_relevant","tier":"tier1|tier2|none","title":"","company":"","why":"","ask":"","next_action":""}]}
+{"recommendations":[{"id":"","bucket":"hiring_path|recruiter|peer_referral|speaking_content|not_relevant","title":"","company":"","why":"","ask":""}]}
 
-why and ask are one line each and only for tier1. partner_note is empty unless the connector's own work is adjacent to Jason's.
+At most three recommendations. Use ids from the list. Skip linkedin_degree 1st.
 
-People:
+Connections:
 ${JSON.stringify(payload)}`,
       },
     ],
     providerOptions: anthropicOptions(),
   });
   const parsed = parseJsonObject(text);
-  if (!parsed || !Array.isArray(parsed.candidates)) {
-    throw new Error("The scoring model did not return a usable list.");
+  const entries = parsed?.recommendations;
+  if (!Array.isArray(entries)) {
+    throw new Error("The recommendation did not come back in a usable form.");
   }
-  const byId = new Map(people.map((person) => [person.id, person]));
-  const rows = new Map<string, ReturnType<typeof applyScoreRules>>();
-  for (const entry of parsed.candidates as ScoredPerson[]) {
-    const id = blank(entry.id);
-    const person = id ? byId.get(id) : undefined;
-    if (!id || !person) continue;
-    rows.set(
-      id,
-      applyScoreRules({
-        linkedinDegree: person.linkedinDegree,
-        bucket: blank(entry.bucket) ?? "not_relevant",
-        tier: blank(entry.tier) ?? "none",
-        title: blank(entry.title),
-        company: blank(entry.company),
-        why: blank(entry.why),
-        ask: blank(entry.ask),
-        nextAction: blank(entry.next_action),
-      })
-    );
-  }
-  return { partnerNote: blank(parsed.partner_note), rows };
+  const picks: IntroPick[] = (entries as RecommendationEntry[]).map((entry) => ({
+    id: blank(entry.id) ?? "",
+    bucket: blank(entry.bucket) ?? "not_relevant",
+    title: blank(entry.title),
+    company: blank(entry.company),
+    why: blank(entry.why),
+    ask: blank(entry.ask),
+  }));
+  return selectIntroRecommendations(screen.candidates, picks);
 }
 
 export async function scoreNetworkScreen({
@@ -604,58 +605,79 @@ export async function scoreNetworkScreen({
   const loaded = await getNetworkScreen(screenId);
   if (!loaded.ok) return loaded;
   if (!loaded.screen.candidates.length) {
-    return { ok: false, error: "No connections to score." };
+    return { ok: false, error: "No connections to read." };
   }
-  const chunks: NetworkScreenCandidate[][] = [];
-  for (let i = 0; i < loaded.screen.candidates.length; i += SCORE_CHUNK) {
-    chunks.push(loaded.screen.candidates.slice(i, i + SCORE_CHUNK));
+  if (loaded.screen.status !== "captured") {
+    return loaded;
   }
-  let partnerNote: string | null = null;
-  const scored = new Map<string, ReturnType<typeof applyScoreRules>>();
+  const sb = createServiceRoleClient();
+  const { data: claimed, error: claimError } = await sb
+    .from("network_screens")
+    .update({ status: "scored" satisfies ScreenStatus })
+    .eq("id", screenId)
+    .eq("status", "captured")
+    .select("id");
+  if (claimError) return { ok: false, error: claimError.message };
+  if (!claimed?.length) return getNetworkScreen(screenId);
+
+  let chosen: ReturnType<typeof selectIntroRecommendations>;
   try {
-    for (const chunk of chunks) {
-      const result = await scoreChunk(loaded.screen, chunk);
-      if (!partnerNote && result.partnerNote) partnerNote = result.partnerNote;
-      for (const [id, row] of result.rows) scored.set(id, row);
-    }
+    const brief = await jobSearchBrief(sb);
+    chosen = await chooseIntros(loaded.screen, brief);
   } catch (err) {
-    console.error("[network-screen.score]", err);
+    console.error("[network-screen.recommend]", err);
+    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
     const message = err instanceof Error ? err.message : "";
-    if (message.includes("usable list")) return { ok: false, error: message };
-    return { ok: false, error: "Couldn't reach the scoring model. Try again." };
+    if (message.includes("usable form")) return { ok: false, error: message };
+    return { ok: false, error: "Couldn't choose the three intros. Try again." };
   }
-  if (!scored.size) {
-    return { ok: false, error: "The scoring model did not return a usable list. Try again." };
+  if (!chosen.length) {
+    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    return { ok: false, error: "None of the visible connections were worth an intro ask. Try again." };
   }
 
-  const sb = createServiceRoleClient();
-  const writes = [...scored.entries()].map(([id, row]) =>
+  const writes = chosen.map((person, index) =>
     sb
       .from("network_screen_candidates")
       .update({
-        bucket: row.bucket,
-        tier: row.tier,
-        title: row.title,
-        company: row.company,
-        why: row.why,
-        ask: row.ask,
-        next_action: row.nextAction,
+        bucket: person.bucket,
+        tier: person.tier,
+        title: person.title,
+        company: person.company,
+        why: person.why,
+        ask: person.ask,
+        next_action: person.nextAction,
         scored_by: "ai",
+        sort_order: index,
       })
-      .eq("id", id)
+      .eq("id", person.id)
+      .eq("screen_id", screenId)
   );
   const results = await Promise.all(writes);
   const failed = results.find((result) => result.error);
-  if (failed?.error) return { ok: false, error: failed.error.message };
+  if (failed?.error) {
+    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    return { ok: false, error: failed.error.message };
+  }
 
-  const { error } = await sb
-    .from("network_screens")
-    .update({
-      partner_note: partnerNote ?? loaded.screen.partnerNote,
-      status: "scored" satisfies ScreenStatus,
-    })
-    .eq("id", screenId);
-  if (error) return { ok: false, error: error.message };
+  const keep = new Set(chosen.map((person) => person.id));
+  const { data: remaining, error: remainingError } = await sb
+    .from("network_screen_candidates")
+    .select("id")
+    .eq("screen_id", screenId);
+  if (remainingError) {
+    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    return { ok: false, error: remainingError.message };
+  }
+  const drop = (remaining ?? []).map((row) => row.id as string).filter((id) => !keep.has(id));
+  if (drop.length) {
+    const { error: deleteError } = await sb.from("network_screen_candidates").delete().in("id", drop);
+    if (deleteError) {
+      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+      return { ok: false, error: deleteError.message };
+    }
+  }
+
   return getNetworkScreen(screenId);
 }
 
@@ -667,53 +689,6 @@ export type CandidatePatch = {
   nextAction?: string | null;
   queueStatus?: QueueStatus;
 };
-
-async function ensureContactForCandidate(
-  sb: ReturnType<typeof createServiceRoleClient>,
-  candidate: CandidateRow,
-  connectorName: string
-): Promise<string> {
-  const note = `From Network Screen via ${connectorName}`;
-  const linkedin = candidate.linkedin_url ? normalizeConnectorUrl(candidate.linkedin_url) : null;
-  if (linkedin) {
-    const { data: existing, error } = await sb
-      .from("contacts")
-      .select("id, tracks, notes, title")
-      .eq("linkedin_url", linkedin)
-      .limit(1);
-    if (error) throw new Error(error.message);
-    const row = existing?.[0] as
-      | { id: string; tracks: string[] | null; notes: string | null; title: string | null }
-      | undefined;
-    if (row) {
-      const tracks = Array.isArray(row.tracks) ? row.tracks : [];
-      const notes = row.notes?.includes(note) ? row.notes : [row.notes, note].filter(Boolean).join("\n");
-      const { error: updateError } = await sb
-        .from("contacts")
-        .update({
-          tracks: tracks.includes("job_search") ? tracks : [...tracks, "job_search"],
-          notes,
-          title: row.title || candidate.title,
-        })
-        .eq("id", row.id);
-      if (updateError) throw new Error(updateError.message);
-      return row.id;
-    }
-  }
-  const { data: inserted, error: insertError } = await sb
-    .from("contacts")
-    .insert({
-      name: candidate.name,
-      title: candidate.title,
-      linkedin_url: linkedin,
-      tracks: ["job_search"],
-      notes: note,
-    })
-    .select("id")
-    .single();
-  if (insertError) throw new Error(insertError.message);
-  return inserted.id as string;
-}
 
 export async function updateCandidate({
   id,
@@ -729,15 +704,12 @@ export async function updateCandidate({
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("network_screen_candidates")
-    .select("*, network_screens(connector_name)")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "Person not found." };
-  const current = data as CandidateRow & { network_screens?: { connector_name?: string } | { connector_name?: string }[] | null };
-  const connector = Array.isArray(current.network_screens)
-    ? current.network_screens[0]?.connector_name
-    : current.network_screens?.connector_name;
+  const current = data as CandidateRow;
 
   const next: Record<string, unknown> = {};
   if (patch.bucket && isBucket(patch.bucket) && patch.bucket !== current.bucket) {
@@ -760,17 +732,6 @@ export async function updateCandidate({
     next.queue_status = patch.queueStatus;
     if (patch.queueStatus === "intro_requested" && !current.intro_requested_at) {
       next.intro_requested_at = new Date().toISOString();
-    }
-  }
-  const queue = (next.queue_status as QueueStatus | undefined) ?? (isQueueStatus(current.queue_status) ? current.queue_status : "queued");
-  if (
-    (queue === "intro_made" || queue === "reached_out_direct") &&
-    !current.contact_id
-  ) {
-    try {
-      next.contact_id = await ensureContactForCandidate(sb, current, connector || "the connector");
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : "Could not save the contact." };
     }
   }
   if (Object.keys(next).length) {
@@ -835,12 +796,12 @@ export async function draftIntroRequest({
   const loaded = await getNetworkScreen(screenId);
   if (!loaded.ok) return loaded;
   const tier1 = tier1ForDraft(loaded.screen);
-  if (!tier1.length) return { ok: false, error: "No Tier 1 people to ask about." };
+  if (!tier1.length) return { ok: false, error: "No intro recommendations to ask about." };
   const screen = loaded.screen;
   const warm = screen.relationshipWarmth === "warm" || screen.relationshipWarmth === "expecting_review";
   const sizing = warm
-    ? "Include every Tier 1 name in the ask."
-    : "Ask for an intro to the first person only. List the rest in one FYI line. Do not ask for intros to all of them.";
+    ? "Ask for an introduction to each of these people."
+    : "Ask for an introduction to the first person only. Mention the other names in one line as the other people worth an introduction. Do not ask for all of them at once.";
   const people = tier1
     .map(
       (person, index) =>
@@ -868,7 +829,7 @@ ${screen.openCommitments || "(none)"}
 Partner note:
 ${screen.partnerNote || "(none)"}
 
-Tier 1, highest value first:
+The people Jason should ask to be introduced to, strongest first:
 ${people}`;
 
   try {
