@@ -3,56 +3,77 @@
 import { useEffect } from "react";
 
 /**
- * Letter page content box (11in − 2×0.35in margins), in CSS pixels at 96dpi.
- * Sheets taller than this are scaled down so each prints on exactly one page.
+ * Letter content box height (11in − 2×0.35in margins) at 96dpi.
+ * We shrink the whole sheet uniformly — never clip or drop events.
  */
 const PAGE_CONTENT_HEIGHT_PX = (11 - 0.7) * 96;
-const PAGE_CONTENT_WIDTH_PX = (8.5 - 0.7) * 96;
+
+function supportsZoom(): boolean {
+  try {
+    return typeof CSS !== "undefined" && CSS.supports("zoom", "0.5");
+  } catch {
+    return false;
+  }
+}
+
+function clearFit(sheet: HTMLElement, frame: HTMLElement) {
+  sheet.style.zoom = "";
+  sheet.style.transform = "";
+  sheet.style.transformOrigin = "";
+  sheet.style.width = "";
+  frame.style.height = "";
+  frame.style.overflow = "";
+}
 
 function fitSheets() {
+  const useZoom = supportsZoom();
   const sheets = document.querySelectorAll<HTMLElement>(".fmp-sheet");
+
   for (const sheet of sheets) {
     const frame = sheet.parentElement;
     if (!frame?.classList.contains("fmp-sheet-frame")) continue;
 
-    sheet.style.transform = "none";
-    sheet.style.width = "";
-    frame.style.height = "";
+    clearFit(sheet, frame);
 
+    // Natural (unscaled) size — do not change width before measuring.
     const contentH = sheet.scrollHeight;
-    const contentW = sheet.scrollWidth;
-    const scale = Math.min(
-      1,
-      PAGE_CONTENT_HEIGHT_PX / Math.max(contentH, 1),
-      PAGE_CONTENT_WIDTH_PX / Math.max(contentW, 1)
-    );
+    const scale = Math.min(1, PAGE_CONTENT_HEIGHT_PX / Math.max(contentH, 1));
 
-    if (scale < 0.999) {
+    if (scale >= 0.999) {
+      frame.dataset.printScale = "1";
+      continue;
+    }
+
+    if (useZoom) {
+      // zoom shrinks the layout box itself — no overflow clipping.
+      sheet.style.zoom = String(scale);
+    } else {
+      // transform fallback: scale visually; size the frame to the scaled box.
+      // Do NOT widen the sheet (that reflows and used to clip trailing events).
       sheet.style.transformOrigin = "top left";
       sheet.style.transform = `scale(${scale})`;
-      sheet.style.width = `${100 / scale}%`;
       frame.style.height = `${contentH * scale}px`;
-    } else {
-      sheet.style.transform = "";
-      sheet.style.width = "";
-      frame.style.height = "";
+      frame.style.overflow = "hidden";
     }
+
     frame.dataset.printScale = scale.toFixed(3);
   }
 }
 
-/** Scales each `.fmp-sheet` down when content would spill past one letter page. */
+/** Uniformly shrinks each sheet to one letter page. Never drops events. */
 export function FamilyMeetingPrintFit() {
   useEffect(() => {
-    fitSheets();
-    const onPrint = () => fitSheets();
-    window.addEventListener("beforeprint", onPrint);
-    window.addEventListener("resize", onPrint);
+    const run = () => fitSheets();
+    run();
+    window.addEventListener("beforeprint", run);
+    window.addEventListener("afterprint", run);
+    window.addEventListener("resize", run);
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-    fonts?.ready.then(() => fitSheets()).catch(() => undefined);
+    fonts?.ready.then(run).catch(() => undefined);
     return () => {
-      window.removeEventListener("beforeprint", onPrint);
-      window.removeEventListener("resize", onPrint);
+      window.removeEventListener("beforeprint", run);
+      window.removeEventListener("afterprint", run);
+      window.removeEventListener("resize", run);
     };
   }, []);
 
