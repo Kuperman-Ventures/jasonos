@@ -101,7 +101,7 @@ export async function GET(req: Request) {
   if (provider === GOOGLE_GMAIL && !isPersonalGmailAccount(email)) {
     return settingsError(
       origin,
-      `Signed in as ${userInfo.email ?? "another account"}. Pick ${GMAIL_ACCOUNT_EMAIL} (or jskuperman@gmail.com).`
+      `Signed in as ${userInfo.email ?? "another account"}. Pick ${GMAIL_ACCOUNT_EMAIL}.`
     );
   }
   if (provider === GOOGLE_ADVISORS && email && email !== ADVISORS_ACCOUNT_EMAIL.toLowerCase()) {

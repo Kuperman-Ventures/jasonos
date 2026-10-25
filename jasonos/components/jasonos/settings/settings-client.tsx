@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { GMAIL_ACCOUNT_EMAIL } from "@/lib/integrations/account-emails";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
@@ -121,7 +122,7 @@ export function SettingsClient({
     }
     if (connected) {
       toast.success("Personal Gmail connected", {
-        description: "Hit Sync in the top bar. Calendar and sent mail on jasonkuperman@gmail.com will come through.",
+        description: `Hit Sync in the top bar. Calendar and sent mail on ${GMAIL_ACCOUNT_EMAIL} will come through.`,
       });
     } else if (advisors) {
       toast.success("Advisors Google connected");
@@ -401,7 +402,7 @@ function MailAccountsCard({
     (health) => health === "connected"
   ).length;
   const expiredEmails = [
-    gmailHealth === "expired" ? "jasonkuperman@gmail.com" : null,
+    gmailHealth === "expired" ? (accounts.gmailEmail ?? GMAIL_ACCOUNT_EMAIL) : null,
     advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
     outlookHealth === "expired" ? "jason.kuperman@outlook.com" : null,
   ].filter((value): value is string => Boolean(value));
@@ -467,7 +468,7 @@ function MailAccountsCard({
         <MailAccountRow
           id="personal-gmail"
           label="Personal Gmail"
-          email="jasonkuperman@gmail.com"
+          email={GMAIL_ACCOUNT_EMAIL}
           connected={accounts.gmailConnected}
           needsReconnect={accounts.gmailNeedsReconnect}
           connectedEmail={accounts.gmailEmail}
