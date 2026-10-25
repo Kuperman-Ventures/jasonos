@@ -1,6 +1,6 @@
 # JasonOS login
 
-Locked pages on `jasonos.vercel.app` (Home, Today, Outreach, Settings, and the rest of the OS) require Face ID or Touch ID. IUGR, Ski Tracker, and the College tracker stay outside this lock.
+Locked pages on `jasonos.vercel.app` (Home, Today, Outreach, Settings, and the rest of the OS) require Face ID or Touch ID. IUGR, Ski Tracker, Dark Matter Travel Tracker, and the College tracker stay outside this lock.
 
 College login is unchanged on `kyle-college.vercel.app`. Do not turn on project-wide MFA, do not disable Google, and do not change College redirect URLs.
 

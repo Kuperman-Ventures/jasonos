@@ -42,7 +42,11 @@ export default async function RootLayout({
       className={`${hanken.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground max-[900px]:pr-[72px]">
+      <body
+        className={`min-h-full flex flex-col bg-background text-foreground${
+          publicSurface ? "" : " max-[900px]:pr-[72px]"
+        }`}
+      >
         <TooltipProvider delay={150}>
           <JasonOsChrome networkingCounts={networkingCounts} />
           <main className="flex-1">{children}</main>

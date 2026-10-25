@@ -15,6 +15,9 @@ const PUBLIC_PREFIXES = [
   "/iugr",
   "/projects/ski-tracker",
   "/api/ski-tracker",
+  "/projects/dark-matter-travel-tracker",
+  "/api/dark-matter-travel-tracker",
+  "/dark-matter",
   "/api/mcp",
   "/.well-known",
   "/api/auth/google/callback",
@@ -76,6 +79,8 @@ export function hidesJasonosChrome(pathname: string): boolean {
     matchesPathPrefix(path, "/auth") ||
     matchesPathPrefix(path, "/iugr") ||
     matchesPathPrefix(path, "/projects/ski-tracker") ||
+    matchesPathPrefix(path, "/projects/dark-matter-travel-tracker") ||
+    matchesPathPrefix(path, "/dark-matter") ||
     matchesPathPrefix(path, "/projects/family-meeting/print")
   );
 }

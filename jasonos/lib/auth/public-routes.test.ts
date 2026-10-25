@@ -9,11 +9,15 @@ import {
 } from "./public-routes.ts";
 
 describe("public JasonOS paths", () => {
-  it("leaves IUGR and Ski Tracker open", () => {
+  it("leaves IUGR, Ski Tracker, and Dark Matter Travel Tracker open", () => {
     assert.equal(isPublicJasonosPath("/iugr"), true);
     assert.equal(isPublicJasonosPath("/iugr/deck"), true);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker"), true);
     assert.equal(isPublicJasonosPath("/api/ski-tracker"), true);
+    assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker"), true);
+    assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker/vermont"), true);
+    assert.equal(isPublicJasonosPath("/api/dark-matter-travel-tracker"), true);
+    assert.equal(isPublicJasonosPath("/dark-matter"), true);
   });
 
   it("leaves login, Auth callback, MCP, publish routes, and well-known open", () => {
@@ -37,6 +41,9 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/projects/trailbound-at"), false);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/api/ski-tracker-evil"), false);
+    assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker-evil"), false);
+    assert.equal(isPublicJasonosPath("/api/dark-matter-travel-tracker-evil"), false);
+    assert.equal(isPublicJasonosPath("/dark-matter-evil"), false);
     assert.equal(isPublicJasonosPath("/api/mcpish"), false);
     assert.equal(isPublicJasonosPath("/api/dashboard/action-queue"), false);
   });
@@ -58,11 +65,14 @@ describe("public JasonOS paths", () => {
     assert.equal(isLiveCallPath("/live/playbooks/abc"), false);
   });
 
-  it("hides chrome on login, IUGR, and Ski Tracker", () => {
+  it("hides chrome on login, IUGR, Ski Tracker, and Dark Matter", () => {
     assert.equal(hidesJasonosChrome("/login"), true);
     assert.equal(hidesJasonosChrome("/iugr"), true);
     assert.equal(hidesJasonosChrome("/projects/ski-tracker"), true);
+    assert.equal(hidesJasonosChrome("/projects/dark-matter-travel-tracker"), true);
+    assert.equal(hidesJasonosChrome("/dark-matter"), true);
     assert.equal(hidesJasonosChrome("/today"), false);
+    assert.equal(hidesJasonosChrome("/projects"), false);
   });
 
   it("knows cron paths", () => {
