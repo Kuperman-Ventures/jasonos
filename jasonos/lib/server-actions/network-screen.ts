@@ -9,6 +9,11 @@ import { stripEmDashes } from "@/lib/email-templates/render";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { getConnectionByLinkedInUrl } from "@/lib/integrations/leaddelta";
 import { normalizeLinkedInUrl } from "@/lib/integrations/leaddelta-parse";
+import {
+  IMPORT_SIBLING_WINDOW_MS,
+  importedSiblingId,
+  type ScreenSnapshot,
+} from "@/lib/network-screen/follow-import";
 import { applyScoreRules } from "@/lib/network-screen/score";
 import { DRAFT_RULES, NETWORK_SCREEN_STRATEGY } from "@/lib/network-screen/strategy";
 import {
@@ -226,6 +231,66 @@ async function connectorEmail(
   return firstEmail(data?.emails);
 }
 
+function snapshotOf(row: {
+  id: string;
+  status: string;
+  visible_count: number;
+  created_at: string;
+}): ScreenSnapshot {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    visibleCount: row.visible_count,
+    status: row.status,
+  };
+}
+
+async function loadResolved(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  screenId: string
+): Promise<NetworkScreenDetail | null> {
+  const screen = await loadDetail(sb, screenId);
+  if (!screen) return null;
+  const { data, error } = await sb
+    .from("network_screens")
+    .select("id, status, visible_count, created_at")
+    .eq("connector_contact_id", screen.connectorContactId);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as {
+    id: string;
+    status: string;
+    visible_count: number;
+    created_at: string;
+  }[];
+  const siblingId = importedSiblingId(snapshotOf({
+    id: screen.id,
+    status: screen.status,
+    visible_count: screen.visibleCount,
+    created_at: screen.createdAt,
+  }), rows.map(snapshotOf));
+  if (!siblingId || siblingId === screen.id) return screen;
+  return (await loadDetail(sb, siblingId)) ?? screen;
+}
+
+async function findRecentEmptyScreen(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  contactId: string
+): Promise<string | null> {
+  const since = new Date(Date.now() - IMPORT_SIBLING_WINDOW_MS).toISOString();
+  const { data, error } = await sb
+    .from("network_screens")
+    .select("id")
+    .eq("connector_contact_id", contactId)
+    .eq("status", "awaiting_capture")
+    .eq("visible_count", 0)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return typeof data?.id === "string" ? data.id : null;
+}
+
 async function loadDetail(
   sb: ReturnType<typeof createServiceRoleClient>,
   screenId: string
@@ -345,7 +410,28 @@ export async function createNetworkScreen({
   const emails = Array.isArray(data.emails)
     ? data.emails.filter((entry): entry is string => typeof entry === "string")
     : [];
+
+  try {
+    const existingId = await findRecentEmptyScreen(sb, contactId);
+    if (existingId) {
+      const existing = await loadResolved(sb, existingId);
+      if (existing) return { ok: true, screen: existing };
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not load the screen." };
+  }
+
   const context = await readMeetingContext(name, emails);
+
+  try {
+    const existingId = await findRecentEmptyScreen(sb, contactId);
+    if (existingId) {
+      const existing = await loadResolved(sb, existingId);
+      if (existing) return { ok: true, screen: existing };
+    }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not load the screen." };
+  }
 
   const { data: inserted, error: insertError } = await sb
     .from("network_screens")
@@ -376,7 +462,7 @@ export async function getNetworkScreen(
     return { ok: false, error: "Screen not found." };
   }
   try {
-    const screen = await loadDetail(createServiceRoleClient(), screenId);
+    const screen = await loadResolved(createServiceRoleClient(), screenId);
     if (!screen) return { ok: false, error: "Screen not found." };
     return { ok: true, screen };
   } catch (err) {
@@ -391,15 +477,23 @@ export async function listNetworkScreens(): Promise<
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("network_screens")
-    .select("id, connector_name, status, created_at")
+    .select("id, connector_contact_id, connector_name, status, visible_count, created_at")
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
-  const screens = (data ?? []) as {
+  const rows = (data ?? []) as {
     id: string;
+    connector_contact_id: string;
     connector_name: string;
     status: string;
+    visible_count: number;
     created_at: string;
   }[];
+  const screens = rows.filter((screen) => {
+    const sameContact = rows.filter(
+      (other) => other.connector_contact_id === screen.connector_contact_id
+    );
+    return importedSiblingId(snapshotOf(screen), sameContact.map(snapshotOf)) === null;
+  });
   const ids = screens.map((screen) => screen.id);
   const counts = new Map<string, { tier1: number; queued: number }>();
   if (ids.length) {
@@ -423,6 +517,7 @@ export async function listNetworkScreens(): Promise<
       id: screen.id,
       connectorName: screen.connector_name,
       status: isScreenStatus(screen.status) ? screen.status : "awaiting_capture",
+      visibleCount: screen.visible_count,
       tier1Count: counts.get(screen.id)?.tier1 ?? 0,
       queuedCount: counts.get(screen.id)?.queued ?? 0,
       createdAt: screen.created_at,

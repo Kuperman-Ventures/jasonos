@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ClipboardCopy, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -81,6 +81,9 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const [pickedFor, setPickedFor] = useState<string | null>(null);
   const [bucketFilter, setBucketFilter] = useState("all");
   const [othersOpen, setOthersOpen] = useState(false);
+  const [captureNote, setCaptureNote] = useState<string | null>(null);
+  const [checkTick, setCheckTick] = useState(0);
+  const createLock = useRef(false);
 
   if (screen) {
     const key = `${screen.id}:${screen.updatedAt}`;
@@ -113,7 +116,16 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     if (!initialScreenId) return;
     let cancelled = false;
     void getNetworkScreen(initialScreenId).then((result) => {
-      if (!cancelled && result.ok) setScreen(result.screen);
+      if (cancelled) return;
+      if (!result.ok) {
+        setCaptureNote(result.error);
+        return;
+      }
+      setCaptureNote(null);
+      setScreen(result.screen);
+      if (result.screen.id !== initialScreenId) {
+        toast.success(`${result.screen.visibleCount} connections imported`);
+      }
     });
     return () => {
       cancelled = true;
@@ -136,17 +148,37 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
 
   useEffect(() => {
     if (!screenId || screenStatus !== "awaiting_capture") return;
-    const timer = setInterval(() => {
-      void getNetworkScreen(screenId).then((result) => {
-        if (!result.ok) return;
-        setScreen(result.screen);
-        if (result.screen.status === "captured") {
-          toast.success(`${result.screen.visibleCount} connections imported`);
-        }
-      });
-    }, 10000);
-    return () => clearInterval(timer);
-  }, [screenId, screenStatus]);
+    let cancelled = false;
+    const requestedId = screenId;
+    async function pull(manual: boolean) {
+      const result = await getNetworkScreen(requestedId);
+      if (cancelled) return;
+      if (!result.ok) {
+        setCaptureNote(result.error);
+        return;
+      }
+      if (result.screen.id === requestedId && result.screen.status === "awaiting_capture") {
+        if (manual) setCaptureNote("No import on this screen yet.");
+        return;
+      }
+      setCaptureNote(null);
+      setScreen(result.screen);
+      toast.success(`${result.screen.visibleCount} connections imported`);
+    }
+    void pull(checkTick > 0);
+    const timer = setInterval(() => void pull(false), 10000);
+    function onVisible() {
+      if (document.visibilityState === "visible") void pull(false);
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [checkTick, screenId, screenStatus]);
 
   function refreshList() {
     void listNetworkScreens().then((result) => {
@@ -229,7 +261,15 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                 >
                   <span className="font-medium">{item.connectorName}</span>
                   <span className="text-sm text-muted-foreground">
-                    {SCREEN_STATUS_LABELS[item.status]} · {item.tier1Count} Tier 1 · {item.queuedCount} queued · {formatWhen(item.createdAt)}
+                    {[
+                      SCREEN_STATUS_LABELS[item.status],
+                      item.visibleCount > 0 ? `${item.visibleCount} visible` : null,
+                      `${item.tier1Count} Tier 1`,
+                      `${item.queuedCount} queued`,
+                      formatWhen(item.createdAt),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </button>
               </li>
@@ -293,16 +333,22 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         <div className="space-y-3">
           <ContactPicker
             onSelect={(contact) => {
+              if (createLock.current) return;
+              createLock.current = true;
               setFormError(null);
               startTransition(async () => {
-                const result = await createNetworkScreen({ contactId: contact.id });
-                if (!result.ok) {
-                  setFormError(result.error);
-                  return;
+                try {
+                  const result = await createNetworkScreen({ contactId: contact.id });
+                  if (!result.ok) {
+                    setFormError(result.error);
+                    return;
+                  }
+                  setScreen(result.screen);
+                  setCreating(false);
+                  refreshList();
+                } finally {
+                  createLock.current = false;
                 }
-                setScreen(result.screen);
-                setCreating(false);
-                refreshList();
               });
             }}
           />
@@ -396,8 +442,12 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>Paste the prompt into Claude.</li>
             <li>Claude pages LinkedIn in your Chrome and imports the list.</li>
-            <li>This page updates on its own.</li>
+            <li>This page picks up the import on its own.</li>
           </ol>
+          <Button type="button" variant="outline" onClick={() => setCheckTick((tick) => tick + 1)}>
+            Check now
+          </Button>
+          {captureNote ? <p className="text-sm text-muted-foreground">{captureNote}</p> : null}
         </section>
       ) : null}
 

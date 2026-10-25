@@ -128,6 +128,7 @@ export type NetworkScreenListItem = {
   id: string;
   connectorName: string;
   status: ScreenStatus;
+  visibleCount: number;
   tier1Count: number;
   queuedCount: number;
   createdAt: string;
