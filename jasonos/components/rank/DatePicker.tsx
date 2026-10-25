@@ -1,7 +1,6 @@
 "use client";
 
-import { HOLIDAY_DATES_2026_27 } from "@/config/scoring";
-import { addCalendarDays, formatPillDate, isSaturday, todayInNewYork } from "@/lib/scoring/calendar";
+import { addCalendarDays, formatPillDate, todayInNewYork } from "@/lib/scoring/calendar";
 
 export function DatePicker({
   selected,
@@ -16,10 +15,9 @@ export function DatePicker({
   const dates = Array.from({ length: days }, (_, index) => addCalendarDays(today, index));
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
-      <div className="flex w-max gap-2 pb-1">
+    <div className="-mr-[18px] overflow-x-auto">
+      <div className="flex w-max snap-x gap-2 pb-1">
         {dates.map((date, index) => {
-          const marked = isSaturday(date) || HOLIDAY_DATES_2026_27.includes(date);
           const label = index === 0 ? "Today" : index === 1 ? "Tomorrow" : formatPillDate(date);
           const active = date === selected;
           return (
@@ -28,17 +26,11 @@ export function DatePicker({
               type="button"
               aria-pressed={active}
               onClick={() => onSelect(date)}
-              className={`flex min-h-11 min-w-16 flex-col items-center justify-center rounded-full px-3 text-sm ${
-                active
-                  ? "bg-foreground text-background"
-                  : "border bg-card text-foreground"
+              className={`min-h-11 shrink-0 snap-start rounded-[20px] px-3.5 text-sm font-bold ${
+                active ? "bg-[#0b1d33] text-[#f4f8fb]" : "bg-[#d6eaf7] text-[#0b1d33]"
               }`}
             >
-              <span>{label}</span>
-              <span
-                className={`mt-0.5 h-1 w-1 rounded-full ${marked ? "bg-current" : "bg-transparent"}`}
-                aria-hidden
-              />
+              {label}
             </button>
           );
         })}
