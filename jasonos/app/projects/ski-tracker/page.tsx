@@ -27,6 +27,9 @@ export default async function SkiTrackerPage() {
         <a href="/rank" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium">
           Mountain rank
         </a>
+        <a href="/christmas" className="mt-3 ml-4 inline-flex min-h-11 items-center text-sm font-medium">
+          Christmas
+        </a>
       </header>
 
       <section className="rounded-xl border bg-card p-4">
