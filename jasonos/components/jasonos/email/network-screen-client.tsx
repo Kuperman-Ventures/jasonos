@@ -27,9 +27,8 @@ import {
   listNetworkScreens,
   markIntrosRequested,
   scoreNetworkScreen,
-  updateCandidate,
+  saveNetworkScreenAnalysis,
   updateNetworkScreen,
-  type CandidatePatch,
 } from "@/lib/server-actions/network-screen";
 
 const selectClass =
@@ -66,6 +65,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const [warmth, setWarmth] = useState<RelationshipWarmth>("new");
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
+  const [reasons, setReasons] = useState<Record<string, { why: string; ask: string }>>({});
+  const [seenReasons, setSeenReasons] = useState("");
   const [seenScreen, setSeenScreen] = useState("");
   const [picked, setPicked] = useState<string[] | null>(null);
   const [pickedFor, setPickedFor] = useState<string | null>(null);
@@ -86,6 +87,20 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       setWarmth(screen.relationshipWarmth);
       setDraftSubject(screen.draftSubject ?? "");
       setDraftBody(screen.draftBody ?? "");
+    }
+    const reasonKey = `${screen.id}:${screen.candidates
+      .filter((person) => person.tier === "tier1")
+      .map((person) => person.id)
+      .join(",")}`;
+    if (seenReasons !== reasonKey) {
+      setSeenReasons(reasonKey);
+      setReasons(
+        Object.fromEntries(
+          screen.candidates
+            .filter((person) => person.tier === "tier1")
+            .map((person) => [person.id, { why: person.why ?? "", ask: person.ask ?? "" }])
+        )
+      );
     }
     if (pickedFor !== screen.id) {
       setPickedFor(screen.id);
@@ -194,6 +209,40 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     });
   }
 
+  function saveAnalysis() {
+    if (!screen) return;
+    startTransition(async () => {
+      const result = await saveNetworkScreenAnalysis({
+        screenId: screen.id,
+        patch: {
+          relationshipWarmth: warmth,
+          meetingNotesSummary: notes,
+          openCommitments: commitments,
+          partnerNote: partner,
+          draftSubject,
+          draftBody,
+        },
+        recommendations: screen.candidates
+          .filter((person) => person.tier === "tier1")
+          .slice(0, 3)
+          .map((person) => ({
+            id: person.id,
+            why: reasons[person.id]?.why ?? person.why,
+            ask: reasons[person.id]?.ask ?? person.ask,
+          })),
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Analysis saved.");
+      setScreen(null);
+      setCreating(false);
+      setFormError(null);
+      refreshList();
+    });
+  }
+
   function saveScreen(patch: Parameters<typeof updateNetworkScreen>[0]["patch"]) {
     if (!screen) return;
     startTransition(async () => {
@@ -203,29 +252,6 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         return;
       }
       setScreen(result.screen);
-    });
-  }
-
-  function saveCandidate(id: string, patch: CandidatePatch) {
-    startTransition(async () => {
-      const result = await updateCandidate({ id, patch });
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      if (patch.tier === "tier1" && result.candidate.tier === "tier2") {
-        toast("1st-degree connections stay Tier 2.");
-      }
-      setScreen((current) =>
-        current
-          ? {
-              ...current,
-              candidates: current.candidates.map((person) =>
-                person.id === id ? result.candidate : person
-              ),
-            }
-          : current
-      );
     });
   }
 
@@ -496,23 +522,31 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                     <label className="block space-y-1 text-sm">
                       <span className="font-medium">Why this intro</span>
                       <Textarea
-                        key={`${person.id}-why-${person.why ?? ""}`}
-                        defaultValue={person.why ?? ""}
-                        onBlur={(event) => {
-                          if (event.target.value === (person.why ?? "")) return;
-                          saveCandidate(person.id, { why: event.target.value });
-                        }}
+                        value={reasons[person.id]?.why ?? ""}
+                        onChange={(event) =>
+                          setReasons((current) => ({
+                            ...current,
+                            [person.id]: {
+                              why: event.target.value,
+                              ask: current[person.id]?.ask ?? person.ask ?? "",
+                            },
+                          }))
+                        }
                       />
                     </label>
                     <label className="block space-y-1 text-sm">
                       <span className="font-medium">What to ask {screen.connectorName}</span>
                       <Textarea
-                        key={`${person.id}-ask-${person.ask ?? ""}`}
-                        defaultValue={person.ask ?? ""}
-                        onBlur={(event) => {
-                          if (event.target.value === (person.ask ?? "")) return;
-                          saveCandidate(person.id, { ask: event.target.value });
-                        }}
+                        value={reasons[person.id]?.ask ?? ""}
+                        onChange={(event) =>
+                          setReasons((current) => ({
+                            ...current,
+                            [person.id]: {
+                              why: current[person.id]?.why ?? person.why ?? "",
+                              ask: event.target.value,
+                            },
+                          }))
+                        }
                       />
                     </label>
                   </li>
@@ -570,6 +604,9 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   />
                 </label>
                 <div className="flex flex-wrap gap-2">
+                  <Button type="button" disabled={pending} onClick={saveAnalysis}>
+                    Done
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -586,6 +623,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   </Button>
                   <Button
                     type="button"
+                    variant="outline"
                     disabled={pending}
                     onClick={() => {
                       startTransition(async () => {
@@ -624,7 +662,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   ))}
                 </ul>
                 <p className="text-sm text-muted-foreground">
-                  Nothing is sent from JasonOS. Send from Mail, then mark it here. These people are not added to contacts.
+                  Done saves the three recommendations and the note. It does not send mail or mark the intro requested.
                 </p>
               </div>
             </>

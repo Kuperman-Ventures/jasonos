@@ -778,6 +778,77 @@ export async function updateNetworkScreen({
   return getNetworkScreen(screenId);
 }
 
+export async function saveNetworkScreenAnalysis({
+  screenId,
+  patch,
+  recommendations,
+}: {
+  screenId: string;
+  patch: {
+    relationshipWarmth?: RelationshipWarmth;
+    meetingNotesSummary?: string | null;
+    openCommitments?: string | null;
+    partnerNote?: string | null;
+    draftSubject?: string | null;
+    draftBody?: string | null;
+  };
+  recommendations: { id: string; why: string | null; ask: string | null }[];
+}): Promise<{ ok: true; screen: NetworkScreenDetail } | ActionError> {
+  if (!ensureConfigured()) return notConfigured();
+  if (!z.string().uuid().safeParse(screenId).success) {
+    return { ok: false, error: "Screen not found." };
+  }
+  const people = z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        why: z.string().max(4000).nullable(),
+        ask: z.string().max(4000).nullable(),
+      })
+    )
+    .max(3)
+    .safeParse(recommendations);
+  if (!people.success) return { ok: false, error: "Could not save the analysis." };
+
+  const sb = createServiceRoleClient();
+  const { data: existing, error: existingError } = await sb
+    .from("network_screens")
+    .select("id, status")
+    .eq("id", screenId)
+    .maybeSingle();
+  if (existingError) return { ok: false, error: existingError.message };
+  if (!existing) return { ok: false, error: "Screen not found." };
+
+  for (const person of people.data) {
+    const { error } = await sb
+      .from("network_screen_candidates")
+      .update({ why: blank(person.why), ask: blank(person.ask) })
+      .eq("id", person.id)
+      .eq("screen_id", screenId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const next: Record<string, unknown> = {};
+  if (patch.relationshipWarmth && isWarmth(patch.relationshipWarmth)) {
+    next.relationship_warmth = patch.relationshipWarmth;
+  }
+  if ("meetingNotesSummary" in patch) next.meeting_notes_summary = blank(patch.meetingNotesSummary);
+  if ("openCommitments" in patch) next.open_commitments = blank(patch.openCommitments);
+  if ("partnerNote" in patch) next.partner_note = blank(patch.partnerNote);
+  if ("draftSubject" in patch) next.draft_subject = blank(patch.draftSubject);
+  if ("draftBody" in patch) next.draft_body = patch.draftBody ? stripEmDashes(patch.draftBody) : null;
+  const status = typeof existing.status === "string" ? existing.status : "";
+  const hasDraft = Boolean(blank(patch.draftSubject) || (patch.draftBody ? stripEmDashes(patch.draftBody) : null));
+  if (hasDraft && (status === "scored" || status === "captured")) {
+    next.status = "drafted" satisfies ScreenStatus;
+  }
+  if (Object.keys(next).length) {
+    const { error } = await sb.from("network_screens").update(next).eq("id", screenId);
+    if (error) return { ok: false, error: error.message };
+  }
+  return getNetworkScreen(screenId);
+}
+
 function tier1ForDraft(screen: NetworkScreenDetail): NetworkScreenCandidate[] {
   return screen.candidates
     .filter((person) => person.tier === "tier1")
