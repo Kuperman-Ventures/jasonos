@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { RESORTS } from "@/config/resorts";
 import { formatPlainDate } from "@/lib/scoring/calendar";
 import type { RankPayload } from "@/lib/scoring/score";
+import { Ridgeline } from "@/components/ski/Ridgeline";
+import { SkiBadge } from "@/components/ski/SkiBadge";
 import { DatePicker } from "./DatePicker";
 import { MountainCard } from "./MountainCard";
 
@@ -51,37 +53,41 @@ export function RankScreen({ initial }: { initial: RankPayload }) {
   }, [selected, retryToken, initial.date]);
 
   const results = state.status === "ready" ? state.data.results : [];
-  const firstGated = results.findIndex((result) => result.gate.gated);
+  const dayNotSkiable = results.length > 0 && results.every((result) => result.gate.gated);
   const resortFeed =
     state.status === "ready" &&
     state.data.results.some((result) => result.report.source === "resort-feed");
 
   return (
-    <div className="mx-auto w-full max-w-[480px] px-4 py-4">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Mountain Rank</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{formatPlainDate(selected)}</p>
+    <div className="relative min-h-screen max-w-[720px] overflow-hidden px-[18px] py-7 md:px-8">
+      <Ridgeline tone="light" />
+      <header className="relative flex items-center gap-2.5">
+        <SkiBadge ground="light" className="size-[34px] shrink-0" />
+        <h1 className="ski-wordmark text-[28px]">SKI</h1>
+        <p className="ski-mono ml-auto text-[13px] text-[#3a566f] uppercase">{formatPlainDate(selected)}</p>
       </header>
 
-      <div className="mt-4">
+      <div className="relative mt-[18px]">
         <DatePicker selected={selected} onSelect={chooseDate} />
       </div>
 
-      <div className="mt-4 space-y-3">
+      {dayNotSkiable ? (
+        <p className="ski-mono relative mt-[18px] text-[13px] tracking-[0.06em] text-[#ff5a1f] uppercase">
+          Not skiable this day
+        </p>
+      ) : null}
+
+      <div className="relative mt-2">
         {state.status === "loading"
           ? Array.from({ length: 5 }, (_, index) => (
-              <div key={index} className="h-40 animate-pulse rounded-xl bg-neutral-200" />
+              <div key={index} className="my-3 h-12 animate-pulse rounded-md bg-[#d6eaf7] motion-reduce:animate-none" />
             ))
           : null}
 
         {state.status === "error" ? (
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-sm">Weather did not load.</p>
-            <button
-              type="button"
-              className="mt-3 inline-flex min-h-11 items-center rounded-full bg-foreground px-4 text-sm text-background"
-              onClick={retry}
-            >
+          <div className="py-4">
+            <p className="ski-mono text-sm text-[#ff5a1f]">Weather did not load.</p>
+            <button type="button" className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-[#1f6fd1]" onClick={retry}>
               Retry
             </button>
           </div>
@@ -89,32 +95,21 @@ export function RankScreen({ initial }: { initial: RankPayload }) {
 
         {state.status === "ready"
           ? results.map((result, index) => (
-              <div key={result.resort.id} className="space-y-3">
-                {firstGated === index ? (
-                  <p className="pt-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    Not skiable this day
-                  </p>
-                ) : null}
-                <MountainCard result={result} rank={index + 1} />
-              </div>
+              <MountainCard key={result.resort.id} result={result} rank={index + 1} />
             ))
           : null}
 
         {state.status === "ready" && state.data.results.length === 0 ? (
-          <div className="rounded-xl border bg-card p-4">
+          <div className="py-4">
             <p className="text-sm">No mountains could be ranked for this day.</p>
-            <button
-              type="button"
-              className="mt-3 inline-flex min-h-11 items-center rounded-full bg-foreground px-4 text-sm text-background"
-              onClick={retry}
-            >
+            <button type="button" className="mt-2 inline-flex min-h-11 items-center text-sm font-bold text-[#1f6fd1]" onClick={retry}>
               Retry
             </button>
           </div>
         ) : null}
 
         {state.status === "ready" && state.data.errors.length > 0 ? (
-          <ul className="space-y-1 text-sm text-muted-foreground">
+          <ul className="ski-mono mt-3 space-y-1 text-xs text-[#ff5a1f]">
             {state.data.errors.map((error) => (
               <li key={error.resortId}>
                 {resortName(error.resortId)}: {error.message}
@@ -124,7 +119,7 @@ export function RankScreen({ initial }: { initial: RankPayload }) {
         ) : null}
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
+      <p className="ski-mono relative mt-6 text-[11px] text-[#3a566f]">
         Weather: Open-Meteo. Alerts: NWS.{" "}
         {resortFeed ? "Resort conditions: resort report" : "Resort conditions: estimated."}
       </p>

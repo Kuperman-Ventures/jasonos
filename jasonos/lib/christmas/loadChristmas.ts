@@ -28,7 +28,7 @@ export type ChristmasPlan = {
 
 const GROUP_TITLES: Record<PassStanding, string> = {
   open: "Pass works every day of this break",
-  blackout: "Epic Local blocked Dec 26-31",
+  blackout: "Blocked Dec 26-31",
   "off-pass": "Not on Epic Local",
 };
 

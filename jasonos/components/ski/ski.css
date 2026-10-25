@@ -1,0 +1,59 @@
+.ski {
+  font-family: var(--font-ski-display), sans-serif;
+}
+
+.ski-mono {
+  font-family: var(--font-ski-mono), ui-monospace, monospace;
+}
+
+.ski-wordmark {
+  font-family: var(--font-ski-display), sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-stretch: 125%;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+.ski-name {
+  font-family: var(--font-ski-display), sans-serif;
+  font-weight: 900;
+  font-stretch: 115%;
+  line-height: 1;
+}
+
+.ski-score {
+  font-family: var(--font-ski-display), sans-serif;
+  font-weight: 900;
+  font-stretch: 125%;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ski-title {
+  font-family: var(--font-ski-display), sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-stretch: 125%;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  font-size: 120px;
+}
+
+.ski-snowbar {
+  background:
+    radial-gradient(circle at 3px 3px, #f4f8fb 1.6px, transparent 2.2px) 0 0 / 9px 9px,
+    radial-gradient(circle at 7px 8px, #d6eaf7 1.2px, transparent 1.8px) 0 0 / 9px 9px,
+    #3f8fe0;
+}
+
+.ski :focus-visible {
+  outline: 2px solid #1f6fd1;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ski-expand {
+    transition: none;
+  }
+}
