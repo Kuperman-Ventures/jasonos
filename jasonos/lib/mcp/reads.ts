@@ -82,6 +82,10 @@ export function listJasonosAreas() {
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
       { area: "post_master", tools: ["list_post_master_projects", "list_weekly_provocations"] },
+      {
+        area: "network_screen",
+        tools: ["import_network_screen", "get_network_screen", "list_pending_intros"],
+      },
       { area: "connections", tools: ["get_connection_status"] },
       {
         area: "connections_register",

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Mail } from "lucide-react";
 import { EmailClient } from "@/components/jasonos/email/email-client";
@@ -21,7 +22,9 @@ export default function EmailPage() {
         </p>
       </header>
 
-      <EmailClient />
+      <Suspense>
+        <EmailClient />
+      </Suspense>
     </div>
   );
 }

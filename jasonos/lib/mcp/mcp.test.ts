@@ -31,6 +31,7 @@ import {
   validateSheetBlocks,
   validatePlanPoints,
 } from "./plan-points.ts";
+import { NETWORK_SCREEN_TOOL_NAMES } from "./network-screen-tools.ts";
 import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
@@ -293,6 +294,10 @@ describe("registerJasonosTools", () => {
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
     assert.ok(registered.includes("list_weekly_provocations"));
+    for (const name of NETWORK_SCREEN_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /import_network_screen/);
   });
 });
 
@@ -320,6 +325,9 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("list_project_links"));
     assert.ok(tools.includes("add_project_link"));
     assert.ok(tools.includes("list_weekly_provocations"));
+    assert.ok(tools.includes("import_network_screen"));
+    assert.ok(tools.includes("get_network_screen"));
+    assert.ok(tools.includes("list_pending_intros"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
     assert.ok(tools.includes("build_meeting_plan"));

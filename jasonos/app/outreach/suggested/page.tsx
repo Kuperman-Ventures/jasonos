@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getContactCandidates } from "@/lib/server-actions/contact-candidates";
+import { listPendingIntros } from "@/lib/server-actions/network-screen";
 import { isGmailConnected } from "@/lib/integrations/gmail";
 import { SuggestedClient } from "@/components/jasonos/outreach/suggested-client";
 
@@ -9,13 +10,18 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export default async function OutreachSuggestedPage() {
-  const [candidates, gmailConnected] = await Promise.all([
+  const [candidates, gmailConnected, pending] = await Promise.all([
     getContactCandidates(),
     isGmailConnected(),
+    listPendingIntros(),
   ]);
   return (
     <Suspense>
-      <SuggestedClient candidates={candidates} gmailConnected={gmailConnected} />
+      <SuggestedClient
+        candidates={candidates}
+        gmailConnected={gmailConnected}
+        pendingIntros={pending.ok ? pending.intros : []}
+      />
     </Suspense>
   );
 }

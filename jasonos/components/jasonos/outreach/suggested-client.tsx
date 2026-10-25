@@ -4,7 +4,8 @@
 // isn't in People yet. Name matches offer Merge (attach this address to the
 // existing row) or Add as new. Dismiss is a permanent ignore.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -25,13 +26,22 @@ import {
   type ContactCandidate,
 } from "@/lib/server-actions/contact-candidates";
 import { isBeeperPlaceholderEmail } from "@/lib/outreach/contact-lookup";
+import {
+  QUEUE_STATUSES,
+  QUEUE_STATUS_LABELS,
+  type PendingIntro,
+  type QueueStatus,
+} from "@/lib/network-screen/types";
+import { updateCandidate } from "@/lib/server-actions/network-screen";
 
 export function SuggestedClient({
   candidates,
   gmailConnected,
+  pendingIntros,
 }: {
   candidates: ContactCandidate[];
   gmailConnected: boolean;
+  pendingIntros: PendingIntro[];
 }) {
   const router = useRouter();
   const [twoWayOnly, setTwoWayOnly] = useState(false);
@@ -118,6 +128,7 @@ export function SuggestedClient({
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-6">
+      <PendingIntrosPanel intros={pendingIntros} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
@@ -357,5 +368,107 @@ function CandidateRow({
         </Button>
       </div>
     </li>
+  );
+}
+
+function formatRequested(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "America/New_York",
+  });
+}
+
+function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
+  const [rows, setRows] = useState(intros);
+  const [seen, setSeen] = useState(intros);
+  const [pending, startTransition] = useTransition();
+  if (seen !== intros) {
+    setSeen(intros);
+    setRows(intros);
+  }
+  if (!rows.length) return null;
+
+  return (
+    <section className="space-y-2">
+      <h2 className="text-lg font-semibold">Pending intros</h2>
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[720px] text-left text-sm">
+          <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 font-medium">Title</th>
+              <th className="px-3 py-2 font-medium">Company</th>
+              <th className="px-3 py-2 font-medium">Via</th>
+              <th className="px-3 py-2 font-medium">Queue status</th>
+              <th className="px-3 py-2 font-medium">Requested on</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id} className="border-b last:border-0">
+                <td className="px-3 py-2 font-medium">
+                  <Link
+                    href={`/email-templates?section=network-screen&screen=${row.screenId}`}
+                    className="underline"
+                  >
+                    {row.name}
+                  </Link>
+                </td>
+                <td className="px-3 py-2">{row.title}</td>
+                <td className="px-3 py-2">{row.company}</td>
+                <td className="px-3 py-2">{row.connectorName}</td>
+                <td className="px-3 py-2">
+                  <select
+                    className="h-8 rounded-lg border border-input bg-transparent px-2 text-sm"
+                    value={row.queueStatus}
+                    disabled={pending}
+                    aria-label={`Queue status for ${row.name}`}
+                    onChange={(event) => {
+                      const queueStatus = event.target.value as QueueStatus;
+                      startTransition(async () => {
+                        const result = await updateCandidate({ id: row.id, patch: { queueStatus } });
+                        if (!result.ok) {
+                          toast.error(result.error);
+                          return;
+                        }
+                        const stillPending =
+                          result.candidate.tier === "tier1" &&
+                          (result.candidate.queueStatus === "queued" ||
+                            result.candidate.queueStatus === "intro_requested");
+                        setRows((current) =>
+                          stillPending
+                            ? current.map((item) =>
+                                item.id === row.id
+                                  ? {
+                                      ...item,
+                                      queueStatus: result.candidate.queueStatus,
+                                      introRequestedAt: result.candidate.introRequestedAt,
+                                    }
+                                  : item
+                              )
+                            : current.filter((item) => item.id !== row.id)
+                        );
+                      });
+                    }}
+                  >
+                    {QUEUE_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {QUEUE_STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">{formatRequested(row.introRequestedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
