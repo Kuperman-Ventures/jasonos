@@ -84,6 +84,9 @@ function dayFill(row: ChristmasRow, blackout: boolean): { background: string; ou
 }
 
 const BOARD_GRID = "grid grid-cols-[220px_340px_minmax(0,1fr)_160px] gap-x-7";
+const HEADER_CELL = "border-b-[3px] border-[#3f8fe0] pb-3";
+const HEADER_LINE = "ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]";
+const HEADER_SUB = "ski-mono text-sm font-semibold tracking-[0.04em] text-[#d6eaf7]";
 
 const AXIS_TICKS = [
   { label: "0", left: "0%", align: "translateX(0)" },
@@ -130,27 +133,28 @@ export default async function ChristmasPage() {
         <p className="max-w-[600px] text-[19px] leading-[1.45] text-[#d6eaf7]">{heroLine(plan)}</p>
       </header>
 
-      <div className={`relative mt-14 items-end border-b-2 border-[#3f8fe0] pb-3 ${BOARD_GRID}`}>
-        <div>
-          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">MOUNTAIN</div>
-          <div className="ski-mono mt-2 text-xs tracking-[0.04em] text-[#a9cfe8]">HOME DRIVE</div>
+      <div className={`relative mt-14 items-stretch ${BOARD_GRID}`}>
+        <div className={HEADER_CELL}>
+          <div className={HEADER_LINE}>MOUNTAIN</div>
+          <div className={`mt-2 ${HEADER_SUB}`}>HOME DRIVE</div>
         </div>
-        <div>
-          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">DATES · DEC 24 – JAN 2</div>
-          <div className="ski-mono mt-2 grid grid-cols-10 gap-1 text-center text-xs tracking-[0.04em] text-[#a9cfe8]">
+        <div className={HEADER_CELL}>
+          <div className={HEADER_LINE}>DATES · DEC 24 – JAN 2</div>
+          <div className={`mt-2 grid grid-cols-10 gap-1 text-center ${HEADER_SUB}`}>
             {plan.days.map((day) => (
               <span key={day.date}>{Number(day.date.slice(8))}</span>
             ))}
           </div>
         </div>
-        <div className="min-w-0">
-          <div className="ski-mono flex items-end justify-between gap-3 text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">
+        <div className={`min-w-0 ${HEADER_CELL}`}>
+          <div className={`flex items-end justify-between gap-3 ${HEADER_LINE}`}>
             <span>SNOWFALL (INCHES)</span>
-            <span className="text-right whitespace-nowrap">
-              <span className="text-[#3f8fe0]">■</span> MEDIAN <span className="text-[#ffb199]">|</span> PROJECTED
+            <span className={`text-right whitespace-nowrap tracking-[0.04em] text-[#d6eaf7]`}>
+              <span className="ski-snowbar mr-1.5 inline-block h-3 w-[26px] rounded-[6px] align-[-2px]" />
+              MEDIAN <span className="text-[#ffb199]">|</span> PROJECTED
             </span>
           </div>
-          <div className="ski-mono relative mt-2 h-4 text-xs tracking-[0.04em] text-[#a9cfe8]">
+          <div className={`relative mt-2 h-5 ${HEADER_SUB}`}>
             {AXIS_TICKS.map((tick) => (
               <span key={tick.label} className="absolute top-0" style={{ left: tick.left, transform: tick.align }}>
                 {tick.label}
@@ -158,9 +162,9 @@ export default async function ChristmasPage() {
             ))}
           </div>
         </div>
-        <div>
-          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">AVG HIGH</div>
-          <div className="ski-mono mt-2 text-xs tracking-[0.04em] text-[#a9cfe8]">VS 32°F FREEZING</div>
+        <div className={HEADER_CELL}>
+          <div className={HEADER_LINE}>AVG HIGH</div>
+          <div className={`mt-2 ${HEADER_SUB}`}>VS 32°F FREEZING</div>
         </div>
       </div>
 
