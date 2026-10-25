@@ -13,22 +13,12 @@ import { ContactPicker } from "@/components/jasonos/email/contact-picker";
 import { buildMailtoUrl } from "@/lib/email-templates/render";
 import { buildCapturePrompt } from "@/lib/network-screen/capture-prompt";
 import {
-  BUCKETS,
-  BUCKET_LABELS,
-  QUEUE_STATUSES,
-  QUEUE_STATUS_LABELS,
   SCREEN_STATUS_LABELS,
-  TIER_LABELS,
-  TIERS,
   WARMTHS,
   WARMTH_LABELS,
-  type Bucket,
-  type NetworkScreenCandidate,
   type NetworkScreenDetail,
   type NetworkScreenListItem,
-  type QueueStatus,
   type RelationshipWarmth,
-  type Tier,
 } from "@/lib/network-screen/types";
 import {
   createNetworkScreen,
@@ -79,11 +69,12 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const [seenScreen, setSeenScreen] = useState("");
   const [picked, setPicked] = useState<string[] | null>(null);
   const [pickedFor, setPickedFor] = useState<string | null>(null);
-  const [bucketFilter, setBucketFilter] = useState("all");
-  const [othersOpen, setOthersOpen] = useState(false);
   const [captureNote, setCaptureNote] = useState<string | null>(null);
   const [checkTick, setCheckTick] = useState(0);
+  const [recommendError, setRecommendError] = useState<string | null>(null);
+  const [recommendTick, setRecommendTick] = useState(0);
   const createLock = useRef(false);
+  const recommendedFor = useRef<string | null>(null);
 
   if (screen) {
     const key = `${screen.id}:${screen.updatedAt}`;
@@ -124,7 +115,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       setCaptureNote(null);
       setScreen(result.screen);
       if (result.screen.id !== initialScreenId) {
-        toast.success(`${result.screen.visibleCount} connections imported`);
+        toast.success(`Read ${result.screen.visibleCount} connections. Choosing three intros.`);
       }
     });
     return () => {
@@ -163,7 +154,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       }
       setCaptureNote(null);
       setScreen(result.screen);
-      toast.success(`${result.screen.visibleCount} connections imported`);
+      toast.success(`Read ${result.screen.visibleCount} connections. Choosing three intros.`);
     }
     void pull(checkTick > 0);
     const timer = setInterval(() => void pull(false), 10000);
@@ -179,6 +170,23 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       window.removeEventListener("focus", onVisible);
     };
   }, [checkTick, screenId, screenStatus]);
+
+  useEffect(() => {
+    if (!screen || screen.status !== "captured") return;
+    if (recommendedFor.current === `${screen.id}:${recommendTick}`) return;
+    recommendedFor.current = `${screen.id}:${recommendTick}`;
+    setRecommendError(null);
+    startTransition(async () => {
+      const result = await scoreNetworkScreen({ screenId: screen.id });
+      if (!result.ok) {
+        setRecommendError(result.error);
+        return;
+      }
+      if (!result.screen.candidates.some((person) => person.tier === "tier1")) return;
+      setScreen(result.screen);
+      refreshList();
+    });
+  }, [recommendTick, screen]);
 
   function refreshList() {
     void listNetworkScreens().then((result) => {
@@ -222,11 +230,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   }
 
   const step = creating || !screen ? 1 : stepFor(screen);
-  const tier1 = screen?.candidates.filter((person) => person.tier === "tier1") ?? [];
-  const tier2 = screen?.candidates.filter((person) => person.tier === "tier2") ?? [];
-  const others =
-    screen?.candidates.filter((person) => person.tier !== "tier1" && person.tier !== "tier2") ?? [];
-  const checked = new Set(picked ?? tier1.map((person) => person.id));
+  const recommendations = (screen?.candidates.filter((person) => person.tier === "tier1") ?? []).slice(0, 3);
+  const checked = new Set(picked ?? recommendations.map((person) => person.id));
 
   if (!screen && !creating) {
     return (
@@ -263,9 +268,12 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   <span className="text-sm text-muted-foreground">
                     {[
                       SCREEN_STATUS_LABELS[item.status],
-                      item.visibleCount > 0 ? `${item.visibleCount} visible` : null,
-                      `${item.tier1Count} Tier 1`,
-                      `${item.queuedCount} queued`,
+                      item.tier1Count > 0
+                        ? `${item.tier1Count} intros`
+                        : item.status === "captured"
+                          ? "Choosing 3 intros"
+                          : null,
+                      item.queuedCount > 0 ? `${item.queuedCount} queued` : null,
                       formatWhen(item.createdAt),
                     ]
                       .filter(Boolean)
@@ -302,8 +310,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         {(
           [
             [1, "Pick connector"],
-            [2, "Capture in Claude"],
-            [3, "Review"],
+            [2, "Read their network"],
+            [3, "Three intros"],
           ] as const
         ).map(([number, label]) => {
           const done =
@@ -441,8 +449,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
           </Button>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
             <li>Paste the prompt into Claude.</li>
-            <li>Claude pages LinkedIn in your Chrome and imports the list.</li>
-            <li>This page picks up the import on its own.</li>
+            <li>Claude pages their connections in your Chrome.</li>
+            <li>JasonOS reads the list and keeps the three people worth an introduction.</li>
           </ol>
           <Button type="button" variant="outline" onClick={() => setCheckTick((tick) => tick + 1)}>
             Check now
@@ -454,155 +462,70 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       {screen && step === 3 ? (
         <section className="space-y-6">
           {screen.status === "captured" ? (
-            <Button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                startTransition(async () => {
-                  const result = await scoreNetworkScreen({ screenId: screen.id });
-                  if (!result.ok) {
-                    toast.error(result.error);
-                    return;
-                  }
-                  setScreen(result.screen);
-                  toast.success("Scoring finished.");
-                });
-              }}
-            >
-              Score {screen.candidates.length} people
-            </Button>
+            <div className="space-y-3">
+              <p className="text-sm">
+                Reading {screen.visibleCount} connections from {screen.connectorName} and choosing the three people to ask for an introduction to.
+              </p>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+              {recommendError ? <p className="text-sm text-destructive">{recommendError}</p> : null}
+              {recommendError ? (
+                <Button type="button" onClick={() => setRecommendTick((tick) => tick + 1)}>
+                  Try again
+                </Button>
+              ) : null}
+            </div>
           ) : (
             <>
               <p className="text-sm">
                 {screen.totalCountLabel
-                  ? `${screen.visibleCount} of ${screen.totalCountLabel} connections were visible. ${tier1.length} Tier 1.`
-                  : `${screen.visibleCount} connections were visible. ${tier1.length} Tier 1.`}
+                  ? `Read ${screen.visibleCount} of ${screen.totalCountLabel} connections. These are the people to ask ${screen.connectorName} to introduce you to. The rest of the list was not saved.`
+                  : `Read ${screen.visibleCount} connections. These are the people to ask ${screen.connectorName} to introduce you to. The rest of the list was not saved.`}
               </p>
 
-              <div className="space-y-2">
-                <h3 className="font-semibold">Tier 1</h3>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-                      <tr>
-                        <th className="px-2 py-2 font-medium">Name</th>
-                        <th className="px-2 py-2 font-medium">Title</th>
-                        <th className="px-2 py-2 font-medium">Company</th>
-                        <th className="px-2 py-2 font-medium">Bucket</th>
-                        <th className="px-2 py-2 font-medium">Why</th>
-                        <th className="px-2 py-2 font-medium">Ask</th>
-                        <th className="px-2 py-2 font-medium">Tier</th>
-                        <th className="px-2 py-2 font-medium">Queue status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tier1.map((person) => (
-                        <tr key={person.id} className="border-b align-top last:border-0">
-                          <td className="px-2 py-2 font-medium">{person.name}</td>
-                          <td className="px-2 py-2">{person.title}</td>
-                          <td className="px-2 py-2">{person.company}</td>
-                          <td className="px-2 py-2">
-                            <BucketSelect person={person} onChange={saveCandidate} />
-                          </td>
-                          <td className="px-2 py-2">
-                            <Input
-                              key={`${person.id}-why-${person.why ?? ""}`}
-                              defaultValue={person.why ?? ""}
-                              onBlur={(event) => {
-                                if (event.target.value === (person.why ?? "")) return;
-                                saveCandidate(person.id, { why: event.target.value });
-                              }}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <Input
-                              key={`${person.id}-ask-${person.ask ?? ""}`}
-                              defaultValue={person.ask ?? ""}
-                              onBlur={(event) => {
-                                if (event.target.value === (person.ask ?? "")) return;
-                                saveCandidate(person.id, { ask: event.target.value });
-                              }}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <TierSelect person={person} onChange={saveCandidate} />
-                          </td>
-                          <td className="px-2 py-2">
-                            <QueueSelect person={person} onChange={saveCandidate} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {tier1.length === 0 ? (
-                    <p className="px-3 py-3 text-sm text-muted-foreground">No Tier 1 people.</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">Tier 2</h3>
-                <ul className="divide-y divide-border rounded-lg border">
-                  {tier2.map((person) => (
-                    <li key={person.id} className="grid gap-2 px-3 py-2 text-sm md:grid-cols-[1fr_1fr_auto_auto]">
-                      <span>
-                        <span className="font-medium">{person.name}</span>
-                        {person.headline ? <span className="block text-muted-foreground">{person.headline}</span> : null}
-                      </span>
-                      <span>{BUCKET_LABELS[person.bucket]}</span>
-                      <span>{person.nextAction}</span>
-                      <TierSelect person={person} onChange={saveCandidate} />
-                    </li>
-                  ))}
-                  {tier2.length === 0 ? (
-                    <li className="px-3 py-3 text-sm text-muted-foreground">No Tier 2 people.</li>
-                  ) : null}
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  className="text-sm font-semibold"
-                  onClick={() => setOthersOpen((open) => !open)}
-                >
-                  Everyone else ({others.length})
-                </button>
-                {othersOpen ? (
-                  <div className="space-y-2">
-                    <select
-                      className={selectClass}
-                      value={bucketFilter}
-                      onChange={(event) => setBucketFilter(event.target.value)}
-                    >
-                      <option value="all">All buckets</option>
-                      {BUCKETS.map((bucket) => (
-                        <option key={bucket} value={bucket}>
-                          {BUCKET_LABELS[bucket]}
-                        </option>
-                      ))}
-                    </select>
-                    <ul className="divide-y divide-border rounded-lg border">
-                      {others
-                        .filter((person) => bucketFilter === "all" || person.bucket === bucketFilter)
-                        .map((person) => (
-                          <li key={person.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-                            <span>
-                              <span className="font-medium">{person.name}</span>
-                              <span className="text-muted-foreground"> · {BUCKET_LABELS[person.bucket]}</span>
-                            </span>
-                            <TierSelect person={person} onChange={saveCandidate} />
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
+              <ol className="space-y-4">
+                {recommendations.map((person, index) => (
+                  <li key={person.id} className="space-y-3 rounded-lg border bg-card p-4">
+                    <div>
+                      <h3 className="font-semibold">
+                        {index + 1}. {person.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {[person.title, person.company, person.headline].filter(Boolean).join(" · ") || "No headline captured"}
+                      </p>
+                    </div>
+                    <label className="block space-y-1 text-sm">
+                      <span className="font-medium">Why this intro</span>
+                      <Textarea
+                        key={`${person.id}-why-${person.why ?? ""}`}
+                        defaultValue={person.why ?? ""}
+                        onBlur={(event) => {
+                          if (event.target.value === (person.why ?? "")) return;
+                          saveCandidate(person.id, { why: event.target.value });
+                        }}
+                      />
+                    </label>
+                    <label className="block space-y-1 text-sm">
+                      <span className="font-medium">What to ask {screen.connectorName}</span>
+                      <Textarea
+                        key={`${person.id}-ask-${person.ask ?? ""}`}
+                        defaultValue={person.ask ?? ""}
+                        onBlur={(event) => {
+                          if (event.target.value === (person.ask ?? "")) return;
+                          saveCandidate(person.id, { ask: event.target.value });
+                        }}
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ol>
+              {recommendations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No intro recommendations yet.</p>
+              ) : null}
 
               <div className="space-y-3">
                 <Button
                   type="button"
-                  disabled={pending}
+                  disabled={pending || recommendations.length === 0}
                   onClick={() => {
                     startTransition(async () => {
                       const result = await draftIntroRequest({ screenId: screen.id });
@@ -616,8 +539,13 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                     });
                   }}
                 >
-                  Draft intro request
+                  Draft the ask
                 </Button>
+                <p className="text-sm text-muted-foreground">
+                  {screen.relationshipWarmth === "new"
+                    ? "The note asks for the strongest introduction and mentions the other two."
+                    : "The note asks for an introduction to each of these people."}
+                </p>
                 <label className="block space-y-1 text-sm">
                   <span className="font-medium">Subject</span>
                   <Input
@@ -678,7 +606,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   </Button>
                 </div>
                 <ul className="space-y-1">
-                  {tier1.map((person) => (
+                  {recommendations.map((person) => (
                     <li key={person.id}>
                       <label className="flex items-center gap-2 text-sm">
                         <Checkbox
@@ -690,13 +618,13 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                             setPicked([...next]);
                           }}
                         />
-                        {person.name}
+                        Asked about {person.name}
                       </label>
                     </li>
                   ))}
                 </ul>
                 <p className="text-sm text-muted-foreground">
-                  Nothing is sent from JasonOS. Send from Mail, then mark it here.
+                  Nothing is sent from JasonOS. Send from Mail, then mark it here. These people are not added to contacts.
                 </p>
               </div>
             </>
@@ -704,74 +632,5 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         </section>
       ) : null}
     </div>
-  );
-}
-
-function TierSelect({
-  person,
-  onChange,
-}: {
-  person: NetworkScreenCandidate;
-  onChange: (id: string, patch: CandidatePatch) => void;
-}) {
-  return (
-    <select
-      className={selectClass}
-      value={person.tier}
-      aria-label={`Tier for ${person.name}`}
-      onChange={(event) => onChange(person.id, { tier: event.target.value as Tier })}
-    >
-      {TIERS.map((tier) => (
-        <option key={tier} value={tier}>
-          {TIER_LABELS[tier]}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function BucketSelect({
-  person,
-  onChange,
-}: {
-  person: NetworkScreenCandidate;
-  onChange: (id: string, patch: CandidatePatch) => void;
-}) {
-  return (
-    <select
-      className={selectClass}
-      value={person.bucket}
-      aria-label={`Bucket for ${person.name}`}
-      onChange={(event) => onChange(person.id, { bucket: event.target.value as Bucket })}
-    >
-      {BUCKETS.map((bucket) => (
-        <option key={bucket} value={bucket}>
-          {BUCKET_LABELS[bucket]}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function QueueSelect({
-  person,
-  onChange,
-}: {
-  person: NetworkScreenCandidate;
-  onChange: (id: string, patch: CandidatePatch) => void;
-}) {
-  return (
-    <select
-      className={selectClass}
-      value={person.queueStatus}
-      aria-label={`Queue status for ${person.name}`}
-      onChange={(event) => onChange(person.id, { queueStatus: event.target.value as QueueStatus })}
-    >
-      {QUEUE_STATUSES.map((status) => (
-        <option key={status} value={status}>
-          {QUEUE_STATUS_LABELS[status]}
-        </option>
-      ))}
-    </select>
   );
 }

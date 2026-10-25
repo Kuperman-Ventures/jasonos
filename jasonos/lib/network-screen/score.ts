@@ -23,6 +23,65 @@ export type ScoreResult = {
 
 const REACTIVATE = "Reactivate directly";
 
+export const INTRO_RECOMMENDATION_LIMIT = 3;
+
+export type IntroPick = {
+  id: string;
+  bucket: string;
+  title: string | null;
+  company: string | null;
+  why: string | null;
+  ask: string | null;
+};
+
+export type IntroRecommendation = {
+  id: string;
+  bucket: Bucket;
+  tier: "tier1";
+  title: string | null;
+  company: string | null;
+  why: string;
+  ask: string;
+  nextAction: string;
+};
+
+/** Keep the model's picks that are real intro targets, in the order given, capped at three. */
+export function selectIntroRecommendations(
+  people: { id: string; linkedinDegree: string | null }[],
+  picks: IntroPick[]
+): IntroRecommendation[] {
+  const degrees = new Map(people.map((person) => [person.id, person.linkedinDegree]));
+  const chosen: IntroRecommendation[] = [];
+  const seen = new Set<string>();
+  for (const pick of picks) {
+    if (!pick.id || seen.has(pick.id) || !degrees.has(pick.id)) continue;
+    seen.add(pick.id);
+    const scored = applyScoreRules({
+      linkedinDegree: degrees.get(pick.id) ?? null,
+      bucket: pick.bucket,
+      tier: "tier1",
+      title: pick.title,
+      company: pick.company,
+      why: pick.why,
+      ask: pick.ask,
+      nextAction: "Ask for the intro",
+    });
+    if (scored.tier !== "tier1" || !scored.why || !scored.ask) continue;
+    chosen.push({
+      id: pick.id,
+      bucket: scored.bucket,
+      tier: "tier1",
+      title: scored.title,
+      company: scored.company,
+      why: scored.why,
+      ask: scored.ask,
+      nextAction: "Ask for the intro",
+    });
+    if (chosen.length === INTRO_RECOMMENDATION_LIMIT) break;
+  }
+  return chosen;
+}
+
 function blank(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
