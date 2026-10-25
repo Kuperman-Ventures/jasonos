@@ -14,6 +14,8 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/iugr/deck"), true);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker"), true);
     assert.equal(isPublicJasonosPath("/api/ski-tracker"), true);
+    assert.equal(isPublicJasonosPath("/rank"), true);
+    assert.equal(isPublicJasonosPath("/api/rank"), true);
   });
 
   it("leaves login, Auth callback, MCP, publish routes, and well-known open", () => {
@@ -37,6 +39,8 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/projects/trailbound-at"), false);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/api/ski-tracker-evil"), false);
+    assert.equal(isPublicJasonosPath("/ranking"), false);
+    assert.equal(isPublicJasonosPath("/api/ranking"), false);
     assert.equal(isPublicJasonosPath("/api/mcpish"), false);
     assert.equal(isPublicJasonosPath("/api/dashboard/action-queue"), false);
   });
@@ -62,6 +66,7 @@ describe("public JasonOS paths", () => {
     assert.equal(hidesJasonosChrome("/login"), true);
     assert.equal(hidesJasonosChrome("/iugr"), true);
     assert.equal(hidesJasonosChrome("/projects/ski-tracker"), true);
+    assert.equal(hidesJasonosChrome("/rank"), true);
     assert.equal(hidesJasonosChrome("/today"), false);
   });
 
