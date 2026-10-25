@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import type { PresentationOverride } from "@/lib/family-meeting/edits";
 import { withEventKeys } from "@/lib/family-meeting/edits";
 import { freezeFamilyMeetingPrintPack } from "@/lib/family-meeting/freeze";
+import type { FamilyMeetingIconId } from "@/lib/family-meeting/icons";
 import type { FamilyMeetingEvent } from "@/lib/family-meeting/types";
 import {
   archiveSeries,
   listArchivedSeries,
   listHiddenOccurrences,
+  setSeriesIcon,
   setSeriesPresentation,
   unarchiveSeries,
   unhideOccurrenceKey,
@@ -130,6 +132,21 @@ export async function resetFamilyMeetingPresentation(input: {
       seriesKey: input.seriesKey,
       presentation: "auto",
       events: input.events.map(asEvent),
+    })
+  );
+}
+
+/** Set (or clear with null) the icon for every occurrence of this series. */
+export async function setFamilyMeetingSeriesIcon(input: {
+  seriesKey: string;
+  title: string;
+  iconId: FamilyMeetingIconId | null;
+}): Promise<ActionResult> {
+  return run(() =>
+    setSeriesIcon({
+      seriesKey: input.seriesKey,
+      title: input.title,
+      iconId: input.iconId,
     })
   );
 }

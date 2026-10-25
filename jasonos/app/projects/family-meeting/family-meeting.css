@@ -429,18 +429,35 @@ a.fm-chip-btn {
 
 .fm-event-icon {
   flex-shrink: 0;
+  justify-self: end;
+  position: relative;
+}
+
+.fm-event-icon .fm-icon-picker-trigger {
   width: 2.35rem;
   height: 2.35rem;
   display: grid;
   place-items: center;
-  justify-self: end;
+  border: 0;
   border-radius: 0.7rem;
   background: color-mix(in srgb, var(--lane-accent) 22%, transparent);
   color: color-mix(in srgb, var(--lane-accent) 90%, white);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane-accent) 28%, transparent);
+  cursor: pointer;
+  padding: 0;
 }
 
-.fm-event-icon svg {
+.fm-event-icon .fm-icon-picker-trigger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lane-accent) 34%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lane-accent) 48%, transparent);
+}
+
+.fm-event-icon .fm-icon-picker-trigger:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.fm-event-icon .fm-icon-picker-trigger svg {
   width: 1.15rem;
   height: 1.15rem;
 }
@@ -544,14 +561,108 @@ a.fm-chip-btn {
 }
 
 .fm-rhythm-icon {
+  position: relative;
   display: grid;
   place-items: center;
   color: color-mix(in srgb, var(--lane-accent) 55%, var(--fm-paper-faint));
 }
 
-.fm-rhythm-icon svg {
+.fm-rhythm-icon .fm-icon-picker-trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.15rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.fm-rhythm-icon .fm-icon-picker-trigger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--lane-accent) 18%, transparent);
+  color: color-mix(in srgb, var(--lane-accent) 80%, white);
+}
+
+.fm-rhythm-icon .fm-icon-picker-trigger svg {
   width: 0.85rem;
   height: 0.85rem;
+}
+
+.fm-icon-picker-pop {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 40;
+  width: min(16.5rem, 72vw);
+  padding: 0.55rem;
+  border-radius: 0.75rem;
+  background: #161b22;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+.fm-rhythm-icon .fm-icon-picker-pop {
+  right: auto;
+  left: 0;
+}
+
+.fm-icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.3rem;
+}
+
+.fm-icon-picker-opt {
+  appearance: none;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fm-paper-muted);
+  border-radius: 0.45rem;
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.fm-icon-picker-opt svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.fm-icon-picker-opt:hover:not(:disabled) {
+  color: var(--fm-paper);
+  border-color: color-mix(in srgb, var(--lane-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--lane-accent) 18%, transparent);
+}
+
+.fm-icon-picker-opt.is-current {
+  color: var(--fm-paper);
+  border-color: color-mix(in srgb, var(--lane-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--lane-accent) 28%, transparent);
+}
+
+.fm-icon-picker-auto {
+  appearance: none;
+  width: 100%;
+  margin-top: 0.45rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fm-paper-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.fm-icon-picker-auto:hover:not(:disabled) {
+  color: var(--fm-paper);
+  border-color: color-mix(in srgb, var(--lane-accent) 55%, transparent);
 }
 
 .fm-rhythm-title {

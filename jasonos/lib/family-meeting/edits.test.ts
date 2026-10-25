@@ -97,4 +97,25 @@ describe("applyFamilyMeetingEdits", () => {
     assert.equal(out[0]!.routine, false);
     assert.equal(out[0]!.presentation, "spotlight");
   });
+
+  it("applies a series icon override", () => {
+    const a = ev({
+      uid: "song",
+      title: "Playlist",
+      startsAt: "2026-10-28T00:00:00.000Z",
+      allDay: true,
+    });
+    const out = applyFamilyMeetingEdits([a], {
+      occurrences: [],
+      series: [
+        {
+          series_key: a.seriesKey!,
+          title: "Playlist",
+          archived: false,
+          icon_id: "music",
+        },
+      ],
+    });
+    assert.equal(out[0]!.iconId, "music");
+  });
 });

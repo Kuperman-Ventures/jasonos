@@ -1,3 +1,7 @@
+import {
+  isFamilyMeetingIconId,
+  type FamilyMeetingIconId,
+} from "./icons";
 import type { FamilyMeetingEvent } from "./types";
 import {
   dayKeyForEvent,
@@ -26,6 +30,8 @@ export interface SeriesEdit {
   series_key: string;
   title: string;
   archived: boolean;
+  /** Persisted icon override; null = keyword auto. */
+  icon_id?: string | null;
 }
 
 export interface FamilyMeetingEdits {
@@ -59,6 +65,12 @@ export function applyFamilyMeetingEdits(
   const archived = new Set(
     edits.series.filter((s) => s.archived).map((s) => s.series_key)
   );
+  const iconBySeries = new Map<string, FamilyMeetingIconId>();
+  for (const s of edits.series) {
+    if (isFamilyMeetingIconId(s.icon_id)) {
+      iconBySeries.set(s.series_key, s.icon_id);
+    }
+  }
   const byOccurrence = new Map(
     edits.occurrences.map((o) => [o.occurrence_key, o])
   );
@@ -84,7 +96,8 @@ export function applyFamilyMeetingEdits(
       routine = false;
       presentation = "heads_up";
     }
-    out.push({ ...ev, routine, presentation });
+    const iconId = iconBySeries.get(seriesKey) ?? null;
+    out.push({ ...ev, routine, presentation, iconId });
   }
   return out;
 }

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   discernEventIcon,
   locationForDisplay,
+  resolveEventIcon,
 } from "./icons.ts";
 
 describe("discernEventIcon", () => {
@@ -34,6 +35,19 @@ describe("discernEventIcon", () => {
 
   it("falls back when nothing matches", () => {
     assert.equal(discernEventIcon("Mystery hang"), "star");
+  });
+});
+
+describe("resolveEventIcon", () => {
+  it("prefers a persisted override over keyword discern", () => {
+    assert.equal(
+      resolveEventIcon({ title: "Flight to Chicago", iconId: "cake" }),
+      "cake"
+    );
+    assert.equal(
+      resolveEventIcon({ title: "Flight to Chicago", iconId: null }),
+      "plane"
+    );
   });
 });
 

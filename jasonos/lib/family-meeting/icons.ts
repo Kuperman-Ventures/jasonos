@@ -40,6 +40,57 @@ export type FamilyMeetingIconId =
   | "star"
   | "calendar";
 
+/** All pickable icons for the Family Meeting editor. */
+export const FAMILY_MEETING_ICON_IDS: readonly FamilyMeetingIconId[] = [
+  "video",
+  "train",
+  "bus",
+  "plane",
+  "car",
+  "bike",
+  "ship",
+  "cake",
+  "gift",
+  "party",
+  "music",
+  "recycle",
+  "leaf",
+  "cat",
+  "paw",
+  "droplet",
+  "vacuum",
+  "home",
+  "school",
+  "book",
+  "doctor",
+  "tooth",
+  "sport",
+  "dumbbell",
+  "food",
+  "coffee",
+  "shop",
+  "film",
+  "game",
+  "baby",
+  "heart",
+  "trees",
+  "sun",
+  "star",
+  "calendar",
+] as const;
+
+const ICON_ID_SET = new Set<string>(FAMILY_MEETING_ICON_IDS);
+
+export function isFamilyMeetingIconId(
+  value: string | null | undefined
+): value is FamilyMeetingIconId {
+  return Boolean(value && ICON_ID_SET.has(value));
+}
+
+export function iconLabel(id: FamilyMeetingIconId): string {
+  return id.replace(/_/g, " ");
+}
+
 type IconRule = { icon: FamilyMeetingIconId; re: RegExp };
 
 const VIDEO_RE =
@@ -112,4 +163,14 @@ export function discernEventIcon(
     if (rule.re.test(haystack)) return rule.icon;
   }
   return "star";
+}
+
+/** Prefer a persisted override; otherwise keyword discern. */
+export function resolveEventIcon(input: {
+  title: string;
+  location?: string | null;
+  iconId?: FamilyMeetingIconId | null;
+}): FamilyMeetingIconId {
+  if (isFamilyMeetingIconId(input.iconId)) return input.iconId;
+  return discernEventIcon(input.title, input.location);
 }
