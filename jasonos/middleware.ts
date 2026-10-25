@@ -18,7 +18,10 @@ import {
 function nextWithPublicHeader(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(PUBLIC_SURFACE_HEADER, "1");
-  if (matchesPathPrefix(request.nextUrl.pathname, "/rank")) {
+  if (
+    matchesPathPrefix(request.nextUrl.pathname, "/rank") ||
+    matchesPathPrefix(request.nextUrl.pathname, "/christmas")
+  ) {
     requestHeaders.set("x-jasonos-full-bleed", "1");
   }
   const response = NextResponse.next({ request: { headers: requestHeaders } });
