@@ -6,6 +6,7 @@ import {
   PUBLIC_SURFACE_HEADER,
   isCronPath,
   isPublicJasonosPath,
+  matchesPathPrefix,
 } from "@/lib/auth/public-routes";
 import {
   JASONOS_UNLOCK_COOKIE,
@@ -17,6 +18,9 @@ import {
 function nextWithPublicHeader(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(PUBLIC_SURFACE_HEADER, "1");
+  if (matchesPathPrefix(request.nextUrl.pathname, "/rank")) {
+    requestHeaders.set("x-jasonos-full-bleed", "1");
+  }
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set(PUBLIC_SURFACE_HEADER, "1");
   return response;
