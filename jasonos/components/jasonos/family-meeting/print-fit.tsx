@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-
-/**
- * Letter content box height (11in − 2×0.35in margins) at 96dpi.
- * We shrink the whole sheet uniformly — never clip or drop events.
- */
-const PAGE_CONTENT_HEIGHT_PX = (11 - 0.7) * 96;
+import {
+  choosePrintDensity,
+  FMP_MAX_DENSITY,
+  FMP_PAGE_CONTENT_HEIGHT_PX,
+  lastResortPrintScale,
+} from "@/lib/family-meeting/print-density";
 
 function supportsZoom(): boolean {
   try {
@@ -16,51 +16,68 @@ function supportsZoom(): boolean {
   }
 }
 
-function clearFit(sheet: HTMLElement, frame: HTMLElement) {
+function clearScale(sheet: HTMLElement, frame: HTMLElement) {
   sheet.style.zoom = "";
   sheet.style.transform = "";
   sheet.style.transformOrigin = "";
-  sheet.style.width = "";
   frame.style.height = "";
   frame.style.overflow = "";
 }
 
+function measureHeight(sheet: HTMLElement): number {
+  void sheet.offsetHeight;
+  return sheet.scrollHeight;
+}
+
+function applyLastResortScale(
+  sheet: HTMLElement,
+  frame: HTMLElement,
+  contentH: number
+) {
+  const scale = lastResortPrintScale(contentH, FMP_PAGE_CONTENT_HEIGHT_PX);
+  if (scale >= 0.999) return 1;
+
+  if (supportsZoom()) {
+    sheet.style.zoom = String(scale);
+  } else {
+    sheet.style.transformOrigin = "top left";
+    sheet.style.transform = `scale(${scale})`;
+    frame.style.height = `${contentH * scale}px`;
+    frame.style.overflow = "hidden";
+  }
+  return scale;
+}
+
+/**
+ * Per sheet:
+ * 1. Start at density 0 (comfortable — maximize readable space).
+ * 2. If it overflows one letter page, step density up (tighten spacing/fonts).
+ * 3. Only if still overflowing at max density, uniform-scale as last resort.
+ */
 function fitSheets() {
-  const useZoom = supportsZoom();
   const sheets = document.querySelectorAll<HTMLElement>(".fmp-sheet");
 
   for (const sheet of sheets) {
     const frame = sheet.parentElement;
     if (!frame?.classList.contains("fmp-sheet-frame")) continue;
 
-    clearFit(sheet, frame);
+    clearScale(sheet, frame);
 
-    // Natural (unscaled) size — do not change width before measuring.
-    const contentH = sheet.scrollHeight;
-    const scale = Math.min(1, PAGE_CONTENT_HEIGHT_PX / Math.max(contentH, 1));
+    const chosen = choosePrintDensity((density) => {
+      sheet.dataset.density = String(density);
+      return measureHeight(sheet);
+    }, FMP_PAGE_CONTENT_HEIGHT_PX, FMP_MAX_DENSITY);
 
-    if (scale >= 0.999) {
-      frame.dataset.printScale = "1";
-      continue;
-    }
+    sheet.dataset.density = String(chosen);
+    const hAfter = measureHeight(sheet);
+    const scale = applyLastResortScale(sheet, frame, hAfter);
 
-    if (useZoom) {
-      // zoom shrinks the layout box itself — no overflow clipping.
-      sheet.style.zoom = String(scale);
-    } else {
-      // transform fallback: scale visually; size the frame to the scaled box.
-      // Do NOT widen the sheet (that reflows and used to clip trailing events).
-      sheet.style.transformOrigin = "top left";
-      sheet.style.transform = `scale(${scale})`;
-      frame.style.height = `${contentH * scale}px`;
-      frame.style.overflow = "hidden";
-    }
-
+    frame.dataset.printDensity = String(chosen);
     frame.dataset.printScale = scale.toFixed(3);
   }
 }
 
-/** Uniformly shrinks each sheet to one letter page. Never drops events. */
+/** Progressive print densify: comfortable first, tighten only on overflow. */
 export function FamilyMeetingPrintFit() {
   useEffect(() => {
     const run = () => fitSheets();
