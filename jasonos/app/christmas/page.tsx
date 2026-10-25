@@ -83,11 +83,16 @@ function dayFill(row: ChristmasRow, blackout: boolean): { background: string; ou
   return { background: "#2fa876", outline: "none", status: "Pass works" };
 }
 
-const GROUP_COLOR: Record<ChristmasRow["standing"], string> = {
-  open: "#2fa876",
-  blackout: "#ff7a47",
-  "off-pass": "#a9cfe8",
-};
+const BOARD_GRID = "grid grid-cols-[220px_340px_minmax(0,1fr)_160px] gap-x-7";
+
+const AXIS_TICKS = [
+  { label: "0", left: "0%", align: "translateX(0)" },
+  { label: "2", left: "20%", align: "translateX(-50%)" },
+  { label: "4", left: "40%", align: "translateX(-50%)" },
+  { label: "6", left: "60%", align: "translateX(-50%)" },
+  { label: "8", left: "80%", align: "translateX(-50%)" },
+  { label: "10", left: "100%", align: "translateX(-100%)" },
+];
 
 export default async function ChristmasPage() {
   const plan = await loadChristmasPlan();
@@ -97,7 +102,7 @@ export default async function ChristmasPage() {
   const kicker = `SKI / BREAK · ${first ? first.label.toUpperCase() : "DEC 24"} – ${last ? last.label.toUpperCase() : "JAN 2"} · FROM ${HOME.label.toUpperCase()}`;
 
   return (
-    <div className="relative min-w-[1100px] overflow-hidden px-16 py-16">
+    <div className="relative w-[1360px] min-w-[1100px] shrink-0 overflow-hidden px-16 py-16">
       <p className="ski-mono mb-6 text-xs tracking-[0.1em] text-[#a9cfe8] min-[1100px]:hidden">
         BEST VIEWED ON DESKTOP
       </p>
@@ -125,37 +130,42 @@ export default async function ChristmasPage() {
         <p className="max-w-[600px] text-[19px] leading-[1.45] text-[#d6eaf7]">{heroLine(plan)}</p>
       </header>
 
-      <div className="relative mt-14 grid grid-cols-[230px_360px_1fr_150px] items-end gap-7">
-        <span className="ski-mono text-xs tracking-[0.06em] text-[#a9cfe8]">MOUNTAIN</span>
-        <div className="ski-mono text-xs tracking-[0.06em] text-[#a9cfe8]">
-          <div className="mb-1.5">DEC 24 → JAN 2</div>
-          <div className="grid grid-cols-10 gap-1 text-center">
+      <div className={`relative mt-14 items-end border-b-2 border-[#3f8fe0] pb-3 ${BOARD_GRID}`}>
+        <div>
+          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">MOUNTAIN</div>
+          <div className="ski-mono mt-2 text-xs tracking-[0.04em] text-[#a9cfe8]">HOME DRIVE</div>
+        </div>
+        <div>
+          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">DATES · DEC 24 – JAN 2</div>
+          <div className="ski-mono mt-2 grid grid-cols-10 gap-1 text-center text-xs tracking-[0.04em] text-[#a9cfe8]">
             {plan.days.map((day) => (
               <span key={day.date}>{Number(day.date.slice(8))}</span>
             ))}
           </div>
         </div>
-        <div className="ski-mono text-xs tracking-[0.06em] text-[#a9cfe8]">
-          <div className="mb-1.5 flex justify-between">
-            <span>SNOWFALL · MEDIAN BAR, PROJECTED MARK</span>
-            <span>IN</span>
+        <div className="min-w-0">
+          <div className="ski-mono flex items-end justify-between gap-3 text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">
+            <span>SNOWFALL (INCHES)</span>
+            <span className="text-right whitespace-nowrap">
+              <span className="text-[#3f8fe0]">■</span> MEDIAN <span className="text-[#ffb199]">|</span> PROJECTED
+            </span>
           </div>
-          <div className="relative h-3.5">
-            {["0", "2", "4", "6", "8"].map((tick, index) => (
-              <span key={tick} className="absolute" style={{ left: `${index * 20}%` }}>
-                {tick}
+          <div className="ski-mono relative mt-2 h-4 text-xs tracking-[0.04em] text-[#a9cfe8]">
+            {AXIS_TICKS.map((tick) => (
+              <span key={tick.label} className="absolute top-0" style={{ left: tick.left, transform: tick.align }}>
+                {tick.label}
               </span>
             ))}
           </div>
         </div>
-        <span className="ski-mono text-xs tracking-[0.06em] text-[#a9cfe8]">AVG HIGH</span>
+        <div>
+          <div className="ski-mono text-sm font-semibold tracking-[0.08em] text-[#f4f8fb]">AVG HIGH</div>
+          <div className="ski-mono mt-2 text-xs tracking-[0.04em] text-[#a9cfe8]">VS 32°F FREEZING</div>
+        </div>
       </div>
 
-      {plan.groups.map((group) => (
-        <section key={group.id} className="relative mt-3.5 flex flex-col gap-[26px]">
-          <h2 className="ski-mono mt-3.5 text-[13px] tracking-[0.1em]" style={{ color: GROUP_COLOR[group.id] }}>
-            ● {group.title.toUpperCase()}
-          </h2>
+      {plan.groups.map((group, groupIndex) => (
+        <section key={group.id} className={`relative flex flex-col gap-[26px] ${groupIndex === 0 ? "mt-[26px]" : "mt-[42px]"}`}>
           {group.rows.map((row) => {
             const median = row.history?.medianSnowIn ?? null;
             const projected = row.projection?.snowIn ?? null;
@@ -163,7 +173,7 @@ export default async function ChristmasPage() {
             const years = row.history?.seasonsAtLeast6In ?? 0;
             const yearDots = row.history?.seasons ?? 10;
             return (
-              <div key={row.mountain.id} className="grid grid-cols-[230px_360px_1fr_150px] items-center gap-7">
+              <div key={row.mountain.id} className={`${BOARD_GRID} items-center`}>
                 <div>
                   <div className="ski-name text-2xl">{row.mountain.name}</div>
                   <div className="ski-mono mt-1 text-[11px] text-[#a9cfe8]">{place(row)}</div>
@@ -193,7 +203,7 @@ export default async function ChristmasPage() {
                     );
                   })}
                 </div>
-                <div className="relative h-[72px]">
+                <div className="relative h-[72px] min-w-0">
                   <div className="absolute top-3.5 right-0 left-0 h-[22px] rounded-[11px] bg-[#12304f]" />
                   {median != null ? (
                     <div
