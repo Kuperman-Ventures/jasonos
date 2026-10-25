@@ -41,30 +41,32 @@ function Sheet({ sheet }: { sheet: PrintSheet }) {
           <p className="fmp-empty">Nothing in this print window.</p>
         ) : null}
 
-        {sheet.days.map((day) => (
-          <section key={day.key} className="fmp-day">
-            <h2>
-              <span className="fmp-dow">{day.weekday}</span> {day.date}
-            </h2>
-            <ul>
-              {day.events.map((ev) => (
-                <li key={ev.id}>
-                  <span className="fmp-time">{ev.timeLabel}</span>
-                  <span className="fmp-title">
-                    {ev.title}
-                    {ev.sourceGroupId !== "family" &&
-                    sheet.id !== ev.sourceGroupId ? (
-                      <em className="fmp-source"> · {ev.sourceLabel}</em>
-                    ) : null}
-                    {ev.location ? (
-                      <span className="fmp-loc"> · {ev.location}</span>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+        <div className="fmp-days">
+          {sheet.days.map((day) => (
+            <section key={day.key} className="fmp-day">
+              <h2>
+                <span className="fmp-dow">{day.weekday}</span> {day.date}
+              </h2>
+              <ul>
+                {day.events.map((ev) => (
+                  <li key={ev.id}>
+                    <span className="fmp-time">{ev.timeLabel}</span>
+                    <span className="fmp-title">
+                      {ev.title}
+                      {ev.sourceGroupId !== "family" &&
+                      sheet.id !== ev.sourceGroupId ? (
+                        <em className="fmp-source"> · {ev.sourceLabel}</em>
+                      ) : null}
+                      {ev.location ? (
+                        <span className="fmp-loc"> · {ev.location}</span>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
 
         {sheet.rhythm.length ? (
           <section className="fmp-section fmp-rhythm">
@@ -135,7 +137,6 @@ export default async function FamilyMeetingPrintPackPage({
           margin: 0 auto 20px;
           background: var(--paper);
           box-shadow: 0 4px 24px rgba(28,25,23,.08);
-          overflow: hidden;
           page-break-after: always;
           break-after: page;
         }
@@ -166,6 +167,7 @@ export default async function FamilyMeetingPrintPackPage({
           border-bottom: 1px solid var(--line); padding-bottom: 2px;
         }
         .fmp-dow { color: #9a3412; margin-right: 5px; }
+        .fmp-days { display: block; }
         .fmp-day { margin: 0 0 7px; }
         .fmp-day ul, .fmp-section ul { list-style: none; margin: 0; padding: 0; }
         .fmp-day li {
@@ -201,10 +203,7 @@ export default async function FamilyMeetingPrintPackPage({
             margin: 0;
             width: 100%;
             min-height: 0;
-            max-height: none;
-            overflow: hidden;
-            page-break-inside: avoid;
-            break-inside: avoid-page;
+            overflow: visible;
             page-break-after: always;
             break-after: page;
           }
@@ -217,6 +216,16 @@ export default async function FamilyMeetingPrintPackPage({
             padding: 0;
             box-shadow: none;
           }
+          /* Two columns for days so dense sheets (Kat & Jason) need less shrink. */
+          .fmp-days {
+            columns: 2;
+            column-gap: 16px;
+          }
+          .fmp-day {
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+          }
           @page { size: letter; margin: 0.35in; }
         }
       `}</style>
@@ -224,9 +233,8 @@ export default async function FamilyMeetingPrintPackPage({
       <div className="fmp-toolbar">
         <p>
           Print pack for <strong>{pack.label}</strong> (frozen Fri{" "}
-          {pack.freeze_friday}). Four letter pages — each sheet scales to fit one
-          page. Print / Save as PDF (disable “print on both sides” if your
-          printer offers it).
+          {pack.freeze_friday}). Four letter pages — every event is kept; dense
+          sheets shrink uniformly to fit one page. Print / Save as PDF.
         </p>
         <div className="fmp-actions">
           <Link href="/projects/family-meeting">Back to editor</Link>
