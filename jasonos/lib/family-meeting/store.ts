@@ -8,6 +8,7 @@ import type {
   PresentationOverride,
   SeriesEdit,
 } from "./edits";
+import type { FamilyMeetingIconId } from "./icons";
 import { dayKeyForEvent, todayKeyEt } from "./keys";
 import type { FamilyMeetingPrintPackPayload } from "./print-pack";
 import { freezeFridayKeyFor } from "./print-window";
@@ -95,7 +96,7 @@ export async function loadFamilyMeetingEdits(): Promise<FamilyMeetingEdits> {
       ),
     db
       .from("family_meeting_series_edits")
-      .select("series_key,title,archived"),
+      .select("series_key,title,archived,icon_id"),
   ]);
   if (occ.error) fail(occ.error);
   if (ser.error) fail(ser.error);
@@ -149,6 +150,25 @@ export async function upsertOccurrenceEdit(input: {
   if (error) fail(error);
 }
 
+async function readSeriesRow(seriesKey: string): Promise<{
+  title: string;
+  archived: boolean;
+  icon_id: string | null;
+} | null> {
+  const { data, error } = await jasonosDb()
+    .from("family_meeting_series_edits")
+    .select("title,archived,icon_id")
+    .eq("series_key", seriesKey)
+    .maybeSingle();
+  if (error) fail(error);
+  if (!data) return null;
+  return {
+    title: (data.title as string) ?? "",
+    archived: Boolean(data.archived),
+    icon_id: (data.icon_id as string | null) ?? null,
+  };
+}
+
 /** Hide every known occurrence of a series in the current window + mark series archived. */
 export async function archiveSeries(input: {
   seriesKey: string;
@@ -156,6 +176,7 @@ export async function archiveSeries(input: {
   events: FamilyMeetingEvent[];
 }): Promise<void> {
   const db = jasonosDb();
+  const existing = await readSeriesRow(input.seriesKey);
   const { error: seriesError } = await db
     .from("family_meeting_series_edits")
     .upsert(
@@ -163,6 +184,7 @@ export async function archiveSeries(input: {
         series_key: input.seriesKey,
         title: input.title,
         archived: true,
+        icon_id: existing?.icon_id ?? null,
       },
       { onConflict: "series_key" }
     );
@@ -176,10 +198,16 @@ export async function archiveSeries(input: {
 
 export async function unarchiveSeries(seriesKey: string): Promise<void> {
   const db = jasonosDb();
+  const existing = await readSeriesRow(seriesKey);
   const { error } = await db
     .from("family_meeting_series_edits")
     .upsert(
-      { series_key: seriesKey, title: "", archived: false },
+      {
+        series_key: seriesKey,
+        title: existing?.title ?? "",
+        archived: false,
+        icon_id: existing?.icon_id ?? null,
+      },
       { onConflict: "series_key" }
     );
   if (error) fail(error);
@@ -189,6 +217,26 @@ export async function unarchiveSeries(seriesKey: string): Promise<void> {
     .update({ hidden: false })
     .eq("series_key", seriesKey);
   if (hideError) fail(hideError);
+}
+
+/** Set or clear (null) the icon override for a series. */
+export async function setSeriesIcon(input: {
+  seriesKey: string;
+  title: string;
+  iconId: FamilyMeetingIconId | null;
+}): Promise<void> {
+  const db = jasonosDb();
+  const existing = await readSeriesRow(input.seriesKey);
+  const { error } = await db.from("family_meeting_series_edits").upsert(
+    {
+      series_key: input.seriesKey,
+      title: input.title || existing?.title || "",
+      archived: existing?.archived ?? false,
+      icon_id: input.iconId,
+    },
+    { onConflict: "series_key" }
+  );
+  if (error) fail(error);
 }
 
 /** Promote/demote every occurrence of a series currently in the provided event list. */
@@ -233,7 +281,7 @@ export async function listHiddenOccurrences(): Promise<OccurrenceEdit[]> {
 export async function listArchivedSeries(): Promise<SeriesEdit[]> {
   const { data, error } = await jasonosDb()
     .from("family_meeting_series_edits")
-    .select("series_key,title,archived")
+    .select("series_key,title,archived,icon_id")
     .eq("archived", true)
     .order("title", { ascending: true });
   if (error) fail(error);

@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { FamilyMeetingEventIcon } from "@/components/jasonos/family-meeting/event-icon";
+import { FamilyMeetingIconPicker } from "@/components/jasonos/family-meeting/icon-picker";
 import { splitAgendaLists } from "@/lib/family-meeting/collapse";
 import { groupEventsByDay } from "@/lib/family-meeting/days";
 import type { OccurrenceEdit, SeriesEdit } from "@/lib/family-meeting/edits";
-import { discernEventIcon, locationForDisplay } from "@/lib/family-meeting/icons";
+import {
+  discernEventIcon,
+  locationForDisplay,
+  resolveEventIcon,
+} from "@/lib/family-meeting/icons";
 import type {
   FamilyMeetingAgendaView,
   FamilyMeetingEvent,
@@ -21,6 +25,7 @@ import {
   markFamilyMeetingHeadsUp,
   promoteFamilyMeetingSeries,
   resetFamilyMeetingPresentation,
+  setFamilyMeetingSeriesIcon,
   unarchiveFamilyMeetingSeries,
   unhideFamilyMeetingOccurrenceKey,
 } from "@/lib/server-actions/family-meeting";
@@ -69,6 +74,7 @@ export function FamilyMeetingAgendaView({
 }) {
   const router = useRouter();
   const [undoOpen, setUndoOpen] = useState(false);
+  const [iconPickerKey, setIconPickerKey] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -110,9 +116,9 @@ export function FamilyMeetingAgendaView({
             Coming up, <em>{agenda.weekendLabel}</em>
           </h1>
           <p className="fm-lede">
-            Edit the board all week. Friday 11:59pm ET freezes a print pack for
-            Saturday through the next Sunday — four white letter sheets
-            (Kuperman Family, Kat &amp; Jason, Kyle, Wyatt). Use Heads up for
+            Edit the board all week. Click any event icon to pick from the full
+            set (or Auto). Friday 11:59pm ET freezes a print pack for Saturday
+            through the next Sunday — four white letter sheets. Use Heads up for
             long-term reminders on every sheet.
           </p>
           <div className="fm-meta">
@@ -356,15 +362,17 @@ export function FamilyMeetingAgendaView({
                             <div className="fm-events">
                               {day.events.map((ev) => {
                                 const time = formatEventClock(ev);
-                                const icon = discernEventIcon(
+                                const autoIcon = discernEventIcon(
                                   ev.title,
                                   ev.location
                                 );
+                                const icon = resolveEventIcon(ev);
                                 const loc = locationForDisplay(ev.location);
                                 const peers = seriesEvents(
                                   lane.events,
                                   ev.seriesKey ?? ""
                                 );
+                                const seriesKey = ev.seriesKey!;
                                 return (
                                   <article
                                     key={ev.id}
@@ -404,7 +412,7 @@ export function FamilyMeetingAgendaView({
                                           onClick={() =>
                                             run("Archive", () =>
                                               archiveFamilyMeetingSeries({
-                                                seriesKey: ev.seriesKey!,
+                                                seriesKey,
                                                 title: ev.title,
                                                 events: peers,
                                               })
@@ -419,7 +427,7 @@ export function FamilyMeetingAgendaView({
                                           onClick={() =>
                                             run("Demote", () =>
                                               demoteFamilyMeetingSeries({
-                                                seriesKey: ev.seriesKey!,
+                                                seriesKey,
                                                 events: peers,
                                               })
                                             )
@@ -433,7 +441,7 @@ export function FamilyMeetingAgendaView({
                                           onClick={() =>
                                             run("Heads up", () =>
                                               markFamilyMeetingHeadsUp({
-                                                seriesKey: ev.seriesKey!,
+                                                seriesKey,
                                                 events: peers,
                                               })
                                             )
@@ -449,7 +457,7 @@ export function FamilyMeetingAgendaView({
                                             onClick={() =>
                                               run("Reset", () =>
                                                 resetFamilyMeetingPresentation({
-                                                  seriesKey: ev.seriesKey!,
+                                                  seriesKey,
                                                   events: peers,
                                                 })
                                               )
@@ -460,9 +468,27 @@ export function FamilyMeetingAgendaView({
                                         ) : null}
                                       </div>
                                     </div>
-                                    <span className="fm-event-icon" aria-hidden>
-                                      <FamilyMeetingEventIcon id={icon} />
-                                    </span>
+                                    <FamilyMeetingIconPicker
+                                      className="fm-event-icon"
+                                      current={icon}
+                                      autoId={autoIcon}
+                                      open={iconPickerKey === seriesKey}
+                                      onOpenChange={(open) =>
+                                        setIconPickerKey(
+                                          open ? seriesKey : null
+                                        )
+                                      }
+                                      disabled={pending}
+                                      onPick={(iconId) =>
+                                        run("Icon", () =>
+                                          setFamilyMeetingSeriesIcon({
+                                            seriesKey,
+                                            title: ev.title,
+                                            iconId,
+                                          })
+                                        )
+                                      }
+                                    />
                                   </article>
                                 );
                               })}
@@ -477,19 +503,39 @@ export function FamilyMeetingAgendaView({
                         <h3 className="fm-rhythm-label">Weekly rhythm</h3>
                         <ul className="fm-rhythm-list">
                           {routines.map((row) => {
-                            const icon = discernEventIcon(row.title);
+                            const sample = row.occurrences[0];
+                            const autoIcon = discernEventIcon(row.title);
+                            const icon = sample
+                              ? resolveEventIcon(sample)
+                              : autoIcon;
                             const meta = formatRoutineMeta(row);
                             const seriesKey =
-                              row.occurrences[0]?.seriesKey ?? row.key;
+                              sample?.seriesKey ?? row.key;
                             return (
                               <li
                                 key={row.key}
                                 className="fm-rhythm-row"
                                 aria-label={`${row.title}. ${meta}`}
                               >
-                                <span className="fm-rhythm-icon" aria-hidden>
-                                  <FamilyMeetingEventIcon id={icon} />
-                                </span>
+                                <FamilyMeetingIconPicker
+                                  className="fm-rhythm-icon"
+                                  current={icon}
+                                  autoId={autoIcon}
+                                  open={iconPickerKey === seriesKey}
+                                  onOpenChange={(open) =>
+                                    setIconPickerKey(open ? seriesKey : null)
+                                  }
+                                  disabled={pending}
+                                  onPick={(iconId) =>
+                                    run("Icon", () =>
+                                      setFamilyMeetingSeriesIcon({
+                                        seriesKey,
+                                        title: row.title,
+                                        iconId,
+                                      })
+                                    )
+                                  }
+                                />
                                 <span className="fm-rhythm-title">
                                   {row.title}
                                 </span>

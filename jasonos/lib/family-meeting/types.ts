@@ -1,3 +1,5 @@
+import type { FamilyMeetingIconId } from "./icons";
+
 export type FamilyCalendarGroupId =
   | "family"
   | "kat_jason"
@@ -52,6 +54,8 @@ export interface FamilyMeetingEvent {
   dayKey?: string;
   /** Persisted presentation override after edits are applied. */
   presentation?: FamilyMeetingPresentation;
+  /** Persisted icon override (series-level). Null/undefined = auto discern. */
+  iconId?: FamilyMeetingIconId | null;
 }
 
 export interface FamilyMeetingGroupAgenda {
