@@ -81,9 +81,9 @@ function publicSupabaseConfigured() {
 export async function getSettingsPayload(): Promise<SettingsPayload> {
   const configured = publicSupabaseConfigured();
   const [googleAccounts, outlookAccount] = await Promise.all([
-    getGoogleConnectionStatus().catch(() => ({
-      ...EMPTY_GOOGLE_CONNECTION_STATUS,
-    })),
+    getGoogleConnectionStatus().catch(
+      (): GoogleConnectionStatus => ({ ...EMPTY_GOOGLE_CONNECTION_STATUS })
+    ),
     getOutlookConnectionStatus().catch(() => emptyOutlookConnectionStatus()),
   ]);
 
@@ -175,6 +175,45 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     googleAccounts,
     outlookAccount
   );
+}
+
+async function warnMailboxCapabilityGaps(
+  google: GoogleConnectionStatus,
+  outlook: OutlookConnectionStatus
+): Promise<void> {
+  try {
+    const { notify } = await import("@/lib/notify");
+    const gaps: { title: string; body: string }[] = [];
+    if (google.advisorsMissingScopes.length && google.advisorsError) {
+      gaps.push({
+        title: "Advisors Google missing permissions",
+        body: google.advisorsError,
+      });
+    }
+    if (google.gmailMissingScopes.length && google.gmailError) {
+      gaps.push({
+        title: "Personal Gmail missing permissions",
+        body: google.gmailError,
+      });
+    }
+    if (outlook.missingScopes.length && outlook.error) {
+      gaps.push({
+        title: "Outlook missing permissions",
+        body: outlook.error,
+      });
+    }
+    for (const gap of gaps) {
+      await notify({
+        source: "settings",
+        title: gap.title,
+        body: gap.body,
+        severity: "warn",
+        category: "error",
+      });
+    }
+  } catch {
+    // Settings must still load if notify fails.
+  }
 }
 
 function attachMailboxStatus(

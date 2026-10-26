@@ -2,6 +2,11 @@ import "server-only";
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { envConfigured } from "@/lib/integrations/_base";
+import {
+  googleMissingScopesMessage,
+  missingGoogleScopes,
+  normalizeOauthScopes,
+} from "@/lib/integrations/google-scopes";
 
 export const GOOGLE_ADVISORS = "google";
 export const GOOGLE_GMAIL = "google_gmail";
@@ -46,6 +51,10 @@ export interface GoogleConnectionStatus {
   gmailEmail: string | null;
   advisorsError: string | null;
   gmailError: string | null;
+  /** Capability scopes granted on the Advisors token that JasonOS still needs. */
+  advisorsMissingScopes: string[];
+  /** Capability scopes granted on personal Gmail that JasonOS still needs. */
+  gmailMissingScopes: string[];
 }
 
 export const EMPTY_GOOGLE_CONNECTION_STATUS: GoogleConnectionStatus = {
@@ -57,6 +66,8 @@ export const EMPTY_GOOGLE_CONNECTION_STATUS: GoogleConnectionStatus = {
   gmailEmail: null,
   advisorsError: null,
   gmailError: null,
+  advisorsMissingScopes: [],
+  gmailMissingScopes: [],
 };
 
 export function googleSignInExpiredMessage(accountEmail: string): string {
@@ -108,11 +119,61 @@ type LoadedToken = {
   configured: boolean;
   token: string | null;
   email: string | null;
+  scopes: string[];
+  missingScopes: string[];
   error?: string;
 };
 
 function emptyLoadedToken(): LoadedToken {
-  return { configured: false, token: null, email: null };
+  return {
+    configured: false,
+    token: null,
+    email: null,
+    scopes: [],
+    missingScopes: [],
+  };
+}
+
+async function resolveGrantedScopes(input: {
+  accessToken: string | null;
+  storedScopes: unknown;
+  rowId: string;
+  sb: ReturnType<typeof createServiceRoleClient>;
+}): Promise<string[]> {
+  const fromDb = normalizeOauthScopes(
+    Array.isArray(input.storedScopes)
+      ? (input.storedScopes as string[])
+      : typeof input.storedScopes === "string"
+        ? input.storedScopes
+        : null
+  );
+  if (fromDb.length > 0) return fromDb;
+  if (!input.accessToken) return [];
+
+  // Older grants may have an empty scopes column — ask Google once, then persist.
+  try {
+    const res = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(input.accessToken)}`
+    );
+    if (!res.ok) return [];
+    const json = (await res.json()) as { scope?: string };
+    const live = normalizeOauthScopes(json.scope);
+    if (live.length > 0) {
+      await input.sb
+        .from("user_integrations")
+        .update({ scopes: live })
+        .eq("id", input.rowId);
+    }
+    return live;
+  } catch {
+    return [];
+  }
+}
+
+function accountLabelFor(
+  provider: GoogleProvider
+): "Advisors Google" | "Personal Gmail" {
+  return provider === GOOGLE_GMAIL ? "Personal Gmail" : "Advisors Google";
 }
 
 async function loadAccessTokenDetailed(
@@ -127,7 +188,7 @@ async function loadAccessTokenDetailed(
     // freshest grant. maybeSingle() alone errors when >1 row matches.
     const { data, error } = await sb
       .from("user_integrations")
-      .select("id, access_token, refresh_token, expires_at, metadata")
+      .select("id, access_token, refresh_token, expires_at, metadata, scopes")
       .eq("provider", provider)
       .order("updated_at", { ascending: false })
       .limit(1)
@@ -137,13 +198,43 @@ async function loadAccessTokenDetailed(
     const rowId = data.id as string;
     const email =
       emailFromMetadata(data.metadata) ?? accountEmailFor(provider);
-    const withEmail = (loaded: Omit<LoadedToken, "email">): LoadedToken => ({
-      ...loaded,
-      email,
-    });
+    const label = accountLabelFor(provider);
+
+    const finish = async (
+      loaded: Omit<LoadedToken, "email" | "scopes" | "missingScopes"> & {
+        token: string | null;
+      }
+    ): Promise<LoadedToken> => {
+      const scopes = loaded.configured
+        ? await resolveGrantedScopes({
+            accessToken: loaded.token,
+            storedScopes: data.scopes,
+            rowId,
+            sb,
+          })
+        : [];
+      // Usable token with no recorded scopes → treat as incomplete until reconnect.
+      const missing =
+        loaded.configured && loaded.token ? missingGoogleScopes(scopes) : [];
+      const scopeError =
+        loaded.token && missing.length > 0
+          ? googleMissingScopesMessage({
+              accountEmail: email || accountEmailFor(provider),
+              accountLabel: label,
+              missing,
+            })
+          : null;
+      return {
+        ...loaded,
+        email,
+        scopes,
+        missingScopes: missing,
+        error: loaded.error ?? scopeError ?? undefined,
+      };
+    };
 
     if (data.access_token && tokenStillValid(data.expires_at)) {
-      return withEmail({ configured: true, token: data.access_token });
+      return finish({ configured: true, token: data.access_token });
     }
 
     if (data.refresh_token) {
@@ -159,17 +250,17 @@ async function loadAccessTokenDetailed(
             expires_at: expiresAt,
           })
           .eq("id", rowId);
-        return withEmail({ configured: true, token: refreshed.access_token });
+        return finish({ configured: true, token: refreshed.access_token });
       }
       if (data.access_token && tokenStillValid(data.expires_at)) {
-        return withEmail({ configured: true, token: data.access_token });
+        return finish({ configured: true, token: data.access_token });
       }
       console.warn(
         "[google-tokens] refresh failed",
         provider,
         refreshed.error ?? "unknown"
       );
-      return withEmail({
+      return finish({
         configured: true,
         token: null,
         error: googleSignInExpiredMessage(email || accountEmailFor(provider)),
@@ -177,9 +268,9 @@ async function loadAccessTokenDetailed(
     }
 
     if (data.access_token && tokenStillValid(data.expires_at)) {
-      return withEmail({ configured: true, token: data.access_token });
+      return finish({ configured: true, token: data.access_token });
     }
-    return withEmail({
+    return finish({
       configured: Boolean(data.access_token || data.refresh_token),
       token: null,
       error: googleSignInExpiredMessage(email || accountEmailFor(provider)),
@@ -250,15 +341,23 @@ export async function getGoogleConnectionStatus(): Promise<GoogleConnectionStatu
       loadAccessTokenDetailed(GOOGLE_ADVISORS),
       loadAccessTokenDetailed(GOOGLE_GMAIL),
     ]);
+    const advisorsMissingScopes = advisors.missingScopes;
+    const gmailMissingScopes = gmail.missingScopes;
     return {
       advisorsConnected: advisors.configured,
       gmailConnected: gmail.configured,
-      advisorsNeedsReconnect: advisors.configured && !advisors.token,
-      gmailNeedsReconnect: gmail.configured && !gmail.token,
+      // Token unusable OR missing required capabilities → reconnect.
+      advisorsNeedsReconnect:
+        advisors.configured &&
+        (!advisors.token || advisorsMissingScopes.length > 0),
+      gmailNeedsReconnect:
+        gmail.configured && (!gmail.token || gmailMissingScopes.length > 0),
       advisorsEmail: advisors.email,
       gmailEmail: gmail.email,
       advisorsError: advisors.error ?? null,
       gmailError: gmail.error ?? null,
+      advisorsMissingScopes,
+      gmailMissingScopes,
     };
   } catch {
     return { ...EMPTY_GOOGLE_CONNECTION_STATUS };
