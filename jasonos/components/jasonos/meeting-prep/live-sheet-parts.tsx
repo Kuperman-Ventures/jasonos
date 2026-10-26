@@ -262,6 +262,8 @@ export function LiveSheetRail({
   reference,
   currentId,
   finished,
+  conversationLabel = "The conversation",
+  emptyConversation = "No points on this sheet.",
   referenceLabel = "Reference",
   onSelect,
 }: {
@@ -270,6 +272,8 @@ export function LiveSheetRail({
   reference: ReferenceItem[];
   currentId: string | null;
   finished: boolean;
+  conversationLabel?: string;
+  emptyConversation?: string;
   referenceLabel?: string;
   onSelect: (id: string) => void;
 }) {
@@ -283,7 +287,7 @@ export function LiveSheetRail({
         style={{ width: LIVE_RAIL_W }}
       >
         <div className="min-h-0 flex-1 overflow-y-auto pb-6">
-          {heading("The conversation")}
+          {heading(conversationLabel)}
           {conversation.length ? (
             <ul>
               {conversation.map((point) =>
@@ -299,7 +303,7 @@ export function LiveSheetRail({
               )}
             </ul>
           ) : (
-            <p className="px-4 py-2 text-[14px] text-[var(--jos-muted)]">No points on this sheet.</p>
+            <p className="px-4 py-2 text-[14px] text-[var(--jos-muted)]">{emptyConversation}</p>
           )}
           {then.length ? (
             <>

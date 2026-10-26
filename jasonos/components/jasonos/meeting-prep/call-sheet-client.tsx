@@ -360,6 +360,7 @@ function ViewStrip({
         type="button"
         className={tab(view === "rehearse")}
         aria-current={view === "rehearse" ? "page" : undefined}
+        title="Walk through the words you saved on the sheet"
         onClick={() => onView("rehearse")}
       >
         Rehearse
@@ -967,6 +968,11 @@ function CallSheetPage({
               className="border-b border-[var(--jos-line)] bg-[var(--jos-surface)] px-10 py-2.5 text-[14px] font-medium"
             >
               Building from research, email and the playbook. Lines you already saved stay as they are.
+            </p>
+          ) : null}
+          {view === "read" ? (
+            <p className="border-b border-[var(--jos-line)] px-10 py-2 text-[13px] text-[var(--jos-muted)]">
+              Save the lines and points here. Rehearse plays them as cards — practice only, nothing is written back.
             </p>
           ) : null}
           {view === "read" ? (
