@@ -666,11 +666,19 @@ export function LiveCallClient({
         kicker = `Then · ${at} of ${thenSlots.length}`;
       } else {
         const at = conversationSlots.findIndex((item) => item.point.id === current.id) + 1;
-        const topic = topicFor(rows, current.id) ?? LIVE_KIND_LABELS[current.kind];
-        kicker = `Point ${at} of ${conversationSlots.length} · ${topic}`;
+        if (session.badge === "rehearsal" || isSheetStep(current.id)) {
+          kicker = `${at} of ${conversationSlots.length} · ${current.headline}`;
+        } else {
+          const topic = topicFor(rows, current.id) ?? LIVE_KIND_LABELS[current.kind];
+          kicker = `Point ${at} of ${conversationSlots.length} · ${topic}`;
+        }
       }
     }
     const onStage = current && current.kind !== "agenda" && !showAllCovered ? current : null;
+    const emptyStage =
+      session.badge === "rehearsal"
+        ? "Nothing on this sheet to rehearse yet. Write the sheet, then come back."
+        : "No points to mark";
     return (
       <div
         ref={rootRef}
@@ -697,7 +705,13 @@ export function LiveCallClient({
             rows={rows}
             thenIds={thenIds}
             reference={sheet.reference}
-            referenceLabel={session.badge === "rehearsal" ? "The sheet" : "Reference"}
+            conversationLabel={session.badge === "rehearsal" ? "The sheet" : "The conversation"}
+            emptyConversation={
+              session.badge === "rehearsal"
+                ? "Nothing saved on the sheet yet."
+                : "No points on this sheet."
+            }
+            referenceLabel="Reference"
             currentId={currentId}
             finished={finished}
             onSelect={select}
@@ -706,7 +720,9 @@ export function LiveCallClient({
             <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8 min-[1100px]:px-12">
               {showAllCovered ? (
                 <div className="flex h-full max-w-[780px] flex-col justify-center">
-                  <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">All points covered</h2>
+                  <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">
+                    {session.badge === "rehearsal" ? "Sheet walked" : "All points covered"}
+                  </h2>
                   <Button
                     type="button"
                     variant={session.badge === "rehearsal" ? "secondary" : "default"}
@@ -719,7 +735,7 @@ export function LiveCallClient({
               ) : onStage ? (
                 <SheetStage point={onStage} kicker={kicker} />
               ) : (
-                <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">No points to mark</h2>
+                <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">{emptyStage}</h2>
               )}
             </div>
             {sheet.helpThem && !marking ? <PinnedHelp text={sheet.helpThem} /> : null}
@@ -1111,7 +1127,13 @@ function SheetTray({
           <span className="ml-1 text-[12px] font-semibold opacity-70">s</span>
         </Button>
         <Button type="button" variant="default" className="h-12 gap-2 px-5" disabled={advancing} onClick={() => advance(onNext)}>
-          {point.state === "covered" ? "Next point" : "Covered, next point"}
+          {isSheetStep(point.id)
+            ? point.state === "covered"
+              ? "Next"
+              : "Next card"
+            : point.state === "covered"
+              ? "Next point"
+              : "Covered, next point"}
           <span className="ml-1 text-[12px] font-semibold opacity-80">Enter</span>
         </Button>
         <p className="ml-auto max-w-[40%] truncate text-[14px] text-[var(--jos-muted)]">

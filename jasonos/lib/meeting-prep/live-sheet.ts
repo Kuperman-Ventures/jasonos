@@ -129,6 +129,19 @@ function askDetail(block: CallSheetBlock): string | null {
   return parts.filter(Boolean).join("\n\n") || null;
 }
 
+/** Words from a sheet block for a rehearsal/live card. Empty blocks return null. */
+export function blockDetail(block: CallSheetBlock): string | null {
+  if (block.kind === "points" || block.kind === "after") return null;
+  if (block.kind === "ask") return askDetail(block);
+  if (block.kind === "lines") {
+    const parts = block.lines
+      .filter((line) => line.text.trim())
+      .map((line) => (line.label.trim() ? `${line.label.trim()}\n${line.text.trim()}` : line.text.trim()));
+    return parts.join("\n\n") || null;
+  }
+  return block.body?.trim() || null;
+}
+
 /** The ask and close blocks as steps after the conversation. Empty blocks are left out. */
 export function thenSteps(blocks: CallSheetBlock[], objections: PlaybookObjection[], startPosition: number): MeetingPoint[] {
   const steps: MeetingPoint[] = [];
@@ -148,12 +161,11 @@ export function thenSteps(blocks: CallSheetBlock[], objections: PlaybookObjectio
 
 const LIVE_REFERENCE_KEYS = ["who", "why", "what_how", "turn_to_me"];
 
-/** Live shows Who, Why, What and how, Turn to me. Rehearse shows every block with words on it. */
+/** Live keeps Who / Why / What and how / Turn to me in the side rail. */
 export function referenceItems(blocks: CallSheetBlock[], mode: "live" | "rehearse"): ReferenceItem[] {
-  const picked =
-    mode === "live"
-      ? LIVE_REFERENCE_KEYS.flatMap((key) => blocks.filter((block) => block.key === key))
-      : blocks.filter((block) => block.kind !== "points" && block.kind !== "after");
+  // Rehearse plays filled blocks as cards — no separate reference copy.
+  if (mode === "rehearse") return [];
+  const picked = LIVE_REFERENCE_KEYS.flatMap((key) => blocks.filter((block) => block.key === key));
   return picked
     .map((block) => ({
       key: block.key,
@@ -173,7 +185,7 @@ export function helpThemLine(blocks: CallSheetBlock[]): string | null {
   return null;
 }
 
-/** Conversation points first, then the ask and close. */
+/** Conversation points first, then the ask and close. Used on the real call. */
 export function liveSteps(
   points: MeetingPoint[],
   blocks: CallSheetBlock[],
@@ -182,6 +194,50 @@ export function liveSteps(
   const last = points.reduce((max, point) => Math.max(max, point.position), 0);
   const then = thenSteps(blocks, objections, last);
   return { steps: [...points, ...then], thenIds: then.map((step) => step.id) };
+}
+
+/**
+ * Rehearsal walks the sheet in order: every filled block is a card, and the conversation
+ * points sit where the Points block is. Ask and Close land in Then.
+ */
+export function rehearseSteps(
+  points: MeetingPoint[],
+  blocks: CallSheetBlock[],
+  objections: PlaybookObjection[]
+): { steps: MeetingPoint[]; thenIds: string[] } {
+  const steps: MeetingPoint[] = [];
+  const thenIds: string[] = [];
+  let position = points.reduce((max, point) => Math.max(max, point.position), 0);
+  const nextPosition = () => {
+    position += 1;
+    return position;
+  };
+  let insertedPoints = false;
+
+  for (const block of blocks) {
+    if (block.kind === "after") continue;
+    if (block.kind === "points") {
+      steps.push(...points);
+      insertedPoints = true;
+      continue;
+    }
+    const detail = blockDetail(block);
+    if (!detail) continue;
+    const id = `${SHEET_STEP_PREFIX}${block.key}`;
+    const kind: MeetingPoint["kind"] = block.kind === "ask" ? "ask" : "point";
+    const reactions = kind === "ask" ? reactionsFromObjections(objections) : [];
+    steps.push(stepPoint(id, nextPosition(), kind, block.title, detail, reactions));
+    if (block.kind === "ask" || block.key === "close") thenIds.push(id);
+  }
+
+  if (!insertedPoints && points.length) {
+    const thenSet = new Set(thenIds);
+    const head = steps.filter((step) => !thenSet.has(step.id));
+    const tail = steps.filter((step) => thenSet.has(step.id));
+    return { steps: [...head, ...points, ...tail], thenIds };
+  }
+
+  return { steps, thenIds };
 }
 
 /** Everything Live and Rehearse need from a call sheet: the steps to play and the feed for the frame. */
@@ -198,7 +254,11 @@ export function buildLiveSheet(input: {
   points: MeetingPoint[];
   mode: "live" | "rehearse";
 }): { steps: MeetingPoint[]; feed: LiveSheetFeed } {
-  const { steps, thenIds } = liveSteps(input.points, input.blocks, input.playbook?.objections ?? []);
+  const objections = input.playbook?.objections ?? [];
+  const { steps, thenIds } =
+    input.mode === "rehearse"
+      ? rehearseSteps(input.points, input.blocks, objections)
+      : liveSteps(input.points, input.blocks, objections);
   const family = input.playbook?.family ?? null;
   return {
     steps,

@@ -4,12 +4,14 @@ import type { CallSheetBlock } from "./call-sheet.ts";
 import {
   budgetProgress,
   budgetSegments,
+  blockDetail,
   buildLiveSheet,
   helpThemLine,
   isSheetStep,
   liveSteps,
   reactionsFromObjections,
   referenceItems,
+  rehearseSteps,
   topicFor,
 } from "./live-sheet.ts";
 import { REACTION_SHAPES } from "./reactions.ts";
@@ -101,15 +103,15 @@ describe("liveSteps", () => {
 });
 
 describe("reference and help", () => {
-  it("shows Who, Why, What and how, Turn to me on Live with words only", () => {
+  it("shows Who, Why, What and how on Live with words only", () => {
     assert.deepEqual(
       referenceItems(BLOCKS, "live").map((item) => item.key),
       ["who", "why", "what_how"]
     );
-    assert.deepEqual(
-      referenceItems(BLOCKS, "rehearse").map((item) => item.key),
-      ["who", "why", "what_how", "expectations", "ask", "close"]
-    );
+  });
+
+  it("keeps no reference list in rehearse — those blocks are cards", () => {
+    assert.deepEqual(referenceItems(BLOCKS, "rehearse"), []);
   });
 
   it("pins How I can help them", () => {
@@ -136,6 +138,7 @@ describe("reference and help", () => {
     assert.equal(feed.budget.length, 4);
     assert.deepEqual(feed.thenIds, ["sheet:ask", "sheet:close"]);
     assert.equal(feed.helpThem, "I know two agency CMOs.");
+    assert.deepEqual(feed.reference.map((item) => item.key), ["who", "why", "what_how"]);
   });
 
   it("finds the agenda topic above a point", () => {
@@ -145,5 +148,67 @@ describe("reference and help", () => {
     ];
     assert.equal(topicFor(points, "1"), "The four topics");
     assert.equal(topicFor(points, "a"), null);
+  });
+});
+
+describe("rehearseSteps", () => {
+  it("turns filled sheet blocks into cards in sheet order", () => {
+    const { steps, thenIds } = rehearseSteps([], BLOCKS, []);
+    assert.deepEqual(
+      steps.map((step) => step.id),
+      ["sheet:who", "sheet:why", "sheet:what_how", "sheet:expectations", "sheet:ask", "sheet:close"]
+    );
+    assert.deepEqual(thenIds, ["sheet:ask", "sheet:close"]);
+    assert.match(blockDetail(BLOCKS[1]) ?? "", /Why this person/);
+    assert.match(steps[0].detail ?? "", /Molly runs partnerships/);
+  });
+
+  it("puts conversation points where the Points block sits", () => {
+    const points = [
+      {
+        id: "p1",
+        prepId: "prep",
+        position: 1,
+        kind: "question" as const,
+        headline: "Biggest challenge?",
+        detail: "Ask about agencies",
+        state: "open" as const,
+        stateChangedAt: null,
+        confirmedState: null,
+        confirmedAt: null,
+        listenFor: null,
+        note: null,
+        source: "script" as const,
+        editedByUser: false,
+        sourceHint: null,
+        prepareReactions: false,
+        reactions: [],
+        observedReaction: null,
+      },
+    ];
+    const { steps } = rehearseSteps(points, BLOCKS, []);
+    assert.deepEqual(
+      steps.map((step) => step.id),
+      ["sheet:who", "sheet:why", "sheet:what_how", "sheet:expectations", "p1", "sheet:ask", "sheet:close"]
+    );
+  });
+
+  it("builds a rehearse feed with sheet cards and no reference rail", () => {
+    const { steps, feed } = buildLiveSheet({
+      blocks: BLOCKS,
+      playbook: {
+        name: "Net 102 First Call",
+        family: "net102_first",
+        timeBudget: { expectations: 2, rapport: 5, main: 20, close: 3 },
+        objections: [],
+      },
+      touchNumber: 1,
+      personName: "Molly Ramos",
+      points: [],
+      mode: "rehearse",
+    });
+    assert.ok(steps.some((step) => step.id === "sheet:who"));
+    assert.ok(steps.some((step) => step.id === "sheet:why"));
+    assert.deepEqual(feed.reference, []);
   });
 });
