@@ -10,32 +10,16 @@ import { searchWisprForContact } from "@/lib/integrations/wispr";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 import {
   bulletsFromJson,
-  bulletsLinesToText,
-  bulletsTextToLines,
   capWords,
   extractTranscriptSection,
   normalizeSlideInputs,
   parseTailorJson,
   toJsonBullets,
+  type SlideInput,
 } from "@/lib/live/decks-helpers";
-import type { SlideInput } from "@/lib/live/decks-helpers";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export type DeckKind = "playbook" | "slides";
-
-export {
-  bulletsFromJson,
-  bulletsLinesToText,
-  bulletsTextToLines,
-  capWords,
-  extractTranscriptSection,
-  formatElapsed,
-  normalizeSlideInputs,
-  parseTailorJson,
-  toJsonBullets,
-} from "@/lib/live/decks-helpers";
-
-export type { SlideInput } from "@/lib/live/decks-helpers";
 
 export type DeckSummary = {
   id: string;

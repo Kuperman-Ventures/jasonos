@@ -7,8 +7,12 @@ import { ArrowDown, ArrowUp, Plus, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { TailorPanel } from "@/components/jasonos/live/tailor-panel";
 import { LeaveGuardProvider } from "@/components/jasonos/live/leave-guard";
-import { bulletsLinesToText, bulletsTextToLines } from "@/lib/live/decks-helpers";
-import type { DeckDetail, SlideInput } from "@/lib/server-actions/decks";
+import {
+  bulletsLinesToText,
+  bulletsTextToLines,
+  type SlideInput,
+} from "@/lib/live/decks-helpers";
+import type { DeckDetail } from "@/lib/server-actions/decks";
 import { deleteDeck, renameDeck, setSlides } from "@/lib/server-actions/decks";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
