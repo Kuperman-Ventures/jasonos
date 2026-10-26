@@ -944,6 +944,7 @@ export function OutreachModal({
               photoUrl={
                 card.status === "ready" ? card.contact.photo_url : null
               }
+              contactId={card.status === "ready" ? card.contact.id : null}
               size="lg"
             />
             <div className="min-w-0 flex-1">
