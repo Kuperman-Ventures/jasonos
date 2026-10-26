@@ -337,16 +337,24 @@ function ViewStrip({
   debriefOpen: boolean;
   onView: (view: CallSheetView) => void;
 }) {
-  const tab = (active: boolean, dimmed = false) =>
+  const tab = (active: boolean) =>
     cn(
       "-mb-px inline-flex items-center gap-1.5 border-b-[3px] px-1 pb-2.5 pt-3 text-[15px] font-semibold",
-      active ? "border-[var(--color-accent-700)] text-[var(--jos-ink)]" : "border-transparent text-[var(--jos-muted)]",
-      dimmed ? "cursor-not-allowed opacity-45" : !active && "hover:text-[var(--jos-ink)]"
+      active ? "border-[var(--color-accent-700)] text-[var(--jos-ink)]" : "border-transparent text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
     );
+  const inRun = view === "rehearse" || view === "live";
   return (
-    <nav aria-label="Call sheet views" className="flex flex-wrap items-end gap-x-7 border-b border-[var(--jos-line)] px-10">
-      <button type="button" className={tab(view === "read")} aria-current={view === "read" ? "page" : undefined} onClick={() => onView("read")}>
-        Read
+    <nav
+      aria-label="Call sheet views"
+      className="flex flex-wrap items-end gap-x-7 border-b border-[var(--jos-line)] px-10"
+    >
+      <button
+        type="button"
+        className={tab(view === "read")}
+        aria-current={view === "read" ? "page" : undefined}
+        onClick={() => onView("read")}
+      >
+        {inRun ? "Back to sheet" : "Sheet"}
       </button>
       <button
         type="button"
@@ -356,33 +364,44 @@ function ViewStrip({
       >
         Rehearse
       </button>
-      <button
-        type="button"
-        className={tab(view === "live", !readyAt)}
-        disabled={!readyAt}
-        title={readyAt ? undefined : "Mark ready first"}
-        aria-current={view === "live" ? "page" : undefined}
-        onClick={() => onView("live")}
-      >
-        {readyAt ? null : <LockSimple size={14} weight="bold" aria-hidden />}
-        Live
-        {readyAt ? null : <span className="text-[12px] font-medium">Mark ready first</span>}
-      </button>
-      <button
-        type="button"
-        className={tab(view === "debrief", !debriefOpen)}
-        disabled={!debriefOpen}
-        title={debriefOpen ? undefined : "After the call"}
-        aria-current={view === "debrief" ? "page" : undefined}
-        onClick={() => onView("debrief")}
-      >
-        Debrief
-      </button>
-      {view === "live" ? (
-        <Link href={`/meetings/${prepId}/live`} className={cn(LINK, "mb-2.5 ml-auto")}>
-          Full screen
-        </Link>
-      ) : null}
+      <div className="mb-2.5 ml-auto flex flex-wrap items-center gap-x-5 gap-y-2">
+        {debriefOpen || view === "debrief" ? (
+          <button
+            type="button"
+            className={cn(
+              "text-[13px] font-semibold",
+              view === "debrief" ? "text-[var(--jos-ink)] underline" : "text-[var(--jos-muted)] hover:text-[var(--jos-ink)] hover:underline"
+            )}
+            aria-current={view === "debrief" ? "page" : undefined}
+            onClick={() => onView("debrief")}
+          >
+            Debrief
+          </button>
+        ) : null}
+        {view === "live" ? (
+          <Link href={`/meetings/${prepId}/live`} className={LINK}>
+            Full screen
+          </Link>
+        ) : null}
+        <button
+          type="button"
+          disabled={!readyAt}
+          title={readyAt ? "Marks and notes are saved to this call" : "Mark the sheet ready first"}
+          aria-current={view === "live" ? "page" : undefined}
+          onClick={() => onView("live")}
+          className={cn(
+            "inline-flex h-8 items-center gap-1.5 rounded-[2px] px-3 text-[13px] font-bold",
+            view === "live"
+              ? "bg-[var(--color-accent-2)] text-white"
+              : readyAt
+                ? "border border-[var(--jos-line)] text-[var(--jos-ink)] hover:border-[var(--jos-ink)]"
+                : "cursor-not-allowed border border-[var(--jos-line)] text-[var(--jos-muted)] opacity-55"
+          )}
+        >
+          {readyAt ? null : <LockSimple size={14} weight="bold" aria-hidden />}
+          {view === "live" ? "On the call" : "Run the call"}
+        </button>
+      </div>
     </nav>
   );
 }
@@ -821,6 +840,11 @@ function CallSheetPage({
 
   const setView = (next: CallSheetView) => {
     if (next === view) return;
+    // Rehearse and the real call don't hold sheet edits — leave them without a save prompt.
+    if (view === "rehearse" || view === "live") {
+      showView(next);
+      return;
+    }
     requestLeave(() => showView(next));
   };
 
@@ -1371,10 +1395,15 @@ function UnattachedSheetPage({
             className={tab(view === item)}
             aria-current={view === item ? "page" : undefined}
             onClick={() => {
-              if (item !== view) requestLeave(() => showView(item));
+              if (item === view) return;
+              if (view === "rehearse") {
+                showView(item);
+                return;
+              }
+              requestLeave(() => showView(item));
             }}
           >
-            {item === "read" ? "Read" : "Rehearse"}
+            {item === "read" ? (view === "rehearse" ? "Back to sheet" : "Sheet") : "Rehearse"}
           </button>
         ))}
       </nav>

@@ -337,6 +337,20 @@ export function LiveCallClient({
 
   const leave = () => {
     if (submittingRef.current) return;
+    // Rehearsal writes nothing — leave immediately so Jason is back on the sheet.
+    if (session.badge === "rehearsal") {
+      submittingRef.current = true;
+      void actionsRef.current.end().then((result) => {
+        if (!result.ok) {
+          submittingRef.current = false;
+          toast.error(result.error);
+          return;
+        }
+        setMarking(false);
+        exit();
+      });
+      return;
+    }
     submittingRef.current = true;
     startTransition(async () => {
       const result = await actionsRef.current.end();
@@ -413,6 +427,11 @@ export function LiveCallClient({
           event.preventDefault();
           confirmOutcome();
         }
+        return;
+      }
+      if (event.key === "Escape" && session.badge === "rehearsal") {
+        event.preventDefault();
+        leave();
         return;
       }
       const list = rowsRef.current;
@@ -556,7 +575,7 @@ export function LiveCallClient({
   const headerTitle = session.strategyName?.trim() || session.title;
   const personLine =
     session.badge === "rehearsal"
-      ? "Rehearsal"
+      ? "Rehearsal · practice only — nothing is saved"
       : [session.personLabel, session.companyLabel].filter(Boolean).join(" · ") || session.timeLabel;
   const listening = listenForStrip(rows, currentId);
   const extra =
@@ -688,8 +707,13 @@ export function LiveCallClient({
               {showAllCovered ? (
                 <div className="flex h-full max-w-[780px] flex-col justify-center">
                   <h2 className="text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em]">All points covered</h2>
-                  <Button type="button" variant="default" className="mt-8 h-12 w-fit" onClick={finish}>
-                    {session.badge === "live" ? "End call" : "Done"}
+                  <Button
+                    type="button"
+                    variant={session.badge === "rehearsal" ? "secondary" : "default"}
+                    className="mt-8 h-12 w-fit"
+                    onClick={finish}
+                  >
+                    {session.badge === "rehearsal" ? "End rehearsal" : "End call"}
                   </Button>
                 </div>
               ) : onStage ? (
@@ -769,8 +793,14 @@ export function LiveCallClient({
               Join the call
             </a>
           ) : null}
-          <Button type="button" variant="done" size="sm" onClick={finish}>
-            Done
+          <Button
+            type="button"
+            variant={session.badge === "rehearsal" ? "secondary" : "done"}
+            size="sm"
+            onClick={finish}
+            title={session.badge === "rehearsal" ? "Esc also ends rehearsal" : undefined}
+          >
+            {session.badge === "rehearsal" ? "End rehearsal" : "End call"}
           </Button>
         </div>
         </div>
@@ -895,8 +925,13 @@ export function LiveCallClient({
                 <h2 className="text-[46px] font-extrabold leading-[1.05] tracking-[-0.02em]">
                   All points covered
                 </h2>
-                <Button type="button" variant="default" className="mt-8 h-12 w-fit" onClick={finish}>
-                  Done
+                <Button
+                  type="button"
+                  variant={session.badge === "rehearsal" ? "secondary" : "default"}
+                  className="mt-8 h-12 w-fit"
+                  onClick={finish}
+                >
+                  {session.badge === "rehearsal" ? "End rehearsal" : "End call"}
                 </Button>
               </div>
             ) : current && current.kind !== "agenda" ? (
