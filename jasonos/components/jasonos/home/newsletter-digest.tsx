@@ -48,11 +48,13 @@ export function NewsletterDigest({
     groupTitle: string;
     story: NewsletterStory;
   } | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
+    // Default collapsed; only expand if Jason previously chose open.
     try {
-      if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(COLLAPSE_KEY) === "0") setCollapsed(false);
     } catch {
       // ignore private-mode / quota errors
     }

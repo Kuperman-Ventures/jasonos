@@ -420,13 +420,13 @@ function CollapsibleHomeBand({
   count: number;
   children: ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
-    // Read after mount so SSR and first paint match (expanded).
+    // Default collapsed; only expand if Jason previously chose open.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(storageKey) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(storageKey) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }

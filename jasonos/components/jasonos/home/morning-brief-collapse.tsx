@@ -18,15 +18,14 @@ export function MorningBriefCollapse({
   /** Collapsible body (banner, brief content, day nav). */
   children: ReactNode;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
-    // Intentional: read the saved preference only after mount so the server and
-    // first client render match (expanded), then apply it. Avoids hydration
-    // mismatch on a localStorage-derived value.
+    // Default collapsed; only expand if Jason previously chose open. Read after
+    // mount so SSR and first paint match (collapsed), then apply preference.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // ignore private-mode / quota errors
     }
