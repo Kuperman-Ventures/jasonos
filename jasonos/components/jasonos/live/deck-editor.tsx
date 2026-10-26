@@ -72,11 +72,21 @@ export function DeckEditor({ deck: initial }: { deck: DeckDetail }) {
     router.refresh();
   }, [initial.id, initial.name, name, router, slides]);
 
-  const addSlide = () => {
-    setLocalSlides((current) => [
-      ...current,
-      { key: `new-${Date.now()}`, headline: "New slide", bullets: [] },
-    ]);
+  /** Insert after `afterIndex`. Omit to append at the end. */
+  const addSlide = (afterIndex?: number) => {
+    const next: EditorSlide = {
+      key: `new-${Date.now()}`,
+      headline: "New slide",
+      bullets: [],
+    };
+    setLocalSlides((current) => {
+      if (afterIndex === undefined || afterIndex < 0 || afterIndex >= current.length) {
+        return [...current, next];
+      }
+      const copy = [...current];
+      copy.splice(afterIndex + 1, 0, next);
+      return copy;
+    });
     markDirty();
   };
 
@@ -191,15 +201,26 @@ export function DeckEditor({ deck: initial }: { deck: DeckDetail }) {
                 className="mt-2 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[14px]"
                 placeholder="One bullet per line"
               />
+              <div className="mt-3">
+                <Button type="button" variant="outline" size="sm" onClick={() => addSlide(index)}>
+                  <Plus size={14} aria-hidden />
+                  Add slide
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
 
+        {slides.length === 0 ? (
+          <div className="mt-4">
+            <Button type="button" variant="outline" size="sm" onClick={() => addSlide()}>
+              <Plus size={14} aria-hidden />
+              Add slide
+            </Button>
+          </div>
+        ) : null}
+
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={addSlide}>
-            <Plus size={14} aria-hidden />
-            Add slide
-          </Button>
           <Button
             type="button"
             variant="ghost"
