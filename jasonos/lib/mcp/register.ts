@@ -35,12 +35,14 @@ import {
   listWeeklyProvocations,
 } from "./reads";
 import {
-  createSlidesMcp,
-  getSlidesMcp,
+  createDeckMcp,
+  createPlaybookFromDeckMcp,
+  getDeckMcp,
   getTranscriptMcp,
+  listDecksMcp,
   listPlaybooksMcp,
-  listSlidesMcp,
-  setSlidesMcp,
+  setDeckSlidesMcp,
+  updatePlaybookFromDeckMcp,
 } from "./decks-tools";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
@@ -55,7 +57,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live uses Playbooks (templates) and Slides (one meeting). list_upcoming_meeting_preps returns slides_id when linked. list_playbooks / list_slides / get_slides read decks. create_slides and set_slides write Slides. get_transcript fetches Granola or Wispr after a Run.
+Live uses Playbooks (templates) and Decks (one meeting). list_upcoming_meeting_preps returns deck_id when linked. list_playbooks / list_decks / get_deck read. create_deck and set_deck_slides write. update_playbook_from_deck and create_playbook_from_deck copy a deck into a playbook. get_transcript fetches Granola or Wispr after a Run.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -400,7 +402,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Upcoming meeting preps",
       description:
-        "Upcoming calendar meeting preps for the next N Eastern days (default 7): id, title, starts_at, ends_at, attendees, slides_id when a slides deck is linked.",
+        "Upcoming calendar meeting preps for the next N Eastern days (default 7): id, title, starts_at, ends_at, attendees, deck_id when a deck is linked.",
       inputSchema: z.object({
         days: z.number().int().min(1).max(30).optional(),
       }),
@@ -421,33 +423,33 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   server.registerTool(
-    "list_slides",
+    "list_decks",
     {
-      title: "Live slides",
-      description: "Slides decks: id, name, meeting_prep_id, slide_count, updated_at.",
+      title: "Live decks",
+      description: "Decks: id, name, meeting_prep_id, slide_count, updated_at.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async () => runTool(listSlidesMcp)
+    async () => runTool(listDecksMcp)
   );
 
   server.registerTool(
-    "get_slides",
+    "get_deck",
     {
-      title: "Get slides",
-      description: "One Slides deck with ordered headlines and bullets.",
+      title: "Get deck",
+      description: "One deck with ordered headlines and bullets.",
       inputSchema: z.object({ id: z.string().uuid() }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (args) => runTool(() => getSlidesMcp(args))
+    async (args) => runTool(() => getDeckMcp(args))
   );
 
   server.registerTool(
-    "create_slides",
+    "create_deck",
     {
-      title: "Create slides",
+      title: "Create deck",
       description:
-        "Create Slides from a Playbook (playbook_id) or blank (omit playbook_id). Optional meeting_prep_id links the meeting.",
+        "Create a deck from a Playbook (playbook_id) or blank (omit playbook_id). Optional meeting_prep_id links the meeting.",
       inputSchema: z.object({
         playbook_id: z.string().uuid().optional(),
         meeting_prep_id: z.string().uuid().optional(),
@@ -455,13 +457,13 @@ export function registerJasonosTools(server: McpServer) {
       }),
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
-    async (args) => runTool(() => createSlidesMcp(args))
+    async (args) => runTool(() => createDeckMcp(args))
   );
 
   server.registerTool(
-    "set_slides",
+    "set_deck_slides",
     {
-      title: "Set slides",
+      title: "Set deck slides",
       description: "Replace all slides in a deck (headline + bullets per slide). Reorder by array order.",
       inputSchema: z.object({
         id: z.string().uuid(),
@@ -474,14 +476,42 @@ export function registerJasonosTools(server: McpServer) {
       }),
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
-    async (args) => runTool(() => setSlidesMcp(args))
+    async (args) => runTool(() => setDeckSlidesMcp(args))
+  );
+
+  server.registerTool(
+    "update_playbook_from_deck",
+    {
+      title: "Update playbook from deck",
+      description:
+        "Replace a source playbook's slides with copies of this deck's slides. Deck must have source_playbook_id.",
+      inputSchema: z.object({ deck_id: z.string().uuid() }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => updatePlaybookFromDeckMcp(args))
+  );
+
+  server.registerTool(
+    "create_playbook_from_deck",
+    {
+      title: "Create playbook from deck",
+      description:
+        "Copy a deck's slides into a new playbook and set the deck's source_playbook_id to it.",
+      inputSchema: z.object({
+        deck_id: z.string().uuid(),
+        name: z.string().min(1).max(200),
+        description: z.string().max(2000).optional(),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => createPlaybookFromDeckMcp(args))
   );
 
   server.registerTool(
     "get_transcript",
     {
       title: "Get meeting transcript",
-      description: "Fetch and store transcript for a Slides deck (Granola first, then Wispr).",
+      description: "Fetch and store transcript for a deck (Granola first, then Wispr).",
       inputSchema: z.object({ id: z.string().uuid() }),
       annotations: { readOnlyHint: false, openWorldHint: false },
     },

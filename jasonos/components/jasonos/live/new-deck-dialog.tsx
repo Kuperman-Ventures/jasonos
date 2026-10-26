@@ -11,18 +11,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DeckSummary } from "@/lib/server-actions/decks";
-import { createBlankSlides, createSlidesFromPlaybook } from "@/lib/server-actions/decks";
+import { createBlankDeck, createDeckFromPlaybook } from "@/lib/server-actions/decks";
 
-export function NewSlidesDialog({
+export function NewDeckDialog({
   playbooks,
   meetingPrepId,
   meetingTitle,
-  triggerLabel = "New Slides",
+  triggerLabel = "New deck",
+  triggerClassName,
 }: {
   playbooks: DeckSummary[];
   meetingPrepId?: string;
   meetingTitle?: string;
   triggerLabel?: string;
+  triggerClassName?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -30,40 +32,49 @@ export function NewSlidesDialog({
 
   const createBlank = () =>
     start(async () => {
-      const result = await createBlankSlides(meetingTitle?.trim() || undefined, meetingPrepId ?? null);
+      const result = await createBlankDeck(
+        meetingTitle?.trim() || undefined,
+        meetingPrepId ?? null
+      );
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       setOpen(false);
-      router.push(`/live/slides/${result.id}`);
+      router.push(`/live/decks/${result.id}`);
       router.refresh();
     });
 
   const fromPlaybook = (playbookId: string) =>
     start(async () => {
-      const result = await createSlidesFromPlaybook(playbookId, meetingPrepId ?? null);
+      const result = await createDeckFromPlaybook(playbookId, meetingPrepId ?? null);
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       setOpen(false);
-      router.push(`/live/slides/${result.id}`);
+      router.push(`/live/decks/${result.id}`);
       router.refresh();
     });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className={triggerClassName}
+        onClick={() => setOpen(true)}
+      >
         {triggerLabel}
       </Button>
       <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New Slides</DialogTitle>
+          <DialogTitle>New deck</DialogTitle>
         </DialogHeader>
         <div className="space-y-2">
           <Button type="button" className="w-full justify-start" disabled={pending} onClick={createBlank}>
-            Blank Slides
+            Blank deck
           </Button>
           {playbooks.length ? (
             <div className="border-t border-[var(--jos-line)] pt-3">
@@ -81,7 +92,9 @@ export function NewSlidesDialog({
                       onClick={() => fromPlaybook(playbook.id)}
                     >
                       <span className="font-medium">{playbook.name}</span>
-                      <span className="ml-2 text-[12px] text-[var(--jos-muted)]">{playbook.slideCount} slides</span>
+                      <span className="ml-2 text-[12px] text-[var(--jos-muted)]">
+                        {playbook.slideCount} slides
+                      </span>
                     </Button>
                   </li>
                 ))}

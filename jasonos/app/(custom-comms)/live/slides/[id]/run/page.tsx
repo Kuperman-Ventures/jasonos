@@ -1,16 +1,18 @@
-import { notFound } from "next/navigation";
-import { DeckStage } from "@/components/jasonos/live/deck-stage";
-import { getDeck } from "@/lib/server-actions/decks";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function SlidesRunPage({
+export default async function SlidesRunRedirect({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const result = await getDeck(id);
-  if (!result.ok || result.deck.kind !== "slides") notFound();
-  return <DeckStage deck={result.deck} mode="run" />;
+  const query = await searchParams;
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === "string") qs.set(key, value);
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  redirect(`/live/decks/${id}/run${suffix}`);
 }

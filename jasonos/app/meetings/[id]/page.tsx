@@ -3,10 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/**
- * /meetings/[id] → linked Slides when present, else /live.
- * Before migration 0114, decks does not exist — fall through to /live.
- */
+/** /meetings/[id] → linked deck when present, else /live. */
 export default async function MeetingPrepRedirect({
   params,
 }: {
@@ -22,14 +19,14 @@ export default async function MeetingPrepRedirect({
     const { data, error } = await sb
       .from("decks")
       .select("id")
-      .eq("kind", "slides")
+      .eq("kind", "deck")
       .eq("meeting_prep_id", id)
       .maybeSingle();
     if (!error && data?.id) {
-      redirect(`/live/slides/${data.id}`);
+      redirect(`/live/decks/${data.id}`);
     }
   } catch {
-    // decks not migrated yet
+    // ignore
   }
 
   redirect("/live");

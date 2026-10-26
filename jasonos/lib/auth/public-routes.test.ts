@@ -54,11 +54,12 @@ describe("public JasonOS paths", () => {
   });
 
   it("recognizes the live call screen", () => {
-    assert.equal(isLiveCallPath("/live/slides/abc/rehearse"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc/rehearse"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc/run"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc/run/"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc"), false);
+    assert.equal(isLiveCallPath("/live/decks/abc/run/extra"), false);
     assert.equal(isLiveCallPath("/live/slides/abc/run"), true);
-    assert.equal(isLiveCallPath("/live/slides/abc/run/"), true);
-    assert.equal(isLiveCallPath("/live/slides/abc"), false);
-    assert.equal(isLiveCallPath("/live/slides/abc/run/extra"), false);
     assert.equal(isLiveCallPath("/meetings/abc/live"), false);
     assert.equal(isLiveCallPath("/live/playbooks/abc/rehearse"), true);
     assert.equal(isLiveCallPath("/live/playbooks/abc"), false);

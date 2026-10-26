@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DeckEditor } from "@/components/jasonos/live/deck-editor";
 import { getDeck } from "@/lib/server-actions/decks";
@@ -20,5 +21,9 @@ export default async function PlaybookEditPage({
     );
   }
   if (result.deck.kind !== "playbook") notFound();
-  return <DeckEditor deck={result.deck} />;
+  return (
+    <Suspense fallback={<div className="px-4 py-8 text-sm text-[var(--jos-muted)]">Loading…</div>}>
+      <DeckEditor deck={result.deck} />
+    </Suspense>
+  );
 }

@@ -1,24 +1,18 @@
-import { notFound } from "next/navigation";
-import { DeckEditor } from "@/components/jasonos/live/deck-editor";
-import { getDeck } from "@/lib/server-actions/decks";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function SlidesEditPage({
+export default async function SlidesRedirect({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const result = await getDeck(id);
-  if (!result.ok) {
-    if (result.error === "Not found.") notFound();
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <p className="text-sm text-[var(--jos-danger-text)]">{result.error}</p>
-      </div>
-    );
+  const query = await searchParams;
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === "string") qs.set(key, value);
   }
-  if (result.deck.kind !== "slides") notFound();
-  return <DeckEditor deck={result.deck} />;
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  redirect(`/live/decks/${id}${suffix}`);
 }

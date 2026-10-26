@@ -68,6 +68,8 @@ export function isCronPath(pathname: string): boolean {
 export function isLiveCallPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return (
+    /^\/live\/decks\/[^/]+\/run$/.test(path) ||
+    /^\/live\/decks\/[^/]+\/rehearse$/.test(path) ||
     /^\/live\/slides\/[^/]+\/run$/.test(path) ||
     /^\/live\/slides\/[^/]+\/rehearse$/.test(path) ||
     /^\/live\/playbooks\/[^/]+\/rehearse$/.test(path)

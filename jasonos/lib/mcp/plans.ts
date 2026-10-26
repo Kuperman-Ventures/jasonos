@@ -1,7 +1,7 @@
 import { getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-async function slidesIdByPrepId(prepIds: string[]): Promise<Map<string, string>> {
+async function deckIdByPrepId(prepIds: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (!prepIds.length) return map;
   try {
@@ -9,7 +9,7 @@ async function slidesIdByPrepId(prepIds: string[]): Promise<Map<string, string>>
     const { data, error } = await sb
       .from("decks")
       .select("id, meeting_prep_id")
-      .eq("kind", "slides")
+      .eq("kind", "deck")
       .in("meeting_prep_id", prepIds);
     if (error) return map;
     for (const row of data ?? []) {
@@ -28,7 +28,7 @@ export async function listUpcomingMeetingPreps(input: { days?: number } = {}) {
   const result = await getUpcomingMeetingPreps(days);
   if (!result.ok) throw new Error(result.error);
 
-  const slidesByPrep = await slidesIdByPrepId(result.meetings.map((meeting) => meeting.id));
+  const decksByPrep = await deckIdByPrepId(result.meetings.map((meeting) => meeting.id));
 
   return {
     ok: true,
@@ -43,7 +43,7 @@ export async function listUpcomingMeetingPreps(input: { days?: number } = {}) {
         name: person.name,
         email: person.email,
       })),
-      slides_id: slidesByPrep.get(meeting.id) ?? null,
+      deck_id: decksByPrep.get(meeting.id) ?? null,
     })),
   };
 }

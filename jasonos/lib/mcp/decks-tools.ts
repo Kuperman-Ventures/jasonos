@@ -16,13 +16,13 @@ export async function listPlaybooksMcp() {
   };
 }
 
-export async function listSlidesMcp() {
-  const { listSlides } = await import("@/lib/server-actions/decks");
-  const result = await listSlides();
+export async function listDecksMcp() {
+  const { listDecks } = await import("@/lib/server-actions/decks");
+  const result = await listDecks();
   if (!result.ok) throw new Error(result.error);
   return {
     ok: true,
-    slides: result.slides.map((row) => ({
+    decks: result.decks.map((row) => ({
       id: row.id,
       name: row.name,
       meeting_prep_id: row.meetingPrepId,
@@ -33,16 +33,17 @@ export async function listSlidesMcp() {
   };
 }
 
-export async function getSlidesMcp(input: { id: string }) {
+export async function getDeckMcp(input: { id: string }) {
   const { getDeck } = await import("@/lib/server-actions/decks");
   const result = await getDeck(input.id);
   if (!result.ok) throw new Error(result.error);
-  if (result.deck.kind !== "slides") throw new Error("Not slides.");
+  if (result.deck.kind !== "deck") throw new Error("Not a deck.");
   return {
     ok: true,
     id: result.deck.id,
     name: result.deck.name,
     meeting_prep_id: result.deck.meetingPrepId,
+    source_playbook_id: result.deck.sourcePlaybookId,
     slides: result.deck.slides.map((slide) => ({
       position: slide.position,
       headline: slide.headline,
@@ -54,25 +55,25 @@ export async function getSlidesMcp(input: { id: string }) {
   };
 }
 
-export async function createSlidesMcp(input: {
+export async function createDeckMcp(input: {
   playbook_id?: string;
   meeting_prep_id?: string;
   name?: string;
 }) {
-  const { createBlankSlides, createSlidesFromPlaybook } = await import("@/lib/server-actions/decks");
+  const { createBlankDeck, createDeckFromPlaybook } = await import("@/lib/server-actions/decks");
   if (input.playbook_id?.trim()) {
-    const result = await createSlidesFromPlaybook(input.playbook_id, input.meeting_prep_id ?? null);
+    const result = await createDeckFromPlaybook(input.playbook_id, input.meeting_prep_id ?? null);
     if (!result.ok) throw new Error(result.error);
     return { ok: true, id: result.id };
   }
-  const result = await createBlankSlides(input.name, input.meeting_prep_id ?? null);
+  const result = await createBlankDeck(input.name, input.meeting_prep_id ?? null);
   if (!result.ok) throw new Error(result.error);
   return { ok: true, id: result.id };
 }
 
-export async function setSlidesMcp(input: { id: string; slides: SlideInput[] }) {
-  const { setSlides } = await import("@/lib/server-actions/decks");
-  const result = await setSlides(input.id, input.slides);
+export async function setDeckSlidesMcp(input: { id: string; slides: SlideInput[] }) {
+  const { setDeckSlides } = await import("@/lib/server-actions/decks");
+  const result = await setDeckSlides(input.id, input.slides);
   if (!result.ok) throw new Error(result.error);
   return { ok: true, count: result.count };
 }
@@ -87,4 +88,30 @@ export async function getTranscriptMcp(input: { id: string }) {
     source: result.source,
     note_id: result.noteId,
   };
+}
+
+export async function updatePlaybookFromDeckMcp(input: { deck_id: string }) {
+  const { updatePlaybookFromDeck } = await import("@/lib/server-actions/decks");
+  const result = await updatePlaybookFromDeck(input.deck_id);
+  if (!result.ok) throw new Error(result.error);
+  return {
+    ok: true,
+    playbook_id: result.playbookId,
+    slide_count: result.slideCount,
+    playbook_name: result.playbookName,
+  };
+}
+
+export async function createPlaybookFromDeckMcp(input: {
+  deck_id: string;
+  name: string;
+  description?: string;
+}) {
+  const { createPlaybookFromDeck } = await import("@/lib/server-actions/decks");
+  const result = await createPlaybookFromDeck(input.deck_id, {
+    name: input.name,
+    description: input.description,
+  });
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, playbook_id: result.playbookId, name: result.name };
 }

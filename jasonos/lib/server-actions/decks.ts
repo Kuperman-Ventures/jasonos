@@ -19,7 +19,7 @@ import {
 } from "@/lib/live/decks-helpers";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
-export type DeckKind = "playbook" | "slides";
+export type DeckKind = "playbook" | "deck";
 
 export type DeckSummary = {
   id: string;
@@ -33,6 +33,7 @@ export type DeckSummary = {
   runStartedAt: string | null;
   runEndedAt: string | null;
   aiNotes: string | null;
+  hasTranscript: boolean;
 };
 
 export type Slide = {
@@ -85,19 +86,20 @@ function hasConfig(): boolean {
 }
 
 function asKind(value: string): DeckKind {
-  return value === "playbook" ? "playbook" : "slides";
+  return value === "playbook" ? "playbook" : "deck";
 }
 
 function revalidateDeck(deckId: string, kind: DeckKind, prepId?: string | null) {
   revalidatePath("/live");
   revalidatePath("/live/playbooks");
+  revalidatePath("/live/decks");
   if (kind === "playbook") {
     revalidatePath(`/live/playbooks/${deckId}`);
     revalidatePath(`/live/playbooks/${deckId}/rehearse`);
   } else {
-    revalidatePath(`/live/slides/${deckId}`);
-    revalidatePath(`/live/slides/${deckId}/rehearse`);
-    revalidatePath(`/live/slides/${deckId}/run`);
+    revalidatePath(`/live/decks/${deckId}`);
+    revalidatePath(`/live/decks/${deckId}/rehearse`);
+    revalidatePath(`/live/decks/${deckId}/run`);
   }
   if (prepId) revalidatePath(`/meetings/${prepId}`);
 }
@@ -115,6 +117,7 @@ function toSummary(row: DeckRow, slideCount: number): DeckSummary {
     runStartedAt: row.run_started_at,
     runEndedAt: row.run_ended_at,
     aiNotes: row.ai_notes?.trim() || null,
+    hasTranscript: Boolean(row.transcript?.trim()),
   };
 }
 
@@ -170,21 +173,21 @@ export async function listPlaybooks(): Promise<ActionResult<{ playbooks: DeckSum
   }
 }
 
-export async function listSlides(): Promise<ActionResult<{ slides: DeckSummary[] }>> {
+export async function listDecks(): Promise<ActionResult<{ decks: DeckSummary[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   try {
     const sb = createServiceRoleClient();
     const { data, error } = await sb
       .from("decks")
       .select(DECK_COLUMNS)
-      .eq("kind", "slides")
+      .eq("kind", "deck")
       .order("updated_at", { ascending: false });
     if (error) return { ok: false, error: error.message };
     const rows = (data ?? []) as DeckRow[];
     const counts = await slideCounts(sb, rows.map((row) => row.id));
     return {
       ok: true,
-      slides: rows.map((row) => toSummary(row, counts.get(row.id) ?? 0)),
+      decks: rows.map((row) => toSummary(row, counts.get(row.id) ?? 0)),
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -246,12 +249,12 @@ export async function createPlaybook(name?: string): Promise<ActionResult<{ id: 
   }
 }
 
-export async function createBlankSlides(
+export async function createBlankDeck(
   name?: string,
   meetingPrepId?: string | null
 ): Promise<ActionResult<{ id: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
-  const label = (name?.trim() || "New Slides").slice(0, 200);
+  const label = (name?.trim() || "New deck").slice(0, 200);
   const prepId = meetingPrepId?.trim() || null;
   try {
     const sb = createServiceRoleClient();
@@ -259,17 +262,17 @@ export async function createBlankSlides(
       const existing = await sb
         .from("decks")
         .select("id")
-        .eq("kind", "slides")
+        .eq("kind", "deck")
         .eq("meeting_prep_id", prepId)
         .maybeSingle();
-      if (existing.data?.id) return { ok: false, error: "This meeting already has Slides." };
+      if (existing.data?.id) return { ok: false, error: "This meeting already has a deck." };
     }
     const { data, error } = await sb
       .from("decks")
-      .insert({ kind: "slides", name: label, meeting_prep_id: prepId })
+      .insert({ kind: "deck", name: label, meeting_prep_id: prepId })
       .select("id, kind")
       .single();
-    if (error || !data?.id) return { ok: false, error: error?.message || "Could not create slides." };
+    if (error || !data?.id) return { ok: false, error: error?.message || "Could not create deck." };
     const id = data.id as string;
     await sb.from("slides").insert({
       deck_id: id,
@@ -277,14 +280,14 @@ export async function createBlankSlides(
       headline: "Opening",
       bullets: toJsonBullets([]),
     });
-    revalidateDeck(id, "slides", prepId);
+    revalidateDeck(id, "deck", prepId);
     return { ok: true, id };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export async function createSlidesFromPlaybook(
+export async function createDeckFromPlaybook(
   playbookId: string,
   meetingPrepId?: string | null
 ): Promise<ActionResult<{ id: string }>> {
@@ -308,11 +311,11 @@ export async function createSlidesFromPlaybook(
       const existing = await sb
         .from("decks")
         .select("id")
-        .eq("kind", "slides")
+        .eq("kind", "deck")
         .eq("meeting_prep_id", prepId)
         .maybeSingle();
       if (existing.data?.id) {
-        return { ok: false, error: "This meeting already has Slides." };
+        return { ok: false, error: "This meeting already has a deck." };
       }
       const prep = await getMeetingPrep(prepId);
       if (prep.ok && prep.prep.title.trim()) deckName = prep.prep.title.trim();
@@ -322,7 +325,7 @@ export async function createSlidesFromPlaybook(
     const { data: created, error: createError } = await sb
       .from("decks")
       .insert({
-        kind: "slides",
+        kind: "deck",
         name: deckName.slice(0, 200),
         source_playbook_id: sourceId,
         meeting_prep_id: prepId,
@@ -330,7 +333,7 @@ export async function createSlidesFromPlaybook(
       .select("id")
       .single();
     if (createError || !created?.id) {
-      return { ok: false, error: createError?.message || "Could not create slides." };
+      return { ok: false, error: createError?.message || "Could not create deck." };
     }
     const newId = created.id as string;
     if (sourceSlides.length) {
@@ -351,7 +354,7 @@ export async function createSlidesFromPlaybook(
         bullets: toJsonBullets([]),
       });
     }
-    revalidateDeck(newId, "slides", prepId);
+    revalidateDeck(newId, "deck", prepId);
     return { ok: true, id: newId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -401,7 +404,7 @@ export async function deleteDeck(deckId: string): Promise<ActionResult<object>> 
   }
 }
 
-export async function setSlides(
+export async function setDeckSlides(
   deckId: string,
   slides: SlideInput[]
 ): Promise<ActionResult<{ count: number }>> {
@@ -452,12 +455,12 @@ export async function startRun(deckId: string): Promise<ActionResult<{ startedAt
       .from("decks")
       .update({ run_started_at: startedAt, run_ended_at: null, updated_at: startedAt })
       .eq("id", id)
-      .eq("kind", "slides")
+      .eq("kind", "deck")
       .select("id, meeting_prep_id")
       .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: "Slides not found." };
-    revalidateDeck(id, "slides", data.meeting_prep_id as string | null);
+    revalidateDeck(id, "deck", data.meeting_prep_id as string | null);
     return { ok: true, startedAt };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -474,12 +477,12 @@ export async function endRun(deckId: string): Promise<ActionResult<{ endedAt: st
       .from("decks")
       .update({ run_ended_at: endedAt, updated_at: endedAt })
       .eq("id", id)
-      .eq("kind", "slides")
+      .eq("kind", "deck")
       .select("id, meeting_prep_id")
       .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: "Slides not found." };
-    revalidateDeck(id, "slides", data.meeting_prep_id as string | null);
+    revalidateDeck(id, "deck", data.meeting_prep_id as string | null);
     return { ok: true, endedAt };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -501,7 +504,7 @@ export async function fetchTranscript(
     const loaded = await getDeck(id);
     if (!loaded.ok) return loaded;
     const deck = loaded.deck;
-    if (deck.kind !== "slides") return { ok: false, error: "Transcripts are for Slides only." };
+    if (deck.kind !== "deck") return { ok: false, error: "Transcripts are for decks only." };
     if (!deck.meetingPrepId) return { ok: false, error: "These Slides are not linked to a meeting." };
 
     const prepResult = await getMeetingPrep(deck.meetingPrepId);
@@ -554,7 +557,7 @@ export async function fetchTranscript(
       })
       .eq("id", id);
 
-    revalidateDeck(id, "slides", deck.meetingPrepId);
+    revalidateDeck(id, "deck", deck.meetingPrepId);
     return { ok: true, transcript, source, noteId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -568,7 +571,7 @@ export async function tailorSlides(deckId: string): Promise<ActionResult<{ aiNot
     const loaded = await getDeck(id);
     if (!loaded.ok) return loaded;
     const deck = loaded.deck;
-    if (deck.kind !== "slides") return { ok: false, error: "Tailor works on Slides only." };
+    if (deck.kind !== "deck") return { ok: false, error: "Tailor works on decks only." };
     if (!deck.slides.length) return { ok: false, error: "Add at least one Slide first." };
 
     const contextParts: string[] = [];
@@ -641,10 +644,10 @@ ${JSON.stringify(
       })
       .eq("id", id);
 
-    const saved = await setSlides(id, parsed.value.slides);
+    const saved = await setDeckSlides(id, parsed.value.slides);
     if (!saved.ok) return saved;
 
-    revalidateDeck(id, "slides", prepId);
+    revalidateDeck(id, "deck", prepId);
     return { ok: true, aiNotes: parsed.value.notes };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -662,7 +665,7 @@ export async function undoTailor(deckId: string): Promise<ActionResult<object>> 
     const undo = data.ai_undo as { slides?: SlideInput[]; aiNotes?: string | null } | null;
     if (!undo?.slides?.length) return { ok: false, error: "Nothing to undo." };
 
-    const restored = await setSlides(id, undo.slides);
+    const restored = await setDeckSlides(id, undo.slides);
     if (!restored.ok) return restored;
 
     await sb
@@ -791,4 +794,272 @@ async function loadCompanySiteText(contactId: string | null, companyName: string
   const scraped = await firecrawlScrape(url);
   if (!scraped?.text?.trim()) return null;
   return capWords(scraped.text.trim(), 3000);
+}
+
+export async function setDeckDescription(
+  deckId: string,
+  description: string
+): Promise<ActionResult<{ description: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  const next = description.trim() || null;
+  try {
+    const sb = createServiceRoleClient();
+    const { data, error } = await sb
+      .from("decks")
+      .update({ description: next, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, kind, meeting_prep_id")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: "Not found." };
+    revalidateDeck(id, asKind(data.kind as string), data.meeting_prep_id as string | null);
+    return { ok: true, description: next };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function linkDeckMeeting(
+  deckId: string,
+  meetingPrepId: string
+): Promise<ActionResult<{ meetingPrepId: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  const prepId = meetingPrepId.trim();
+  if (!prepId) return { ok: false, error: "Pick a meeting." };
+  try {
+    const sb = createServiceRoleClient();
+    const { data: deck, error: deckError } = await sb
+      .from("decks")
+      .select("id, kind, meeting_prep_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (deckError) return { ok: false, error: deckError.message };
+    if (!deck) return { ok: false, error: "Not found." };
+    if (asKind(deck.kind as string) !== "deck") {
+      return { ok: false, error: "Only decks can link to a meeting." };
+    }
+    const existing = await sb
+      .from("decks")
+      .select("id")
+      .eq("kind", "deck")
+      .eq("meeting_prep_id", prepId)
+      .neq("id", id)
+      .maybeSingle();
+    if (existing.data?.id) return { ok: false, error: "That meeting already has a deck." };
+
+    const prevPrep = deck.meeting_prep_id as string | null;
+    const { error } = await sb
+      .from("decks")
+      .update({ meeting_prep_id: prepId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    revalidateDeck(id, "deck", prepId);
+    if (prevPrep) revalidatePath(`/meetings/${prevPrep}`);
+    return { ok: true, meetingPrepId: prepId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function unlinkDeckMeeting(deckId: string): Promise<ActionResult<object>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  try {
+    const sb = createServiceRoleClient();
+    const { data: deck, error: deckError } = await sb
+      .from("decks")
+      .select("id, kind, meeting_prep_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (deckError) return { ok: false, error: deckError.message };
+    if (!deck) return { ok: false, error: "Not found." };
+    const prevPrep = deck.meeting_prep_id as string | null;
+    const { error } = await sb
+      .from("decks")
+      .update({ meeting_prep_id: null, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    revalidateDeck(id, asKind(deck.kind as string), prevPrep);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Replace the source playbook's slides with copies of this deck's slides.
+ * Deck is unchanged.
+ */
+export async function updatePlaybookFromDeck(
+  deckId: string
+): Promise<ActionResult<{ playbookId: string; playbookName: string; slideCount: number }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  try {
+    const sb = createServiceRoleClient();
+    const { data: deck, error } = await sb.from("decks").select(DECK_COLUMNS).eq("id", id).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!deck) return { ok: false, error: "Not found." };
+    const row = deck as DeckRow;
+    if (asKind(row.kind) !== "deck") return { ok: false, error: "Only decks can update a playbook." };
+    const playbookId = row.source_playbook_id?.trim() || null;
+    if (!playbookId) return { ok: false, error: "This deck has no source playbook." };
+
+    const { data: playbook, error: playbookError } = await sb
+      .from("decks")
+      .select("id, name, kind")
+      .eq("id", playbookId)
+      .maybeSingle();
+    if (playbookError) return { ok: false, error: playbookError.message };
+    if (!playbook || asKind(playbook.kind as string) !== "playbook") {
+      return { ok: false, error: "Source playbook no longer exists." };
+    }
+
+    const deckSlides = await loadSlides(sb, id);
+    const previous = await loadSlides(sb, playbookId);
+
+    const { error: delError } = await sb.from("slides").delete().eq("deck_id", playbookId);
+    if (delError) return { ok: false, error: delError.message };
+
+    if (deckSlides.length) {
+      const { error: insError } = await sb.from("slides").insert(
+        deckSlides.map((slide, index) => ({
+          deck_id: playbookId,
+          position: index + 1,
+          headline: slide.headline,
+          bullets: toJsonBullets(slide.bullets),
+        }))
+      );
+      if (insError) {
+        if (previous.length) {
+          await sb.from("slides").insert(
+            previous.map((slide, index) => ({
+              deck_id: playbookId,
+              position: index + 1,
+              headline: slide.headline,
+              bullets: toJsonBullets(slide.bullets),
+            }))
+          );
+        }
+        return { ok: false, error: insError.message };
+      }
+    }
+
+    await sb.from("decks").update({ updated_at: new Date().toISOString() }).eq("id", playbookId);
+    revalidateDeck(playbookId, "playbook");
+    revalidateDeck(id, "deck", row.meeting_prep_id);
+    return {
+      ok: true,
+      playbookId,
+      playbookName: String(playbook.name),
+      slideCount: deckSlides.length,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Copy deck slides into a new playbook and point the deck at it. */
+export async function createPlaybookFromDeck(
+  deckId: string,
+  input: { name: string; description?: string | null }
+): Promise<ActionResult<{ playbookId: string; name: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  const label = input.name.trim().slice(0, 200);
+  if (!label) return { ok: false, error: "Write a playbook name." };
+  const description = input.description?.trim() || null;
+  try {
+    const sb = createServiceRoleClient();
+    const { data: deck, error } = await sb.from("decks").select(DECK_COLUMNS).eq("id", id).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!deck) return { ok: false, error: "Not found." };
+    const row = deck as DeckRow;
+    if (asKind(row.kind) !== "deck") return { ok: false, error: "Only decks can create a playbook." };
+
+    const deckSlides = await loadSlides(sb, id);
+    const { data: created, error: createError } = await sb
+      .from("decks")
+      .insert({ kind: "playbook", name: label, description })
+      .select("id")
+      .single();
+    if (createError || !created?.id) {
+      return { ok: false, error: createError?.message || "Could not create playbook." };
+    }
+    const playbookId = created.id as string;
+    if (deckSlides.length) {
+      const { error: slideError } = await sb.from("slides").insert(
+        deckSlides.map((slide, index) => ({
+          deck_id: playbookId,
+          position: index + 1,
+          headline: slide.headline,
+          bullets: toJsonBullets(slide.bullets),
+        }))
+      );
+      if (slideError) {
+        await sb.from("decks").delete().eq("id", playbookId);
+        return { ok: false, error: slideError.message };
+      }
+    }
+
+    const { error: linkError } = await sb
+      .from("decks")
+      .update({ source_playbook_id: playbookId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (linkError) return { ok: false, error: linkError.message };
+
+    revalidateDeck(playbookId, "playbook");
+    revalidateDeck(id, "deck", row.meeting_prep_id);
+    return { ok: true, playbookId, name: label };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Unlinked duplicate named "Copy of {name}" with the same slides. */
+export async function copyDeck(deckId: string): Promise<ActionResult<{ id: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  try {
+    const sb = createServiceRoleClient();
+    const { data: source, error } = await sb.from("decks").select(DECK_COLUMNS).eq("id", id).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!source) return { ok: false, error: "Not found." };
+    const row = source as DeckRow;
+    const kind = asKind(row.kind);
+    const label = `Copy of ${row.name}`.slice(0, 200);
+    const sourceSlides = await loadSlides(sb, id);
+    const { data: created, error: createError } = await sb
+      .from("decks")
+      .insert({
+        kind,
+        name: label,
+        description: row.description,
+        source_playbook_id: kind === "deck" ? row.source_playbook_id : null,
+        meeting_prep_id: null,
+      })
+      .select("id")
+      .single();
+    if (createError || !created?.id) {
+      return { ok: false, error: createError?.message || "Could not copy." };
+    }
+    const newId = created.id as string;
+    if (sourceSlides.length) {
+      const { error: slideError } = await sb.from("slides").insert(
+        sourceSlides.map((slide, index) => ({
+          deck_id: newId,
+          position: index + 1,
+          headline: slide.headline,
+          bullets: toJsonBullets(slide.bullets),
+        }))
+      );
+      if (slideError) return { ok: false, error: slideError.message };
+    }
+    revalidateDeck(newId, kind);
+    return { ok: true, id: newId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

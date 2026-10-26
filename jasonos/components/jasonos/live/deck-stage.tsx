@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { LiveBreadcrumb } from "@/components/jasonos/live/live-breadcrumb";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { DeckDetail } from "@/lib/server-actions/decks";
 import { formatElapsed } from "@/lib/live/decks-helpers";
 import { endRun, startRun } from "@/lib/server-actions/decks";
@@ -11,21 +19,28 @@ import { cn } from "@/lib/utils";
 
 type Mode = "rehearse" | "run";
 
-export function DeckStage({
-  deck,
-  mode,
-}: {
-  deck: DeckDetail;
-  mode: Mode;
-}) {
+export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const slides = deck.slides;
-  const [index, setIndex] = useState(0);
+  const initialIndex = (() => {
+    const n = Number(searchParams.get("slide") || "1");
+    if (!Number.isFinite(n) || n < 1) return 0;
+    return Math.min(slides.length - 1, Math.max(0, Math.floor(n) - 1));
+  })();
+  const [index, setIndex] = useState(initialIndex);
   const [startedAt, setStartedAt] = useState<string | null>(deck.runStartedAt);
   const [now, setNow] = useState(Date.now());
+  const [endPrompt, setEndPrompt] = useState(false);
+
   const editHref =
-    deck.kind === "playbook" ? `/live/playbooks/${deck.id}` : `/live/slides/${deck.id}`;
-  const current = slides[index] ?? null;
+    deck.kind === "playbook"
+      ? `/live/playbooks/${deck.id}?slide=${index + 1}`
+      : `/live/decks/${deck.id}?slide=${index + 1}`;
+  const editTranscriptHref =
+    deck.kind === "playbook"
+      ? editHref
+      : `/live/decks/${deck.id}?slide=${index + 1}#transcript`;
 
   useEffect(() => {
     if (mode !== "run") return;
@@ -40,10 +55,18 @@ export function DeckStage({
     return () => window.clearInterval(timer);
   }, [mode, startedAt]);
 
+  const finishRun = useCallback(async () => {
+    await endRun(deck.id);
+    router.push(editTranscriptHref);
+  }, [deck.id, editTranscriptHref, router]);
+
   const leave = useCallback(async () => {
-    if (mode === "run") await endRun(deck.id);
+    if (mode === "run") {
+      setEndPrompt(true);
+      return;
+    }
     router.push(editHref);
-  }, [deck.id, editHref, mode, router]);
+  }, [editHref, mode, router]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -77,25 +100,37 @@ export function DeckStage({
   }, [leave, slides.length]);
 
   const elapsed =
-    mode === "run" && startedAt
-      ? formatElapsed((now - Date.parse(startedAt)) / 1000)
-      : null;
+    mode === "run" && startedAt ? formatElapsed((now - Date.parse(startedAt)) / 1000) : null;
+  const current = slides[index] ?? null;
+
+  const crumbs =
+    deck.kind === "playbook"
+      ? [
+          { label: "Live", href: "/live" },
+          { label: "Playbooks", href: "/live/playbooks" },
+          { label: deck.name, href: `/live/playbooks/${deck.id}?slide=${index + 1}` },
+          { label: mode === "run" ? "Run" : "Rehearse" },
+        ]
+      : [
+          { label: "Live", href: "/live" },
+          { label: "Decks", href: "/live/decks" },
+          { label: deck.name, href: `/live/decks/${deck.id}?slide=${index + 1}` },
+          { label: mode === "run" ? "Run" : "Rehearse" },
+        ];
 
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col bg-[var(--jos-bg)] text-[var(--jos-ink)]">
       <header className="flex items-center justify-between gap-3 border-b border-[var(--jos-line)] px-4 py-3">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
-            {mode === "run" ? "Run" : "Rehearse"} · {deck.name}
-          </p>
-          <p className="text-[13px] text-[var(--jos-muted)]">
+          <LiveBreadcrumb crumbs={crumbs} />
+          <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
             Slide {slides.length ? index + 1 : 0} of {slides.length}
             {elapsed ? ` · ${elapsed}` : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {mode === "run" ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => void leave()}>
+            <Button type="button" size="sm" variant="outline" onClick={() => void finishRun()}>
               End run
             </Button>
           ) : (
@@ -137,7 +172,7 @@ export function DeckStage({
                 "h-8 min-w-8 rounded-[2px] border px-2 text-[12px] font-semibold tabular-nums",
                 slideIndex === index
                   ? "border-[var(--jos-focus)] bg-[color-mix(in_srgb,var(--jos-focus)_12%,transparent)]"
-                  : "border-[var(--jos-line)] bg-[var(--jos-surface)] hover:bg-[color-mix(in_srgb,var(--jos-surface)_80%,var(--jos-focus))]"
+                  : "border-[var(--jos-line)] bg-[var(--jos-surface)]"
               )}
               onClick={() => setIndex(slideIndex)}
             >
@@ -146,9 +181,26 @@ export function DeckStage({
           ))}
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-[11px] text-[var(--jos-muted)]">
-          Next: → Space ↓ j · Prev: ← ↑ k · Jump: 1–9 · Esc to {mode === "run" ? "end" : "leave"}
+          Next: → Space ↓ j · Prev: ← ↑ k · Jump: 1–9 · Esc to{" "}
+          {mode === "run" ? "end" : "leave"}
         </p>
       </footer>
+
+      <Dialog open={endPrompt} onOpenChange={setEndPrompt}>
+        <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>End the run?</DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="ghost" onClick={() => setEndPrompt(false)}>
+              Keep going
+            </Button>
+            <Button type="button" onClick={() => void finishRun()}>
+              End run
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
