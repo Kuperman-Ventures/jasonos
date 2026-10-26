@@ -39,14 +39,18 @@ import {
   createDeckMcp,
   createPlaybookFromDeckMcp,
   getDeckMcp,
+  getDefaultRubricMcp,
   getReviewMcp,
   getTranscriptMcp,
   listDecksMcp,
   listPlaybooksMcp,
+  reviewMeetingMcp,
   reviewRunMcp,
   runAiHelpMcp,
   setDeckSlidesMcp,
+  setDefaultRubricMcp,
   setGoalMcp,
+  setRubricMcp,
   updatePlaybookFromDeckMcp,
 } from "./decks-tools";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
@@ -62,7 +66,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review fetches the transcript and marks coverage. Calendar meetings are not a starting point; they appear in Attach and on a linked deck. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, run_ai_help, attach_meeting, get_transcript, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
+Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings can also Review a meeting from a Granola/Wispr note without a Live run. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, run_ai_help, attach_meeting, get_transcript, review_run / get_review / review_meeting, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -605,6 +609,64 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
     async (args) => runTool(() => attachMeetingMcp(args))
+  );
+
+  server.registerTool(
+    "set_rubric",
+    {
+      title: "Set deck or playbook rubric",
+      description: "Replace the plain-language rubric lines on a deck or playbook.",
+      inputSchema: z.object({
+        deck_id: z.string().uuid(),
+        lines: z.array(z.string().max(500)).max(40),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => setRubricMcp(args))
+  );
+
+  server.registerTool(
+    "get_default_rubric",
+    {
+      title: "Get default Live rubric",
+      description: "The seeded default rubric used by new playbooks and blank decks.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(getDefaultRubricMcp)
+  );
+
+  server.registerTool(
+    "set_default_rubric",
+    {
+      title: "Set default Live rubric",
+      description:
+        "Update the global default rubric. Does not change existing decks or playbooks.",
+      inputSchema: z.object({
+        lines: z.array(z.string().max(500)).max(40),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => setDefaultRubricMcp(args))
+  );
+
+  server.registerTool(
+    "review_meeting",
+    {
+      title: "Review a meeting not run in Live",
+      description:
+        "Create a deck from a Granola or Wispr note (optional calendar meeting, goal, rubric from playbook), store the transcript, run review, return the new deck id.",
+      inputSchema: z.object({
+        note_id: z.string().min(1),
+        source: z.enum(["granola", "wispr"]),
+        name: z.string().min(1).max(200),
+        goal: z.string().max(500).optional(),
+        rubric_from_playbook_id: z.string().uuid().nullable().optional(),
+        meeting_prep_id: z.string().uuid().nullable().optional(),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => reviewMeetingMcp(args))
   );
 
   server.registerTool(

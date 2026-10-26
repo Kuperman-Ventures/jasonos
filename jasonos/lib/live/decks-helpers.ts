@@ -47,6 +47,14 @@ export function normalizeSlideInputs(
   return { ok: true, value: out };
 }
 
+export type ParsedRubricScore = {
+  line: string;
+  score: number | null;
+  note: string;
+  na: boolean;
+  overridden: boolean;
+};
+
 export type ParsedDeckReview = {
   slides: Array<{
     slide_id: string;
@@ -60,7 +68,72 @@ export type ParsedDeckReview = {
   next_time: string[];
   model: string;
   transcript_source: "granola" | "wispr" | null;
+  rubric: ParsedRubricScore[];
+  rubric_average: number | null;
 };
+
+/** Trim, drop blanks, cap length. */
+export function normalizeRubricLines(lines: unknown): string[] {
+  if (!Array.isArray(lines)) return [];
+  const out: string[] = [];
+  for (const row of lines) {
+    if (typeof row !== "string") continue;
+    const line = row.trim().replace(/\s+/g, " ").slice(0, 500);
+    if (line) out.push(line);
+  }
+  return out.slice(0, 40);
+}
+
+/** Mean of scored (non-na) lines, one decimal; null when all na or empty. */
+export function averageRubricScores(
+  rows: Array<{ score: number | null; na: boolean }>
+): number | null {
+  const scored = rows.filter((row) => !row.na && typeof row.score === "number");
+  if (!scored.length) return null;
+  const sum = scored.reduce((acc, row) => acc + (row.score as number), 0);
+  return Math.round((sum / scored.length) * 10) / 10;
+}
+
+export function parseRubricFromJson(value: unknown): string[] {
+  return normalizeRubricLines(value);
+}
+
+/** Align model rubric scores to the deck's rubric lines (same length/order). */
+export function alignRubricScores(
+  lines: string[],
+  raw: unknown
+): ParsedRubricScore[] {
+  const rows = Array.isArray(raw) ? raw : [];
+  return lines.map((line, index) => {
+    const item = rows[index];
+    if (!item || typeof item !== "object") {
+      return { line, score: 1, note: "Not scored.", na: false, overridden: false };
+    }
+    const row = item as Record<string, unknown>;
+    const na = Boolean(row.na);
+    const note =
+      typeof row.note === "string" && row.note.trim()
+        ? row.note.trim().replace(/\s+/g, " ").slice(0, 400)
+        : na
+          ? "Not applicable."
+          : "Not scored.";
+    if (na) {
+      return { line, score: null, note, na: true, overridden: false };
+    }
+    const scoreNum = typeof row.score === "number" ? row.score : Number(row.score);
+    const score =
+      Number.isFinite(scoreNum) && scoreNum >= 1 && scoreNum <= 5
+        ? Math.round(scoreNum)
+        : 1;
+    return {
+      line,
+      score: score as number,
+      note: note === "Not applicable." ? "Not scored." : note,
+      na: false,
+      overridden: false,
+    };
+  });
+}
 
 function stripJsonFence(raw: string): string {
   return raw
@@ -132,7 +205,8 @@ export function parseAiHelpSlidesJson(
 
 export function parseReviewJson(
   raw: string,
-  slideIds: string[]
+  slideIds: string[],
+  rubricLines: string[] = []
 ): { ok: true; value: ParsedDeckReview } | { ok: false; error: string } {
   const parsed = parseJsonValue(raw);
   if (!parsed.ok) return parsed;
@@ -179,6 +253,7 @@ export function parseReviewJson(
     }
   }
 
+  const rubric = alignRubricScores(normalizeRubricLines(rubricLines), root.rubric);
   return {
     ok: true,
     value: {
@@ -192,6 +267,8 @@ export function parseReviewJson(
         root.transcript_source === "granola" || root.transcript_source === "wispr"
           ? root.transcript_source
           : null,
+      rubric,
+      rubric_average: averageRubricScores(rubric),
     },
   };
 }

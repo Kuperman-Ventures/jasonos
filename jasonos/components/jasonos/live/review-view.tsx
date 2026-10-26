@@ -31,7 +31,9 @@ import {
   fetchTranscript,
   reviewRun,
   setReviewMark,
+  setRubricMark,
 } from "@/lib/server-actions/decks";
+import type { RubricScore } from "@/lib/server-actions/decks";
 import { cn } from "@/lib/utils";
 
 function ReviewMarkPill({
@@ -87,6 +89,75 @@ const SLIDE_CHOICES: Array<{ mark: ReviewSlideMark; label: string; rung: StatusR
   { mark: "partly", label: "Partly", rung: 2 },
   { mark: "skipped", label: "Skipped", rung: 1 },
 ];
+
+function RubricScoreSquares({
+  score,
+  disabled,
+  onPick,
+}: {
+  score: number | null;
+  disabled?: boolean;
+  onPick: (score: number) => void;
+}) {
+  const filled = score ?? 0;
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="Rubric score">
+      {[1, 2, 3, 4, 5].map((value) => (
+        <button
+          key={value}
+          type="button"
+          disabled={disabled}
+          aria-label={`Score ${value}`}
+          onClick={() => onPick(value)}
+          className={cn(
+            "h-3.5 w-3.5 rounded-[1px] border border-[var(--jos-line)] disabled:cursor-not-allowed disabled:opacity-50",
+            value <= filled ? "bg-[var(--jos-ink)]" : "bg-transparent"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RubricReviewRow({
+  row,
+  disabled,
+  onScore,
+  onNa,
+}: {
+  row: RubricScore;
+  disabled?: boolean;
+  onScore: (score: number) => void;
+  onNa: () => void;
+}) {
+  return (
+    <div className="border-b border-[var(--jos-line)] py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug">{row.line}</p>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {row.na ? (
+            <span className="text-[13px] font-semibold text-[var(--jos-muted)]">Not applicable</span>
+          ) : (
+            <RubricScoreSquares score={row.score} disabled={disabled} onPick={onScore} />
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[12px]"
+            disabled={disabled}
+            onClick={onNa}
+          >
+            N/A
+          </Button>
+        </div>
+      </div>
+      {row.note ? (
+        <p className="mt-1.5 text-[14px] text-[var(--jos-muted)]">{row.note}</p>
+      ) : null}
+    </div>
+  );
+}
 
 function countSlideMarks(review: DeckReview | null) {
   const counts = { covered: 0, partly: 0, skipped: 0 };
@@ -146,6 +217,11 @@ export function ReviewView({
   const hasTranscript = Boolean(transcript?.trim());
   const runSummary = formatRunSummary(deck.runStartedAt, deck.runEndedAt);
   const slideCounts = countSlideMarks(review);
+  const hasSlides = deck.slides.length > 0;
+  const rubricLines = deck.rubric;
+  const rubricRows = review?.rubric ?? [];
+  const rubricNaCount = rubricRows.filter((row) => row.na).length;
+  const rubricAverage = review?.rubric_average ?? null;
 
   const crumbs = [
     { label: "Live", href: "/live" },
@@ -158,6 +234,18 @@ export function ReviewView({
   const refresh = useCallback(() => {
     router.refresh();
   }, [router]);
+
+  const onSetRubricMark = (index: number, input: { score: number | "na" }) => {
+    start(async () => {
+      const result = await setRubricMark(deck.id, index, input);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setReview(result.review);
+      refresh();
+    });
+  };
 
   const onSetMark = (target: string, mark: ReviewSlideMark | ReviewGoalMark) => {
     start(async () => {
@@ -264,50 +352,104 @@ export function ReviewView({
           )}
 
           <section className="mt-8">
-            <p className="text-[13px] text-[var(--jos-muted)]">
-              {review
-                ? `${slideCounts.covered} covered · ${slideCounts.partly} partly · ${slideCounts.skipped} skipped`
-                : `${deck.slides.length} slides`}
-            </p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[480px] border-collapse text-left text-[14px]">
-                <thead>
-                  <tr className="border-b border-[var(--jos-line)] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-                    <th className="py-2 pr-3 w-10">#</th>
-                    <th className="py-2 pr-3">Headline</th>
-                    <th className="py-2 pr-3 w-28">Mark</th>
-                    <th className="py-2">Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {deck.slides.map((slide, index) => {
-                    const row = reviewBySlideId.get(slide.id);
-                    return (
-                      <tr key={slide.id} className="border-b border-[var(--jos-line)] align-top">
-                        <td className="py-2.5 pr-3 tabular-nums text-[var(--jos-muted)]">{index + 1}</td>
-                        <td className="py-2.5 pr-3 font-semibold">{slide.headline}</td>
-                        <td className="py-2.5 pr-3">
-                          {row ? (
-                            <ReviewMarkPill
-                              label={slideMarkLabel(row.mark)}
-                              rung={slideMarkRung(row.mark)}
-                              choices={SLIDE_CHOICES}
-                              onPick={(mark) => onSetMark(slide.id, mark as ReviewSlideMark)}
-                              disabled={pending || !review}
-                            />
-                          ) : (
-                            <span className="text-[var(--jos-muted)]">—</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 text-[13px] text-[var(--jos-muted)]">
-                          {row?.evidence ?? "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+                Rubric
+              </h2>
+              {review && rubricAverage != null ? (
+                <p className="text-[13px] font-semibold tabular-nums text-[var(--jos-ink)]">
+                  {rubricAverage} of 5
+                  {rubricNaCount > 0 ? (
+                    <span className="ml-2 font-normal text-[var(--jos-muted)]">
+                      {rubricNaCount} not applicable
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
             </div>
+            {!rubricLines.length ? (
+              <p className="mt-2 text-[14px] text-[var(--jos-muted)]">
+                No rubric on this deck.{" "}
+                <Link href={`/live/decks/${deck.id}#rubric`} className="font-semibold text-[var(--jos-ink)] underline">
+                  Add rubric
+                </Link>
+              </p>
+            ) : review ? (
+              <div className="mt-2">
+                {rubricRows.map((row, index) => (
+                  <RubricReviewRow
+                    key={`${index}-${row.line.slice(0, 24)}`}
+                    row={row}
+                    disabled={pending}
+                    onScore={(score) => onSetRubricMark(index, { score })}
+                    onNa={() =>
+                      onSetRubricMark(index, { score: row.na ? 1 : "na" })
+                    }
+                  />
+                ))}
+              </div>
+            ) : (
+              <ul className="mt-2 space-y-1 text-[14px] text-[var(--jos-muted)]">
+                {rubricLines.map((line, index) => (
+                  <li key={`${index}-${line.slice(0, 24)}`}>{line}</li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="mt-8">
+            {!hasSlides ? (
+              <p className="text-[14px] text-[var(--jos-muted)]">
+                No slides. This meeting was not run in Live.
+              </p>
+            ) : (
+              <>
+                <p className="text-[13px] text-[var(--jos-muted)]">
+                  {review
+                    ? `${slideCounts.covered} covered · ${slideCounts.partly} partly · ${slideCounts.skipped} skipped`
+                    : `${deck.slides.length} slides`}
+                </p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full min-w-[480px] border-collapse text-left text-[14px]">
+                    <thead>
+                      <tr className="border-b border-[var(--jos-line)] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
+                        <th className="py-2 pr-3 w-10">#</th>
+                        <th className="py-2 pr-3">Headline</th>
+                        <th className="py-2 pr-3 w-28">Mark</th>
+                        <th className="py-2">Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deck.slides.map((slide, index) => {
+                        const row = reviewBySlideId.get(slide.id);
+                        return (
+                          <tr key={slide.id} className="border-b border-[var(--jos-line)] align-top">
+                            <td className="py-2.5 pr-3 tabular-nums text-[var(--jos-muted)]">{index + 1}</td>
+                            <td className="py-2.5 pr-3 font-semibold">{slide.headline}</td>
+                            <td className="py-2.5 pr-3">
+                              {row ? (
+                                <ReviewMarkPill
+                                  label={slideMarkLabel(row.mark)}
+                                  rung={slideMarkRung(row.mark)}
+                                  choices={SLIDE_CHOICES}
+                                  onPick={(mark) => onSetMark(slide.id, mark as ReviewSlideMark)}
+                                  disabled={pending || !review}
+                                />
+                              ) : (
+                                <span className="text-[var(--jos-muted)]">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 text-[13px] text-[var(--jos-muted)]">
+                              {row?.evidence ?? "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </section>
 
           {review ? (

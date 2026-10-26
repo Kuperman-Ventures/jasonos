@@ -36,7 +36,9 @@ import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { PasskeysCard } from "@/components/jasonos/settings/passkeys-card";
+import { RubricEditor } from "@/components/jasonos/live/rubric-editor";
 import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
+import { getDefaultRubric, setDefaultRubric } from "@/lib/server-actions/decks";
 import {
   SERVICE_DEFINITIONS,
   serviceLogoUrl,
@@ -91,8 +93,21 @@ export function SettingsClient({
   );
   const [isChecking, startChecking] = useTransition();
   const [isSavingFollowupPrompt, startSavingFollowupPrompt] = useTransition();
+  const [defaultRubric, setDefaultRubricLines] = useState<string[]>([]);
+  const [defaultRubricLoaded, setDefaultRubricLoaded] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  useEffect(() => {
+    void getDefaultRubric().then((result) => {
+      if (result.ok) {
+        setDefaultRubricLines(result.rubric);
+      } else {
+        toast.error(result.error);
+      }
+      setDefaultRubricLoaded(true);
+    });
+  }, []);
 
   useEffect(() => {
     const connected = searchParams.get("google_gmail_connected") === "1";
@@ -346,6 +361,29 @@ export function SettingsClient({
       </section>
 
       <RelationshipBriefSection initial={initialSettings} />
+
+      <section id="live" className="rounded-xl border bg-card p-4">
+        <SectionHeading
+          title="Live"
+          description="Defaults for playbooks and decks you create from scratch."
+        />
+        {defaultRubricLoaded ? (
+          <RubricEditor
+            title="Default rubric"
+            note="Used by new playbooks and decks made from scratch. Changing it does not change existing ones."
+            lines={defaultRubric}
+            onSave={async (lines) => {
+              const result = await setDefaultRubric(lines);
+              if (!result.ok) return { ok: false, error: result.error };
+              setDefaultRubricLines(result.rubric);
+              toast.success("Default rubric saved");
+              return { ok: true };
+            }}
+          />
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">Loading default rubric…</p>
+        )}
+      </section>
 
       <section className="rounded-xl border bg-card p-4">
         <SectionHeading

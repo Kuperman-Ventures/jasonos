@@ -135,5 +135,10 @@ export function heldDeckSubline(
   if (deck.runEndedAt) {
     return formatMeetingWhen(deck.runEndedAt);
   }
-  return "";
+  return "Not run in Live";
+}
+
+export function formatRubricAverage(average: number | null): string | null {
+  if (average == null || !Number.isFinite(average)) return null;
+  return `${average} / 5`;
 }

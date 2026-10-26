@@ -43,6 +43,7 @@ export async function getDeckMcp(input: { id: string }) {
     id: result.deck.id,
     name: result.deck.name,
     goal: result.deck.goal,
+    rubric: result.deck.rubric,
     meeting_prep_id: result.deck.meetingPrepId,
     source_playbook_id: result.deck.sourcePlaybookId,
     slides: result.deck.slides.map((slide) => ({
@@ -56,6 +57,7 @@ export async function getDeckMcp(input: { id: string }) {
     transcript_source: result.deck.transcriptSource,
     reviewed_at: result.deck.reviewedAt,
     review: result.deck.review,
+    rubric_average: result.deck.review?.rubric_average ?? null,
   };
 }
 
@@ -115,7 +117,51 @@ export async function getReviewMcp(input: { deck_id: string }) {
     ok: true,
     reviewed_at: result.deck.reviewedAt,
     review: result.deck.review,
+    rubric: result.deck.rubric,
+    rubric_average: result.deck.review?.rubric_average ?? null,
   };
+}
+
+export async function setRubricMcp(input: { deck_id: string; lines: string[] }) {
+  const { setRubric } = await import("@/lib/server-actions/decks");
+  const result = await setRubric(input.deck_id, input.lines);
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, rubric: result.rubric };
+}
+
+export async function getDefaultRubricMcp() {
+  const { getDefaultRubric } = await import("@/lib/server-actions/decks");
+  const result = await getDefaultRubric();
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, rubric: result.rubric };
+}
+
+export async function setDefaultRubricMcp(input: { lines: string[] }) {
+  const { setDefaultRubric } = await import("@/lib/server-actions/decks");
+  const result = await setDefaultRubric(input.lines);
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, rubric: result.rubric };
+}
+
+export async function reviewMeetingMcp(input: {
+  note_id: string;
+  source: "granola" | "wispr";
+  name: string;
+  goal?: string;
+  rubric_from_playbook_id?: string | null;
+  meeting_prep_id?: string | null;
+}) {
+  const { reviewMeetingFromNote } = await import("@/lib/server-actions/decks");
+  const result = await reviewMeetingFromNote({
+    noteId: input.note_id,
+    source: input.source,
+    name: input.name,
+    goal: input.goal,
+    rubricFromPlaybookId: input.rubric_from_playbook_id,
+    meetingPrepId: input.meeting_prep_id,
+  });
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, id: result.id };
 }
 
 export async function attachMeetingMcp(input: {

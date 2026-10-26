@@ -15,8 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/jasonos/brand/status";
 import { MeetingPickerDialog } from "@/components/jasonos/live/meeting-picker-dialog";
+import { ReviewMeetingDialog } from "@/components/jasonos/live/review-meeting-dialog";
 import {
   activeDeckSubline,
+  formatRubricAverage,
   goalMarkLabel,
   goalMarkRung,
   heldDeckState,
@@ -137,6 +139,7 @@ export function LibraryClient({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [linkDeckId, setLinkDeckId] = useState<string | null>(null);
+  const [reviewMeetingOpen, setReviewMeetingOpen] = useState(false);
 
   const runCopy = (id: string, pathPrefix: string) =>
     start(async () => {
@@ -201,7 +204,9 @@ export function LibraryClient({
       ? { label: "New playbook", onClick: newPlaybook }
       : safeTab === "decks"
         ? { label: "New deck", onClick: newDeck }
-        : null;
+        : safeTab === "held"
+          ? { label: "Review a meeting", onClick: () => setReviewMeetingOpen(true) }
+          : null;
 
   return (
     <>
@@ -253,6 +258,15 @@ export function LibraryClient({
           pending={pending}
           onCopy={(id) => runCopy(id, `/live/decks/`)}
           onDelete={(id, name) => runDelete(id, name, "deck")}
+        />
+      ) : null}
+
+      {reviewMeetingOpen ? (
+        <ReviewMeetingDialog
+          open={reviewMeetingOpen}
+          onOpenChange={setReviewMeetingOpen}
+          playbooks={playbooks}
+          meetings={meetings}
         />
       ) : null}
 
@@ -495,6 +509,11 @@ function HeldTab({
                     <StatusPill rung={goalMarkRung(deck.reviewGoalMark)} className="text-[11px]">
                       {goalMarkLabel(deck.reviewGoalMark)}
                     </StatusPill>
+                  ) : null}
+                  {deck.reviewedAt && deck.reviewRubricAverage != null ? (
+                    <span className="text-[11px] font-semibold tabular-nums text-[var(--jos-muted)]">
+                      {formatRubricAverage(deck.reviewRubricAverage)}
+                    </span>
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">

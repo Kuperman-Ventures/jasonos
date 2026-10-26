@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  alignRubricScores,
+  averageRubricScores,
   bulletsFromJson,
   bulletsLinesToText,
   bulletsTextToLines,
   capWords,
   extractTranscriptSection,
   formatElapsed,
+  normalizeRubricLines,
   normalizeSlideInputs,
   parseAiHelpSlidesJson,
   parseReviewJson,
@@ -106,5 +109,28 @@ describe("decks pure helpers", () => {
 
   it("formatElapsed renders mm:ss", () => {
     assert.equal(formatElapsed(125), "02:05");
+  });
+
+  it("normalizeRubricLines trims, drops blanks, and caps", () => {
+    assert.deepEqual(normalizeRubricLines(["  one  ", "", "two"]), ["one", "two"]);
+    assert.deepEqual(normalizeRubricLines(["x".repeat(600)]), ["x".repeat(500)]);
+  });
+
+  it("averageRubricScores excludes na rows", () => {
+    const avg = averageRubricScores([
+      { score: 5, na: false },
+      { score: 3, na: false },
+      { score: null, na: true },
+    ]);
+    assert.equal(avg, 4);
+    assert.equal(averageRubricScores([{ score: null, na: true }]), null);
+  });
+
+  it("alignRubricScores fills missing with score 1 and Not scored.", () => {
+    const rows = alignRubricScores(["Line one", "Line two"], [{ score: 4, note: "Good", na: false }]);
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].score, 4);
+    assert.equal(rows[1].score, 1);
+    assert.equal(rows[1].note, "Not scored.");
   });
 });

@@ -36,14 +36,13 @@ export default async function LiveLibraryPage({
   const allDecks = decksResult.ok ? decksResult.decks : [];
   const meetings = meetingsResult.ok ? meetingsResult.meetings : [];
 
-  const active = allDecks.filter((deck) => !deck.runEndedAt);
-  const held = allDecks
-    .filter((deck) => deck.runEndedAt)
-    .sort((a, b) => {
-      const aEnd = a.runEndedAt ? Date.parse(a.runEndedAt) : 0;
-      const bEnd = b.runEndedAt ? Date.parse(b.runEndedAt) : 0;
-      return bEnd - aEnd;
-    });
+  const isHeld = (deck: (typeof allDecks)[number]) =>
+    Boolean(deck.runEndedAt || deck.transcriptFetchedAt);
+  const heldAt = (deck: (typeof allDecks)[number]) =>
+    Date.parse(deck.runEndedAt || deck.transcriptFetchedAt || "") || 0;
+
+  const active = allDecks.filter((deck) => !isHeld(deck));
+  const held = allDecks.filter(isHeld).sort((a, b) => heldAt(b) - heldAt(a));
 
   const meetingMap = await enrichMeetingMap(
     meetingMapFromAttachable(meetings),

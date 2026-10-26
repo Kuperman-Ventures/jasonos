@@ -40,11 +40,13 @@ import {
   type SlideInput,
 } from "@/lib/live/decks-helpers";
 import type { DeckDetail } from "@/lib/server-actions/decks";
+import { RubricEditor } from "@/components/jasonos/live/rubric-editor";
 import {
   renameDeck,
   setDeckDescription,
   setDeckGoal,
   setDeckSlides,
+  setRubric,
   unlinkDeckMeeting,
 } from "@/lib/server-actions/decks";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -641,6 +643,18 @@ function DeckEditorInner({
             <p className="text-[var(--jos-muted)]">No slides yet. Add one.</p>
           )}
         </section>
+      </div>
+
+      <div id="rubric">
+        <RubricEditor
+          lines={initial.rubric}
+          onSave={async (lines) => {
+            const result = await setRubric(initial.id, lines);
+            if (!result.ok) return { ok: false, error: result.error };
+            router.refresh();
+            return { ok: true };
+          }}
+        />
       </div>
 
       {showAiHelp ? (
