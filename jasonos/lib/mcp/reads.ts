@@ -511,22 +511,58 @@ export async function getConnectionStatus() {
     .order("service_name", { ascending: true });
   if (error) throw new Error(error.message);
 
-  let google: { provider: string; connected: boolean; expires_at: string | null }[] = [];
+  type OauthRow = {
+    provider: string;
+    connected: boolean;
+    needs_reconnect: boolean;
+    missing_scopes: string[];
+    error: string | null;
+    email: string | null;
+  };
+
+  let oauth_connections: OauthRow[] = [];
   try {
-    const { data: integrations } = await jasonosDb()
-      .from("user_integrations")
-      .select("provider,expires_at");
-    google = (integrations ?? []).map((row) => ({
-      provider: row.provider as string,
-      connected: true,
-      expires_at: (row.expires_at as string | null) ?? null,
-    }));
+    const [{ getGoogleConnectionStatus }, { getOutlookConnectionStatus }] =
+      await Promise.all([
+        import("@/lib/integrations/google-tokens"),
+        import("@/lib/integrations/outlook-tokens"),
+      ]);
+    const [google, outlook] = await Promise.all([
+      getGoogleConnectionStatus(),
+      getOutlookConnectionStatus(),
+    ]);
+    oauth_connections = [
+      {
+        provider: "google",
+        connected: google.advisorsConnected,
+        needs_reconnect: google.advisorsNeedsReconnect,
+        missing_scopes: google.advisorsMissingScopes,
+        error: google.advisorsError,
+        email: google.advisorsEmail,
+      },
+      {
+        provider: "google_gmail",
+        connected: google.gmailConnected,
+        needs_reconnect: google.gmailNeedsReconnect,
+        missing_scopes: google.gmailMissingScopes,
+        error: google.gmailError,
+        email: google.gmailEmail,
+      },
+      {
+        provider: "outlook",
+        connected: outlook.connected,
+        needs_reconnect: outlook.needsReconnect,
+        missing_scopes: outlook.missingScopes,
+        error: outlook.error,
+        email: outlook.email,
+      },
+    ].filter((row) => row.connected || row.needs_reconnect);
   } catch {
-    google = [];
+    oauth_connections = [];
   }
 
   return {
     services: data ?? [],
-    oauth_connections: google,
+    oauth_connections,
   };
 }

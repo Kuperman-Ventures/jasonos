@@ -221,6 +221,8 @@ function attachMailboxStatus(
   googleAccounts: GoogleConnectionStatus,
   outlookAccount: OutlookConnectionStatus
 ): SettingsPayload {
+  // Fire-and-forget Action Queue warnings for permission gaps (deduped by title).
+  void warnMailboxCapabilityGaps(googleAccounts, outlookAccount);
   return {
     ...payload,
     googleAccounts,

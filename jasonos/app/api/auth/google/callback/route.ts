@@ -6,6 +6,10 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
+  formatMissingGoogleScopes,
+  missingGoogleScopes,
+} from "@/lib/integrations/google-scopes";
+import {
   ADVISORS_ACCOUNT_EMAIL,
   GMAIL_ACCOUNT_EMAIL,
   GOOGLE_ADVISORS,
@@ -133,12 +137,16 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+  const grantedScopes = (tokens.scope ?? "").split(/\s+/).filter(Boolean);
+  const missing = missingGoogleScopes(grantedScopes);
+  const accountLabel =
+    provider === GOOGLE_GMAIL ? "Personal Gmail" : "Advisors Google";
 
   const { error: upsertError } = await sb.from("user_integrations").upsert(
     {
       user_id: ownerId,
       provider,
-      scopes: tokens.scope.split(" "),
+      scopes: grantedScopes,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token ?? existing?.refresh_token ?? null,
       expires_at: expiresAt,
@@ -160,8 +168,17 @@ export async function GET(req: Request) {
     .eq("provider", provider)
     .neq("user_id", ownerId);
 
+  // Still store a partial grant so Settings can show "missing permissions",
+  // but never celebrate a success toast when required scopes are absent.
+  if (missing.length > 0) {
+    return settingsError(
+      origin,
+      `${accountLabel} connected but missing ${formatMissingGoogleScopes(missing)}. Reconnect and allow every permission on the Google consent screen.`
+    );
+  }
+
   if (provider === GOOGLE_GMAIL) {
     return NextResponse.redirect(`${origin}/settings?google_gmail_connected=1`);
   }
-  return NextResponse.redirect(`${origin}/communications?google_connected=1`);
+  return NextResponse.redirect(`${origin}/settings?google_connected=1`);
 }

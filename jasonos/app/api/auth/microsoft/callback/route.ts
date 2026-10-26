@@ -7,6 +7,10 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
+  formatMissingOutlookScopes,
+  missingOutlookScopes,
+} from "@/lib/integrations/outlook-scopes";
+import {
   MICROSOFT_OAUTH_SCOPES,
   OUTLOOK_ACCOUNT_EMAIL,
   OUTLOOK_PROVIDER,
@@ -128,12 +132,16 @@ export async function GET(req: Request) {
   const expiresAt = new Date(
     Date.now() + (tokens.expires_in ?? 3600) * 1000
   ).toISOString();
+  const grantedScopes = (tokens.scope || MICROSOFT_OAUTH_SCOPES)
+    .split(/\s+/)
+    .filter(Boolean);
+  const missing = missingOutlookScopes(grantedScopes);
 
   const { error: upsertError } = await sb.from("user_integrations").upsert(
     {
       user_id: ownerId,
       provider: OUTLOOK_PROVIDER,
-      scopes: (tokens.scope || MICROSOFT_OAUTH_SCOPES).split(" ").filter(Boolean),
+      scopes: grantedScopes,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token ?? existing?.refresh_token ?? null,
       expires_at: expiresAt,
@@ -155,6 +163,13 @@ export async function GET(req: Request) {
     .delete()
     .eq("provider", OUTLOOK_PROVIDER)
     .neq("user_id", ownerId);
+
+  if (missing.length > 0) {
+    return settingsError(
+      origin,
+      `Outlook connected but missing ${formatMissingOutlookScopes(missing)}. Reconnect and allow every permission on the Microsoft consent screen.`
+    );
+  }
 
   return NextResponse.redirect(`${origin}/settings?outlook_connected=1`);
 }
