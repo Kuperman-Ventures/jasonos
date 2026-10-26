@@ -48,12 +48,12 @@ create index if not exists slides_deck_position_idx on jasonos.slides (deck_id, 
 drop trigger if exists decks_set_updated_at on jasonos.decks;
 create trigger decks_set_updated_at
   before update on jasonos.decks
-  for each row execute function public.set_updated_at();
+  for each row execute function jasonos.set_updated_at();
 
 drop trigger if exists slides_set_updated_at on jasonos.slides;
 create trigger slides_set_updated_at
   before update on jasonos.slides
-  for each row execute function public.set_updated_at();
+  for each row execute function jasonos.set_updated_at();
 
 alter table jasonos.decks enable row level security;
 alter table jasonos.slides enable row level security;
