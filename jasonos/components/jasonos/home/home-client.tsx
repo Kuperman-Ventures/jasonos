@@ -199,7 +199,12 @@ export function HomeClient({
       className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <ContactAvatar name={c.name} photoUrl={c.photoUrl} size="md" />
+        <ContactAvatar
+          name={c.name}
+          photoUrl={c.photoUrl}
+          contactId={c.id}
+          size="md"
+        />
         <div className="min-w-0 flex-1">
           <p className="flex min-w-0 items-center gap-1.5 truncate font-medium">
             <span className="truncate">{c.name}</span>

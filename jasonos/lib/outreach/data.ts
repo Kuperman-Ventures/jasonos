@@ -28,7 +28,7 @@ export interface OutreachPerson {
   firm: string | null;
   firm_normalized: string | null;
   linkedin_url: string | null;
-  /** LeadDelta / CRM profile image URL when available. */
+  /** Saved profile image, or a remote link until that copy is stored. */
   photo_url: string | null;
   primary_email: string | null;
   phone: string | null;

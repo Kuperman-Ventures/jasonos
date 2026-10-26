@@ -372,6 +372,7 @@ function PersonRow({
         <ContactAvatar
           name={person.name}
           photoUrl={person.photo_url}
+          contactId={person.id}
           size="md"
         />
         <div className="min-w-0 flex-1">

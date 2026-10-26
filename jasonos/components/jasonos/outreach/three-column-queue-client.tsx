@@ -785,7 +785,12 @@ function BandContactRow({
           : "hover:bg-muted/30"
       )}
     >
-      <ContactAvatar name={card.name} photoUrl={card.photo_url} size="sm" />
+      <ContactAvatar
+        name={card.name}
+        photoUrl={card.photo_url}
+        contactId={card.contactId}
+        size="sm"
+      />
       <div className="min-w-0 flex-1">
         {showColumn ? (
           <span
