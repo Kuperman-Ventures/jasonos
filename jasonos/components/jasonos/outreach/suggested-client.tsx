@@ -128,7 +128,6 @@ export function SuggestedClient({
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-6">
-      <PendingIntrosPanel intros={pendingIntros} />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
@@ -236,6 +235,8 @@ export function SuggestedClient({
           </ul>
         )}
       </div>
+
+      <PendingIntrosPanel intros={pendingIntros} />
 
       <OutreachModal
         open={!!setup}
