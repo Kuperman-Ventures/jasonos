@@ -41,7 +41,7 @@ import {
   listPlaybooksMcp,
   listSlidesMcp,
   setSlidesMcp,
-} from "./plans";
+} from "./decks-tools";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
 import { registerConnectionsTools } from "./connections-tools";
