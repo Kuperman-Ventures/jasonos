@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, describe, it } from "node:test";
 import { createClient } from "@supabase/supabase-js";
+import { createPlaybookFromDeck, updatePlaybookFromDeck } from "./decks";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -13,8 +14,7 @@ function client() {
   });
 }
 
-/** Mirrors updatePlaybookFromDeck / createPlaybookFromDeck against the live DB. */
-describe("Save as deck→playbook data contract", { skip: !configured }, () => {
+describe("Save as deck→playbook actions", { skip: !configured }, () => {
   const createdIds: string[] = [];
 
   after(async () => {
@@ -22,7 +22,7 @@ describe("Save as deck→playbook data contract", { skip: !configured }, () => {
     await client().from("decks").delete().in("id", createdIds);
   });
 
-  it("update replaces playbook slides and leaves the deck untouched", async () => {
+  it("updatePlaybookFromDeck replaces playbook slides and leaves the deck untouched", async () => {
     const sb = client();
     const { data: playbook, error: pErr } = await sb
       .from("decks")
@@ -55,21 +55,11 @@ describe("Save as deck→playbook data contract", { skip: !configured }, () => {
       { deck_id: deck!.id, position: 3, headline: "Edited C", bullets: ["gamma"] },
     ]);
 
-    // updatePlaybookFromDeck
-    await sb.from("slides").delete().eq("deck_id", playbook!.id);
-    const { data: deckSlides } = await sb
-      .from("slides")
-      .select("position, headline, bullets")
-      .eq("deck_id", deck!.id)
-      .order("position");
-    await sb.from("slides").insert(
-      (deckSlides ?? []).map((slide, index) => ({
-        deck_id: playbook!.id,
-        position: index + 1,
-        headline: slide.headline,
-        bullets: slide.bullets,
-      }))
-    );
+    const result = await updatePlaybookFromDeck(deck!.id);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.playbookId, playbook!.id);
+    assert.equal(result.slideCount, 3);
 
     const { data: playbookSlides } = await sb
       .from("slides")
@@ -88,7 +78,7 @@ describe("Save as deck→playbook data contract", { skip: !configured }, () => {
     assert.equal(deckSlidesAfter?.[2]?.headline, "Edited C");
   });
 
-  it("create copies slides, sets source link, and later deck edits leave the playbook", async () => {
+  it("createPlaybookFromDeck copies slides, sets source link, and later deck edits leave the playbook", async () => {
     const sb = client();
     const { data: deck, error: dErr } = await sb
       .from("decks")
@@ -103,35 +93,21 @@ describe("Save as deck→playbook data contract", { skip: !configured }, () => {
       { deck_id: deck!.id, position: 2, headline: "Two", bullets: ["b"] },
     ]);
 
-    const { data: playbook, error: pErr } = await sb
-      .from("decks")
-      .insert({ kind: "playbook", name: "Save-as new playbook", description: "from test" })
-      .select("id")
-      .single();
-    assert.ifError(pErr);
-    createdIds.push(playbook!.id);
-
-    const { data: sourceSlides } = await sb
-      .from("slides")
-      .select("position, headline, bullets")
-      .eq("deck_id", deck!.id)
-      .order("position");
-    await sb.from("slides").insert(
-      (sourceSlides ?? []).map((slide, index) => ({
-        deck_id: playbook!.id,
-        position: index + 1,
-        headline: slide.headline,
-        bullets: slide.bullets,
-      }))
-    );
-    await sb.from("decks").update({ source_playbook_id: playbook!.id }).eq("id", deck!.id);
+    const result = await createPlaybookFromDeck(deck!.id, {
+      name: "Save-as new playbook",
+      description: "from test",
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    createdIds.push(result.playbookId);
+    assert.equal(result.name, "Save-as new playbook");
 
     const { data: linked } = await sb
       .from("decks")
       .select("source_playbook_id")
       .eq("id", deck!.id)
       .single();
-    assert.equal(linked?.source_playbook_id, playbook!.id);
+    assert.equal(linked?.source_playbook_id, result.playbookId);
 
     await sb.from("slides").delete().eq("deck_id", deck!.id);
     await sb.from("slides").insert({
@@ -144,7 +120,7 @@ describe("Save as deck→playbook data contract", { skip: !configured }, () => {
     const { data: playbookSlides } = await sb
       .from("slides")
       .select("headline")
-      .eq("deck_id", playbook!.id)
+      .eq("deck_id", result.playbookId)
       .order("position");
     assert.equal(playbookSlides?.length, 2);
     assert.equal(playbookSlides?.[0]?.headline, "One");

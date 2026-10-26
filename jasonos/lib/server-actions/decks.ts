@@ -1,13 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
-import { callClaude } from "@/lib/ai/models";
-import { firecrawlScrape } from "@/lib/integrations/firecrawl";
-import { getGranolaTranscript, searchGranolaForContact } from "@/lib/integrations/granola";
-import { searchThreadsByParticipants } from "@/lib/integrations/gmail";
-import { searchWisprForContact } from "@/lib/integrations/wispr";
-import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 import {
   bulletsFromJson,
   capWords,
@@ -18,6 +11,11 @@ import {
   type SlideInput,
 } from "@/lib/live/decks-helpers";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+
+/** Lazy so unit tests can import Save-as actions without loading AI/server-only modules. */
+async function loadMeetingPrep() {
+  return import("@/lib/server-actions/meeting-prep");
+}
 
 export type DeckKind = "playbook" | "deck";
 
@@ -90,18 +88,22 @@ function asKind(value: string): DeckKind {
 }
 
 function revalidateDeck(deckId: string, kind: DeckKind, prepId?: string | null) {
-  revalidatePath("/live");
-  revalidatePath("/live/playbooks");
-  revalidatePath("/live/decks");
-  if (kind === "playbook") {
-    revalidatePath(`/live/playbooks/${deckId}`);
-    revalidatePath(`/live/playbooks/${deckId}/rehearse`);
-  } else {
-    revalidatePath(`/live/decks/${deckId}`);
-    revalidatePath(`/live/decks/${deckId}/rehearse`);
-    revalidatePath(`/live/decks/${deckId}/run`);
+  try {
+    revalidatePath("/live");
+    revalidatePath("/live/playbooks");
+    revalidatePath("/live/decks");
+    if (kind === "playbook") {
+      revalidatePath(`/live/playbooks/${deckId}`);
+      revalidatePath(`/live/playbooks/${deckId}/rehearse`);
+    } else {
+      revalidatePath(`/live/decks/${deckId}`);
+      revalidatePath(`/live/decks/${deckId}/rehearse`);
+      revalidatePath(`/live/decks/${deckId}/run`);
+    }
+    if (prepId) revalidatePath(`/meetings/${prepId}`);
+  } catch {
+    // Outside a Next request (unit tests) revalidatePath has no store.
   }
-  if (prepId) revalidatePath(`/meetings/${prepId}`);
 }
 
 function toSummary(row: DeckRow, slideCount: number): DeckSummary {
@@ -317,6 +319,7 @@ export async function createDeckFromPlaybook(
       if (existing.data?.id) {
         return { ok: false, error: "This meeting already has a deck." };
       }
+      const { getMeetingPrep } = await loadMeetingPrep();
       const prep = await getMeetingPrep(prepId);
       if (prep.ok && prep.prep.title.trim()) deckName = prep.prep.title.trim();
     }
@@ -507,6 +510,7 @@ export async function fetchTranscript(
     if (deck.kind !== "deck") return { ok: false, error: "Transcripts are for decks only." };
     if (!deck.meetingPrepId) return { ok: false, error: "These Slides are not linked to a meeting." };
 
+    const { getMeetingPrep } = await loadMeetingPrep();
     const prepResult = await getMeetingPrep(deck.meetingPrepId);
     if (!prepResult.ok) return { ok: false, error: prepResult.error };
     const prep = prepResult.prep;
@@ -527,6 +531,7 @@ export async function fetchTranscript(
     let source: "granola" | "wispr" | null = null;
     let noteId: string | null = null;
 
+    const { getGranolaTranscript, searchGranolaForContact } = await import("@/lib/integrations/granola");
     const granola = await searchGranolaForContact(searchBase);
     if (granola.found && granola.meetings?.[0]?.id) {
       noteId = granola.meetings[0].id;
@@ -536,6 +541,7 @@ export async function fetchTranscript(
     }
 
     if (!transcript) {
+      const { searchWisprForContact } = await import("@/lib/integrations/wispr");
       const wispr = await searchWisprForContact(searchBase);
       if (wispr.found && wispr.summary?.trim()) {
         transcript = extractTranscriptSection(wispr.summary) || wispr.summary.trim();
@@ -578,6 +584,7 @@ export async function tailorSlides(deckId: string): Promise<ActionResult<{ aiNot
     let prepId: string | null = deck.meetingPrepId;
 
     if (prepId) {
+      const { getMeetingPrep } = await loadMeetingPrep();
       const prepResult = await getMeetingPrep(prepId);
       if (prepResult.ok) {
         const prep = prepResult.prep;
@@ -588,6 +595,7 @@ export async function tailorSlides(deckId: string): Promise<ActionResult<{ aiNot
         contextParts.push(`Primary person: ${focus.name}${focus.company ? ` (${focus.company})` : ""}`);
 
         const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
+        const { searchThreadsByParticipants } = await import("@/lib/integrations/gmail");
         const threads = await searchThreadsByParticipants({
           addresses: focus.email ? [focus.email] : emailsFromAttendees(prep.attendees),
           domains: domainFromEmail(focus.email),
@@ -602,6 +610,7 @@ export async function tailorSlides(deckId: string): Promise<ActionResult<{ aiNot
       }
     }
 
+    const { NO_AI_SLOP_WRITING_RULES } = await import("@/lib/ai/no-ai-slop");
     const system = `You tailor Live Slides for Jason Kuperman's upcoming conversation.
 ${NO_AI_SLOP_WRITING_RULES}
 
@@ -619,6 +628,7 @@ ${JSON.stringify(
   2
 )}`;
 
+    const { callClaude } = await import("@/lib/ai/models");
     const raw = await callClaude({
       model: "claude-sonnet-4-6",
       maxTokens: 4096,
@@ -791,6 +801,7 @@ async function loadCompanySiteText(contactId: string | null, companyName: string
     if (website && /^https?:\/\//i.test(website)) url = website;
   }
   if (!url) return null;
+  const { firecrawlScrape } = await import("@/lib/integrations/firecrawl");
   const scraped = await firecrawlScrape(url);
   if (!scraped?.text?.trim()) return null;
   return capWords(scraped.text.trim(), 3000);
@@ -856,7 +867,13 @@ export async function linkDeckMeeting(
       .eq("id", id);
     if (error) return { ok: false, error: error.message };
     revalidateDeck(id, "deck", prepId);
-    if (prevPrep) revalidatePath(`/meetings/${prevPrep}`);
+    if (prevPrep) {
+      try {
+        revalidatePath(`/meetings/${prevPrep}`);
+      } catch {
+        // Outside a Next request (unit tests) revalidatePath has no store.
+      }
+    }
     return { ok: true, meetingPrepId: prepId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
