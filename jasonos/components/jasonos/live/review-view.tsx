@@ -27,6 +27,7 @@ import type {
   ReviewGoalMark,
   ReviewSlideMark,
 } from "@/lib/server-actions/decks";
+import { AttachTranscriptDialog } from "@/components/jasonos/live/attach-transcript-dialog";
 import {
   fetchTranscript,
   reviewRun,
@@ -199,12 +200,18 @@ export function ReviewView({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [reviewing, setReviewing] = useState(false);
-  const [fetchingTranscript, setFetchingTranscript] = useState(false);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [autoFetching, setAutoFetching] = useState(false);
+  const [autoFetchTried, setAutoFetchTried] = useState(false);
   const [review, setReview] = useState<DeckReview | null>(deck.review);
   const [reviewedAt, setReviewedAt] = useState(deck.reviewedAt);
   const [transcript, setTranscript] = useState(deck.transcript);
   const [transcriptSource, setTranscriptSource] = useState(deck.transcriptSource);
   const [transcriptFetchedAt, setTranscriptFetchedAt] = useState(deck.transcriptFetchedAt);
+
+  const refresh = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
   useEffect(() => {
     setReview(deck.review);
@@ -213,6 +220,24 @@ export function ReviewView({
     setTranscriptSource(deck.transcriptSource);
     setTranscriptFetchedAt(deck.transcriptFetchedAt);
   }, [deck]);
+
+  useEffect(() => {
+    if (autoFetchTried) return;
+    if (deck.transcript?.trim()) return;
+    if (!deck.runEndedAt || !deck.meetingPrepId) return;
+    setAutoFetchTried(true);
+    setAutoFetching(true);
+    void fetchTranscript(deck.id).then((result) => {
+      setAutoFetching(false);
+      if (!result.ok) return;
+      if (result.transcript?.trim()) {
+        setTranscript(result.transcript);
+        setTranscriptSource(result.source);
+        setTranscriptFetchedAt(new Date().toISOString());
+        refresh();
+      }
+    });
+  }, [autoFetchTried, deck.id, deck.meetingPrepId, deck.runEndedAt, deck.transcript, refresh]);
 
   const hasTranscript = Boolean(transcript?.trim());
   const runSummary = formatRunSummary(deck.runStartedAt, deck.runEndedAt);
@@ -230,10 +255,6 @@ export function ReviewView({
     { label: deck.name, href: `/live/decks/${deck.id}` },
     { label: "Review" },
   ];
-
-  const refresh = useCallback(() => {
-    router.refresh();
-  }, [router]);
 
   const onSetRubricMark = (index: number, input: { score: number | "na" }) => {
     start(async () => {
@@ -255,23 +276,6 @@ export function ReviewView({
         return;
       }
       setReview(result.review);
-      refresh();
-    });
-  };
-
-  const onFetchTranscript = () => {
-    setFetchingTranscript(true);
-    start(async () => {
-      const result = await fetchTranscript(deck.id);
-      setFetchingTranscript(false);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      setTranscript(result.transcript);
-      setTranscriptSource(result.source);
-      setTranscriptFetchedAt(new Date().toISOString());
-      toast.success(result.transcript ? "Transcript saved" : "No transcript found");
       refresh();
     });
   };
@@ -472,7 +476,7 @@ export function ReviewView({
                   {reviewing ? "Reading the transcript…" : "Review this run"}
                 </Button>
                 {!hasTranscript ? (
-                  <p className="mt-2 text-[13px] text-[var(--jos-muted)]">Fetch the transcript first</p>
+                  <p className="mt-2 text-[13px] text-[var(--jos-muted)]">Attach a transcript first</p>
                 ) : null}
               </>
             ) : null}
@@ -508,18 +512,14 @@ export function ReviewView({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={fetchingTranscript || pending}
-                onClick={() => onFetchTranscript()}
+                disabled={pending}
+                onClick={() => setAttachOpen(true)}
               >
-                {fetchingTranscript
-                  ? "Fetching…"
-                  : hasTranscript
-                    ? "Fetch again"
-                    : "Fetch transcript"}
+                {hasTranscript ? "Change transcript" : "Attach transcript"}
               </Button>
             </div>
             <div className="max-h-[min(70vh,720px)] overflow-y-auto px-4 py-3">
-              {fetchingTranscript ? (
+              {autoFetching ? (
                 <p className="text-[14px] text-[var(--jos-muted)]">Looking for a transcript…</p>
               ) : hasTranscript ? (
                 <>
@@ -541,14 +541,27 @@ export function ReviewView({
                   </pre>
                 </>
               ) : (
-                <p className="text-[14px] text-[var(--jos-muted)]">
-                  No transcript stored yet. Fetch from Granola or Wispr when the meeting note is ready.
-                </p>
+                <p className="text-[14px] text-[var(--jos-muted)]">No matching note found.</p>
               )}
             </div>
           </div>
         </aside>
       </div>
+
+      {attachOpen ? (
+        <AttachTranscriptDialog
+          open={attachOpen}
+          onOpenChange={setAttachOpen}
+          deckId={deck.id}
+          meetingPrepId={deck.meetingPrepId}
+          meetingTitle={deck.name}
+          reviewedAt={reviewedAt}
+          onAttached={() => {
+            setAttachOpen(false);
+            refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

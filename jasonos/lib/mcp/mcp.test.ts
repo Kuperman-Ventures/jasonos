@@ -292,7 +292,9 @@ describe("registerJasonosTools", () => {
     assert.ok(registered.includes("set_rubric"));
     assert.ok(registered.includes("get_default_rubric"));
     assert.ok(registered.includes("set_default_rubric"));
-    assert.ok(registered.includes("review_meeting"));
+    assert.ok(registered.includes("attach_transcript"));
+    assert.ok(registered.includes("list_recent_notes"));
+    assert.ok(!registered.includes("review_meeting"));
     assert.ok(!registered.includes("build_call_sheet"));
     assert.ok(!registered.includes("tailor"));
     assert.ok(!registered.includes("tailor_slides"));

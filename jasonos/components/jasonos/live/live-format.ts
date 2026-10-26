@@ -1,4 +1,9 @@
-import type { DeckSummary, ReviewGoalMark, ReviewSlideMark } from "@/lib/server-actions/decks";
+import type {
+  DeckSummary,
+  HeldMeetingRow,
+  ReviewGoalMark,
+  ReviewSlideMark,
+} from "@/lib/server-actions/decks";
 import type { StatusRung } from "@/components/jasonos/brand/status";
 
 const TZ = "America/New_York";
@@ -48,6 +53,19 @@ export function heldDeckState(deck: DeckSummary): string {
   if (deck.reviewedAt) return "Reviewed";
   if (deck.hasTranscript) return "Transcript";
   return "No transcript";
+}
+
+export function heldMeetingState(row: HeldMeetingRow): string {
+  if (row.reviewedAt) return "Reviewed";
+  if (row.hasTranscript) return "Transcript attached";
+  return "No transcript";
+}
+
+export function heldMeetingSubline(row: HeldMeetingRow): string {
+  const when = `${formatMeetingDate(row.startsAt)}, ${formatMeetingTime(row.startsAt)}`;
+  const attendees =
+    row.attendeeNames.length > 0 ? row.attendeeNames.join(", ") : "No attendees listed";
+  return `${when} · ${attendees}`;
 }
 
 export function goalMarkRung(mark: ReviewGoalMark): StatusRung {

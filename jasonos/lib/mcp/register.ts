@@ -44,7 +44,8 @@ import {
   getTranscriptMcp,
   listDecksMcp,
   listPlaybooksMcp,
-  reviewMeetingMcp,
+  attachTranscriptMcp,
+  listRecentNotesMcp,
   reviewRunMcp,
   runAiHelpMcp,
   setDeckSlidesMcp,
@@ -66,7 +67,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings can also Review a meeting from a Granola/Wispr note without a Live run. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, run_ai_help, attach_meeting, get_transcript, review_run / get_review / review_meeting, update_playbook_from_deck / create_playbook_from_deck.
+Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, run_ai_help, attach_meeting, get_transcript, attach_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -651,22 +652,36 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   server.registerTool(
-    "review_meeting",
+    "attach_transcript",
     {
-      title: "Review a meeting not run in Live",
+      title: "Attach a transcript to a Live deck or meeting",
       description:
-        "Create a deck from a Granola or Wispr note (optional calendar meeting, goal, rubric from playbook), store the transcript, run review, return the new deck id.",
+        "Attach a Granola or Wispr note transcript. Pass exactly one of meeting_prep_id or deck_id; with neither, pass name to create a deck with no meeting. Creates a slide-less deck when the meeting has none. Clears an existing review when clear_review is true.",
       inputSchema: z.object({
         note_id: z.string().min(1),
         source: z.enum(["granola", "wispr"]),
-        name: z.string().min(1).max(200),
-        goal: z.string().max(500).optional(),
-        rubric_from_playbook_id: z.string().uuid().nullable().optional(),
         meeting_prep_id: z.string().uuid().nullable().optional(),
+        deck_id: z.string().uuid().nullable().optional(),
+        name: z.string().min(1).max(200).nullable().optional(),
+        clear_review: z.boolean().optional(),
       }),
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
-    async (args) => runTool(() => reviewMeetingMcp(args))
+    async (args) => runTool(() => attachTranscriptMcp(args))
+  );
+
+  server.registerTool(
+    "list_recent_notes",
+    {
+      title: "List recent Granola and Wispr notes",
+      description:
+        "Merged notes from Granola and Wispr for attaching transcripts. Newest first. Default days=10.",
+      inputSchema: z.object({
+        days: z.number().int().min(1).max(45).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async (args) => runTool(() => listRecentNotesMcp(args))
   );
 
   server.registerTool(

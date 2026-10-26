@@ -14,17 +14,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusPill } from "@/components/jasonos/brand/status";
+import { AttachTranscriptDialog } from "@/components/jasonos/live/attach-transcript-dialog";
 import { MeetingPickerDialog } from "@/components/jasonos/live/meeting-picker-dialog";
-import { ReviewMeetingDialog } from "@/components/jasonos/live/review-meeting-dialog";
+import { ReviewHeldDialog } from "@/components/jasonos/live/review-held-dialog";
 import {
   activeDeckSubline,
   formatRubricAverage,
   goalMarkLabel,
   goalMarkRung,
-  heldDeckState,
-  heldDeckSubline,
+  heldMeetingState,
+  heldMeetingSubline,
 } from "@/components/jasonos/live/live-format";
-import type { AttachableMeeting, DeckSummary } from "@/lib/server-actions/decks";
+import type { AttachableMeeting, DeckSummary, HeldMeetingRow } from "@/lib/server-actions/decks";
 import {
   copyDeck,
   createBlankDeck,
@@ -120,13 +121,13 @@ export function LibraryClient({
   initialTab,
   playbooks,
   activeDecks,
-  heldDecks,
+  heldRows,
   meetings,
 }: {
   initialTab: LibraryTab;
   playbooks: DeckSummary[];
   activeDecks: DeckRow[];
-  heldDecks: DeckRow[];
+  heldRows: HeldMeetingRow[];
   meetings: AttachableMeeting[];
 }) {
   const router = useRouter();
@@ -139,7 +140,11 @@ export function LibraryClient({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [linkDeckId, setLinkDeckId] = useState<string | null>(null);
-  const [reviewMeetingOpen, setReviewMeetingOpen] = useState(false);
+  const [attachTarget, setAttachTarget] = useState<HeldMeetingRow | "orphan" | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<HeldMeetingRow | null>(null);
+  const [reviewDeckOnly, setReviewDeckOnly] = useState<{ deckId: string; title: string } | null>(
+    null
+  );
 
   const runCopy = (id: string, pathPrefix: string) =>
     start(async () => {
@@ -204,9 +209,10 @@ export function LibraryClient({
       ? { label: "New playbook", onClick: newPlaybook }
       : safeTab === "decks"
         ? { label: "New deck", onClick: newDeck }
-        : safeTab === "held"
-          ? { label: "Review a meeting", onClick: () => setReviewMeetingOpen(true) }
-          : null;
+        : null;
+
+  const attachRow =
+    attachTarget && attachTarget !== "orphan" ? attachTarget : null;
 
   return (
     <>
@@ -254,19 +260,59 @@ export function LibraryClient({
 
       {safeTab === "held" ? (
         <HeldTab
-          rows={heldDecks}
+          rows={heldRows}
           pending={pending}
-          onCopy={(id) => runCopy(id, `/live/decks/`)}
-          onDelete={(id, name) => runDelete(id, name, "deck")}
+          onAttach={(row) => setAttachTarget(row)}
+          onReview={(row) => setReviewTarget(row)}
+          onOrphanAttach={() => setAttachTarget("orphan")}
         />
       ) : null}
 
-      {reviewMeetingOpen ? (
-        <ReviewMeetingDialog
-          open={reviewMeetingOpen}
-          onOpenChange={setReviewMeetingOpen}
+      {attachTarget ? (
+        <AttachTranscriptDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setAttachTarget(null);
+          }}
+          meetingPrepId={attachRow?.meetingPrepId}
+          deckId={attachRow?.deckId}
+          meetingTitle={attachRow?.title ?? "Note review"}
+          meetingStartsAt={attachRow?.startsAt ?? null}
+          reviewedAt={attachRow?.reviewedAt ?? null}
+          onAttached={(deckId, noteTitle) => {
+            const wasOrphan = attachTarget === "orphan";
+            setAttachTarget(null);
+            router.refresh();
+            if (wasOrphan) {
+              setReviewDeckOnly({ deckId, title: noteTitle });
+            }
+          }}
+        />
+      ) : null}
+
+      {reviewTarget?.deckId ? (
+        <ReviewHeldDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setReviewTarget(null);
+          }}
+          deckId={reviewTarget.deckId}
+          title={reviewTarget.title}
+          initialGoal={reviewTarget.goal}
           playbooks={playbooks}
-          meetings={meetings}
+        />
+      ) : null}
+
+      {reviewDeckOnly ? (
+        <ReviewHeldDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setReviewDeckOnly(null);
+          }}
+          deckId={reviewDeckOnly.deckId}
+          title={reviewDeckOnly.title}
+          initialGoal={null}
+          playbooks={playbooks}
         />
       ) : null}
 
@@ -482,59 +528,126 @@ function DecksTab({
 function HeldTab({
   rows,
   pending,
-  onCopy,
-  onDelete,
+  onAttach,
+  onReview,
+  onOrphanAttach,
 }: {
-  rows: DeckRow[];
+  rows: HeldMeetingRow[];
   pending: boolean;
-  onCopy: (id: string) => void;
-  onDelete: (id: string, name: string) => void;
+  onAttach: (row: HeldMeetingRow) => void;
+  onReview: (row: HeldMeetingRow) => void;
+  onOrphanAttach: () => void;
 }) {
+  const router = useRouter();
   if (!rows.length) {
-    return <p className="mt-8 text-sm text-[var(--jos-muted)]">No held meetings yet.</p>;
+    return (
+      <div className="mt-8">
+        <p className="text-sm text-[var(--jos-muted)]">No held meetings yet.</p>
+        <button
+          type="button"
+          className="mt-4 text-[13px] font-semibold text-[var(--jos-muted)] underline hover:text-[var(--jos-ink)]"
+          onClick={() => onOrphanAttach()}
+        >
+          Review a note without a meeting
+        </button>
+      </div>
+    );
   }
 
   return (
-    <ul className="mt-8 divide-y divide-[var(--jos-line)]">
-      {rows.map(({ deck, meetingTitle, meetingStartsAt }) => {
-        const state = heldDeckState(deck);
-        const subline = heldDeckSubline(deck, meetingTitle, meetingStartsAt);
-        return (
-          <li key={deck.id} className="py-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <Link href={`/live/decks/${deck.id}/review`} className="min-w-0 flex-1 hover:underline">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-[var(--jos-ink)]">{deck.name}</p>
-                  {deck.reviewedAt && deck.reviewGoalMark ? (
-                    <StatusPill rung={goalMarkRung(deck.reviewGoalMark)} className="text-[11px]">
-                      {goalMarkLabel(deck.reviewGoalMark)}
-                    </StatusPill>
-                  ) : null}
-                  {deck.reviewedAt && deck.reviewRubricAverage != null ? (
-                    <span className="text-[11px] font-semibold tabular-nums text-[var(--jos-muted)]">
-                      {formatRubricAverage(deck.reviewRubricAverage)}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">
-                  {[subline, state].filter(Boolean).join(" · ")}
-                </p>
-              </Link>
-              <RowActions
-                items={[
-                  { label: "Copy", disabled: pending, onClick: () => onCopy(deck.id) },
-                  {
-                    label: "Delete",
-                    disabled: pending,
-                    destructive: true,
-                    onClick: () => onDelete(deck.id, deck.name),
-                  },
-                ]}
-              />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="mt-8 divide-y divide-[var(--jos-line)]">
+        {rows.map((row) => {
+          const state = heldMeetingState(row);
+          const subline = heldMeetingSubline(row);
+          const reviewHref = row.deckId ? `/live/decks/${row.deckId}/review` : null;
+
+          const actions: RowAction[] = [];
+          if (!row.hasTranscript) {
+            actions.push({
+              label: "Attach transcript",
+              disabled: pending,
+              onClick: () => onAttach(row),
+            });
+          } else if (!row.reviewedAt && row.deckId) {
+            actions.push({
+              label: "Review",
+              disabled: pending,
+              onClick: () => onReview(row),
+            });
+          }
+          if (row.reviewedAt && reviewHref) {
+            actions.push({
+              label: "Open review",
+              disabled: pending,
+              onClick: () => router.push(reviewHref),
+            });
+          }
+
+          const titleHref = reviewHref && row.reviewedAt ? reviewHref : undefined;
+
+          return (
+            <li key={row.key} className="py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                {titleHref ? (
+                  <Link href={titleHref} className="min-w-0 flex-1 hover:underline">
+                    <HeldRowBody row={row} state={state} subline={subline} />
+                  </Link>
+                ) : (
+                  <div className="min-w-0 flex-1">
+                    <HeldRowBody row={row} state={state} subline={subline} />
+                  </div>
+                )}
+                {actions.length ? <RowActions items={actions} /> : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <button
+        type="button"
+        className="mt-6 text-[13px] font-semibold text-[var(--jos-muted)] underline hover:text-[var(--jos-ink)]"
+        onClick={() => onOrphanAttach()}
+      >
+        Review a note without a meeting
+      </button>
+    </>
+  );
+}
+
+function HeldRowBody({
+  row,
+  state,
+  subline,
+}: {
+  row: HeldMeetingRow;
+  state: string;
+  subline: string;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="truncate text-sm font-semibold text-[var(--jos-ink)]">{row.title}</p>
+        {row.reviewedAt && row.reviewGoalMark ? (
+          <StatusPill rung={goalMarkRung(row.reviewGoalMark)} className="text-[11px]">
+            {goalMarkLabel(row.reviewGoalMark)}
+          </StatusPill>
+        ) : null}
+        {row.reviewedAt && row.reviewRubricAverage != null ? (
+          <span className="text-[11px] font-semibold tabular-nums text-[var(--jos-muted)]">
+            {formatRubricAverage(row.reviewRubricAverage)}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">
+        {[subline, state].filter(Boolean).join(" · ")}
+        {row.runInLive ? (
+          <>
+            {" · "}
+            <span className="text-[var(--jos-muted)]/80">Run in Live</span>
+          </>
+        ) : null}
+      </p>
+    </>
   );
 }

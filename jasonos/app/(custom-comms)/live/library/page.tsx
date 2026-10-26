@@ -7,7 +7,12 @@ import {
   enrichMeetingMap,
   meetingMapFromAttachable,
 } from "@/lib/live/meeting-meta";
-import { listAttachableMeetings, listDecks, listPlaybooks } from "@/lib/server-actions/decks";
+import {
+  listAttachableMeetings,
+  listDecks,
+  listHeldMeetings,
+  listPlaybooks,
+} from "@/lib/server-actions/decks";
 
 export const metadata: Metadata = { title: "Library · Live · JasonOS" };
 export const dynamic = "force-dynamic";
@@ -26,34 +31,29 @@ export default async function LiveLibraryPage({
   const tabParam = typeof query.tab === "string" ? query.tab : undefined;
   const initialTab = parseTab(tabParam);
 
-  const [playbooksResult, decksResult, meetingsResult] = await Promise.all([
+  const [playbooksResult, decksResult, meetingsResult, heldResult] = await Promise.all([
     listPlaybooks(),
     listDecks(),
     listAttachableMeetings(),
+    listHeldMeetings(),
   ]);
 
   const playbooks = playbooksResult.ok ? playbooksResult.playbooks : [];
   const allDecks = decksResult.ok ? decksResult.decks : [];
   const meetings = meetingsResult.ok ? meetingsResult.meetings : [];
+  const heldRows = heldResult.ok ? heldResult.rows : [];
 
   const isHeld = (deck: (typeof allDecks)[number]) =>
     Boolean(deck.runEndedAt || deck.transcriptFetchedAt);
-  const heldAt = (deck: (typeof allDecks)[number]) =>
-    Date.parse(deck.runEndedAt || deck.transcriptFetchedAt || "") || 0;
 
   const active = allDecks.filter((deck) => !isHeld(deck));
-  const held = allDecks.filter(isHeld).sort((a, b) => heldAt(b) - heldAt(a));
 
   const meetingMap = await enrichMeetingMap(
     meetingMapFromAttachable(meetings),
-    [...active, ...held].map((deck) => deck.meetingPrepId)
+    [...active, ...allDecks].map((deck) => deck.meetingPrepId)
   );
 
   const activeDecks = active.map((deck) => ({
-    deck,
-    ...deckMeetingFields(deck, meetingMap),
-  }));
-  const heldDecks = held.map((deck) => ({
     deck,
     ...deckMeetingFields(deck, meetingMap),
   }));
@@ -79,13 +79,16 @@ export default async function LiveLibraryPage({
       {!decksResult.ok ? (
         <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{decksResult.error}</p>
       ) : null}
+      {!heldResult.ok ? (
+        <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{heldResult.error}</p>
+      ) : null}
 
       <Suspense fallback={<p className="mt-8 text-sm text-[var(--jos-muted)]">Loading…</p>}>
         <LibraryClient
           initialTab={initialTab}
           playbooks={playbooks}
           activeDecks={activeDecks}
-          heldDecks={heldDecks}
+          heldRows={heldRows}
           meetings={meetings}
         />
       </Suspense>

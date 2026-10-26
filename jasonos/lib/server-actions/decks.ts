@@ -108,6 +108,28 @@ export type AttachableMeeting = {
   deckId: string | null;
 };
 
+export type HeldMeetingRow = {
+  key: string;
+  meetingPrepId: string | null;
+  deckId: string | null;
+  title: string;
+  startsAt: string;
+  attendeeNames: string[];
+  hasTranscript: boolean;
+  goal: string | null;
+  reviewedAt: string | null;
+  reviewGoalMark: ReviewGoalMark | null;
+  reviewRubricAverage: number | null;
+  runInLive: boolean;
+};
+
+export type AttachableNote = {
+  id: string;
+  title: string;
+  at: string;
+  source: "granola" | "wispr";
+};
+
 type ActionResult<T> = ({ ok: true } & T) | { ok: false; error: string };
 
 type DeckRow = {
@@ -538,6 +560,403 @@ export async function listAttachableMeetings(): Promise<
       };
     });
     return { ok: true, meetings };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+function attendeeNamesFromJson(attendees: unknown): string[] {
+  const list = Array.isArray(attendees) ? attendees : [];
+  return list
+    .map((person) => {
+      if (!person || typeof person !== "object") return "";
+      const p = person as { name?: string | null; email?: string | null };
+      return (p.name?.trim() || p.email?.trim() || "") as string;
+    })
+    .filter(Boolean);
+}
+
+function heldRowFromPrep(
+  prep: { id: string; title: string | null; starts_at: string; attendees: unknown },
+  deck: DeckRow | null
+): HeldMeetingRow {
+  const review = deck ? parseReview(deck.review) : null;
+  return {
+    key: (deck?.id ?? prep.id) as string,
+    meetingPrepId: prep.id as string,
+    deckId: deck?.id ?? null,
+    title: String(prep.title ?? "Meeting"),
+    startsAt: String(prep.starts_at),
+    attendeeNames: attendeeNamesFromJson(prep.attendees),
+    hasTranscript: Boolean(deck?.transcript?.trim()),
+    goal: deck?.goal ?? null,
+    reviewedAt: deck?.reviewed_at ?? null,
+    reviewGoalMark: review?.goal?.mark ?? null,
+    reviewRubricAverage: review?.rubric_average ?? null,
+    runInLive: Boolean(deck?.run_ended_at),
+  };
+}
+
+function heldRowFromOrphanDeck(row: DeckRow): HeldMeetingRow {
+  const review = parseReview(row.review);
+  const startsAt = row.run_ended_at || row.transcript_fetched_at || row.updated_at;
+  return {
+    key: row.id,
+    meetingPrepId: null,
+    deckId: row.id,
+    title: row.name,
+    startsAt,
+    attendeeNames: [],
+    hasTranscript: Boolean(row.transcript?.trim()),
+    goal: row.goal,
+    reviewedAt: row.reviewed_at,
+    reviewGoalMark: review?.goal?.mark ?? null,
+    reviewRubricAverage: review?.rubric_average ?? null,
+    runInLive: Boolean(row.run_ended_at),
+  };
+}
+
+export async function listHeldMeetings(): Promise<ActionResult<{ rows: HeldMeetingRow[] }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  try {
+    const sb = createServiceRoleClient();
+    const now = Date.now();
+    const fromIso = new Date(now - 10 * 86_400_000).toISOString();
+    const nowIso = new Date(now).toISOString();
+
+    const { data: preps, error: prepError } = await sb
+      .from("meeting_preps")
+      .select("id, title, starts_at, attendees")
+      .lt("starts_at", nowIso)
+      .gte("starts_at", fromIso)
+      .order("starts_at", { ascending: false });
+    if (prepError) return { ok: false, error: prepError.message };
+
+    const prepIds = (preps ?? []).map((row) => row.id as string);
+    const deckByPrep = new Map<string, DeckRow>();
+    if (prepIds.length) {
+      const { data: linkedDecks, error: deckError } = await sb
+        .from("decks")
+        .select(DECK_COLUMNS)
+        .eq("kind", "deck")
+        .in("meeting_prep_id", prepIds);
+      if (deckError) return { ok: false, error: deckError.message };
+      for (const row of (linkedDecks ?? []) as DeckRow[]) {
+        const prepId = row.meeting_prep_id;
+        if (prepId) deckByPrep.set(prepId, row);
+      }
+    }
+
+    const rows: HeldMeetingRow[] = (preps ?? []).map((prep) =>
+      heldRowFromPrep(prep, deckByPrep.get(prep.id as string) ?? null)
+    );
+
+    const { data: orphanDecks, error: orphanError } = await sb
+      .from("decks")
+      .select(DECK_COLUMNS)
+      .eq("kind", "deck")
+      .is("meeting_prep_id", null)
+      .or("run_ended_at.not.is.null,transcript_fetched_at.not.is.null");
+    if (orphanError) return { ok: false, error: orphanError.message };
+
+    for (const deck of (orphanDecks ?? []) as DeckRow[]) {
+      const sortAt = deck.run_ended_at || deck.transcript_fetched_at;
+      if (!sortAt) continue;
+      const at = Date.parse(sortAt);
+      if (!Number.isFinite(at) || at < Date.parse(fromIso) || at > now) continue;
+      rows.push(heldRowFromOrphanDeck(deck));
+    }
+
+    rows.sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
+    return { ok: true, rows };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function loadTranscriptFromNote(
+  noteId: string,
+  source: "granola" | "wispr"
+): Promise<string | null> {
+  if (source === "granola") {
+    const granola = await import("@/lib/integrations/granola");
+    const direct = await granola.getGranolaTranscript(noteId);
+    let transcript = direct?.text?.trim() || "";
+    if (!transcript) {
+      const listed = await granola.listRecentGranolaNotes({ daysBack: 30, limit: 40 });
+      if (listed.ok) {
+        const hit = listed.notes.find((n) => n.id === noteId);
+        if (hit) {
+          const again = await granola.getGranolaTranscript(noteId);
+          transcript =
+            again?.text?.trim() ||
+            extractTranscriptSection(hit.summary ?? undefined) ||
+            hit.summary?.trim() ||
+            "";
+        }
+      }
+    }
+    return transcript || null;
+  }
+  const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
+  const listed = await listRecentWisprNotes({
+    daysBack: 30,
+    limit: 40,
+    includeTranscript: true,
+  });
+  if (!listed.ok) return null;
+  const hit = listed.notes.find((n) => n.id === noteId);
+  const transcript =
+    hit?.transcript?.trim() ||
+    extractTranscriptSection(hit?.summary ?? undefined) ||
+    hit?.summary?.trim() ||
+    "";
+  return transcript || null;
+}
+
+export async function attachTranscript(input: {
+  meetingPrepId?: string | null;
+  deckId?: string | null;
+  noteId: string;
+  source: "granola" | "wispr";
+  name?: string | null;
+  clearReview?: boolean;
+}): Promise<ActionResult<{ deckId: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const noteId = input.noteId.trim();
+  const source = input.source;
+  const prepId = input.meetingPrepId?.trim() || null;
+  const deckIdInput = input.deckId?.trim() || null;
+  const orphanName = input.name?.trim().slice(0, 200) || null;
+
+  if (!noteId) return { ok: false, error: "Pick a transcript." };
+  if (source !== "granola" && source !== "wispr") {
+    return { ok: false, error: "Unknown transcript source." };
+  }
+  if (prepId && deckIdInput) {
+    return { ok: false, error: "Pass a meeting or a deck, not both." };
+  }
+  if (!prepId && !deckIdInput && !orphanName) {
+    return { ok: false, error: "Write a name for this review." };
+  }
+
+  try {
+    const transcript = await loadTranscriptFromNote(noteId, source);
+    if (!transcript) return { ok: false, error: "Could not read that transcript." };
+
+    const sb = createServiceRoleClient();
+    let deckRow: DeckRow | null = null;
+    let prepIdForRevalidate: string | null = prepId;
+
+    if (deckIdInput) {
+      const { data, error } = await sb.from("decks").select(DECK_COLUMNS).eq("id", deckIdInput).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      if (!data || asKind(data.kind as string) !== "deck") {
+        return { ok: false, error: "Deck not found." };
+      }
+      deckRow = data as DeckRow;
+      prepIdForRevalidate = deckRow.meeting_prep_id;
+    } else if (prepId) {
+      const { data: existing } = await sb
+        .from("decks")
+        .select(DECK_COLUMNS)
+        .eq("kind", "deck")
+        .eq("meeting_prep_id", prepId)
+        .maybeSingle();
+      if (existing) {
+        deckRow = existing as DeckRow;
+      } else {
+        const { getMeetingPrep } = await loadMeetingPrep();
+        const prepResult = await getMeetingPrep(prepId);
+        if (!prepResult.ok) return { ok: false, error: prepResult.error };
+        const title = prepResult.prep.title.trim().slice(0, 200) || "Meeting";
+        const rubric = await loadDefaultRubricLines(sb);
+        const { data: created, error: createError } = await sb
+          .from("decks")
+          .insert({
+            kind: "deck",
+            name: title,
+            goal: null,
+            rubric,
+            meeting_prep_id: prepId,
+          })
+          .select(DECK_COLUMNS)
+          .single();
+        if (createError || !created) {
+          return { ok: false, error: createError?.message || "Could not create deck." };
+        }
+        deckRow = created as DeckRow;
+      }
+    } else {
+      const rubric = await loadDefaultRubricLines(sb);
+      const { data: created, error: createError } = await sb
+        .from("decks")
+        .insert({
+          kind: "deck",
+          name: orphanName!,
+          goal: null,
+          rubric,
+          meeting_prep_id: null,
+        })
+        .select(DECK_COLUMNS)
+        .single();
+      if (createError || !created) {
+        return { ok: false, error: createError?.message || "Could not create deck." };
+      }
+      deckRow = created as DeckRow;
+      prepIdForRevalidate = null;
+    }
+
+    const fetchedAt = new Date().toISOString();
+    const update: Record<string, unknown> = {
+      transcript,
+      transcript_source: source,
+      transcript_note_id: noteId,
+      transcript_fetched_at: fetchedAt,
+      updated_at: fetchedAt,
+    };
+    if (Boolean(deckRow.reviewed_at) && input.clearReview === true) {
+      update.review = null;
+      update.reviewed_at = null;
+    }
+
+    const { error: saveError } = await sb.from("decks").update(update).eq("id", deckRow.id);
+    if (saveError) return { ok: false, error: saveError.message };
+
+    revalidateDeck(deckRow.id, "deck", prepIdForRevalidate);
+    return { ok: true, deckId: deckRow.id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function listRecentNotesForAttach(
+  days = 10
+): Promise<ActionResult<{ notes: AttachableNote[]; warnings: string[] }>> {
+  const warnings: string[] = [];
+  const notes: AttachableNote[] = [];
+  const daysBack = Math.max(1, Math.min(45, days));
+  try {
+    const { listRecentGranolaNotes } = await import("@/lib/integrations/granola");
+    const granola = await listRecentGranolaNotes({ daysBack, limit: 40 });
+    if (!granola.ok) warnings.push("Could not reach Granola.");
+    else {
+      for (const note of granola.notes) {
+        notes.push({
+          id: note.id,
+          title: note.title,
+          at: note.scheduledStart || note.createdAt,
+          source: "granola",
+        });
+      }
+    }
+  } catch {
+    warnings.push("Could not reach Granola.");
+  }
+  try {
+    const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
+    const wispr = await listRecentWisprNotes({ daysBack, limit: 25 });
+    if (!wispr.ok) warnings.push("Could not reach Wispr.");
+    else {
+      for (const note of wispr.notes) {
+        notes.push({
+          id: note.id,
+          title: note.title,
+          at: note.scheduledStart || note.createdAt,
+          source: "wispr",
+        });
+      }
+    }
+  } catch {
+    warnings.push("Could not reach Wispr.");
+  }
+  notes.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  return { ok: true, notes, warnings };
+}
+
+export async function suggestNoteForMeeting(
+  meetingPrepId: string
+): Promise<ActionResult<{ note: AttachableNote | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const prepId = meetingPrepId.trim();
+  if (!prepId) return { ok: false, error: "Meeting not found." };
+  try {
+    const { getMeetingPrep } = await loadMeetingPrep();
+    const prepResult = await getMeetingPrep(prepId);
+    if (!prepResult.ok) return { ok: false, error: prepResult.error };
+    const prep = prepResult.prep;
+    const focus = await focusAttendee(prep.attendees);
+    const emails = prep.attendees.map((row) => row.email).filter(Boolean);
+    const query = {
+      name: focus.name,
+      email: focus.email,
+      emails,
+      aroundIso: prep.startsAt,
+      calendarEventId: prep.gcalEventId,
+      calendarEventIds: [prep.gcalEventId, prep.icalUid].filter(Boolean) as string[],
+      meetingTitle: prep.title,
+    };
+
+    const candidates: import("@/lib/integrations/granola-match").GranolaNoteCandidate[] = [];
+    const { listRecentGranolaNotes } = await import("@/lib/integrations/granola");
+    const granola = await listRecentGranolaNotes({ daysBack: 10, limit: 40 });
+    if (granola.ok) {
+      for (const note of granola.notes) {
+        candidates.push({
+          id: note.id,
+          title: note.title,
+          createdAt: note.createdAt,
+          summaryText: note.summary,
+          attendeeEmails: note.attendeeEmails,
+          attendeeNames: note.attendeeNames,
+          calendarEventId: note.calendarEventId,
+          scheduledStart: note.scheduledStart,
+        });
+      }
+    }
+    const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
+    const wispr = await listRecentWisprNotes({ daysBack: 10, limit: 25 });
+    if (wispr.ok) {
+      for (const note of wispr.notes) {
+        candidates.push({
+          id: note.id,
+          title: note.title,
+          createdAt: note.createdAt,
+          summaryText: note.summary,
+          attendeeEmails: note.attendeeEmails,
+          attendeeNames: note.attendeeNames,
+          calendarEventId: note.calendarEventId,
+          scheduledStart: note.scheduledStart,
+        });
+      }
+    }
+
+    const granolaIds = new Set(granola.ok ? granola.notes.map((n) => n.id) : []);
+    const wisprIds = new Set(wispr.ok ? wispr.notes.map((n) => n.id) : []);
+
+    const { pickGranolaNote } = await import("@/lib/integrations/granola-match");
+    const picked = pickGranolaNote(candidates, query);
+    if (!picked) return { ok: true, note: null };
+
+    const listed = await listRecentNotesForAttach(10);
+    const hit = listed.ok ? listed.notes.find((n) => n.id === picked.id) : null;
+    if (hit) return { ok: true, note: hit };
+
+    const source: "granola" | "wispr" = granolaIds.has(picked.id)
+      ? "granola"
+      : wisprIds.has(picked.id)
+        ? "wispr"
+        : "granola";
+
+    return {
+      ok: true,
+      note: {
+        id: picked.id,
+        title: picked.title?.trim() || "Untitled",
+        at: picked.scheduledStart || picked.createdAt,
+        source,
+      },
+    };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -1271,169 +1690,6 @@ export async function setRubricMark(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-/** Create a deck from an external note and run review (no Live run required). */
-export async function reviewMeetingFromNote(input: {
-  noteId: string;
-  source: "granola" | "wispr";
-  name: string;
-  goal?: string | null;
-  rubricFromPlaybookId?: string | null;
-  meetingPrepId?: string | null;
-}): Promise<ActionResult<{ id: string }>> {
-  if (!hasConfig()) return { ok: false, error: "Not configured" };
-  const noteId = input.noteId.trim();
-  const source = input.source;
-  const label = input.name.trim().slice(0, 200);
-  if (!noteId) return { ok: false, error: "Pick a transcript." };
-  if (!label) return { ok: false, error: "Write a name." };
-  if (source !== "granola" && source !== "wispr") {
-    return { ok: false, error: "Unknown transcript source." };
-  }
-  const prepId = input.meetingPrepId?.trim() || null;
-  try {
-    let transcript = "";
-    if (source === "granola") {
-      const granola = await import("@/lib/integrations/granola");
-      const direct = await granola.getGranolaTranscript(noteId);
-      transcript = direct?.text?.trim() || "";
-      if (!transcript) {
-        // Lightweight fallback: list without every transcript, then fetch the one note.
-        const listed = await granola.listRecentGranolaNotes({ daysBack: 30, limit: 40 });
-        if (listed.ok) {
-          const hit = listed.notes.find((n) => n.id === noteId);
-          if (hit) {
-            const again = await granola.getGranolaTranscript(noteId);
-            transcript =
-              again?.text?.trim() ||
-              extractTranscriptSection(hit.summary ?? undefined) ||
-              hit.summary?.trim() ||
-              "";
-          }
-        }
-      }
-    } else {
-      const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
-      const listed = await listRecentWisprNotes({
-        daysBack: 30,
-        limit: 40,
-        includeTranscript: true,
-      });
-      if (!listed.ok) return { ok: false, error: listed.error };
-      const hit = listed.notes.find((n) => n.id === noteId);
-      transcript =
-        hit?.transcript?.trim() ||
-        extractTranscriptSection(hit?.summary ?? undefined) ||
-        hit?.summary?.trim() ||
-        "";
-    }
-    if (!transcript) return { ok: false, error: "Could not read that transcript." };
-
-    const sb = createServiceRoleClient();
-    if (prepId) {
-      const existing = await sb
-        .from("decks")
-        .select("id")
-        .eq("kind", "deck")
-        .eq("meeting_prep_id", prepId)
-        .maybeSingle();
-      if (existing.data?.id) return { ok: false, error: "That meeting already has a deck." };
-    }
-
-    let rubric = await loadDefaultRubricLines(sb);
-    const playbookId = input.rubricFromPlaybookId?.trim() || null;
-    if (playbookId) {
-      const { data: pb } = await sb
-        .from("decks")
-        .select("rubric")
-        .eq("id", playbookId)
-        .eq("kind", "playbook")
-        .maybeSingle();
-      const fromPb = parseRubricFromJson(pb?.rubric);
-      if (fromPb.length) rubric = fromPb;
-    }
-
-    const fetchedAt = new Date().toISOString();
-    const { data: created, error: createError } = await sb
-      .from("decks")
-      .insert({
-        kind: "deck",
-        name: label,
-        goal: input.goal?.trim() || null,
-        rubric,
-        meeting_prep_id: prepId,
-        transcript,
-        transcript_source: source,
-        transcript_note_id: noteId,
-        transcript_fetched_at: fetchedAt,
-      })
-      .select("id")
-      .single();
-    if (createError || !created?.id) {
-      return { ok: false, error: createError?.message || "Could not create deck." };
-    }
-    const newId = created.id as string;
-    revalidateDeck(newId, "deck", prepId);
-
-    const reviewed = await reviewRun(newId);
-    if (!reviewed.ok) {
-      return { ok: true, id: newId };
-    }
-    return { ok: true, id: newId };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export type RecentReviewNote = {
-  id: string;
-  title: string;
-  at: string;
-  source: "granola" | "wispr";
-};
-
-export async function listRecentReviewNotes(): Promise<
-  ActionResult<{ notes: RecentReviewNote[]; warnings: string[] }>
-> {
-  const warnings: string[] = [];
-  const notes: RecentReviewNote[] = [];
-  try {
-    const { listRecentGranolaNotes } = await import("@/lib/integrations/granola");
-    const granola = await listRecentGranolaNotes({ daysBack: 30, limit: 40 });
-    if (!granola.ok) warnings.push(granola.error);
-    else {
-      for (const note of granola.notes) {
-        notes.push({
-          id: note.id,
-          title: note.title,
-          at: note.scheduledStart || note.createdAt,
-          source: "granola",
-        });
-      }
-    }
-  } catch (err) {
-    warnings.push(err instanceof Error ? err.message : String(err));
-  }
-  try {
-    const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
-    const wispr = await listRecentWisprNotes({ daysBack: 30, limit: 25 });
-    if (!wispr.ok) warnings.push(wispr.error);
-    else {
-      for (const note of wispr.notes) {
-        notes.push({
-          id: note.id,
-          title: note.title,
-          at: note.scheduledStart || note.createdAt,
-          source: "wispr",
-        });
-      }
-    }
-  } catch (err) {
-    warnings.push(err instanceof Error ? err.message : String(err));
-  }
-  notes.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
-  return { ok: true, notes, warnings };
 }
 
 export async function setReviewMark(

@@ -143,25 +143,41 @@ export async function setDefaultRubricMcp(input: { lines: string[] }) {
   return { ok: true, rubric: result.rubric };
 }
 
-export async function reviewMeetingMcp(input: {
+export async function attachTranscriptMcp(input: {
   note_id: string;
   source: "granola" | "wispr";
-  name: string;
-  goal?: string;
-  rubric_from_playbook_id?: string | null;
   meeting_prep_id?: string | null;
+  deck_id?: string | null;
+  name?: string | null;
+  clear_review?: boolean;
 }) {
-  const { reviewMeetingFromNote } = await import("@/lib/server-actions/decks");
-  const result = await reviewMeetingFromNote({
+  const { attachTranscript } = await import("@/lib/server-actions/decks");
+  const result = await attachTranscript({
     noteId: input.note_id,
     source: input.source,
-    name: input.name,
-    goal: input.goal,
-    rubricFromPlaybookId: input.rubric_from_playbook_id,
     meetingPrepId: input.meeting_prep_id,
+    deckId: input.deck_id,
+    name: input.name,
+    clearReview: input.clear_review,
   });
   if (!result.ok) throw new Error(result.error);
-  return { ok: true, id: result.id };
+  return { ok: true, deck_id: result.deckId };
+}
+
+export async function listRecentNotesMcp(input: { days?: number }) {
+  const { listRecentNotesForAttach } = await import("@/lib/server-actions/decks");
+  const result = await listRecentNotesForAttach(input.days ?? 10);
+  if (!result.ok) throw new Error(result.error);
+  return {
+    ok: true,
+    notes: result.notes.map((note) => ({
+      id: note.id,
+      title: note.title,
+      at: note.at,
+      source: note.source,
+    })),
+    warnings: result.warnings,
+  };
 }
 
 export async function attachMeetingMcp(input: {
