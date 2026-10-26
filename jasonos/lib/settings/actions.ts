@@ -109,12 +109,14 @@ export async function testServiceConnection(
         connected: google.advisorsConnected,
         needsReconnect: google.advisorsNeedsReconnect,
         error: google.advisorsError,
+        missingScopes: google.advisorsMissingScopes,
       },
       {
         label: "Personal Gmail",
         connected: google.gmailConnected,
         needsReconnect: google.gmailNeedsReconnect,
         error: google.gmailError,
+        missingScopes: google.gmailMissingScopes,
       },
     ]);
     return {

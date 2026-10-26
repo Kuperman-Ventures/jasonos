@@ -7,6 +7,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { GOOGLE_OAUTH_SCOPE_PARAM } from "@/lib/integrations/google-scopes";
 import {
   ADVISORS_ACCOUNT_EMAIL,
   GMAIL_ACCOUNT_EMAIL,
@@ -16,15 +17,6 @@ import {
 } from "@/lib/integrations/google-tokens";
 
 export const runtime = "nodejs";
-
-const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/calendar.readonly",
-  "https://www.googleapis.com/auth/calendar.events",
-  "email",
-  "profile",
-].join(" ");
 
 export async function GET(req: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -55,7 +47,7 @@ export async function GET(req: Request) {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: SCOPES,
+    scope: GOOGLE_OAUTH_SCOPE_PARAM,
     access_type: "offline",
     prompt: "select_account consent",
     include_granted_scopes: "true",

@@ -3,6 +3,14 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { envConfigured } from "@/lib/integrations/_base";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
+import {
+  missingOutlookScopes,
+  normalizeOutlookScopes,
+  outlookMissingScopesMessage,
+  OUTLOOK_CALENDARS_READ,
+  OUTLOOK_MAIL_READ,
+  OUTLOOK_USER_READ,
+} from "@/lib/integrations/outlook-scopes";
 
 export const OUTLOOK_PROVIDER = "outlook";
 export const OUTLOOK_ACCOUNT_EMAIL = OUTLOOK_WRAP_EMAIL;
@@ -13,9 +21,9 @@ export const MICROSOFT_OAUTH_SCOPES = [
   "profile",
   "email",
   "offline_access",
-  "https://graph.microsoft.com/Mail.Read",
-  "https://graph.microsoft.com/Calendars.Read",
-  "https://graph.microsoft.com/User.Read",
+  OUTLOOK_MAIL_READ,
+  OUTLOOK_CALENDARS_READ,
+  OUTLOOK_USER_READ,
 ].join(" ");
 
 export interface OutlookConnectionStatus {
@@ -25,6 +33,7 @@ export interface OutlookConnectionStatus {
   email: string | null;
   error: string | null;
   oauthConfigured: boolean;
+  missingScopes: string[];
 }
 
 export interface OutlookAccountAccess {
@@ -46,6 +55,7 @@ export function emptyOutlookConnectionStatus(): OutlookConnectionStatus {
     email: null,
     error: null,
     oauthConfigured: microsoftOauthConfigured(),
+    missingScopes: [],
   };
 }
 
@@ -128,51 +138,85 @@ type LoadedToken = {
   email: string | null;
   error?: string;
   oauthConfigured: boolean;
+  scopes: string[];
+  missingScopes: string[];
 };
 
 async function loadOutlookToken(): Promise<LoadedToken> {
   const oauthConfigured = microsoftOauthConfigured();
+  const base = {
+    oauthConfigured,
+    scopes: [] as string[],
+    missingScopes: [] as string[],
+  };
   if (!envConfigured("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")) {
-    return { configured: false, token: null, email: null, oauthConfigured };
+    return { configured: false, token: null, email: null, ...base };
   }
   try {
     const sb = createServiceRoleClient();
     const { data } = await sb
       .from("user_integrations")
-      .select("id, access_token, refresh_token, expires_at, metadata")
+      .select("id, access_token, refresh_token, expires_at, metadata, scopes")
       .eq("provider", OUTLOOK_PROVIDER)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (!data) {
-      return { configured: false, token: null, email: null, oauthConfigured };
+      return { configured: false, token: null, email: null, ...base };
     }
 
     const rowId = data.id as string;
     const email = emailFromMetadata(data.metadata) ?? OUTLOOK_ACCOUNT_EMAIL;
+    const scopes = normalizeOutlookScopes(
+      Array.isArray(data.scopes) ? (data.scopes as string[]) : null
+    );
+
+    const withScopes = (
+      loaded: Omit<LoadedToken, "scopes" | "missingScopes" | "oauthConfigured">
+    ): LoadedToken => {
+      const missing =
+        loaded.configured && loaded.token ? missingOutlookScopes(scopes) : [];
+      const scopeError =
+        loaded.token && missing.length > 0
+          ? outlookMissingScopesMessage({
+              accountEmail: email,
+              missing,
+            })
+          : null;
+      return {
+        ...loaded,
+        oauthConfigured,
+        scopes,
+        missingScopes: missing,
+        error: loaded.error ?? scopeError ?? undefined,
+      };
+    };
+
     if (data.access_token && tokenStillValid(data.expires_at)) {
-      return { configured: true, token: data.access_token, email, oauthConfigured };
+      return withScopes({
+        configured: true,
+        token: data.access_token,
+        email,
+      });
     }
 
     if (!data.refresh_token) {
-      return {
+      return withScopes({
         configured: true,
         token: null,
         email,
         error: outlookSignInExpiredMessage(),
-        oauthConfigured,
-      };
+      });
     }
 
     if (!oauthConfigured) {
-      return {
+      return withScopes({
         configured: true,
         token: null,
         email,
         error:
           "Microsoft OAuth is not configured. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET, then reconnect Outlook in Settings.",
-        oauthConfigured,
-      };
+      });
     }
 
     const refreshed = await refreshAccessToken(data.refresh_token);
@@ -189,24 +233,22 @@ async function loadOutlookToken(): Promise<LoadedToken> {
           expires_at: expiresAt,
         })
         .eq("id", rowId);
-      return {
+      return withScopes({
         configured: true,
         token: refreshed.access_token,
         email,
-        oauthConfigured,
-      };
+      });
     }
 
     console.warn("[outlook-tokens] refresh failed", refreshed.error ?? "unknown");
-    return {
+    return withScopes({
       configured: true,
       token: null,
       email,
       error: refreshed.expired
         ? outlookSignInExpiredMessage()
         : refreshed.error ?? outlookSignInExpiredMessage(),
-      oauthConfigured,
-    };
+    });
   } catch (err) {
     console.error("[outlook-tokens] load failed", err);
     return {
@@ -214,7 +256,7 @@ async function loadOutlookToken(): Promise<LoadedToken> {
       token: null,
       email: OUTLOOK_ACCOUNT_EMAIL,
       error: "Could not read the Outlook connection.",
-      oauthConfigured,
+      ...base,
     };
   }
 }
@@ -234,9 +276,12 @@ export async function getOutlookConnectionStatus(): Promise<OutlookConnectionSta
   const loaded = await loadOutlookToken();
   return {
     connected: loaded.configured,
-    needsReconnect: loaded.configured && !loaded.token,
+    needsReconnect:
+      loaded.configured &&
+      (!loaded.token || loaded.missingScopes.length > 0),
     email: loaded.email,
     error: loaded.error ?? null,
     oauthConfigured: loaded.oauthConfigured,
+    missingScopes: loaded.missingScopes,
   };
 }

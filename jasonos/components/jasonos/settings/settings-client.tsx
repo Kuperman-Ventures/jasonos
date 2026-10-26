@@ -378,19 +378,27 @@ function MailAccountsCard({
   const advisorsHealth = googleMailboxHealth({
     connected: accounts.advisorsConnected,
     needsReconnect: accounts.advisorsNeedsReconnect,
+    missingScopes: accounts.advisorsMissingScopes,
   });
   const gmailHealth = googleMailboxHealth({
     connected: accounts.gmailConnected,
     needsReconnect: accounts.gmailNeedsReconnect,
+    missingScopes: accounts.gmailMissingScopes,
   });
   const outlookHealth = googleMailboxHealth({
     connected: outlook.connected,
     needsReconnect: outlook.needsReconnect,
+    missingScopes: outlook.missingScopes,
   });
   const expiredLabels = [
     advisorsHealth === "expired" ? "Advisors Google" : null,
     gmailHealth === "expired" ? "Personal Gmail" : null,
     outlookHealth === "expired" ? "Outlook" : null,
+  ].filter((label): label is string => Boolean(label));
+  const limitedLabels = [
+    advisorsHealth === "limited" ? "Advisors Google" : null,
+    gmailHealth === "limited" ? "Personal Gmail" : null,
+    outlookHealth === "limited" ? "Outlook" : null,
   ].filter((label): label is string => Boolean(label));
   const missingLabels = [
     advisorsHealth === "not_connected" ? "Advisors Google" : null,
@@ -405,6 +413,11 @@ function MailAccountsCard({
     advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
     outlookHealth === "expired" ? "jason.kuperman@outlook.com" : null,
   ].filter((value): value is string => Boolean(value));
+  const limitedErrors = [
+    advisorsHealth === "limited" ? accounts.advisorsError : null,
+    gmailHealth === "limited" ? accounts.gmailError : null,
+    outlookHealth === "limited" ? outlook.error : null,
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <section id="google-accounts" className="rounded-xl border bg-card p-4">
@@ -418,19 +431,37 @@ function MailAccountsCard({
             Sync reads mail from each connected account. Advisors and Personal Gmail
             are separate Google logins — sharing a calendar is not enough. Outlook.com
             uses Microsoft and is separate from those Gmail forwards. Meet invites and
-            Browning meeting reminders send from the Advisors calendar/Gmail. Reconnect
-            Advisors Google once and allow calendar events plus Gmail send. Status below
-            is live, including when Settings is in preview.
+            Browning meeting reminders send from the Advisors calendar/Gmail. Status
+            below checks sign-in and required permissions (including Gmail send),
+            including when Settings is in preview.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {connectedCount} of 3 connected
+            {limitedLabels.length
+              ? ` · ${limitedLabels.length} missing permissions`
+              : ""}
             {expiredLabels.length ? ` · ${expiredLabels.length} sign-in expired` : ""}
             {missingLabels.length ? ` · ${missingLabels.length} not connected` : ""}
           </p>
         </div>
       </div>
 
-      {expiredLabels.length ? (
+      {limitedLabels.length ? (
+        <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                {limitedLabels.join(" and ")} missing permissions
+              </p>
+              <p className="mt-1 text-xs text-rung-ink">
+                {limitedErrors.join(" ") ||
+                  "Reconnect below and allow every permission JasonOS requests. A green “connected” sign-in is not enough if send/read scopes are missing."}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : expiredLabels.length ? (
         <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -458,6 +489,7 @@ function MailAccountsCard({
           email="jason@kupermanadvisors.com"
           connected={accounts.advisorsConnected}
           needsReconnect={accounts.advisorsNeedsReconnect}
+          missingScopes={accounts.advisorsMissingScopes}
           connectedEmail={accounts.advisorsEmail}
           error={accounts.advisorsError}
           href="/api/auth/google"
@@ -470,6 +502,7 @@ function MailAccountsCard({
           email="jasonkuperman@gmail.com"
           connected={accounts.gmailConnected}
           needsReconnect={accounts.gmailNeedsReconnect}
+          missingScopes={accounts.gmailMissingScopes}
           connectedEmail={accounts.gmailEmail}
           error={accounts.gmailError}
           href="/api/auth/google?account=gmail"
@@ -482,6 +515,7 @@ function MailAccountsCard({
           email="jason.kuperman@outlook.com"
           connected={outlook.connected}
           needsReconnect={outlook.needsReconnect}
+          missingScopes={outlook.missingScopes}
           connectedEmail={outlook.email}
           error={outlook.error}
           href="/api/auth/microsoft"
@@ -506,13 +540,14 @@ function MailAccountRow({
   email,
   connected,
   needsReconnect,
+  missingScopes,
   connectedEmail,
   error,
   href,
   connectLabel,
   reconnectLabel,
   connectDisabled = false,
-  connectedDetail = "Sign-in is valid. Sync can read sent mail and calendar on this account.",
+  connectedDetail = "Sign-in is valid with every required permission (mail read/send and calendar where applicable).",
   missingDetail = "Not connected. Sync cannot read this mailbox or calendar.",
 }: {
   id: string;
@@ -520,6 +555,7 @@ function MailAccountRow({
   email: string;
   connected: boolean;
   needsReconnect?: boolean;
+  missingScopes?: string[];
   connectedEmail: string | null;
   error?: string | null;
   href: string;
@@ -532,14 +568,16 @@ function MailAccountRow({
   const health = googleMailboxHealth({
     connected,
     needsReconnect: Boolean(needsReconnect),
+    missingScopes,
   });
+  const problem = health === "expired" || health === "limited";
 
   return (
     <div
       id={id}
       className={cn(
         "flex flex-col gap-3 rounded-lg border bg-background/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
-        health === "expired" && "border-[var(--jos-line)] bg-rung-2",
+        problem && "border-[var(--jos-line)] bg-rung-2",
         health === "not_connected" && "border-border",
         health === "connected" && "border-[var(--jos-line)]"
       )}
@@ -547,7 +585,11 @@ function MailAccountRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm font-medium">{label}</div>
-          {health === "expired" ? (
+          {health === "limited" ? (
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-2 ">
+              missing permissions
+            </Badge>
+          ) : health === "expired" ? (
             <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-2 ">
               sign-in expired
             </Badge>
@@ -564,13 +606,16 @@ function MailAccountRow({
         <div className="mt-1 truncate text-xs text-foreground/80">
           {connectedEmail ?? email}
         </div>
-        <p className={cn("mt-1 text-xs", health === "expired" ? "text-rung-ink" : "text-muted-foreground")}>
-          {health === "expired"
+        <p className={cn("mt-1 text-xs", problem ? "text-rung-ink" : "text-muted-foreground")}>
+          {health === "limited"
             ? error ??
-              "Sign-in expired. Mail on this account will not sync until you reconnect."
-            : health === "connected"
-              ? connectedDetail
-              : missingDetail}
+              "Missing required permissions. Reconnect and allow every permission JasonOS requests."
+            : health === "expired"
+              ? error ??
+                "Sign-in expired. Mail on this account will not sync until you reconnect."
+              : health === "connected"
+                ? connectedDetail
+                : missingDetail}
         </p>
       </div>
       {health === "not_connected" && connectDisabled ? (
@@ -582,14 +627,18 @@ function MailAccountRow({
           href={href}
           className={cn(
             "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
-            health === "expired"
-              ? "bg-rung-2  hover:bg-rung-2"
+            problem
+              ? "bg-rung-2 hover:bg-rung-2"
               : health === "connected"
                 ? "text-muted-foreground hover:text-foreground hover:underline"
                 : "border hover:bg-muted"
           )}
         >
-          {health === "not_connected" ? connectLabel : health === "expired" ? reconnectLabel : "Reconnect"}
+          {health === "not_connected"
+            ? connectLabel
+            : problem
+              ? reconnectLabel
+              : "Reconnect"}
         </a>
       )}
     </div>
