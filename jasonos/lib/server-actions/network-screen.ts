@@ -524,6 +524,19 @@ export async function listNetworkScreens(): Promise<
   };
 }
 
+export async function deleteNetworkScreen(
+  screenId: string
+): Promise<{ ok: true } | ActionError> {
+  if (!ensureConfigured()) return notConfigured();
+  if (!z.string().uuid().safeParse(screenId).success) {
+    return { ok: false, error: "Screen not found." };
+  }
+  const sb = createServiceRoleClient();
+  const { error } = await sb.from("network_screens").delete().eq("id", screenId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
 type RecommendationEntry = {
   id?: unknown;
   bucket?: unknown;
