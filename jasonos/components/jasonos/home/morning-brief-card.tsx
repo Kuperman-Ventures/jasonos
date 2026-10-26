@@ -26,8 +26,10 @@ import { isAllowedBriefHref } from "@/lib/data/brief-outbound";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 
 // Intercepts Claude's published markdown and lays it out as scannable
-// sections that match the rest of Home — attention first, then calendar,
-// newsletter digest. Falls back to raw markdown if the brief has no ##
+// sections. Monitored topics (newsletter digest) are always shown.
+// Attention + calendar are temporarily hidden while those sections are
+// redesigned — flip SHOW_ATTENTION_AND_CALENDAR to restore.
+// Falls back to raw markdown if the brief has no ##
 // structure we recognize.
 
 function formatAsOf(ymd: string): string {
@@ -215,6 +217,9 @@ function ExtraBlock({ title, bodyMd }: { title: string; bodyMd: string }) {
   );
 }
 
+/** Temporary: set true to bring back Needs Your Attention + Calendar Today. */
+const SHOW_ATTENTION_AND_CALENDAR = false;
+
 function StructuredBrief({
   parsed,
   briefDate,
@@ -224,8 +229,15 @@ function StructuredBrief({
 }) {
   return (
     <div className="space-y-5 px-4 py-4 min-w-0">
-      <MorningBriefAttention briefDate={briefDate} items={parsed.attention} />
-      <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
+      {SHOW_ATTENTION_AND_CALENDAR ? (
+        <>
+          <MorningBriefAttention
+            briefDate={briefDate}
+            items={parsed.attention}
+          />
+          <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
+        </>
+      ) : null}
       <NewsletterBlock groups={parsed.newsletters} />
       {parsed.extras.map((ex, i) => (
         <ExtraBlock key={`${ex.title}-${i}`} title={ex.title} bodyMd={ex.bodyMd} />
