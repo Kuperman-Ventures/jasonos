@@ -72,17 +72,29 @@ export function SheetLiveHeader({
   onEnd: () => void;
 }) {
   const now = useTick(1000);
-  const meta = [feed.playbookName, feed.callLabel, badge === "rehearsal" ? "Rehearsal" : null].filter(Boolean);
+  const isRehearsal = badge === "rehearsal";
+  const meta = [
+    feed.playbookName,
+    feed.callLabel,
+    isRehearsal ? "Practice only — nothing is saved" : null,
+  ].filter(Boolean);
   return (
     <header
       className="flex shrink-0 items-center gap-4 border-b border-[var(--jos-line)] px-5"
       style={{ minHeight: LIVE_HEADER_H }}
     >
       <div className="min-w-0 flex-1 py-1.5">
-        <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight">{feed.personName}</h1>
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+          <h1 className="truncate text-[17px] font-extrabold leading-tight tracking-tight">{feed.personName}</h1>
+          {isRehearsal ? (
+            <span className="shrink-0 text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--jos-muted)]">
+              Rehearsal
+            </span>
+          ) : null}
+        </div>
         <p className="flex items-center gap-3 text-[14px] text-[var(--jos-muted)]">
           <span className="truncate">{meta.join(" · ")}</span>
-          {badge === "rehearsal" && onReset ? (
+          {isRehearsal && onReset ? (
             <button
               type="button"
               onClick={onReset}
@@ -116,8 +128,14 @@ export function SheetLiveHeader({
             Join the call
           </a>
         ) : null}
-        <Button type="button" variant="done" size="sm" onClick={onEnd}>
-          {badge === "live" ? "End call" : "Done"}
+        <Button
+          type="button"
+          variant={isRehearsal ? "secondary" : "done"}
+          size="sm"
+          onClick={onEnd}
+          title={isRehearsal ? "Esc also ends rehearsal" : undefined}
+        >
+          {isRehearsal ? "End rehearsal" : "End call"}
         </Button>
       </div>
     </header>
