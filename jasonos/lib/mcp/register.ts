@@ -20,7 +20,6 @@ import {
   getContact,
   getInboxDispatch,
   getJobAlerts,
-  getMeetingPlan,
   getMorningBrief,
   getOutreachQueue,
   listAlerts,
@@ -42,18 +41,13 @@ import { registerNetworkScreenTools } from "./network-screen-tools";
 import { registerFybTools } from "./fyb-tools";
 import { jsonResult, runTool } from "./result";
 
-/** Lazy-load plan tools so MCP unit tests do not pull server-only modules. */
-async function plans() {
-  return import("./plans");
-}
-
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
 
 You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
-Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch, build_call_sheet, set_call_sheet, create_sheet, use_sheet_for_meeting, mark_sheet_ready) change live JasonOS data — say what you changed.
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live calls run on a call sheet: one page per call, built from a playbook (Who, Why, What and how, Rapport, The conversation, Turn to me, The ask, Close, After for Browning calls). Plan the call sheet with Jason in conversation. Fill the Why and What-and-how lines in his words with set_call_sheet. Never write meeting_points or call_sheet_blocks through SQL. Start from list_upcoming_meeting_preps, get_call_sheet, and get_person or list_people for his history with the person. Write what he tells you, not your guesses, using the block keys and line labels get_call_sheet returns. build_call_sheet drafts the empty parts from research; Jason still confirms them. When he says the sheet is done, call mark_sheet_ready and tell him the refusal if it gives one. Use create_sheet for a call with no meeting yet and use_sheet_for_meeting to put it on one. The older names build_meeting_plan, set_meeting_plan, create_guide, use_guide_for_meeting, accept_meeting_plan, and get_meeting_plan still work for one release; prefer the call sheet tools.
+Live is restarting on Playbooks and Slides decks. Use list_upcoming_meeting_preps for upcoming calendar meetings (id, title, starts_at, ends_at, attendees, slides_id when a slides deck exists). Playbook and slide editing tools are not wired in MCP yet.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -393,257 +387,12 @@ export function registerJasonosTools(server: McpServer) {
     async (args) => runTool(() => listMeetings(args))
   );
 
-  const planPointSchema = z.object({
-    kind: z.enum(["agenda", "point", "question", "ask"]),
-    headline: z.string().min(1).max(80),
-    detail: z.string().max(400).optional(),
-    listen_for: z.string().max(160).optional(),
-    prepare_reactions: z.boolean().optional(),
-    reactions: z.array(z.unknown()).optional(),
-  });
-
-  const sheetBlockSchema = z.object({
-    key: z.string().min(1).max(80).describe("Block key from get_call_sheet, e.g. why, what_how, who, ask, close"),
-    body: z.string().max(4000).nullable().optional().describe("Text blocks and the ask"),
-    lines: z
-      .array(
-        z.object({
-          label: z.string().max(120).optional().describe("Matches an existing line label; omit to fill by position"),
-          text: z.string().max(2000),
-        })
-      )
-      .max(12)
-      .optional()
-      .describe("Lines blocks such as Why and What and how"),
-  });
-
-  server.registerTool(
-    "build_call_sheet",
-    {
-      title: "Build call sheet",
-      description:
-        "Start the meeting's call sheet from a playbook if it has none (playbook_id, or the playbook the person's status suggests), then fill empty, unconfirmed parts from research, email and the playbook. Returns the sheet with Used / Missing context. Jason confirms what Build wrote.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid(),
-        playbook_id: z.string().uuid().optional(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).buildCallSheetTool(args))
-  );
-
-  server.registerTool(
-    "set_call_sheet",
-    {
-      title: "Set call sheet",
-      description:
-        "Write a call sheet in Jason's words: blocks by key (Why and What and how as lines, labels from get_call_sheet), the outcome sentence, and points for The conversation (mode add or replace). Pass exactly one of prep_id (a meeting's sheet) or sheet_id (a sheet with no meeting). Unknown block keys and line labels are refused before anything is written. For a meeting with no sheet, starts it from playbook_id or the suggested playbook when blocks are given. Written blocks count as confirmed.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid().optional(),
-        sheet_id: z.string().uuid().optional(),
-        playbook_id: z.string().uuid().optional(),
-        blocks: z.array(sheetBlockSchema).max(20).optional(),
-        outcome_sentence: z.string().max(400).optional(),
-        points: z.array(planPointSchema).max(20).optional(),
-        mode: z.enum(["add", "replace"]).optional().describe("Required with points"),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).setCallSheet(args))
-  );
-
-  server.registerTool(
-    "create_sheet",
-    {
-      title: "Create sheet",
-      description:
-        "Create a call sheet with no meeting yet. With playbook_id it gets the playbook's blocks (fill them with blocks); without, it needs a name and points. Returns id and /live/sheets/{id}. Put it on a meeting with use_sheet_for_meeting.",
-      inputSchema: z.object({
-        name: z.string().max(120).optional(),
-        playbook_id: z.string().uuid().optional(),
-        blocks: z.array(sheetBlockSchema).max(20).optional(),
-        for: z.string().max(400).optional(),
-        outcome_sentence: z.string().max(400).optional(),
-        notes: z.string().max(2000).optional(),
-        points: z.array(planPointSchema).max(20).optional(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).createSheet(args))
-  );
-
-  server.registerTool(
-    "use_sheet_for_meeting",
-    {
-      title: "Use sheet for meeting",
-      description:
-        "Put a sheet with no meeting onto a meeting prep. Its blocks move onto the meeting and placeholders fill from the person. Fails when the meeting already has a call sheet.",
-      inputSchema: z.object({
-        sheet_id: z.string().uuid(),
-        prep_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).putSheetOnMeetingTool(args))
-  );
-
-  server.registerTool(
-    "mark_sheet_ready",
-    {
-      title: "Mark sheet ready",
-      description:
-        "Mark a meeting's call sheet ready for Live. Refuses while a required block is empty or The conversation has no points, and returns the refusal to tell Jason.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).markSheetReadyTool(args))
-  );
-
-  server.registerTool(
-    "get_call_sheet",
-    {
-      title: "Get call sheet",
-      description:
-        "A meeting's call sheet (prep_id) or a sheet with no meeting (sheet_id): playbook, person and call number, every block with its lines and whether it is filled, plus points and the outcome sentence for a meeting.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid().optional(),
-        sheet_id: z.string().uuid().optional(),
-      }),
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).getCallSheetTool(args))
-  );
-
-  server.registerTool(
-    "get_person",
-    {
-      title: "Get person",
-      description:
-        "One person in Jason's networking pipeline: status, call count, next contact, to discuss next, open follow-ups, next meeting, and every held call with its debrief.",
-      inputSchema: z.object({
-        contact_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).getPersonTool(args))
-  );
-
-  server.registerTool(
-    "list_people",
-    {
-      title: "List people",
-      description:
-        "Everyone in the networking pipeline (status set, not closed). Referrals past 48 hours first, then overdue next contacts, then by next contact date.",
-      inputSchema: z.object({
-        limit: z.number().int().min(1).max(200).optional(),
-      }),
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).listPeopleTool(args))
-  );
-
-  server.registerTool(
-    "build_meeting_plan",
-    {
-      title: "Build meeting plan (earlier name)",
-      description:
-        "Earlier name, kept for one release; prefer build_call_sheet. Builds points from a playbook (proposal only — call accept_meeting_plan to write), a sheet (writes), or blank (AI draft). Returns Used / Missing context.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid(),
-        from: z.enum(["playbook", "guide", "blank"]),
-        script_id: z.string().uuid().optional(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).buildMeetingPlanTool(args))
-  );
-
-  server.registerTool(
-    "accept_meeting_plan",
-    {
-      title: "Accept meeting plan (earlier name)",
-      description:
-        "Earlier name, kept for one release. Accept a playbook proposal from build_meeting_plan and write the kept points onto the meeting.",
-      inputSchema: z.object({
-        adaptation_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).acceptMeetingPlanTool(args))
-  );
-
-  server.registerTool(
-    "set_meeting_plan",
-    {
-      title: "Set meeting plan (earlier name)",
-      description:
-        "Earlier name for set_call_sheet with points only, kept for one release. Writes the outcome sentence and points onto a meeting prep (clamps, research, email context). Never insert meeting_points via SQL.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid(),
-        outcome_sentence: z.string().max(400).optional(),
-        points: z.array(planPointSchema).min(1).max(20),
-        mode: z.enum(["add", "replace"]),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).setMeetingPlan(args))
-  );
-
-  server.registerTool(
-    "create_guide",
-    {
-      title: "Create guide (earlier name)",
-      description:
-        "Earlier name for create_sheet without a playbook, kept for one release. Creates a sheet with points and no meeting. Returns id and /live/sheets/{id} URL.",
-      inputSchema: z.object({
-        name: z.string().min(1).max(120),
-        for: z.string().max(400).optional(),
-        outcome_sentence: z.string().max(400).optional(),
-        notes: z.string().max(2000).optional(),
-        points: z.array(planPointSchema).min(1).max(20),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).createGuide(args))
-  );
-
-  server.registerTool(
-    "use_guide_for_meeting",
-    {
-      title: "Use guide for meeting (earlier name)",
-      description:
-        "Earlier name for use_sheet_for_meeting (script_id is the sheet id), kept for one release.",
-      inputSchema: z.object({
-        script_id: z.string().uuid(),
-        prep_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-    },
-    async (args) => runTool(async () => (await plans()).useGuideForMeeting(args))
-  );
-
-  server.registerTool(
-    "get_meeting_plan",
-    {
-      title: "Get meeting plan (earlier name)",
-      description:
-        "Earlier name, kept for one release; prefer get_call_sheet. Outcome sentence, points with live and confirmed states, review summary, and Granola URL for a meeting prep.",
-      inputSchema: z.object({
-        prep_id: z.string().uuid(),
-      }),
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async (args) => runTool(() => getMeetingPlan(args))
-  );
-
   server.registerTool(
     "list_upcoming_meeting_preps",
     {
       title: "Upcoming meeting preps",
       description:
-        "Upcoming Live meeting preps for the next N Eastern days (default 7): id, title, starts_at, attendees, track, has_sheet, sheet_ready, sheet_status (ready, why_missing, not_ready, none), touch_number, call number, playbook, research_verified.",
+        "Upcoming calendar meeting preps for the next N Eastern days (default 7): id, title, starts_at, ends_at, attendees, slides_id when a slides deck is linked.",
       inputSchema: z.object({
         days: z.number().int().min(1).max(30).optional(),
       }),

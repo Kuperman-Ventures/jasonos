@@ -36,9 +36,7 @@ import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { PasskeysCard } from "@/components/jasonos/settings/passkeys-card";
-import { NarrativesSection } from "@/components/jasonos/settings/narratives-section";
 import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
-import type { Narrative } from "@/lib/server-actions/narratives";
 import {
   SERVICE_DEFINITIONS,
   serviceLogoUrl,
@@ -78,15 +76,11 @@ interface BillingPreview {
 interface SettingsClientProps {
   initialSettings: SettingsPayload;
   billing: BillingPreview;
-  narratives: Narrative[];
-  narrativesError: string | null;
 }
 
 export function SettingsClient({
   initialSettings,
   billing,
-  narratives,
-  narrativesError,
 }: SettingsClientProps) {
   const [settings, setSettings] = useState(initialSettings);
   const [followupPrompt, setFollowupPrompt] = useState(
@@ -281,7 +275,6 @@ export function SettingsClient({
         </div>
       </section>
 
-      <NarrativesSection narratives={narratives} error={narrativesError} />
 
       <section id="follow-up-prompt" className="rounded-xl border bg-card">
         <header className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">

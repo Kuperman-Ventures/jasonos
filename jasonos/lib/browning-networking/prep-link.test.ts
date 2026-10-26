@@ -19,25 +19,17 @@ describe("chooseBrowningStrategyName", () => {
 
 describe("shouldSkipPlanBuild", () => {
   it("skips when plan_built_at is set", () => {
-    assert.equal(
-      shouldSkipPlanBuild({ planBuiltAt: "2026-10-20T12:00:00Z", pointCount: 0 }),
-      true
-    );
+    assert.equal(shouldSkipPlanBuild({ planBuiltAt: "2026-10-20T12:00:00Z" }), true);
   });
 
-  it("skips when points already exist", () => {
-    assert.equal(shouldSkipPlanBuild({ planBuiltAt: null, pointCount: 3 }), true);
+  it("builds when plan_built_at is unset", () => {
+    assert.equal(shouldSkipPlanBuild({ planBuiltAt: null }), false);
   });
 
-  it("builds when neither is set", () => {
-    assert.equal(shouldSkipPlanBuild({ planBuiltAt: null, pointCount: 0 }), false);
-  });
-
-  it("rebuilds when force is true even if points exist", () => {
+  it("rebuilds when force is true even if plan_built_at is set", () => {
     assert.equal(
       shouldSkipPlanBuild({
         planBuiltAt: "2026-10-20T12:00:00Z",
-        pointCount: 5,
         force: true,
       }),
       false

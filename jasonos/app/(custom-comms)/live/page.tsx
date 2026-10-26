@@ -1,58 +1,45 @@
 import type { Metadata } from "next";
-import { LiveMeetingsClient } from "@/components/jasonos/meeting-prep/live-meetings-client";
-import { etToday, mondayStartOfWeekYmd } from "@/lib/dates";
-import { getWeeklyActivity } from "@/lib/server-actions/activity-log";
-import { getSheetStatuses } from "@/lib/server-actions/call-sheet";
-import { getLiveSettings } from "@/lib/server-actions/live-settings";
-import { listLivePlans, listPlaybooks } from "@/lib/server-actions/live-scripts";
+import Link from "next/link";
 import { getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
 
 export const metadata: Metadata = { title: "Live · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function LiveMeetingsPage() {
-  const [result, activityResult, sheetsResult, upcomingResult, playbooksResult, settingsResult] =
-    await Promise.all([
-      getUpcomingMeetingPreps(2),
-      getWeeklyActivity(),
-      listLivePlans(),
-      getUpcomingMeetingPreps(14),
-      listPlaybooks(),
-      getLiveSettings(),
-    ]);
-  const meetings = result.ok ? result.meetings : [];
-  const statusesResult = await getSheetStatuses(
-    meetings.map((meeting) => ({
-      id: meeting.id,
-      primaryContactId: meeting.primaryContactId,
-      attendeeContactIds: meeting.attendees
-        .map((attendee) => attendee.contactId)
-        .filter((id): id is string => Boolean(id)),
-    }))
-  );
-  const warnings = result.ok ? [...result.warnings] : [];
-  if (!statusesResult.ok) warnings.push(statusesResult.error);
+  const result = await getUpcomingMeetingPreps(14);
+  if (!result.ok) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <p className="text-sm text-muted-foreground">{result.error}</p>
+      </div>
+    );
+  }
+
   return (
-    <LiveMeetingsClient
-      nowIso={new Date().toISOString()}
-      meetings={meetings}
-      statuses={statusesResult.ok ? statusesResult.statuses : {}}
-      error={result.ok ? null : result.error}
-      warnings={warnings}
-      activity={activityResult.ok ? activityResult.activity : null}
-      activityError={activityResult.ok ? null : activityResult.error}
-      weekStart={mondayStartOfWeekYmd(etToday())}
-      sheets={sheetsResult.ok ? sheetsResult.plans.filter((sheet) => !sheet.attachedPrepId) : []}
-      sheetsError={sheetsResult.ok ? null : sheetsResult.error}
-      upcomingMeetings={upcomingResult.ok ? upcomingResult.meetings : []}
-      playbooks={playbooksResult.ok ? playbooksResult.playbooks : []}
-      playbooksError={playbooksResult.ok ? null : playbooksResult.error}
-      settings={
-        settingsResult.ok
-          ? { targetCompanies: settingsResult.targetCompanies, snapshot: settingsResult.snapshot }
-          : { targetCompanies: [], snapshot: null }
-      }
-      settingsError={settingsResult.ok ? null : settingsResult.error}
-    />
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <h1 className="text-lg font-semibold tracking-tight">Live</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Slides and playbooks UI is rebuilding. Calendar meetings still sync below.
+      </p>
+      {result.warnings.length > 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">{result.warnings.join(" · ")}</p>
+      ) : null}
+      <ul className="mt-6 divide-y divide-border rounded-lg border">
+        {result.meetings.map((meeting) => (
+          <li key={meeting.id} className="px-4 py-3">
+            <Link href={`/meetings/${meeting.id}`} className="text-sm font-medium hover:underline">
+              {meeting.title}
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              {new Date(meeting.startsAt).toLocaleString("en-US", {
+                timeZone: "America/New_York",
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

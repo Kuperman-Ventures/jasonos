@@ -546,16 +546,9 @@ type RecommendationEntry = {
   ask?: unknown;
 };
 
-async function jobSearchBrief(sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
-  const fallback = "Full-time CMO or SVP Marketing at a B2B tech company.";
-  const [settings, narrative] = await Promise.all([
-    sb.from("live_settings").select("snapshot").limit(1).maybeSingle(),
-    sb.from("narratives").select("body").eq("key", "job_search_positioning").maybeSingle(),
-  ]);
-  const parts = [blank(narrative.data?.body), blank(settings.data?.snapshot)].filter(
-    (part): part is string => Boolean(part)
-  );
-  return parts.length ? parts.join("\n\n") : fallback;
+async function jobSearchBrief(_sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
+  // live_settings / narratives retired with Live restart; keep a fixed brief.
+  return "Full-time CMO or SVP Marketing at a B2B tech company.";
 }
 
 async function chooseIntros(
