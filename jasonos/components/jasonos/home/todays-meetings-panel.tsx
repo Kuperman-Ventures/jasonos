@@ -45,12 +45,13 @@ export function TodaysMeetingsPanel({
   warnings: string[];
   nowIso: string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
+    // Default collapsed; only expand if Jason previously chose open.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }

@@ -308,7 +308,7 @@ export function InboxDispatchCard() {
   const [data, setData] = useState<InboxDispatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<SavedEntry[]>([]);
   const [prefsReady, setPrefsReady] = useState(false);
@@ -351,7 +351,8 @@ export function InboxDispatchCard() {
     let active = true;
     (async () => {
       try {
-        if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+        // Default collapsed; only expand if Jason previously chose open.
+        if (window.localStorage.getItem(COLLAPSE_KEY) === "0") setCollapsed(false);
       } catch {
         // ignore
       }
