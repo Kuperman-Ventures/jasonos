@@ -284,7 +284,14 @@ describe("registerJasonosTools", () => {
     assert.ok(registered.includes("update_playbook_from_deck"));
     assert.ok(registered.includes("create_playbook_from_deck"));
     assert.ok(registered.includes("get_transcript"));
+    assert.ok(registered.includes("set_goal"));
+    assert.ok(registered.includes("run_ai_help"));
+    assert.ok(registered.includes("review_run"));
+    assert.ok(registered.includes("get_review"));
+    assert.ok(registered.includes("attach_meeting"));
     assert.ok(!registered.includes("build_call_sheet"));
+    assert.ok(!registered.includes("tailor"));
+    assert.ok(!registered.includes("tailor_slides"));
     assert.ok(!registered.includes("list_people_in_motion"));
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
@@ -333,7 +340,8 @@ describe("JasonOS area map", () => {
   it("mentions Live Playbooks and Decks in MCP instructions", () => {
     assert.match(JASONOS_MCP_INSTRUCTIONS, /list_upcoming_meeting_preps/);
     assert.match(JASONOS_MCP_INSTRUCTIONS, /list_playbooks/);
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /Playbooks \(templates\) and Decks/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /run_ai_help/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /review_run/);
   });
 });
 

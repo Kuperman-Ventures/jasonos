@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +26,22 @@ import { cn } from "@/lib/utils";
 
 type Mode = "rehearse" | "run";
 
+const SIZE_STEPS = [
+  { headline: 56, bullet: 30 },
+  { headline: 52, bullet: 28 },
+  { headline: 48, bullet: 26 },
+  { headline: 44, bullet: 24 },
+  { headline: 40, bullet: 22 },
+  { headline: 36, bullet: 20 },
+  { headline: 32, bullet: 18 },
+] as const;
+
+const FOOTER_PX = 36;
+
+function wordCount(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -32,15 +55,17 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
   const [startedAt, setStartedAt] = useState<string | null>(deck.runStartedAt);
   const [now, setNow] = useState(Date.now());
   const [endPrompt, setEndPrompt] = useState(false);
+  const [sizeStep, setSizeStep] = useState(0);
+  const [scrollable, setScrollable] = useState(false);
+
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLElement>(null);
 
   const editHref =
     deck.kind === "playbook"
       ? `/live/playbooks/${deck.id}?slide=${index + 1}`
       : `/live/decks/${deck.id}?slide=${index + 1}`;
-  const editTranscriptHref =
-    deck.kind === "playbook"
-      ? editHref
-      : `/live/decks/${deck.id}?slide=${index + 1}#transcript`;
+  const reviewHref = `/live/decks/${deck.id}/review`;
 
   useEffect(() => {
     if (mode !== "run") return;
@@ -57,8 +82,8 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
 
   const finishRun = useCallback(async () => {
     await endRun(deck.id);
-    router.push(editTranscriptHref);
-  }, [deck.id, editTranscriptHref, router]);
+    router.push(reviewHref);
+  }, [deck.id, reviewHref, router]);
 
   const leave = useCallback(async () => {
     if (mode === "run") {
@@ -99,31 +124,76 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [leave, slides.length]);
 
+  const current = slides[index] ?? null;
+  const sizes = SIZE_STEPS[Math.min(sizeStep, SIZE_STEPS.length - 1)];
+
+  useLayoutEffect(() => {
+    setSizeStep(0);
+    setScrollable(false);
+  }, [index, current?.headline, current?.bullets.join("\n")]);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const content = contentRef.current;
+    if (!viewport || !content || !current) return;
+
+    const available = viewport.clientHeight;
+    if (available <= 0) return;
+
+    const measure = () => {
+      for (let i = 0; i < SIZE_STEPS.length; i++) {
+        const { headline, bullet } = SIZE_STEPS[i];
+        content.style.setProperty("--stage-headline", `${headline}px`);
+        content.style.setProperty("--stage-bullet", `${bullet}px`);
+        if (content.scrollHeight <= available + 1) {
+          setSizeStep(i);
+          setScrollable(false);
+          return;
+        }
+      }
+      setSizeStep(SIZE_STEPS.length - 1);
+      setScrollable(content.scrollHeight > available + 1);
+    };
+
+    measure();
+
+    const ro = new ResizeObserver(() => {
+      measure();
+    });
+    ro.observe(viewport);
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [current, index]);
+
   const elapsed =
     mode === "run" && startedAt ? formatElapsed((now - Date.parse(startedAt)) / 1000) : null;
-  const current = slides[index] ?? null;
+
+  const libraryTab = deck.kind === "playbook" ? "playbooks" : "decks";
+  const librarySection = deck.kind === "playbook" ? "Playbooks" : "Decks";
 
   const crumbs =
     deck.kind === "playbook"
       ? [
           { label: "Live", href: "/live" },
-          { label: "Playbooks", href: "/live/playbooks" },
+          { label: "Library", href: "/live/library" },
+          { label: librarySection, href: `/live/library?tab=${libraryTab}` },
           { label: deck.name, href: `/live/playbooks/${deck.id}?slide=${index + 1}` },
           { label: mode === "run" ? "Run" : "Rehearse" },
         ]
       : [
           { label: "Live", href: "/live" },
-          { label: "Decks", href: "/live/decks" },
+          { label: "Library", href: "/live/library" },
+          { label: librarySection, href: `/live/library?tab=${libraryTab}` },
           { label: deck.name, href: `/live/decks/${deck.id}?slide=${index + 1}` },
           { label: mode === "run" ? "Run" : "Rehearse" },
         ];
 
   return (
-    <div className="flex min-h-[calc(100vh-3rem)] flex-col bg-[var(--jos-bg)] text-[var(--jos-ink)]">
-      <header className="flex items-center justify-between gap-3 border-b border-[var(--jos-line)] px-4 py-3">
+    <div className="flex h-[100dvh] flex-col bg-[var(--jos-bg)] text-[var(--jos-ink)]">
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--jos-line)] px-4 py-2.5">
         <div className="min-w-0">
           <LiveBreadcrumb crumbs={crumbs} />
-          <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
+          <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">
             Slide {slides.length ? index + 1 : 0} of {slides.length}
             {elapsed ? ` · ${elapsed}` : ""}
           </p>
@@ -141,19 +211,48 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center px-6 py-10">
+      <main
+        ref={viewportRef}
+        className={cn(
+          "relative min-h-0 flex-1 px-6 py-6",
+          scrollable
+            ? "overflow-y-auto border-b border-[var(--jos-ink)]/25"
+            : "flex items-center justify-center overflow-hidden"
+        )}
+      >
         {current ? (
-          <article className="w-full max-w-3xl">
-            <h1 className="text-[clamp(1.75rem,4vw,2.75rem)] font-extrabold leading-tight tracking-tight">
+          <article
+            ref={contentRef}
+            className="mx-auto w-full max-w-[900px]"
+            style={
+              {
+                "--stage-headline": `${sizes.headline}px`,
+                "--stage-bullet": `${sizes.bullet}px`,
+              } as CSSProperties
+            }
+          >
+            <h1
+              className="font-extrabold leading-[1.08] tracking-tight"
+              style={{ fontSize: "var(--stage-headline)" }}
+            >
               {current.headline}
             </h1>
             {current.bullets.length ? (
-              <ul className="mt-8 space-y-4 text-[clamp(1.05rem,2.2vw,1.35rem)] leading-snug">
-                {current.bullets.map((bullet) => (
-                  <li key={bullet} className="border-l-[3px] border-[var(--jos-focus)] pl-4">
-                    {bullet}
-                  </li>
-                ))}
+              <ul className="mt-6 space-y-3 leading-[1.25]">
+                {current.bullets.map((bullet) => {
+                  const long = wordCount(bullet) > 40;
+                  const base = sizes.bullet;
+                  const fontSize = long ? base - 2 : base;
+                  return (
+                    <li
+                      key={bullet}
+                      className="border-l-[3px] border-[var(--jos-focus)] pl-4 font-medium"
+                      style={{ fontSize: `${fontSize}px` }}
+                    >
+                      {bullet}
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </article>
@@ -162,28 +261,25 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
         )}
       </main>
 
-      <footer className="border-t border-[var(--jos-line)] px-4 py-3">
-        <div className="mx-auto flex max-w-3xl flex-wrap gap-2">
+      <footer
+        className="flex h-9 shrink-0 items-center border-t border-[var(--jos-line)] px-4"
+        style={{ height: FOOTER_PX }}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
           {slides.map((slide, slideIndex) => (
             <button
               key={slide.id}
               type="button"
+              title={slide.headline}
               className={cn(
-                "h-8 min-w-8 rounded-[2px] border px-2 text-[12px] font-semibold tabular-nums",
-                slideIndex === index
-                  ? "border-[var(--jos-focus)] bg-[color-mix(in_srgb,var(--jos-focus)_12%,transparent)]"
-                  : "border-[var(--jos-line)] bg-[var(--jos-surface)]"
+                "h-4 w-4 shrink-0 rounded-[1px] border border-[var(--jos-ink)]",
+                slideIndex === index ? "bg-[var(--jos-ink)]" : "bg-transparent"
               )}
               onClick={() => setIndex(slideIndex)}
-            >
-              {slideIndex + 1}
-            </button>
+              aria-label={`Slide ${slideIndex + 1}: ${slide.headline}`}
+            />
           ))}
         </div>
-        <p className="mx-auto mt-2 max-w-3xl text-[11px] text-[var(--jos-muted)]">
-          Next: → Space ↓ j · Prev: ← ↑ k · Jump: 1–9 · Esc to{" "}
-          {mode === "run" ? "end" : "leave"}
-        </p>
       </footer>
 
       <Dialog open={endPrompt} onOpenChange={setEndPrompt}>

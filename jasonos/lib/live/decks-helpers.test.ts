@@ -8,6 +8,8 @@ import {
   extractTranscriptSection,
   formatElapsed,
   normalizeSlideInputs,
+  parseAiHelpSlidesJson,
+  parseReviewJson,
   parseTailorJson,
   toJsonBullets,
 } from "./decks-helpers.ts";
@@ -37,6 +39,50 @@ describe("decks pure helpers", () => {
     if (ok.ok) assert.equal(ok.value[0].headline, "Untitled");
     const bad = normalizeSlideInputs([{ headline: "x", bullets: new Array(25).fill("b") }]);
     assert.equal(bad.ok, false);
+  });
+
+  it("parseAiHelpSlidesJson accepts array or slides wrapper", () => {
+    const fromArray = parseAiHelpSlidesJson(
+      JSON.stringify([{ headline: "Hi", bullets: ["One two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen"] }])
+    );
+    assert.equal(fromArray.ok, true);
+    if (fromArray.ok) {
+      assert.equal(fromArray.value[0].bullets[0].split(/\s+/).length, 14);
+      assert.equal(fromArray.value[0].bullets.length, 1);
+    }
+    const wrapped = parseAiHelpSlidesJson(
+      JSON.stringify({ slides: [{ headline: "Wrap", bullets: ["a", "b"] }] })
+    );
+    assert.equal(wrapped.ok, true);
+    if (wrapped.ok) assert.equal(wrapped.value[0].headline, "Wrap");
+  });
+
+  it("parseReviewJson fills missing slides as skipped and caps lists", () => {
+    const ids = ["s1", "s2", "s3"];
+    const parsed = parseReviewJson(
+      JSON.stringify({
+        slides: [
+          {
+            slide_id: "s1",
+            mark: "covered",
+            evidence: "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen",
+          },
+        ],
+        goal: { mark: "hit", evidence: "Nailed it" },
+        said: ["a", "b", "c", "d", "e", "f", "g"],
+        committed: [],
+        next_time: [],
+      }),
+      ids
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.value.slides.length, 3);
+    assert.equal(parsed.value.slides[0].mark, "covered");
+    assert.ok(parsed.value.slides[0].evidence.split(/\s+/).length <= 30);
+    assert.equal(parsed.value.slides[1].mark, "skipped");
+    assert.equal(parsed.value.said.length, 6);
+    assert.equal(parsed.value.goal?.mark, "hit");
   });
 
   it("parseTailorJson reads Claude payload", () => {

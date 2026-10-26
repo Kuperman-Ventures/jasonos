@@ -35,13 +35,18 @@ import {
   listWeeklyProvocations,
 } from "./reads";
 import {
+  attachMeetingMcp,
   createDeckMcp,
   createPlaybookFromDeckMcp,
   getDeckMcp,
+  getReviewMcp,
   getTranscriptMcp,
   listDecksMcp,
   listPlaybooksMcp,
+  reviewRunMcp,
+  runAiHelpMcp,
   setDeckSlidesMcp,
+  setGoalMcp,
   updatePlaybookFromDeckMcp,
 } from "./decks-tools";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
@@ -57,7 +62,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live uses Playbooks (templates) and Decks (one meeting). list_upcoming_meeting_preps returns deck_id when linked. list_playbooks / list_decks / get_deck read. create_deck and set_deck_slides write. update_playbook_from_deck and create_playbook_from_deck copy a deck into a playbook. get_transcript fetches Granola or Wispr after a Run.
+Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review fetches the transcript and marks coverage. Calendar meetings are not a starting point; they appear in Attach and on a linked deck. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, run_ai_help, attach_meeting, get_transcript, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -516,6 +521,90 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
     async (args) => runTool(() => getTranscriptMcp(args))
+  );
+
+  server.registerTool(
+    "set_goal",
+    {
+      title: "Set deck or playbook goal",
+      description: "One-line goal for the conversation.",
+      inputSchema: z.object({
+        deck_id: z.string().uuid(),
+        goal: z.string().max(500),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => setGoalMcp(args))
+  );
+
+  server.registerTool(
+    "run_ai_help",
+    {
+      title: "Run AI help on a deck",
+      description:
+        "Draft or edit slides from instructions plus optional sources (people, playbook, open text, transcripts, meeting context). mode add keeps existing slides; replace starts over.",
+      inputSchema: z.object({
+        deck_id: z.string().uuid(),
+        instructions: z.string().min(1).max(8000),
+        mode: z.enum(["add", "replace"]),
+        sources: z
+          .object({
+            people: z.array(z.string().uuid()).optional(),
+            playbook_id: z.string().uuid().nullable().optional(),
+            open_text: z.string().max(12000).nullable().optional(),
+            transcript_deck_ids: z.array(z.string().uuid()).max(3).optional(),
+            meeting: z
+              .object({
+                calendar: z.boolean().optional(),
+                email: z.boolean().optional(),
+                website: z.boolean().optional(),
+              })
+              .nullable()
+              .optional(),
+          })
+          .default({}),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => runAiHelpMcp(args))
+  );
+
+  server.registerTool(
+    "review_run",
+    {
+      title: "Review a deck run",
+      description:
+        "Mark each slide and the goal against the stored transcript; fill said / committed / next_time lists.",
+      inputSchema: z.object({ deck_id: z.string().uuid() }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => reviewRunMcp(args))
+  );
+
+  server.registerTool(
+    "get_review",
+    {
+      title: "Get deck review",
+      description: "Return stored review JSON and reviewed_at for a deck.",
+      inputSchema: z.object({ deck_id: z.string().uuid() }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getReviewMcp(args))
+  );
+
+  server.registerTool(
+    "attach_meeting",
+    {
+      title: "Attach or detach a meeting",
+      description:
+        "Link a deck to a meeting_prep_id, or pass null to detach. A meeting can only have one deck.",
+      inputSchema: z.object({
+        deck_id: z.string().uuid(),
+        meeting_prep_id: z.string().uuid().nullable(),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => attachMeetingMcp(args))
   );
 
   server.registerTool(

@@ -9,13 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { AttachableMeeting } from "@/lib/server-actions/decks";
 import { linkDeckMeeting, unlinkDeckMeeting } from "@/lib/server-actions/decks";
 
-export type MeetingOption = {
-  id: string;
-  title: string;
-  startsAt: string;
-};
+export type MeetingOption = AttachableMeeting;
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
@@ -47,40 +44,52 @@ export function MeetingPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-md">
+      <DialogContent className="rounded-[2px] bg-[var(--jos-bg)] sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{linkedMeetingId ? "Change meeting" : "Link meeting"}</DialogTitle>
+          <DialogTitle>{linkedMeetingId ? "Change meeting" : "Attach meeting"}</DialogTitle>
         </DialogHeader>
-        <ul className="max-h-64 space-y-1 overflow-y-auto">
-          {meetings.map((meeting) => (
-            <li key={meeting.id}>
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-auto w-full justify-start py-2 text-left"
-                disabled={pending || meeting.id === linkedMeetingId}
-                onClick={() =>
-                  start(async () => {
-                    const result = await linkDeckMeeting(deckId, meeting.id);
-                    if (!result.ok) {
-                      toast.error(result.error);
-                      return;
+        <ul className="max-h-80 space-y-1 overflow-y-auto">
+          {meetings.length === 0 ? (
+            <li className="px-2 py-3 text-sm text-[var(--jos-muted)]">No meetings in this window.</li>
+          ) : (
+            meetings.map((meeting) => {
+              const taken = meeting.hasDeck && meeting.id !== linkedMeetingId;
+              const attendees = meeting.attendeeNames.join(", ");
+              return (
+                <li key={meeting.id}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto w-full justify-start py-2 text-left"
+                    disabled={pending || taken || meeting.id === linkedMeetingId}
+                    onClick={() =>
+                      start(async () => {
+                        const result = await linkDeckMeeting(deckId, meeting.id);
+                        if (!result.ok) {
+                          toast.error(result.error);
+                          return;
+                        }
+                        toast.success("Meeting attached");
+                        onOpenChange(false);
+                        onDone();
+                      })
                     }
-                    toast.success("Meeting linked");
-                    onOpenChange(false);
-                    onDone();
-                  })
-                }
-              >
-                <span className="block">
-                  <span className="font-medium">{meeting.title}</span>
-                  <span className="mt-0.5 block text-[12px] text-[var(--jos-muted)]">
-                    {formatWhen(meeting.startsAt)}
-                  </span>
-                </span>
-              </Button>
-            </li>
-          ))}
+                  >
+                    <span className="block min-w-0">
+                      <span className="font-medium">{meeting.title}</span>
+                      {taken ? (
+                        <span className="ml-2 text-[12px] text-[var(--jos-muted)]">has a deck</span>
+                      ) : null}
+                      <span className="mt-0.5 block text-[12px] text-[var(--jos-muted)]">
+                        {formatWhen(meeting.startsAt)}
+                        {attendees ? ` · ${attendees}` : ""}
+                      </span>
+                    </span>
+                  </Button>
+                </li>
+              );
+            })
+          )}
         </ul>
         {linkedMeetingId ? (
           <Button
@@ -95,13 +104,13 @@ export function MeetingPickerDialog({
                   toast.error(result.error);
                   return;
                 }
-                toast.success("Meeting unlinked");
+                toast.success("Meeting detached");
                 onOpenChange(false);
                 onDone();
               })
             }
           >
-            Unlink
+            Detach
           </Button>
         ) : null}
       </DialogContent>

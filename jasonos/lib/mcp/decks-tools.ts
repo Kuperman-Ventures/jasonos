@@ -42,9 +42,11 @@ export async function getDeckMcp(input: { id: string }) {
     ok: true,
     id: result.deck.id,
     name: result.deck.name,
+    goal: result.deck.goal,
     meeting_prep_id: result.deck.meetingPrepId,
     source_playbook_id: result.deck.sourcePlaybookId,
     slides: result.deck.slides.map((slide) => ({
+      id: slide.id,
       position: slide.position,
       headline: slide.headline,
       bullets: slide.bullets,
@@ -52,7 +54,83 @@ export async function getDeckMcp(input: { id: string }) {
     ai_notes: result.deck.aiNotes,
     transcript: result.deck.transcript,
     transcript_source: result.deck.transcriptSource,
+    reviewed_at: result.deck.reviewedAt,
+    review: result.deck.review,
   };
+}
+
+export async function setGoalMcp(input: { deck_id: string; goal: string }) {
+  const { setDeckGoal } = await import("@/lib/server-actions/decks");
+  const result = await setDeckGoal(input.deck_id, input.goal);
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, goal: result.goal };
+}
+
+export async function runAiHelpMcp(input: {
+  deck_id: string;
+  instructions: string;
+  mode: "add" | "replace";
+  sources: {
+    people?: string[];
+    playbook_id?: string | null;
+    open_text?: string | null;
+    transcript_deck_ids?: string[];
+    meeting?: { calendar?: boolean; email?: boolean; website?: boolean } | null;
+  };
+}) {
+  const { runAiHelp } = await import("@/lib/server-actions/decks");
+  const result = await runAiHelp(input.deck_id, {
+    instructions: input.instructions,
+    mode: input.mode,
+    sources: {
+      people: input.sources.people,
+      playbookId: input.sources.playbook_id,
+      openText: input.sources.open_text,
+      transcriptDeckIds: input.sources.transcript_deck_ids,
+      meeting: input.sources.meeting,
+    },
+  });
+  if (!result.ok) throw new Error(result.error);
+  return {
+    ok: true,
+    slide_count: result.slideCount,
+    warnings: result.warnings,
+    at: result.at,
+  };
+}
+
+export async function reviewRunMcp(input: { deck_id: string }) {
+  const { reviewRun } = await import("@/lib/server-actions/decks");
+  const result = await reviewRun(input.deck_id);
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, review: result.review };
+}
+
+export async function getReviewMcp(input: { deck_id: string }) {
+  const { getDeck } = await import("@/lib/server-actions/decks");
+  const result = await getDeck(input.deck_id);
+  if (!result.ok) throw new Error(result.error);
+  if (result.deck.kind !== "deck") throw new Error("Not a deck.");
+  return {
+    ok: true,
+    reviewed_at: result.deck.reviewedAt,
+    review: result.deck.review,
+  };
+}
+
+export async function attachMeetingMcp(input: {
+  deck_id: string;
+  meeting_prep_id: string | null;
+}) {
+  const { linkDeckMeeting, unlinkDeckMeeting } = await import("@/lib/server-actions/decks");
+  if (input.meeting_prep_id == null) {
+    const result = await unlinkDeckMeeting(input.deck_id);
+    if (!result.ok) throw new Error(result.error);
+    return { ok: true, meeting_prep_id: null };
+  }
+  const result = await linkDeckMeeting(input.deck_id, input.meeting_prep_id);
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, meeting_prep_id: result.meetingPrepId };
 }
 
 export async function createDeckMcp(input: {

@@ -6,7 +6,8 @@ import {
   capWords,
   extractTranscriptSection,
   normalizeSlideInputs,
-  parseTailorJson,
+  parseAiHelpSlidesJson,
+  parseReviewJson,
   toJsonBullets,
   type SlideInput,
 } from "@/lib/live/decks-helpers";
@@ -19,11 +20,46 @@ async function loadMeetingPrep() {
 
 export type DeckKind = "playbook" | "deck";
 
+export type ReviewSlideMark = "covered" | "partly" | "skipped";
+export type ReviewGoalMark = "hit" | "partly" | "missed";
+
+export type DeckReview = {
+  slides: Array<{
+    slide_id: string;
+    mark: ReviewSlideMark;
+    evidence: string;
+    overridden: boolean;
+  }>;
+  goal: { mark: ReviewGoalMark; evidence: string; overridden: boolean } | null;
+  said: string[];
+  committed: string[];
+  next_time: string[];
+  model: string;
+  transcript_source: "granola" | "wispr" | null;
+};
+
+export type AiLastRun = {
+  at: string;
+  instructions: string;
+  sources: string[];
+};
+
+export type AiHelpSources = {
+  people?: string[];
+  playbookId?: string | null;
+  openText?: string | null;
+  transcriptDeckIds?: string[];
+  meeting?: { calendar?: boolean; email?: boolean; website?: boolean } | null;
+};
+
+export type AiHelpMode = "add" | "replace";
+
 export type DeckSummary = {
   id: string;
   kind: DeckKind;
   name: string;
   description: string | null;
+  goal: string | null;
   meetingPrepId: string | null;
   sourcePlaybookId: string | null;
   slideCount: number;
@@ -32,6 +68,8 @@ export type DeckSummary = {
   runEndedAt: string | null;
   aiNotes: string | null;
   hasTranscript: boolean;
+  reviewedAt: string | null;
+  reviewGoalMark: ReviewGoalMark | null;
 };
 
 export type Slide = {
@@ -46,6 +84,18 @@ export type DeckDetail = DeckSummary & {
   transcript: string | null;
   transcriptSource: "granola" | "wispr" | null;
   transcriptFetchedAt: string | null;
+  review: DeckReview | null;
+  aiLastRun: AiLastRun | null;
+  hasAiUndo: boolean;
+};
+
+export type AttachableMeeting = {
+  id: string;
+  title: string;
+  startsAt: string;
+  attendeeNames: string[];
+  hasDeck: boolean;
+  deckId: string | null;
 };
 
 type ActionResult<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -55,10 +105,14 @@ type DeckRow = {
   kind: string;
   name: string;
   description: string | null;
+  goal: string | null;
   source_playbook_id: string | null;
   meeting_prep_id: string | null;
   ai_notes: string | null;
   ai_undo: unknown;
+  ai_last_run: unknown;
+  review: unknown;
+  reviewed_at: string | null;
   run_started_at: string | null;
   run_ended_at: string | null;
   transcript: string | null;
@@ -77,7 +131,7 @@ type SlideRow = {
 };
 
 const DECK_COLUMNS =
-  "id, kind, name, description, source_playbook_id, meeting_prep_id, ai_notes, ai_undo, run_started_at, run_ended_at, transcript, transcript_source, transcript_note_id, transcript_fetched_at, updated_at";
+  "id, kind, name, description, goal, source_playbook_id, meeting_prep_id, ai_notes, ai_undo, ai_last_run, review, reviewed_at, run_started_at, run_ended_at, transcript, transcript_source, transcript_note_id, transcript_fetched_at, updated_at";
 
 function hasConfig(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -87,9 +141,75 @@ function asKind(value: string): DeckKind {
   return value === "playbook" ? "playbook" : "deck";
 }
 
+function parseReview(value: unknown): DeckReview | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const slidesRaw = Array.isArray(raw.slides) ? raw.slides : [];
+  const slides: DeckReview["slides"] = [];
+  for (const row of slidesRaw) {
+    if (!row || typeof row !== "object") continue;
+    const item = row as Record<string, unknown>;
+    const mark = item.mark;
+    if (mark !== "covered" && mark !== "partly" && mark !== "skipped") continue;
+    if (typeof item.slide_id !== "string") continue;
+    slides.push({
+      slide_id: item.slide_id,
+      mark,
+      evidence: typeof item.evidence === "string" ? item.evidence : "",
+      overridden: Boolean(item.overridden),
+    });
+  }
+  let goal: DeckReview["goal"] = null;
+  if (raw.goal && typeof raw.goal === "object") {
+    const g = raw.goal as Record<string, unknown>;
+    if (g.mark === "hit" || g.mark === "partly" || g.mark === "missed") {
+      goal = {
+        mark: g.mark,
+        evidence: typeof g.evidence === "string" ? g.evidence : "",
+        overridden: Boolean(g.overridden),
+      };
+    }
+  }
+  const list = (key: string) =>
+    Array.isArray(raw[key])
+      ? (raw[key] as unknown[]).filter((line): line is string => typeof line === "string").slice(0, 6)
+      : [];
+  return {
+    slides,
+    goal,
+    said: list("said"),
+    committed: list("committed"),
+    next_time: list("next_time"),
+    model: typeof raw.model === "string" ? raw.model : "claude-sonnet-4-6",
+    transcript_source:
+      raw.transcript_source === "granola" || raw.transcript_source === "wispr"
+        ? raw.transcript_source
+        : null,
+  };
+}
+
+function parseAiLastRun(value: unknown): AiLastRun | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.at !== "string" || typeof raw.instructions !== "string") return null;
+  return {
+    at: raw.at,
+    instructions: raw.instructions,
+    sources: Array.isArray(raw.sources)
+      ? raw.sources.filter((s): s is string => typeof s === "string")
+      : [],
+  };
+}
+
+function reviewGoalMark(row: DeckRow): ReviewGoalMark | null {
+  const review = parseReview(row.review);
+  return review?.goal?.mark ?? null;
+}
+
 function revalidateDeck(deckId: string, kind: DeckKind, prepId?: string | null) {
   try {
     revalidatePath("/live");
+    revalidatePath("/live/library");
     revalidatePath("/live/playbooks");
     revalidatePath("/live/decks");
     if (kind === "playbook") {
@@ -99,6 +219,7 @@ function revalidateDeck(deckId: string, kind: DeckKind, prepId?: string | null) 
       revalidatePath(`/live/decks/${deckId}`);
       revalidatePath(`/live/decks/${deckId}/rehearse`);
       revalidatePath(`/live/decks/${deckId}/run`);
+      revalidatePath(`/live/decks/${deckId}/review`);
     }
     if (prepId) revalidatePath(`/meetings/${prepId}`);
   } catch {
@@ -112,6 +233,7 @@ function toSummary(row: DeckRow, slideCount: number): DeckSummary {
     kind: asKind(row.kind),
     name: row.name,
     description: row.description?.trim() || null,
+    goal: row.goal?.trim() || null,
     meetingPrepId: row.meeting_prep_id,
     sourcePlaybookId: row.source_playbook_id,
     slideCount,
@@ -120,6 +242,8 @@ function toSummary(row: DeckRow, slideCount: number): DeckSummary {
     runEndedAt: row.run_ended_at,
     aiNotes: row.ai_notes?.trim() || null,
     hasTranscript: Boolean(row.transcript?.trim()),
+    reviewedAt: row.reviewed_at,
+    reviewGoalMark: reviewGoalMark(row),
   };
 }
 
@@ -219,8 +343,93 @@ export async function getDeck(deckId: string): Promise<ActionResult<{ deck: Deck
             ? row.transcript_source
             : null,
         transcriptFetchedAt: row.transcript_fetched_at,
+        review: parseReview(row.review),
+        aiLastRun: parseAiLastRun(row.ai_last_run),
+        hasAiUndo: Boolean(row.ai_undo && typeof row.ai_undo === "object"),
       },
     };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function setDeckGoal(
+  deckId: string,
+  goal: string
+): Promise<ActionResult<{ goal: string | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  const next = goal.trim().slice(0, 500) || null;
+  try {
+    const sb = createServiceRoleClient();
+    const { data, error } = await sb
+      .from("decks")
+      .update({ goal: next, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id, kind, meeting_prep_id")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: "Not found." };
+    revalidateDeck(id, asKind(data.kind as string), data.meeting_prep_id as string | null);
+    return { ok: true, goal: next };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Calendar meetings for Attach: past 7 days through next 30, soonest first. */
+export async function listAttachableMeetings(): Promise<
+  ActionResult<{ meetings: AttachableMeeting[] }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  try {
+    // Keep upcoming calendar rows synced into meeting_preps.
+    const { getUpcomingMeetingPreps } = await loadMeetingPrep();
+    await getUpcomingMeetingPreps(30);
+
+    const sb = createServiceRoleClient();
+    const now = Date.now();
+    const from = new Date(now - 7 * 86_400_000).toISOString();
+    const to = new Date(now + 30 * 86_400_000).toISOString();
+    const { data: preps, error } = await sb
+      .from("meeting_preps")
+      .select("id, title, starts_at, attendees")
+      .gte("starts_at", from)
+      .lte("starts_at", to)
+      .order("starts_at", { ascending: true });
+    if (error) return { ok: false, error: error.message };
+
+    const { data: linked } = await sb
+      .from("decks")
+      .select("id, meeting_prep_id")
+      .eq("kind", "deck")
+      .not("meeting_prep_id", "is", null);
+    const deckByPrep = new Map<string, string>();
+    for (const row of linked ?? []) {
+      const prepId = row.meeting_prep_id as string | null;
+      if (prepId) deckByPrep.set(prepId, row.id as string);
+    }
+
+    const meetings: AttachableMeeting[] = (preps ?? []).map((row) => {
+      const attendees = Array.isArray(row.attendees) ? row.attendees : [];
+      const attendeeNames = attendees
+        .map((person) => {
+          if (!person || typeof person !== "object") return "";
+          const p = person as { name?: string | null; email?: string | null };
+          return (p.name?.trim() || p.email?.trim() || "") as string;
+        })
+        .filter(Boolean);
+      const deckId = deckByPrep.get(row.id as string) ?? null;
+      return {
+        id: row.id as string,
+        title: String(row.title ?? "Meeting"),
+        startsAt: String(row.starts_at),
+        attendeeNames,
+        hasDeck: Boolean(deckId),
+        deckId,
+      };
+    });
+    return { ok: true, meetings };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
@@ -256,7 +465,7 @@ export async function createBlankDeck(
   meetingPrepId?: string | null
 ): Promise<ActionResult<{ id: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
-  const label = (name?.trim() || "New deck").slice(0, 200);
+  const label = (name?.trim() || "Untitled deck").slice(0, 200);
   const prepId = meetingPrepId?.trim() || null;
   try {
     const sb = createServiceRoleClient();
@@ -291,7 +500,8 @@ export async function createBlankDeck(
 
 export async function createDeckFromPlaybook(
   playbookId: string,
-  meetingPrepId?: string | null
+  meetingPrepId?: string | null,
+  name?: string | null
 ): Promise<ActionResult<{ id: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const sourceId = playbookId.trim();
@@ -307,8 +517,9 @@ export async function createDeckFromPlaybook(
       .maybeSingle();
     if (sourceError) return { ok: false, error: sourceError.message };
     if (!source) return { ok: false, error: "Playbook not found." };
+    const sourceRow = source as DeckRow;
 
-    let deckName = (source as DeckRow).name;
+    let deckName = name?.trim() || sourceRow.name;
     if (prepId) {
       const existing = await sb
         .from("decks")
@@ -319,9 +530,11 @@ export async function createDeckFromPlaybook(
       if (existing.data?.id) {
         return { ok: false, error: "This meeting already has a deck." };
       }
-      const { getMeetingPrep } = await loadMeetingPrep();
-      const prep = await getMeetingPrep(prepId);
-      if (prep.ok && prep.prep.title.trim()) deckName = prep.prep.title.trim();
+      if (!name?.trim()) {
+        const { getMeetingPrep } = await loadMeetingPrep();
+        const prep = await getMeetingPrep(prepId);
+        if (prep.ok && prep.prep.title.trim()) deckName = prep.prep.title.trim();
+      }
     }
 
     const sourceSlides = await loadSlides(sb, sourceId);
@@ -330,6 +543,8 @@ export async function createDeckFromPlaybook(
       .insert({
         kind: "deck",
         name: deckName.slice(0, 200),
+        description: sourceRow.description,
+        goal: sourceRow.goal?.trim() || null,
         source_playbook_id: sourceId,
         meeting_prep_id: prepId,
       })
@@ -570,56 +785,175 @@ export async function fetchTranscript(
   }
 }
 
-export async function tailorSlides(deckId: string): Promise<ActionResult<{ aiNotes: string }>> {
+export async function runAiHelp(
+  deckId: string,
+  input: { instructions: string; mode: AiHelpMode; sources: AiHelpSources }
+): Promise<ActionResult<{ slideCount: number; warnings: string[]; at: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = deckId.trim();
+  const instructions = input.instructions.trim();
+  if (!instructions) return { ok: false, error: "Write what you want help with." };
+  const mode = input.mode === "replace" ? "replace" : "add";
+  const sources = input.sources ?? {};
+
   try {
     const loaded = await getDeck(id);
     if (!loaded.ok) return loaded;
     const deck = loaded.deck;
-    if (deck.kind !== "deck") return { ok: false, error: "Tailor works on decks only." };
-    if (!deck.slides.length) return { ok: false, error: "Add at least one Slide first." };
 
     const contextParts: string[] = [];
-    let prepId: string | null = deck.meetingPrepId;
+    const sourceLabels: string[] = [];
+    const warnings: string[] = [];
+    const sb = createServiceRoleClient();
 
-    if (prepId) {
-      const { getMeetingPrep } = await loadMeetingPrep();
-      const prepResult = await getMeetingPrep(prepId);
-      if (prepResult.ok) {
-        const prep = prepResult.prep;
-        contextParts.push(
-          `Meeting: ${prep.title}\nWhen: ${prep.startsAt}\nPurpose: ${prep.purpose?.trim() || "(none)"}`
-        );
-        const focus = await focusAttendee(prep.attendees);
-        contextParts.push(`Primary person: ${focus.name}${focus.company ? ` (${focus.company})` : ""}`);
-
-        const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
-        const { searchThreadsByParticipants } = await import("@/lib/integrations/gmail");
-        const threads = await searchThreadsByParticipants({
-          addresses: focus.email ? [focus.email] : emailsFromAttendees(prep.attendees),
-          domains: domainFromEmail(focus.email),
-          since,
-        });
-        const mailText = formatMailContext(threads, 4000);
-        if (mailText) contextParts.push(`Recent email (90 days):\n${mailText}`);
-
-        const companyName = focus.company || prep.primaryCompanyName;
-        const siteText = await loadCompanySiteText(focus.contactId, companyName);
-        if (siteText) contextParts.push(`Company site:\n${siteText}`);
+    const peopleIds = (sources.people ?? []).map((row) => row.trim()).filter(Boolean);
+    if (peopleIds.length) {
+      sourceLabels.push("People");
+      try {
+        const { data, error } = await sb
+          .from("contacts")
+          .select("id, name, title, notes, companies(name)")
+          .in("id", peopleIds);
+        if (error) throw new Error(error.message);
+        const chunks: string[] = [];
+        for (const row of data ?? []) {
+          const company = embeddedCompanyName(row.companies);
+          const lines = [
+            `Name: ${String(row.name ?? "").trim() || "(unknown)"}`,
+            row.title ? `Title: ${String(row.title).trim()}` : null,
+            company ? `Company: ${company}` : null,
+            row.notes?.trim() ? `Notes: ${row.notes.trim()}` : null,
+          ].filter(Boolean);
+          chunks.push(lines.join("\n"));
+        }
+        if (chunks.length) contextParts.push(`People (CRM):\n${chunks.join("\n\n")}`);
+      } catch (err) {
+        warnings.push(`People: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
+    const playbookId = sources.playbookId?.trim() || null;
+    if (playbookId) {
+      sourceLabels.push("Playbook");
+      try {
+        const { data, error } = await sb
+          .from("decks")
+          .select("id, name, goal, kind")
+          .eq("id", playbookId)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        if (!data || data.kind !== "playbook") throw new Error("Playbook not found.");
+        const pbSlides = await loadSlides(sb, playbookId);
+        contextParts.push(
+          `Playbook reference (do not copy verbatim — use as structure/ideas only):\nName: ${String(data.name)}\nGoal: ${String(data.goal ?? "").trim() || "(none)"}\nSlides:\n${JSON.stringify(
+            pbSlides.map((slide) => ({ headline: slide.headline, bullets: slide.bullets })),
+            null,
+            2
+          )}`
+        );
+      } catch (err) {
+        warnings.push(`Playbook: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    const openText = sources.openText?.trim();
+    if (openText) {
+      sourceLabels.push("Notes");
+      contextParts.push(`Open notes from Jason:\n${openText}`);
+    }
+
+    const transcriptDeckIds = (sources.transcriptDeckIds ?? [])
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (transcriptDeckIds.length) {
+      sourceLabels.push("Transcripts");
+      try {
+        const { data, error } = await sb
+          .from("decks")
+          .select("id, name, transcript")
+          .in("id", transcriptDeckIds);
+        if (error) throw new Error(error.message);
+        const chunks: string[] = [];
+        for (const row of data ?? []) {
+          const text = (row.transcript as string | null)?.trim();
+          if (!text) continue;
+          chunks.push(
+            `Deck: ${String(row.name)}\n${capWords(text, 6000)}`
+          );
+        }
+        if (chunks.length) contextParts.push(`Past call transcripts:\n${chunks.join("\n\n---\n\n")}`);
+      } catch (err) {
+        warnings.push(`Transcripts: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    const meetingFlags = sources.meeting;
+    const prepId = deck.meetingPrepId;
+    if (prepId && meetingFlags && (meetingFlags.calendar || meetingFlags.email || meetingFlags.website)) {
+      try {
+        const { getMeetingPrep } = await loadMeetingPrep();
+        const prepResult = await getMeetingPrep(prepId);
+        if (!prepResult.ok) throw new Error(prepResult.error);
+        const prep = prepResult.prep;
+        const focus = await focusAttendee(prep.attendees);
+
+        if (meetingFlags.calendar) {
+          sourceLabels.push("Meeting calendar");
+          contextParts.push(
+            `Linked meeting:\nTitle: ${prep.title}\nWhen: ${prep.startsAt}\nPurpose: ${prep.purpose?.trim() || "(none)"}\nPrimary: ${focus.name}${focus.company ? ` (${focus.company})` : ""}`
+          );
+        }
+
+        if (meetingFlags.email) {
+          sourceLabels.push("Meeting email");
+          const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
+          const { searchThreadsByParticipants } = await import("@/lib/integrations/gmail");
+          const threads = await searchThreadsByParticipants({
+            addresses: focus.email ? [focus.email] : emailsFromAttendees(prep.attendees),
+            domains: domainFromEmail(focus.email),
+            since,
+          });
+          const mailText = formatMailContext(threads, 4000);
+          if (mailText) contextParts.push(`Recent email (90 days):\n${mailText}`);
+        }
+
+        if (meetingFlags.website) {
+          sourceLabels.push("Meeting website");
+          const companyName = focus.company || prep.primaryCompanyName;
+          const siteText = await loadCompanySiteText(focus.contactId, companyName);
+          if (siteText) contextParts.push(`Company site:\n${siteText}`);
+        }
+      } catch (err) {
+        warnings.push(`Meeting: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    const undo = {
+      slides: deck.slides.map((slide) => ({ headline: slide.headline, bullets: slide.bullets })),
+      aiNotes: deck.aiNotes,
+    };
+
     const { NO_AI_SLOP_WRITING_RULES } = await import("@/lib/ai/no-ai-slop");
-    const system = `You tailor Live Slides for Jason Kuperman's upcoming conversation.
+    const modeLine =
+      mode === "replace"
+        ? "Replace mode: return a full new slide deck."
+        : "Add mode: keep existing slides unless Jason's instructions say to remove or replace them; you may append slides.";
+
+    const system = `You help Jason Kuperman edit Live Slides (spoken headlines + bullets) for an upcoming conversation.
 ${NO_AI_SLOP_WRITING_RULES}
 
-Return JSON only:
-{"notes":"1-3 sentences on what you changed","slides":[{"headline":"...","bullets":["..."]}]}
-Keep the same number of slides unless context clearly needs one more or fewer (max ±1).
-Each bullet is one short spoken line. No markdown.`;
+${modeLine}
+Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide. No markdown.
+Facts from context that you cannot verify from the provided sources should be phrased cautiously or omitted.
 
-    const user = `${contextParts.join("\n\n") || "No meeting context — tighten wording only."}
+Return JSON only — a JSON array of slides:
+[{"headline":"...","bullets":["..."]}]`;
+
+    const user = `Instructions:\n${instructions}
+
+Sources:
+${contextParts.join("\n\n") || "(none — use instructions and current slides only)"}
 
 Current slides:
 ${JSON.stringify(
@@ -629,42 +963,200 @@ ${JSON.stringify(
 )}`;
 
     const { callClaude } = await import("@/lib/ai/models");
-    const raw = await callClaude({
-      model: "claude-sonnet-4-6",
-      maxTokens: 4096,
-      system,
-      messages: [{ role: "user", content: user }],
-    });
+    const callModel = async () =>
+      callClaude({
+        model: "claude-sonnet-4-6",
+        maxTokens: 6000,
+        system,
+        messages: [{ role: "user", content: user }],
+      });
 
-    const parsed = parseTailorJson(raw);
+    let raw = await callModel();
+    let parsed = parseAiHelpSlidesJson(raw);
+    if (!parsed.ok) {
+      raw = await callModel();
+      parsed = parseAiHelpSlidesJson(raw);
+    }
     if (!parsed.ok) return { ok: false, error: parsed.error };
 
-    const undo = {
-      slides: deck.slides.map((slide) => ({ headline: slide.headline, bullets: slide.bullets })),
-      aiNotes: deck.aiNotes,
-    };
-
-    const sb = createServiceRoleClient();
     await sb
       .from("decks")
       .update({
-        ai_notes: parsed.value.notes,
         ai_undo: undo,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
 
-    const saved = await setDeckSlides(id, parsed.value.slides);
+    const saved = await setDeckSlides(id, parsed.value);
     if (!saved.ok) return saved;
 
-    revalidateDeck(id, "deck", prepId);
-    return { ok: true, aiNotes: parsed.value.notes };
+    const at = new Date().toISOString();
+    const aiLastRun: AiLastRun = {
+      at,
+      instructions,
+      sources: sourceLabels.length ? sourceLabels : ["Current slides"],
+    };
+    await sb
+      .from("decks")
+      .update({
+        ai_last_run: aiLastRun,
+        updated_at: at,
+      })
+      .eq("id", id);
+
+    revalidateDeck(id, deck.kind, prepId);
+    return { ok: true, slideCount: parsed.value.length, warnings, at };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export async function undoTailor(deckId: string): Promise<ActionResult<object>> {
+export async function reviewRun(deckId: string): Promise<ActionResult<{ review: DeckReview }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  try {
+    const loaded = await getDeck(id);
+    if (!loaded.ok) return loaded;
+    const deck = loaded.deck;
+    if (deck.kind !== "deck") return { ok: false, error: "Review is for decks only." };
+    if (!deck.transcript?.trim()) return { ok: false, error: "Fetch a transcript before running review." };
+    if (!deck.slides.length) return { ok: false, error: "Add at least one slide first." };
+
+    const slideIds = deck.slides.map((slide) => slide.id);
+    const slidePayload = deck.slides.map((slide) => ({
+      slide_id: slide.id,
+      position: slide.position,
+      headline: slide.headline,
+      bullets: slide.bullets,
+    }));
+
+    const { NO_AI_SLOP_WRITING_RULES } = await import("@/lib/ai/no-ai-slop");
+    const system = `You review how Jason Kuperman's live call matched his slide deck and goal.
+${NO_AI_SLOP_WRITING_RULES}
+
+Mark every slide. Rules:
+- covered: its headline or most of its bullets were spoken about in substance.
+- partly: only some of the slide was spoken about.
+- skipped: not spoken about at all.
+Goal mark (hit | partly | missed) uses the same rule against the goal line.
+Evidence is a verbatim quote of at most 30 words, or empty.
+The three lists (up to six lines each) quote or closely paraphrase the transcript and never add facts:
+- said: what they said that matters
+- committed: what Jason committed to
+- next_time: do differently next time — each line names a moment in the call.
+
+Return JSON only:
+{
+  "slides": [{"slide_id":"uuid","mark":"covered|partly|skipped","evidence":"..."}],
+  "goal": {"mark":"hit|partly|missed","evidence":"..."} or null,
+  "said": ["..."],
+  "committed": ["..."],
+  "next_time": ["..."]
+}
+Use the exact slide_id values provided.`;
+
+    const user = `Goal: ${deck.goal?.trim() || "(none)"}
+
+Slides:
+${JSON.stringify(slidePayload, null, 2)}
+
+Transcript:
+${deck.transcript}`;
+
+    const { callClaude } = await import("@/lib/ai/models");
+    const callModel = async () =>
+      callClaude({
+        model: "claude-sonnet-4-6",
+        maxTokens: 4096,
+        system,
+        messages: [{ role: "user", content: user }],
+      });
+
+    let raw = await callModel();
+    let parsed = parseReviewJson(raw, slideIds);
+    if (!parsed.ok) {
+      raw = await callModel();
+      parsed = parseReviewJson(raw, slideIds);
+    }
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+
+    const review: DeckReview = {
+      ...parsed.value,
+      model: "claude-sonnet-4-6",
+      transcript_source: deck.transcriptSource,
+    };
+
+    const reviewedAt = new Date().toISOString();
+    const sb = createServiceRoleClient();
+    const { error } = await sb
+      .from("decks")
+      .update({
+        review,
+        reviewed_at: reviewedAt,
+        updated_at: reviewedAt,
+      })
+      .eq("id", id);
+    if (error) return { ok: false, error: error.message };
+
+    revalidateDeck(id, "deck", deck.meetingPrepId);
+    return { ok: true, review };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function setReviewMark(
+  deckId: string,
+  input: { target: string; mark: ReviewSlideMark | ReviewGoalMark }
+): Promise<ActionResult<{ review: DeckReview }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = deckId.trim();
+  const target = input.target.trim();
+  const mark = input.mark;
+  try {
+    const sb = createServiceRoleClient();
+    const { data, error } = await sb.from("decks").select("review, kind, meeting_prep_id").eq("id", id).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: "Not found." };
+    if (asKind(data.kind as string) !== "deck") {
+      return { ok: false, error: "Review is for decks only." };
+    }
+    const review = parseReview(data.review);
+    if (!review) return { ok: false, error: "Run review first." };
+
+    if (target === "goal") {
+      if (mark !== "hit" && mark !== "partly" && mark !== "missed") {
+        return { ok: false, error: "Invalid goal mark." };
+      }
+      review.goal = {
+        mark,
+        evidence: review.goal?.evidence ?? "",
+        overridden: true,
+      };
+    } else {
+      if (mark !== "covered" && mark !== "partly" && mark !== "skipped") {
+        return { ok: false, error: "Invalid slide mark." };
+      }
+      const slide = review.slides.find((row) => row.slide_id === target);
+      if (!slide) return { ok: false, error: "Slide not found in review." };
+      slide.mark = mark;
+      slide.overridden = true;
+    }
+
+    const { error: saveError } = await sb
+      .from("decks")
+      .update({ review, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (saveError) return { ok: false, error: saveError.message };
+
+    revalidateDeck(id, "deck", data.meeting_prep_id as string | null);
+    return { ok: true, review };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function undoAiHelp(deckId: string): Promise<ActionResult<object>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = deckId.trim();
   try {
@@ -964,7 +1456,14 @@ export async function updatePlaybookFromDeck(
       }
     }
 
-    await sb.from("decks").update({ updated_at: new Date().toISOString() }).eq("id", playbookId);
+    await sb
+      .from("decks")
+      .update({
+        goal: row.goal?.trim() || null,
+        description: row.description?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", playbookId);
     revalidateDeck(playbookId, "playbook");
     revalidateDeck(id, "deck", row.meeting_prep_id);
     return {
@@ -999,7 +1498,12 @@ export async function createPlaybookFromDeck(
     const deckSlides = await loadSlides(sb, id);
     const { data: created, error: createError } = await sb
       .from("decks")
-      .insert({ kind: "playbook", name: label, description })
+      .insert({
+        kind: "playbook",
+        name: label,
+        description,
+        goal: row.goal?.trim() || null,
+      })
       .select("id")
       .single();
     if (createError || !created?.id) {
@@ -1054,6 +1558,7 @@ export async function copyDeck(deckId: string): Promise<ActionResult<{ id: strin
         kind,
         name: label,
         description: row.description,
+        goal: row.goal?.trim() || null,
         source_playbook_id: kind === "deck" ? row.source_playbook_id : null,
         meeting_prep_id: null,
       })

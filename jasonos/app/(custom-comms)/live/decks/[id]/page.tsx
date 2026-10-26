@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DeckEditor } from "@/components/jasonos/live/deck-editor";
-import { getDeck, listPlaybooks } from "@/lib/server-actions/decks";
-import { getMeetingPrep, getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
+import { getDeck, listAttachableMeetings, listPlaybooks } from "@/lib/server-actions/decks";
+import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,7 @@ export default async function DeckEditPage({
   if (result.deck.kind !== "deck") notFound();
 
   const [meetingsResult, playbooksResult, meetingResult] = await Promise.all([
-    getUpcomingMeetingPreps(30),
+    listAttachableMeetings(),
     listPlaybooks(),
     result.deck.meetingPrepId
       ? getMeetingPrep(result.deck.meetingPrepId)
@@ -56,15 +56,7 @@ export default async function DeckEditPage({
     <Suspense fallback={<div className="px-4 py-8 text-sm text-[var(--jos-muted)]">Loading…</div>}>
       <DeckEditor
         deck={result.deck}
-        meetingOptions={
-          meetingsResult.ok
-            ? meetingsResult.meetings.map((meeting) => ({
-                id: meeting.id,
-                title: meeting.title,
-                startsAt: meeting.startsAt,
-              }))
-            : []
-        }
+        meetingOptions={meetingsResult.ok ? meetingsResult.meetings : []}
         meetingLabel={meetingLabel}
         sourcePlaybook={sourcePlaybook}
       />

@@ -32,7 +32,7 @@ import { LeaveGuardProvider, useLeaveGuard } from "@/components/jasonos/live/lea
 import { MeetingPickerDialog, type MeetingOption } from "@/components/jasonos/live/meeting-picker-dialog";
 import { SaveAsMenu } from "@/components/jasonos/live/save-as-menu";
 import { SaveRow } from "@/components/jasonos/live/save-row";
-import { TailorPanel } from "@/components/jasonos/live/tailor-panel";
+import { AiHelpPanel } from "@/components/jasonos/live/ai-help-panel";
 import { useSavedField } from "@/components/jasonos/live/use-saved-field";
 import {
   bulletsLinesToText,
@@ -41,10 +41,11 @@ import {
 } from "@/lib/live/decks-helpers";
 import type { DeckDetail } from "@/lib/server-actions/decks";
 import {
-  fetchTranscript,
   renameDeck,
   setDeckDescription,
+  setDeckGoal,
   setDeckSlides,
+  unlinkDeckMeeting,
 } from "@/lib/server-actions/decks";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,10 +152,12 @@ function DeckEditorInner({
   const [selected, setSelected] = useState(() => {
     const n = Number(searchParams.get("slide") || "1");
     if (!Number.isFinite(n) || n < 1) return 0;
-    return Math.min(slides.length - 1, Math.max(0, Math.floor(n) - 1));
+    return Math.min(Math.max(slides.length - 1, 0), Math.max(0, Math.floor(n) - 1));
   });
   const [meetingOpen, setMeetingOpen] = useState(false);
-  const [showTailor, setShowTailor] = useState(Boolean(initial.aiNotes));
+  const [showAiHelp, setShowAiHelp] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [showDescription, setShowDescription] = useState(Boolean(initial.description?.trim()));
   const [pending, start] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -183,7 +186,18 @@ function DeckEditorInner({
     onSave: async (value) => {
       const result = await renameDeck(initial.id, value);
       if (!result.ok) return { ok: false, error: result.error };
+      setEditingName(false);
       return { ok: true, value: result.name };
+    },
+  });
+
+  const goalField = useSavedField({
+    saved: initial.goal ?? "",
+    label: "Goal",
+    onSave: async (value) => {
+      const result = await setDeckGoal(initial.id, value);
+      if (!result.ok) return { ok: false, error: result.error };
+      return { ok: true, value: result.goal ?? "" };
     },
   });
 
@@ -193,7 +207,9 @@ function DeckEditorInner({
     onSave: async (value) => {
       const result = await setDeckDescription(initial.id, value);
       if (!result.ok) return { ok: false, error: result.error };
-      return { ok: true, value: result.description ?? "" };
+      const next = result.description ?? "";
+      if (!next.trim()) setShowDescription(false);
+      return { ok: true, value: next };
     },
   });
 
@@ -227,6 +243,9 @@ function DeckEditorInner({
     },
   });
 
+  const anyDirty =
+    slideField.dirty || nameField.dirty || descriptionField.dirty || goalField.dirty;
+
   const setSlideIndex = useCallback(
     (index: number, options?: { force?: boolean }) => {
       const go = () => {
@@ -250,7 +269,7 @@ function DeckEditorInner({
   );
 
   const guardedHref = (href: string) => (event: MouseEvent) => {
-    if (!slideField.dirty && !nameField.dirty && !descriptionField.dirty) return;
+    if (!anyDirty) return;
     event.preventDefault();
     requestLeave(() => router.push(href));
   };
@@ -306,17 +325,20 @@ function DeckEditorInner({
       ? `/live/playbooks/${initial.id}/rehearse?slide=${selected + 1}`
       : `/live/decks/${initial.id}/rehearse?slide=${selected + 1}`;
   const runHref = `/live/decks/${initial.id}/run?slide=${selected + 1}`;
+  const reviewHref = `/live/decks/${initial.id}/review`;
 
   const crumbs =
     initial.kind === "playbook"
       ? [
           { label: "Live", href: "/live" },
-          { label: "Playbooks", href: "/live/playbooks" },
+          { label: "Library", href: "/live/library" },
+          { label: "Playbooks", href: "/live/library?tab=playbooks" },
           { label: nameField.value || initial.name },
         ]
       : [
           { label: "Live", href: "/live" },
-          { label: "Decks", href: "/live/decks" },
+          { label: "Library", href: "/live/library" },
+          { label: "Decks", href: "/live/library?tab=decks" },
           { label: nameField.value || initial.name },
         ];
 
@@ -324,113 +346,210 @@ function DeckEditorInner({
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey)) return;
       if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
-      if (slideField.dirty || nameField.dirty || descriptionField.dirty) return;
+      if (anyDirty) return;
       event.preventDefault();
       if (event.key === "ArrowDown") setSlideIndex(selected + 1, { force: true });
       else setSlideIndex(selected - 1, { force: true });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [descriptionField.dirty, nameField.dirty, selected, setSlideIndex, slideField.dirty]);
+  }, [anyDirty, selected, setSlideIndex]);
+
+  const descriptionShown = showDescription || Boolean(descriptionField.value.trim());
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="relative mx-auto max-w-6xl px-4 py-4">
       <LiveBreadcrumb crumbs={crumbs} />
 
-      <header className="mt-4 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
-            {isDeck ? "Deck" : "Playbook"}
-          </p>
-          <Input
-            value={nameField.value}
-            onChange={(event) => nameField.setValue(event.target.value)}
-            onKeyDown={nameField.onKeyDown}
-            className="mt-1 h-11 border-[var(--jos-line)] bg-[var(--jos-bg)] text-lg font-bold"
-          />
-          <SaveRow
-            state={nameField.state}
-            savedAt={nameField.savedAt}
-            error={nameField.error}
-            name="name"
-            onSave={() => void nameField.save()}
-            onCancel={nameField.cancel}
-          />
-          <Textarea
-            value={descriptionField.value}
-            onChange={(event) => descriptionField.setValue(event.target.value)}
-            onKeyDown={descriptionField.onKeyDown}
-            rows={2}
-            placeholder="What this is for"
-            className="mt-2 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[14px]"
-          />
-          <SaveRow
-            state={descriptionField.state}
-            savedAt={descriptionField.savedAt}
-            error={descriptionField.error}
-            name="description"
-            onSave={() => void descriptionField.save()}
-            onCancel={descriptionField.cancel}
-          />
-          {isDeck ? (
-            <p className="mt-3 text-[14px] text-[var(--jos-ink)]">
-              <span className="font-semibold">Meeting</span>{" "}
-              <span className="text-[var(--jos-muted)]">{meetingLabel || "No meeting"}</span>{" "}
+      {/* Row 1: kicker + name + actions */}
+      <header className="mt-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+              {isDeck ? "Deck" : "Playbook"}
+            </p>
+            {editingName || nameField.dirty ? (
+              <div className="mt-1">
+                <Input
+                  value={nameField.value}
+                  onChange={(event) => nameField.setValue(event.target.value)}
+                  onKeyDown={nameField.onKeyDown}
+                  autoFocus
+                  className="h-10 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[28px] font-extrabold leading-none"
+                />
+                <SaveRow
+                  state={nameField.state}
+                  savedAt={nameField.savedAt}
+                  error={nameField.error}
+                  name="name"
+                  onSave={() => void nameField.save()}
+                  onCancel={() => {
+                    nameField.cancel();
+                    setEditingName(false);
+                  }}
+                />
+              </div>
+            ) : (
               <button
                 type="button"
-                className="ml-2 text-[var(--jos-focus)] underline"
-                onClick={() => setMeetingOpen(true)}
+                className="mt-1 block max-w-full truncate text-left text-[28px] font-extrabold leading-none text-[var(--jos-ink)] hover:underline"
+                onClick={() => setEditingName(true)}
               >
-                {initial.meetingPrepId ? "Change" : "Link"}
+                {nameField.value || initial.name}
               </button>
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {isDeck ? (
-            <SaveAsMenu
-              deckId={initial.id}
-              deckName={nameField.value || initial.name}
-              deckSlideCount={slides.length}
-              sourcePlaybook={sourcePlaybook}
-              onUpdated={() => router.refresh()}
-            />
-          ) : null}
-          <Link
-            href={rehearseHref}
-            onClick={guardedHref(rehearseHref)}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Rehearse
-          </Link>
-          {isDeck ? (
-            <Link
-              href={runHref}
-              onClick={guardedHref(runHref)}
-              className={buttonVariants({ size: "sm" })}
-            >
-              Run
-            </Link>
-          ) : null}
-          {isDeck ? (
-            <Button type="button" size="sm" variant="outline" onClick={() => setShowTailor(true)}>
-              Tailor
+            )}
+            {descriptionShown && descriptionField.value.trim() && !descriptionField.dirty ? (
+              <button
+                type="button"
+                className="mt-1 block text-left text-[14px] text-[var(--jos-muted)] hover:underline"
+                onClick={() => setShowDescription(true)}
+              >
+                {descriptionField.value}
+              </button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isDeck ? (
+              <SaveAsMenu
+                deckId={initial.id}
+                deckName={nameField.value || initial.name}
+                deckSlideCount={slides.length}
+                sourcePlaybook={sourcePlaybook}
+                onUpdated={() => router.refresh()}
+              />
+            ) : null}
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowAiHelp(true)}>
+              AI help
             </Button>
-          ) : null}
+            <Link
+              href={rehearseHref}
+              onClick={guardedHref(rehearseHref)}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              Rehearse
+            </Link>
+            {isDeck ? (
+              <Link href={runHref} onClick={guardedHref(runHref)} className={buttonVariants({ size: "sm" })}>
+                Run
+              </Link>
+            ) : null}
+            {isDeck && initial.runEndedAt ? (
+              <Link
+                href={reviewHref}
+                onClick={guardedHref(reviewHref)}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Review
+              </Link>
+            ) : null}
+          </div>
         </div>
-      </header>
 
-      {isDeck && showTailor ? (
-        <div className="mt-4">
-          <TailorPanel
-            deckId={initial.id}
-            aiNotes={initial.aiNotes}
-            onUpdated={() => router.refresh()}
+        {/* Row 2: GOAL */}
+        <div className="mt-3">
+          <label className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+            Goal
+          </label>
+          <Input
+            value={goalField.value}
+            onChange={(event) => goalField.setValue(event.target.value)}
+            onKeyDown={goalField.onKeyDown}
+            placeholder="What I want out of this meeting, in one line"
+            className="mt-1 h-9 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[14px]"
+          />
+          <SaveRow
+            state={goalField.state}
+            savedAt={goalField.savedAt}
+            error={goalField.error}
+            name="goal"
+            onSave={() => void goalField.save()}
+            onCancel={goalField.cancel}
           />
         </div>
-      ) : null}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Row 3: meeting / description */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]">
+          {isDeck ? (
+            meetingLabel ? (
+              <>
+                <span>
+                  Meeting: <span className="font-semibold">{meetingLabel}</span>
+                </span>
+                <button
+                  type="button"
+                  className="text-[var(--jos-focus)] underline"
+                  onClick={() => setMeetingOpen(true)}
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  className="text-[var(--jos-muted)] underline hover:text-[var(--jos-ink)]"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      const result = await unlinkDeckMeeting(initial.id);
+                      if (!result.ok) {
+                        toast.error(result.error);
+                        return;
+                      }
+                      toast.success("Meeting detached");
+                      router.refresh();
+                    })
+                  }
+                >
+                  Detach
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-[var(--jos-muted)]">No meeting</span>
+                <button
+                  type="button"
+                  className="text-[var(--jos-focus)] underline"
+                  onClick={() => setMeetingOpen(true)}
+                >
+                  Attach meeting
+                </button>
+              </>
+            )
+          ) : null}
+          {!descriptionShown ? (
+            <button
+              type="button"
+              className="text-[var(--jos-muted)] underline hover:text-[var(--jos-ink)]"
+              onClick={() => setShowDescription(true)}
+            >
+              Add description
+            </button>
+          ) : null}
+        </div>
+
+        {descriptionShown && (descriptionField.dirty || !descriptionField.value.trim()) ? (
+          <div className="mt-2">
+            <Input
+              value={descriptionField.value}
+              onChange={(event) => descriptionField.setValue(event.target.value)}
+              onKeyDown={descriptionField.onKeyDown}
+              placeholder="What this is for"
+              className="h-9 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[14px]"
+            />
+            <SaveRow
+              state={descriptionField.state}
+              savedAt={descriptionField.savedAt}
+              error={descriptionField.error}
+              name="description"
+              onSave={() => void descriptionField.save()}
+              onCancel={() => {
+                descriptionField.cancel();
+                if (!initial.description?.trim()) setShowDescription(false);
+              }}
+            />
+          </div>
+        ) : null}
+      </header>
+
+      <div className="mt-4 grid gap-6 md:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="md:sticky md:top-4 md:self-start">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
             <SortableContext items={slides.map((slide) => slide.key)} strategy={verticalListSortingStrategy}>
@@ -524,48 +643,13 @@ function DeckEditorInner({
         </section>
       </div>
 
-      {isDeck ? (
-        <section id="transcript" className="mt-10 scroll-mt-6 border-t border-[var(--jos-line)] pt-6">
-          <h2 className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
-            Transcript
-          </h2>
-          {initial.transcript ? (
-            <pre className="mt-3 whitespace-pre-wrap text-[14px] text-[var(--jos-ink)]">
-              {initial.transcript}
-            </pre>
-          ) : (
-            <div className="mt-3 space-y-2">
-              <p className="text-[14px] text-[var(--jos-muted)]">
-                {initial.runEndedAt
-                  ? `Run ended ${new Date(initial.runEndedAt).toLocaleString("en-US", {
-                      timeZone: "America/New_York",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}. Transcript not fetched.`
-                  : "No transcript yet."}
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const result = await fetchTranscript(initial.id);
-                    if (!result.ok) {
-                      toast.error(result.error);
-                      return;
-                    }
-                    toast.success("Transcript fetched");
-                    router.refresh();
-                  })
-                }
-              >
-                Fetch transcript
-              </Button>
-            </div>
-          )}
-        </section>
+      {showAiHelp ? (
+        <AiHelpPanel
+          deck={initial}
+          open={showAiHelp}
+          onClose={() => setShowAiHelp(false)}
+          onUpdated={() => router.refresh()}
+        />
       ) : null}
 
       {isDeck ? (
