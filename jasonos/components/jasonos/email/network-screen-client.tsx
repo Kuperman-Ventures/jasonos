@@ -25,6 +25,7 @@ import {
   draftIntroRequest,
   getNetworkScreen,
   listNetworkScreens,
+  deleteNetworkScreen,
   markIntrosRequested,
   scoreNetworkScreen,
   saveNetworkScreenAnalysis,
@@ -74,6 +75,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const [checkTick, setCheckTick] = useState(0);
   const [recommendError, setRecommendError] = useState<string | null>(null);
   const [recommendTick, setRecommendTick] = useState(0);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const createLock = useRef(false);
   const recommendedFor = useRef<string | null>(null);
 
@@ -209,6 +211,29 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     });
   }
 
+  function removeScreen(id: string) {
+    startTransition(async () => {
+      const result = await deleteNetworkScreen(id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setConfirmDeleteId(null);
+      if (screen?.id === id) {
+        setScreen(null);
+        setCreating(false);
+      }
+      if (initialScreenId === id) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("section", "network-screen");
+        params.delete("screen");
+        router.replace(`/email-templates?${params.toString()}`, { scroll: false });
+      }
+      refreshList();
+      toast.success("Screen deleted.");
+    });
+  }
+
   function saveAnalysis() {
     if (!screen) return;
     startTransition(async () => {
@@ -275,10 +300,10 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         ) : (
           <ul className="divide-y divide-border rounded-lg border">
             {list.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className="flex items-stretch">
                 <button
                   type="button"
-                  className="flex w-full flex-wrap items-baseline justify-between gap-2 px-3 py-3 text-left hover:bg-muted/60"
+                  className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-2 px-3 py-3 text-left hover:bg-muted/60"
                   onClick={() => {
                     startTransition(async () => {
                       const result = await getNetworkScreen(item.id);
@@ -306,6 +331,34 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                       .join(" · ")}
                   </span>
                 </button>
+                {confirmDeleteId === item.id ? (
+                  <div className="flex shrink-0 items-center gap-2 border-l px-3 text-sm">
+                    <span>Delete?</span>
+                    <button
+                      type="button"
+                      className="font-semibold hover:underline"
+                      disabled={pending}
+                      onClick={() => removeScreen(item.id)}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:underline"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="shrink-0 px-3 text-sm text-muted-foreground hover:text-foreground"
+                    onClick={() => setConfirmDeleteId(item.id)}
+                  >
+                    Delete
+                  </button>
+                )}
               </li>
             ))}
           </ul>
