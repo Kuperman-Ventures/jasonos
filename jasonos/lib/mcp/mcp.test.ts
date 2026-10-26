@@ -276,6 +276,12 @@ describe("registerJasonosTools", () => {
       assert.ok(registered.includes(name), `missing ${name}`);
     }
     assert.ok(registered.includes("list_upcoming_meeting_preps"));
+    assert.ok(registered.includes("list_playbooks"));
+    assert.ok(registered.includes("list_slides"));
+    assert.ok(registered.includes("get_slides"));
+    assert.ok(registered.includes("create_slides"));
+    assert.ok(registered.includes("set_slides"));
+    assert.ok(registered.includes("get_transcript"));
     assert.ok(!registered.includes("build_call_sheet"));
     assert.ok(!registered.includes("list_people_in_motion"));
     assert.ok(registered.includes("add_project_link"));
@@ -318,11 +324,14 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
     assert.ok(tools.includes("list_upcoming_meeting_preps"));
+    assert.ok(tools.includes("list_playbooks"));
+    assert.ok(tools.includes("get_slides"));
   });
 
   it("mentions Live Playbooks and Slides in MCP instructions", () => {
     assert.match(JASONOS_MCP_INSTRUCTIONS, /list_upcoming_meeting_preps/);
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /Playbooks and Slides/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /list_playbooks/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /Playbooks/);
   });
 });
 

@@ -69,6 +69,7 @@ export function isLiveCallPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return (
     /^\/live\/slides\/[^/]+\/run$/.test(path) ||
+    /^\/live\/slides\/[^/]+\/rehearse$/.test(path) ||
     /^\/live\/playbooks\/[^/]+\/rehearse$/.test(path)
   );
 }

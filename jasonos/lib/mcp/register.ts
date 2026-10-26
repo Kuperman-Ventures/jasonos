@@ -34,6 +34,14 @@ import {
   listUpcomingMeetingPreps,
   listWeeklyProvocations,
 } from "./reads";
+import {
+  createSlidesMcp,
+  getSlidesMcp,
+  getTranscriptMcp,
+  listPlaybooksMcp,
+  listSlidesMcp,
+  setSlidesMcp,
+} from "./plans";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
 import { registerConnectionsTools } from "./connections-tools";
@@ -47,7 +55,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live is restarting on Playbooks and Slides decks. Use list_upcoming_meeting_preps for upcoming calendar meetings (id, title, starts_at, ends_at, attendees, slides_id when a slides deck exists). Playbook and slide editing tools are not wired in MCP yet.
+Live uses Playbooks (templates) and Slides (one meeting). list_upcoming_meeting_preps returns slides_id when linked. list_playbooks / list_slides / get_slides read decks. create_slides and set_slides write Slides. get_transcript fetches Granola or Wispr after a Run.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -399,6 +407,85 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (args) => runTool(() => listUpcomingMeetingPreps(args))
+  );
+
+  server.registerTool(
+    "list_playbooks",
+    {
+      title: "Live playbooks",
+      description: "Playbook templates: id, name, slide_count, updated_at.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(listPlaybooksMcp)
+  );
+
+  server.registerTool(
+    "list_slides",
+    {
+      title: "Live slides",
+      description: "Slides decks: id, name, meeting_prep_id, slide_count, updated_at.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(listSlidesMcp)
+  );
+
+  server.registerTool(
+    "get_slides",
+    {
+      title: "Get slides",
+      description: "One Slides deck with ordered headlines and bullets.",
+      inputSchema: z.object({ id: z.string().uuid() }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getSlidesMcp(args))
+  );
+
+  server.registerTool(
+    "create_slides",
+    {
+      title: "Create slides",
+      description:
+        "Create Slides from a Playbook (playbook_id) or blank (omit playbook_id). Optional meeting_prep_id links the meeting.",
+      inputSchema: z.object({
+        playbook_id: z.string().uuid().optional(),
+        meeting_prep_id: z.string().uuid().optional(),
+        name: z.string().max(200).optional(),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => createSlidesMcp(args))
+  );
+
+  server.registerTool(
+    "set_slides",
+    {
+      title: "Set slides",
+      description: "Replace all slides in a deck (headline + bullets per slide). Reorder by array order.",
+      inputSchema: z.object({
+        id: z.string().uuid(),
+        slides: z.array(
+          z.object({
+            headline: z.string().max(240),
+            bullets: z.array(z.string().max(800)),
+          })
+        ),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => setSlidesMcp(args))
+  );
+
+  server.registerTool(
+    "get_transcript",
+    {
+      title: "Get meeting transcript",
+      description: "Fetch and store transcript for a Slides deck (Granola first, then Wispr).",
+      inputSchema: z.object({ id: z.string().uuid() }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => getTranscriptMcp(args))
   );
 
   server.registerTool(

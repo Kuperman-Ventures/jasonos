@@ -61,7 +61,16 @@ export function listJasonosAreas() {
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
       {
         area: "meetings",
-        tools: ["list_meetings", "list_upcoming_meeting_preps"],
+        tools: [
+          "list_meetings",
+          "list_upcoming_meeting_preps",
+          "list_playbooks",
+          "list_slides",
+          "get_slides",
+          "create_slides",
+          "set_slides",
+          "get_transcript",
+        ],
       },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
