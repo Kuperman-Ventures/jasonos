@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -172,13 +173,14 @@ export function SettingsClient({
     connected: number;
     status: "healthy" | "issues" | "critical";
   }>(() => {
-    const connected = settings.services.filter((service) => service.status === "connected").length;
-    const down = settings.services.filter((service) => service.health_status === "down").length;
-    const degraded = settings.services.filter(
+    const active = settings.services.filter((service) => service.enabled !== false);
+    const connected = active.filter((service) => service.status === "connected").length;
+    const down = active.filter((service) => service.health_status === "down").length;
+    const degraded = active.filter(
       (service) => service.health_status === "degraded" || service.status === "expired"
     ).length;
     return {
-      total: settings.services.length,
+      total: active.length,
       connected,
       status: down ? "critical" : degraded ? "issues" : "healthy",
     };
@@ -189,7 +191,14 @@ export function SettingsClient({
       const res = await fetch("/api/settings/health-check-all", { method: "POST" });
       const payload = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        summary?: { checked_at: string; connected: number; healthy: number; degraded: number; down: number };
+        summary?: {
+          checked_at: string;
+          connected: number;
+          healthy: number;
+          degraded: number;
+          down: number;
+          skipped?: number;
+        };
         error?: string;
       };
       if (!res.ok || !payload.ok || !payload.summary) {
@@ -200,8 +209,9 @@ export function SettingsClient({
         ...current,
         lastChecked: payload.summary?.checked_at ?? new Date().toISOString(),
       }));
+      const skipped = payload.summary.skipped ?? 0;
       toast.success("Health checks complete", {
-        description: `${payload.summary.healthy} healthy, ${payload.summary.degraded} degraded, ${payload.summary.down} down.`,
+        description: `${payload.summary.healthy} healthy, ${payload.summary.degraded} degraded, ${payload.summary.down} down${skipped ? `, ${skipped} off` : ""}.`,
       });
       router.refresh();
     });
@@ -273,7 +283,7 @@ export function SettingsClient({
       <section className="space-y-3">
         <SectionHeading
           title="Connected Services"
-          description="Configure, test, and disconnect user-actionable integrations."
+          description="Turn a service off to skip it on Sync. Off does not wipe saved keys."
         />
         <div className="grid gap-3 lg:grid-cols-2">
           {settings.services.map((connection) => (
@@ -824,6 +834,43 @@ function ServiceCard({
   const [isPending, startTransition] = useTransition();
   const [mcpPassword, setMcpPassword] = useState("");
   const FallbackIcon = CONNECTION_ICONS[definition.connectionType];
+  const isOn = connection.enabled !== false;
+
+  const setEnabled = (enabled: boolean) => {
+    startTransition(async () => {
+      const res = await fetch("/api/settings/set-enabled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service_name: definition.name, enabled }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        enabled?: boolean;
+        status?: ServiceConnection["status"];
+        health_status?: ServiceConnection["health_status"];
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || !payload.ok) {
+        toast.error("Could not update connection", {
+          description: payload.error ?? "Please try again.",
+        });
+        return;
+      }
+      const now = new Date().toISOString();
+      if (!enabled) setExpanded(false);
+      onChange({
+        ...connection,
+        enabled: payload.enabled ?? enabled,
+        status: payload.status ?? (enabled ? connection.status : "disabled"),
+        health_status: payload.health_status ?? (enabled ? connection.health_status : "unknown"),
+        health_details: payload.message ?? null,
+        error_message: enabled ? connection.error_message : null,
+        last_health_check: now,
+      });
+      toast.success(payload.message ?? (enabled ? "Turned on" : "Turned off"));
+    });
+  };
 
   const test = () => {
     startTransition(async () => {
@@ -842,6 +889,7 @@ function ServiceCard({
       const now = new Date().toISOString();
       onChange({
         ...connection,
+        enabled: true,
         status: payload.success
           ? (payload.status ?? "connected")
           : payload.status === "expired"
@@ -881,6 +929,7 @@ function ServiceCard({
       const now = new Date().toISOString();
       onChange({
         ...connection,
+        enabled: disconnect ? connection.enabled : true,
         status: payload.status ?? connection.status,
         api_key_masked: payload.api_key_masked ?? (disconnect ? null : connection.api_key_masked),
         connected_at: payload.status === "connected" ? now : null,
@@ -896,7 +945,12 @@ function ServiceCard({
   };
 
   return (
-    <article className="rounded-xl border bg-card p-4">
+    <article
+      className={cn(
+        "rounded-xl border bg-card p-4",
+        !isOn && "opacity-70"
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <ServiceMark definition={definition} FallbackIcon={FallbackIcon} />
@@ -911,7 +965,18 @@ function ServiceCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={badgeStatus(connection)} />
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <StatusBadge status={badgeStatus(connection)} />
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{isOn ? "On" : "Off"}</span>
+            <Switch
+              checked={isOn}
+              disabled={isPending}
+              aria-label={`${definition.label} ${isOn ? "on" : "off"}`}
+              onCheckedChange={setEnabled}
+            />
+          </label>
+        </div>
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-foreground/85">{definition.description}</p>
@@ -924,17 +989,24 @@ function ServiceCard({
       </div>
 
       <div className="mt-3 text-xs text-muted-foreground">
-        Last checked:{" "}
-        {connection.last_health_check
-          ? formatDistanceToNow(new Date(connection.last_health_check), { addSuffix: true })
-          : "not yet"}
-        {connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}
+        {isOn ? (
+          <>
+            Last checked:{" "}
+            {connection.last_health_check
+              ? formatDistanceToNow(new Date(connection.last_health_check), { addSuffix: true })
+              : "not yet"}
+            {connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}
+          </>
+        ) : (
+          <>Off — skipped on Sync{connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}</>
+        )}
       </div>
 
-      {connection.error_message ||
-      (connection.health_status &&
-        connection.health_status !== "healthy" &&
-        connection.health_details) ? (
+      {isOn &&
+      (connection.error_message ||
+        (connection.health_status &&
+          connection.health_status !== "healthy" &&
+          connection.health_details)) ? (
         <p
           className={cn(
             "mt-2 text-xs",
@@ -1114,14 +1186,19 @@ function ServiceCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {definition.configurable ? (
-          <Button size="sm" variant="outline" onClick={() => setExpanded((value) => !value)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setExpanded((value) => !value)}
+            disabled={!isOn}
+          >
             Configure
           </Button>
         ) : null}
-        <Button size="sm" variant="outline" onClick={test} disabled={isPending}>
+        <Button size="sm" variant="outline" onClick={test} disabled={isPending || !isOn}>
           Test Connection
         </Button>
-        {definition.disconnectable && connection.status === "connected" ? (
+        {definition.disconnectable && connection.status === "connected" && isOn ? (
           <Button size="sm" variant="destructive" onClick={() => save(true)} disabled={isPending}>
             Disconnect
           </Button>
@@ -1154,6 +1231,7 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
 }
 
 function badgeStatus(connection: ServiceConnection): ServiceConnection["status"] {
+  if (connection.enabled === false) return "disabled";
   if (connection.health_status === "down" && connection.status === "connected") {
     return "error";
   }
@@ -1166,10 +1244,12 @@ function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
     not_configured: "border-[var(--jos-line)] bg-rung-2 ",
     error: "border-rung-1 bg-rung-1 ",
     expired: "border-[var(--jos-line)] bg-rung-2 ",
+    disabled: "border-[var(--jos-line)] bg-muted text-muted-foreground",
   }[status];
+  const label = status === "disabled" ? "off" : status.replace("_", " ");
   return (
     <Badge variant="outline" className={classes}>
-      {status.replace("_", " ")}
+      {label}
     </Badge>
   );
 }

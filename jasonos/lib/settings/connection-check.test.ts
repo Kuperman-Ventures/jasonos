@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   getServiceDefinition,
+  isServiceConnectionEnabled,
   statusFromConnectionCheck,
   type ServiceDefinition,
 } from "./services.ts";
@@ -70,5 +71,31 @@ describe("statusFromConnectionCheck", () => {
       }),
       "connected"
     );
+  });
+
+  it("keeps an off connection disabled even when the probe would fail", () => {
+    const beeper = getServiceDefinition("beeper");
+    assert.ok(beeper);
+    assert.equal(
+      statusFromConnectionCheck(
+        beeper,
+        { success: false, health_status: "down" },
+        { enabled: false }
+      ),
+      "disabled"
+    );
+  });
+});
+
+describe("isServiceConnectionEnabled", () => {
+  it("treats a missing row as on", () => {
+    assert.equal(isServiceConnectionEnabled(null), true);
+    assert.equal(isServiceConnectionEnabled(undefined), true);
+    assert.equal(isServiceConnectionEnabled({}), true);
+  });
+
+  it("treats enabled false as off", () => {
+    assert.equal(isServiceConnectionEnabled({ enabled: false }), false);
+    assert.equal(isServiceConnectionEnabled({ enabled: true }), true);
   });
 });
