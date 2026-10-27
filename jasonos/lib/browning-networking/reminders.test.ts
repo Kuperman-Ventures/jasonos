@@ -44,7 +44,8 @@ describe("browning meeting reminders", () => {
 
   it("writes a short attendee reminder and Jason RSVP alert", () => {
     const startsAt = "2026-10-24T18:00:00.000Z";
-    assert.match(attendeeReminderSubject(startsAt), /Reminder — call with Jason Kuperman/);
+    assert.match(attendeeReminderSubject(startsAt), /Reminder - call with Jason Kuperman/);
+    assert.equal(attendeeReminderSubject(startsAt).includes("—"), false);
     const reminder = attendeeReminderBody({
       contactName: "Alex Example",
       startsAt,

@@ -73,7 +73,7 @@ export function rsvpStatusLabel(status: AttendeeRsvpStatus): string {
 }
 
 export function attendeeReminderSubject(startsAt: string): string {
-  return `Reminder — call with Jason Kuperman ${formatSlotLabel(startsAt)}`;
+  return `Reminder - call with Jason Kuperman ${formatSlotLabel(startsAt)}`;
 }
 
 export function attendeeReminderBody(input: {
@@ -91,7 +91,7 @@ export function attendeeReminderBody(input: {
     "",
     `Quick reminder we're on for ${when}.`,
   ];
-  if (title) lines.push(`It's on the calendar as “${title}”.`);
+  if (title) lines.push(`It's on the calendar as "${title}".`);
   if (input.meetUrl) {
     lines.push("", `Join link: ${input.meetUrl}`);
   }
@@ -104,7 +104,7 @@ export function rsvpAlertSubject(input: {
   startsAt: string;
 }): string {
   const who = (input.contactName ?? "").trim() || "Your Browning contact";
-  return `${who} has not accepted — ${formatSlotLabel(input.startsAt)}`;
+  return `${who} has not accepted - ${formatSlotLabel(input.startsAt)}`;
 }
 
 export function rsvpAlertBody(input: {
