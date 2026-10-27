@@ -18,13 +18,16 @@ import {
   formatAttendeeLine,
   formatMeetingDate,
   formatMeetingTime,
+  liveListState,
 } from "@/components/jasonos/live/live-format";
 import { LiveCollapsibleList } from "@/components/jasonos/live/live-collapsible-list";
+import { LiveStateBadge } from "@/components/jasonos/live/live-state-badge";
 import type { AttachableMeeting, DeckSummary } from "@/lib/server-actions/decks";
 import {
   createBlankDeck,
   createDeckFromLibrary,
   createDeckFromPlaybook,
+  setMeetingLiveDisposition,
 } from "@/lib/server-actions/decks";
 
 type StartMode = "choose" | "playbook" | "library" | "name-playbook";
@@ -116,6 +119,39 @@ export function LiveUpcomingMeetings({
     });
   };
 
+  const setDisposition = (
+    meeting: AttachableMeeting,
+    disposition: "no_deck" | "hidden" | null,
+    okMessage: string
+  ) => {
+    start(async () => {
+      const result = await setMeetingLiveDisposition(meeting.id, disposition);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(okMessage);
+      router.refresh();
+    });
+  };
+
+  const markNoDeck = (meeting: AttachableMeeting) =>
+    setDisposition(meeting, "no_deck", "Marked no deck needed");
+
+  const undoNoDeck = (meeting: AttachableMeeting) =>
+    setDisposition(meeting, null, "Back on the list for a deck");
+
+  const removeMeeting = (meeting: AttachableMeeting) => {
+    if (
+      !window.confirm(
+        `Remove “${meeting.title}” from Upcoming? It stays on your calendar; you can still find it elsewhere.`
+      )
+    ) {
+      return;
+    }
+    setDisposition(meeting, "hidden", "Removed from Upcoming");
+  };
+
   const dialogTitle =
     mode === "choose"
       ? "Start a deck"
@@ -135,41 +171,85 @@ export function LiveUpcomingMeetings({
         empty={<p className="text-sm text-[var(--jos-muted)]">No meetings in the next week.</p>}
       >
         <ul className="mt-4 divide-y divide-[var(--jos-line)]">
-          {meetings.map((meeting) => (
-            <li key={meeting.id} className="flex items-start justify-between gap-3 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-semibold text-[var(--jos-muted)]">
-                  {formatMeetingDate(meeting.startsAt)}, {formatMeetingTime(meeting.startsAt)}
-                </p>
-                <p className="mt-0.5 text-sm font-semibold text-[var(--jos-ink)]">
-                  {meeting.title}
-                </p>
-                <p className="mt-0.5 truncate text-[12px] text-[var(--jos-muted)]">
-                  {formatAttendeeLine(meeting.attendeeNames)}
-                </p>
-              </div>
-              <div className="shrink-0 pt-0.5">
-                {meeting.hasDeck && meeting.deckId ? (
-                  <Link
-                    href={`/live/decks/${meeting.deckId}`}
-                    className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-                  >
-                    Open deck
-                  </Link>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => openStart(meeting)}
-                  >
-                    Start deck
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
+          {meetings.map((meeting) => {
+            const state = liveListState({
+              noDeck: meeting.liveDisposition === "no_deck",
+              reviewedAt: meeting.deckReviewedAt,
+              hasTranscript: meeting.deckHasTranscript,
+              runEndedAt: meeting.deckRunEndedAt,
+              runStartedAt: meeting.deckRunStartedAt,
+              meetingStartsAt: meeting.startsAt,
+            });
+            return (
+              <li key={meeting.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-semibold text-[var(--jos-muted)]">
+                    {formatMeetingDate(meeting.startsAt)}, {formatMeetingTime(meeting.startsAt)}
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-[var(--jos-ink)]">
+                    {meeting.title}
+                  </p>
+                  <p className="mt-0.5 truncate text-[12px] text-[var(--jos-muted)]">
+                    {formatAttendeeLine(meeting.attendeeNames)}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
+                  {meeting.liveDisposition === "no_deck" ? (
+                    <LiveStateBadge state="no_deck" />
+                  ) : meeting.hasDeck && meeting.deckId ? (
+                    <>
+                      <LiveStateBadge state={state} />
+                      <Link
+                        href={`/live/decks/${meeting.deckId}`}
+                        className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
+                      >
+                        Open deck
+                      </Link>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => openStart(meeting)}
+                    >
+                      Start deck
+                    </Button>
+                  )}
+                  <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
+                    {meeting.liveDisposition === "no_deck" ? (
+                      <button
+                        type="button"
+                        className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
+                        disabled={pending}
+                        onClick={() => undoNoDeck(meeting)}
+                      >
+                        Undo
+                      </button>
+                    ) : !meeting.hasDeck ? (
+                      <button
+                        type="button"
+                        className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
+                        disabled={pending}
+                        onClick={() => markNoDeck(meeting)}
+                      >
+                        No deck needed
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
+                      disabled={pending}
+                      onClick={() => removeMeeting(meeting)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </LiveCollapsibleList>
 

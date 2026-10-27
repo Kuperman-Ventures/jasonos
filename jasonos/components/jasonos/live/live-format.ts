@@ -59,11 +59,63 @@ export function formatMeetingTime(iso: string) {
   });
 }
 
-export function homeDeckState(deck: DeckSummary): string {
-  if (deck.reviewedAt) return "Reviewed";
-  if (deck.hasTranscript) return "Transcript";
-  if (deck.runStartedAt) return "Run";
-  return "Draft";
+export type LiveListState =
+  | "draft"
+  | "held"
+  | "needs_transcript"
+  | "needs_review"
+  | "reviewed"
+  | "no_deck";
+
+export function liveListStateLabel(state: LiveListState): string {
+  switch (state) {
+    case "draft":
+      return "Draft";
+    case "held":
+      return "Held";
+    case "needs_transcript":
+      return "Needs Transcript";
+    case "needs_review":
+      return "Needs Review";
+    case "reviewed":
+      return "Reviewed";
+    case "no_deck":
+      return "No Deck Needed";
+  }
+}
+
+/** Deck/meeting progress for Live Start lists. */
+export function liveListState(input: {
+  reviewedAt?: string | null;
+  hasTranscript?: boolean;
+  runEndedAt?: string | null;
+  runStartedAt?: string | null;
+  meetingStartsAt?: string | null;
+  noDeck?: boolean;
+  nowMs?: number;
+}): LiveListState {
+  if (input.noDeck) return "no_deck";
+  if (input.reviewedAt) return "reviewed";
+  if (input.hasTranscript) return "needs_review";
+  // Ran in Live but no transcript yet — actionable.
+  if (input.runEndedAt) return "needs_transcript";
+  const startMs = input.meetingStartsAt ? Date.parse(input.meetingStartsAt) : NaN;
+  const now = input.nowMs ?? Date.now();
+  // Meeting already happened (or a run started) without transcript work.
+  if ((Number.isFinite(startMs) && startMs < now) || input.runStartedAt) return "held";
+  return "draft";
+}
+
+export function homeDeckState(deck: DeckSummary, meetingStartsAt?: string | null): string {
+  return liveListStateLabel(
+    liveListState({
+      reviewedAt: deck.reviewedAt,
+      hasTranscript: deck.hasTranscript,
+      runEndedAt: deck.runEndedAt,
+      runStartedAt: deck.runStartedAt,
+      meetingStartsAt,
+    })
+  );
 }
 
 export function activeDeckState(deck: DeckSummary): string {
@@ -78,10 +130,18 @@ export function heldDeckState(deck: DeckSummary): string {
   return "No transcript";
 }
 
+export function heldMeetingListState(row: HeldMeetingRow): LiveListState {
+  return liveListState({
+    reviewedAt: row.reviewedAt,
+    hasTranscript: row.hasTranscript,
+    // Held meetings without a Live run still need a transcript when past.
+    runEndedAt: row.runInLive || !row.hasTranscript ? row.startsAt : null,
+    meetingStartsAt: row.startsAt,
+  });
+}
+
 export function heldMeetingState(row: HeldMeetingRow): string {
-  if (row.reviewedAt) return "Reviewed";
-  if (row.hasTranscript) return "Transcript attached";
-  return "No transcript";
+  return liveListStateLabel(heldMeetingListState(row));
 }
 
 export function heldMeetingSubline(row: HeldMeetingRow): string {

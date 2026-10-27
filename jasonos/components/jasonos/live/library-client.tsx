@@ -22,9 +22,10 @@ import {
   formatRubricAverage,
   goalMarkLabel,
   goalMarkRung,
-  heldMeetingState,
+  heldMeetingListState,
   heldMeetingSubline,
 } from "@/components/jasonos/live/live-format";
+import { LiveStateBadge } from "@/components/jasonos/live/live-state-badge";
 import type { AttachableMeeting, DeckSummary, HeldMeetingRow } from "@/lib/server-actions/decks";
 import {
   copyDeck,
@@ -558,7 +559,7 @@ function HeldTab({
     <>
       <ul className="mt-8 divide-y divide-[var(--jos-line)]">
         {rows.map((row) => {
-          const state = heldMeetingState(row);
+          const state = heldMeetingListState(row);
           const subline = heldMeetingSubline(row);
           const reviewHref = row.deckId ? `/live/decks/${row.deckId}/review` : null;
 
@@ -621,13 +622,14 @@ function HeldRowBody({
   subline,
 }: {
   row: HeldMeetingRow;
-  state: string;
+  state: ReturnType<typeof heldMeetingListState>;
   subline: string;
 }) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
         <p className="truncate text-sm font-semibold text-[var(--jos-ink)]">{row.title}</p>
+        <LiveStateBadge state={state} />
         {row.reviewedAt && row.reviewGoalMark ? (
           <StatusPill rung={goalMarkRung(row.reviewGoalMark)} className="text-[11px]">
             {goalMarkLabel(row.reviewGoalMark)}
@@ -640,7 +642,7 @@ function HeldRowBody({
         ) : null}
       </div>
       <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">
-        {[subline, state].filter(Boolean).join(" · ")}
+        {subline}
         {row.runInLive ? (
           <>
             {" · "}

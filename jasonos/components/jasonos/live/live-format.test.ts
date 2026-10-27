@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { filterUpcomingWeekMeetings, formatAttendeeLine } from "./live-format.ts";
+import {
+  filterUpcomingWeekMeetings,
+  formatAttendeeLine,
+  liveListState,
+  liveListStateLabel,
+} from "./live-format.ts";
 
 describe("filterUpcomingWeekMeetings", () => {
   const now = Date.parse("2026-10-27T16:00:00.000Z");
@@ -36,5 +41,25 @@ describe("formatAttendeeLine", () => {
       formatAttendeeLine(["Ada", "Bob", "Cara", "Dan"]),
       "Ada, Bob +2"
     );
+  });
+});
+
+describe("liveListState", () => {
+  const now = Date.parse("2026-10-27T16:00:00.000Z");
+
+  it("maps progress into distinct list states", () => {
+    assert.equal(liveListState({ noDeck: true }), "no_deck");
+    assert.equal(liveListState({ reviewedAt: "2026-10-01T00:00:00.000Z" }), "reviewed");
+    assert.equal(liveListState({ hasTranscript: true }), "needs_review");
+    assert.equal(
+      liveListState({ runEndedAt: "2026-10-26T00:00:00.000Z" }),
+      "needs_transcript"
+    );
+    assert.equal(
+      liveListState({ meetingStartsAt: "2026-10-26T00:00:00.000Z", nowMs: now }),
+      "held"
+    );
+    assert.equal(liveListState({}), "draft");
+    assert.equal(liveListStateLabel("needs_review"), "Needs Review");
   });
 });

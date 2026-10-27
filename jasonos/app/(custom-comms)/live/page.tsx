@@ -43,7 +43,7 @@ export default async function LiveHomePage() {
             .filter(Boolean)
             .join(" · ")
         : "No meeting";
-    return { deck, meetingLine };
+    return { deck, meetingLine, meetingStartsAt };
   });
 
   return (

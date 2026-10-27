@@ -120,6 +120,8 @@ export type DeckDetail = DeckSummary & {
   rubricSource: string | null;
 };
 
+export type LiveMeetingDisposition = "no_deck" | "hidden";
+
 export type AttachableMeeting = {
   id: string;
   title: string;
@@ -127,6 +129,12 @@ export type AttachableMeeting = {
   attendeeNames: string[];
   hasDeck: boolean;
   deckId: string | null;
+  /** null = normal Upcoming row; no_deck = skip deck; hidden is filtered out of Upcoming. */
+  liveDisposition: LiveMeetingDisposition | null;
+  deckReviewedAt: string | null;
+  deckHasTranscript: boolean;
+  deckRunStartedAt: string | null;
+  deckRunEndedAt: string | null;
 };
 
 export type HeldMeetingRow = {
@@ -593,7 +601,7 @@ export async function listAttachableMeetings(): Promise<
     const to = new Date(now + 30 * 86_400_000).toISOString();
     const { data: preps, error } = await sb
       .from("meeting_preps")
-      .select("id, title, starts_at, attendees")
+      .select("id, title, starts_at, attendees, live_disposition")
       .gte("starts_at", from)
       .lte("starts_at", to)
       .order("starts_at", { ascending: true });
@@ -601,16 +609,39 @@ export async function listAttachableMeetings(): Promise<
 
     const { data: linked } = await sb
       .from("decks")
-      .select("id, meeting_prep_id")
+      .select("id, meeting_prep_id, reviewed_at, transcript, run_started_at, run_ended_at")
       .eq("kind", "deck")
       .not("meeting_prep_id", "is", null);
-    const deckByPrep = new Map<string, string>();
+    const deckByPrep = new Map<
+      string,
+      {
+        id: string;
+        reviewedAt: string | null;
+        hasTranscript: boolean;
+        runStartedAt: string | null;
+        runEndedAt: string | null;
+      }
+    >();
     for (const row of linked ?? []) {
       const prepId = row.meeting_prep_id as string | null;
-      if (prepId) deckByPrep.set(prepId, row.id as string);
+      if (!prepId) continue;
+      deckByPrep.set(prepId, {
+        id: row.id as string,
+        reviewedAt: (row.reviewed_at as string | null) ?? null,
+        hasTranscript: Boolean((row.transcript as string | null)?.trim()),
+        runStartedAt: (row.run_started_at as string | null) ?? null,
+        runEndedAt: (row.run_ended_at as string | null) ?? null,
+      });
     }
 
-    const meetings: AttachableMeeting[] = (preps ?? []).map((row) => {
+    const meetings: AttachableMeeting[] = (preps ?? []).flatMap((row) => {
+      const dispositionRaw = (row.live_disposition as string | null)?.trim() || null;
+      const liveDisposition: LiveMeetingDisposition | null =
+        dispositionRaw === "no_deck" || dispositionRaw === "hidden"
+          ? dispositionRaw
+          : null;
+      if (liveDisposition === "hidden") return [];
+
       const attendees = Array.isArray(row.attendees) ? row.attendees : [];
       const attendeeNames = attendees
         .map((person) => {
@@ -619,15 +650,22 @@ export async function listAttachableMeetings(): Promise<
           return (p.name?.trim() || p.email?.trim() || "") as string;
         })
         .filter(Boolean);
-      const deckId = deckByPrep.get(row.id as string) ?? null;
-      return {
-        id: row.id as string,
-        title: String(row.title ?? "Meeting"),
-        startsAt: String(row.starts_at),
-        attendeeNames,
-        hasDeck: Boolean(deckId),
-        deckId,
-      };
+      const deck = deckByPrep.get(row.id as string) ?? null;
+      return [
+        {
+          id: row.id as string,
+          title: String(row.title ?? "Meeting"),
+          startsAt: String(row.starts_at),
+          attendeeNames,
+          hasDeck: Boolean(deck?.id),
+          deckId: deck?.id ?? null,
+          liveDisposition,
+          deckReviewedAt: deck?.reviewedAt ?? null,
+          deckHasTranscript: deck?.hasTranscript ?? false,
+          deckRunStartedAt: deck?.runStartedAt ?? null,
+          deckRunEndedAt: deck?.runEndedAt ?? null,
+        },
+      ];
     });
     return { ok: true, meetings };
   } catch (err) {
@@ -684,6 +722,44 @@ function heldRowFromOrphanDeck(row: DeckRow): HeldMeetingRow {
     reviewRubricAverage: review?.rubric_average ?? null,
     runInLive: Boolean(row.run_ended_at),
   };
+}
+
+export async function setMeetingLiveDisposition(
+  meetingPrepId: string,
+  disposition: LiveMeetingDisposition | null
+): Promise<ActionResult<{ id: string; liveDisposition: LiveMeetingDisposition | null }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = meetingPrepId.trim();
+  if (!id) return { ok: false, error: "Meeting required." };
+  if (disposition != null && disposition !== "no_deck" && disposition !== "hidden") {
+    return { ok: false, error: "Unknown disposition." };
+  }
+  try {
+    const sb = createServiceRoleClient();
+    const { data, error } = await sb
+      .from("meeting_preps")
+      .update({
+        live_disposition: disposition,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id, live_disposition")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data?.id) return { ok: false, error: "Meeting not found." };
+    revalidatePath("/live");
+    revalidatePath("/live/library");
+    return {
+      ok: true,
+      id: data.id as string,
+      liveDisposition:
+        data.live_disposition === "no_deck" || data.live_disposition === "hidden"
+          ? data.live_disposition
+          : null,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export async function listHeldMeetings(): Promise<ActionResult<{ rows: HeldMeetingRow[] }>> {
