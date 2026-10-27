@@ -9,7 +9,7 @@ import {
   type ScorecardRow,
 } from "./school-research";
 import { knownWebsite } from "./school-websites";
-import { schoolFaviconUrl } from "./types";
+import { schoolFaviconCandidates, schoolFaviconUrl } from "./types";
 
 const mit: ScorecardRow = {
   id: 166683,
@@ -132,4 +132,9 @@ test("school icons use the official site, not a branch campus", () => {
   assert.match(schoolFaviconUrl("https://twin-cities.umn.edu/"), /icons\.duckduckgo\.com\/ip3\/twin-cities\.umn\.edu\.ico/);
   assert.match(schoolFaviconUrl("https://www.uci.edu/"), /icons\.duckduckgo\.com\/ip3\/uci\.edu\.ico/);
   assert.equal(schoolFaviconUrl(""), "");
+  const mit = schoolFaviconCandidates("https://web.mit.edu/");
+  assert.equal(mit.length, 2);
+  assert.match(mit[0]!, /duckduckgo/);
+  assert.match(mit[1]!, /google\.com\/s2\/favicons/);
+  assert.match(mit[1]!, /mit\.edu/);
 });
