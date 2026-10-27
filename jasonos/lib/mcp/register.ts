@@ -47,6 +47,7 @@ import {
   attachTranscriptMcp,
   listRecentNotesMcp,
   reviewRunMcp,
+  getPersonContextMcp,
   runAiHelpMcp,
   setDeckSlidesMcp,
   setDefaultRubricMcp,
@@ -67,7 +68,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, run_ai_help, attach_meeting, get_transcript, attach_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
+Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, get_person_context, run_ai_help (optional preset why|rapport|what_how|tailor), attach_meeting, get_transcript, attach_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -543,15 +544,30 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   server.registerTool(
+    "get_person_context",
+    {
+      title: "Get person context for Live AI help",
+      description:
+        "Assemble labelled CRM/Browning sections for a contact (who they are, referral, why they agreed, brief, research, past conversations, said/committed, email, notes). Same payload Live AI help sends to the model.",
+      inputSchema: z.object({
+        contact_id: z.string().uuid(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getPersonContextMcp(args))
+  );
+
+  server.registerTool(
     "run_ai_help",
     {
       title: "Run AI help on a deck",
       description:
-        "Draft or edit slides from instructions plus optional sources (people, playbook, open text, transcripts, meeting context). mode add keeps existing slides; replace starts over.",
+        "Draft or edit slides from instructions plus optional sources (people, playbook, open text, transcripts, meeting context). mode add keeps existing slides; replace starts over. Pass preset why|rapport|what_how|tailor instead of free instructions for Browning one-click fills.",
       inputSchema: z.object({
         deck_id: z.string().uuid(),
-        instructions: z.string().min(1).max(8000),
-        mode: z.enum(["add", "replace"]),
+        instructions: z.string().max(8000).optional(),
+        mode: z.enum(["add", "replace"]).optional(),
+        preset: z.enum(["why", "rapport", "what_how", "tailor"]).nullable().optional(),
         sources: z
           .object({
             people: z.array(z.string().uuid()).optional(),

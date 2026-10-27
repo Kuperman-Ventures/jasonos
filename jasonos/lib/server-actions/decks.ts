@@ -1446,15 +1446,58 @@ export async function fetchTranscript(
   }
 }
 
+export async function getPersonContextPreview(
+  contactId: string
+): Promise<
+  ActionResult<{
+    contactId: string;
+    name: string;
+    found: string[];
+    missing: string[];
+    line: string;
+  }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const id = contactId.trim();
+  if (!id) return { ok: false, error: "Contact required." };
+  try {
+    const { buildPersonContext, formatFoundMissingLine } = await import(
+      "@/lib/live/person-context"
+    );
+    const ctx = await buildPersonContext(id);
+    return {
+      ok: true,
+      contactId: ctx.contactId,
+      name: ctx.name,
+      found: ctx.sections.map((row) => row.label),
+      missing: ctx.missing,
+      line: formatFoundMissingLine(ctx),
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function runAiHelp(
   deckId: string,
-  input: { instructions: string; mode: AiHelpMode; sources: AiHelpSources }
+  input: {
+    instructions?: string;
+    mode?: AiHelpMode;
+    sources?: AiHelpSources;
+    preset?: "why" | "rapport" | "what_how" | "tailor" | null;
+  }
 ): Promise<ActionResult<{ slideCount: number; warnings: string[]; at: string }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = deckId.trim();
-  const instructions = input.instructions.trim();
+  const { getAiHelpPreset } = await import("@/lib/live/ai-help-presets");
+  const preset = getAiHelpPreset(input.preset ?? null);
+  const instructions = (preset?.instructions ?? input.instructions ?? "").trim();
   if (!instructions) return { ok: false, error: "Write what you want help with." };
-  const mode = input.mode === "replace" ? "replace" : "add";
+  const mode: AiHelpMode = preset
+    ? preset.mode
+    : input.mode === "replace"
+      ? "replace"
+      : "add";
   const sources = input.sources ?? {};
 
   try {
@@ -1467,27 +1510,31 @@ export async function runAiHelp(
     const warnings: string[] = [];
     const sb = createServiceRoleClient();
 
-    const peopleIds = (sources.people ?? []).map((row) => row.trim()).filter(Boolean);
+    const peopleIdSet = new Set(
+      (sources.people ?? []).map((row) => row.trim()).filter(Boolean)
+    );
+    const prepId = deck.meetingPrepId;
+    if (prepId) {
+      try {
+        const matched = await resolveMeetingContactIds(sb, prepId);
+        for (const contactId of matched) peopleIdSet.add(contactId);
+      } catch (err) {
+        warnings.push(
+          `Meeting people: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+    const peopleIds = [...peopleIdSet];
     if (peopleIds.length) {
       sourceLabels.push("People");
       try {
-        const { data, error } = await sb
-          .from("contacts")
-          .select("id, name, title, notes, companies(name)")
-          .in("id", peopleIds);
-        if (error) throw new Error(error.message);
+        const { buildPersonContext } = await import("@/lib/live/person-context");
         const chunks: string[] = [];
-        for (const row of data ?? []) {
-          const company = embeddedCompanyName(row.companies);
-          const lines = [
-            `Name: ${String(row.name ?? "").trim() || "(unknown)"}`,
-            row.title ? `Title: ${String(row.title).trim()}` : null,
-            company ? `Company: ${company}` : null,
-            row.notes?.trim() ? `Notes: ${row.notes.trim()}` : null,
-          ].filter(Boolean);
-          chunks.push(lines.join("\n"));
+        for (const contactId of peopleIds) {
+          const ctx = await buildPersonContext(contactId);
+          if (ctx.text.trim()) chunks.push(ctx.text);
         }
-        if (chunks.length) contextParts.push(`People (CRM):\n${chunks.join("\n\n")}`);
+        if (chunks.length) contextParts.push(chunks.join("\n\n"));
       } catch (err) {
         warnings.push(`People: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -1550,7 +1597,6 @@ export async function runAiHelp(
     }
 
     const meetingFlags = sources.meeting;
-    const prepId = deck.meetingPrepId;
     if (prepId && meetingFlags && (meetingFlags.calendar || meetingFlags.email || meetingFlags.website)) {
       try {
         const { getMeetingPrep } = await loadMeetingPrep();
@@ -1600,13 +1646,17 @@ export async function runAiHelp(
       mode === "replace"
         ? "Replace mode: return a full new slide deck."
         : "Add mode: keep existing slides unless Jason's instructions say to remove or replace them; you may append slides.";
+    const presetScope = preset?.slideScope?.trim()
+      ? `\n${preset.slideScope.trim()}`
+      : "";
 
     const system = `You help Jason Kuperman edit Live Slides (spoken headlines + bullets) for an upcoming conversation.
 ${NO_AI_SLOP_WRITING_RULES}
 
-${modeLine}
+${modeLine}${presetScope}
 Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide. No markdown in slide text.
 Facts from context that you cannot verify from the provided sources should be phrased cautiously or omitted.
+Person context sections are labelled by source and date. When drafting lines about why this call matters, who referred Jason, or what to raise, use the person context first and quote it in Jason's voice. If a needed fact is not in the context, write the line with the gap in square brackets, for example [what you hope to learn from her], and do not invent it.
 
 Reply with a single JSON array only. No markdown fences. No commentary before or after.
 Shape:
@@ -2244,6 +2294,49 @@ function embeddedCompanyName(value: unknown): string | null {
   const name = Array.isArray(company) ? company[0]?.name : company?.name;
   const trimmed = name?.trim();
   return trimmed || null;
+}
+
+async function resolveMeetingContactIds(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  prepId: string
+): Promise<string[]> {
+  const { getMeetingPrep } = await loadMeetingPrep();
+  const prepResult = await getMeetingPrep(prepId);
+  if (!prepResult.ok) throw new Error(prepResult.error);
+  const ids = new Set<string>();
+  const unmatched: Array<{ email: string; name: string | null }> = [];
+  for (const attendee of prepResult.prep.attendees) {
+    if (attendee.contactId) {
+      ids.add(attendee.contactId);
+      continue;
+    }
+    unmatched.push({ email: attendee.email, name: attendee.name });
+  }
+  for (const row of unmatched) {
+    if (row.email) {
+      const { data, error } = await sb
+        .from("contacts")
+        .select("id, emails")
+        .contains("emails", [row.email.toLowerCase()])
+        .limit(1);
+      if (error) throw new Error(error.message);
+      if (data?.[0]?.id) {
+        ids.add(String(data[0].id));
+        continue;
+      }
+    }
+    const name = row.name?.trim();
+    if (name && name.length >= 2) {
+      const { data, error } = await sb
+        .from("contacts")
+        .select("id, name")
+        .ilike("name", name)
+        .limit(2);
+      if (error) throw new Error(error.message);
+      if (data?.length === 1) ids.add(String(data[0].id));
+    }
+  }
+  return [...ids];
 }
 
 function emailsFromAttendees(

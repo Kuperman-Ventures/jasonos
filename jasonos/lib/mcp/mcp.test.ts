@@ -285,6 +285,7 @@ describe("registerJasonosTools", () => {
     assert.ok(registered.includes("create_playbook_from_deck"));
     assert.ok(registered.includes("get_transcript"));
     assert.ok(registered.includes("set_goal"));
+    assert.ok(registered.includes("get_person_context"));
     assert.ok(registered.includes("run_ai_help"));
     assert.ok(registered.includes("review_run"));
     assert.ok(registered.includes("get_review"));

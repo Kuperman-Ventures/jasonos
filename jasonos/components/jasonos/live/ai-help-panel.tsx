@@ -8,13 +8,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import type { DeckDetail, DeckSummary, AiHelpMode, AiHelpSources } from "@/lib/server-actions/decks";
-import { listDecks, listPlaybooks, runAiHelp, undoAiHelp } from "@/lib/server-actions/decks";
+import {
+  getPersonContextPreview,
+  listDecks,
+  listPlaybooks,
+  runAiHelp,
+  undoAiHelp,
+} from "@/lib/server-actions/decks";
 import { getMeetingPrep } from "@/lib/server-actions/meeting-prep";
 import { searchContacts } from "@/lib/server-actions/outreach";
+import {
+  orderedAiHelpPresets,
+  type AiHelpPreset,
+} from "@/lib/live/ai-help-presets";
 
 const ET = "America/New_York";
 
-type PersonChip = { id: string; name: string };
+type PersonChip = { id: string; name: string; contextLine?: string | null };
 
 function slideHasText(slide: DeckDetail["slides"][number]): boolean {
   return Boolean(slide.headline.trim() || slide.bullets.some((line) => line.trim()));
@@ -73,6 +83,20 @@ export function AiHelpPanel({
 
   const hasMeeting = Boolean(deck.meetingPrepId);
 
+  const sourcePlaybookName = useMemo(() => {
+    if (!deck.sourcePlaybookId) return null;
+    return playbooks.find((row) => row.id === deck.sourcePlaybookId)?.name ?? null;
+  }, [deck.sourcePlaybookId, playbooks]);
+
+  const presets = useMemo(
+    () =>
+      orderedAiHelpPresets({
+        deckName: deck.name,
+        sourcePlaybookName,
+      }),
+    [deck.name, sourcePlaybookName]
+  );
+
   const transcriptOptions = useMemo(
     () =>
       transcriptDecks.filter(
@@ -97,11 +121,17 @@ export function AiHelpPanel({
     });
   }, [open]);
 
+  const loadPersonContextLine = useCallback(async (contactId: string) => {
+    const result = await getPersonContextPreview(contactId);
+    if (!result.ok) return null;
+    return result.line;
+  }, []);
+
   // Preselect meeting attendees with CRM contact ids when a meeting is linked.
   useEffect(() => {
     if (!deck.meetingPrepId) return;
     let cancelled = false;
-    void getMeetingPrep(deck.meetingPrepId).then((result) => {
+    void getMeetingPrep(deck.meetingPrepId).then(async (result) => {
       if (cancelled || !result.ok) return;
       const chips: PersonChip[] = [];
       for (const attendee of result.prep.attendees) {
@@ -109,15 +139,21 @@ export function AiHelpPanel({
         const name = attendee.name?.trim() || attendee.email;
         chips.push({ id: attendee.contactId, name });
       }
-      if (chips.length) {
-        setPeople(chips);
-        setUsePeople(true);
-      }
+      if (!chips.length) return;
+      setPeople(chips);
+      setUsePeople(true);
+      const withLines = await Promise.all(
+        chips.map(async (chip) => ({
+          ...chip,
+          contextLine: await loadPersonContextLine(chip.id),
+        }))
+      );
+      if (!cancelled) setPeople(withLines);
     });
     return () => {
       cancelled = true;
     };
-  }, [deck.meetingPrepId]);
+  }, [deck.meetingPrepId, loadPersonContextLine]);
 
   useEffect(() => {
     const q = peopleQuery.trim();
@@ -130,6 +166,25 @@ export function AiHelpPanel({
     }, 200);
     return () => window.clearTimeout(timer);
   }, [peopleQuery]);
+
+  const addPerson = (hit: { id: string; name: string }) => {
+    setPeople((current) => {
+      if (current.some((row) => row.id === hit.id)) return current;
+      return [...current, { id: hit.id, name: hit.name, contextLine: null }];
+    });
+    setPeopleQuery("");
+    setPeopleHits([]);
+    void loadPersonContextLine(hit.id).then((line) => {
+      setPeople((current) =>
+        current.map((row) => (row.id === hit.id ? { ...row, contextLine: line } : row))
+      );
+    });
+  };
+
+  const applyPreset = (preset: AiHelpPreset) => {
+    setInstructions(preset.instructions);
+    setMode(preset.mode);
+  };
 
   const buildSources = useCallback((): AiHelpSources => {
     const sources: AiHelpSources = {};
@@ -245,6 +300,22 @@ export function AiHelpPanel({
 
       <div className="space-y-5 px-4 py-4">
         <div>
+          <p className={labelClass()}>Presets</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {presets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-surface)] px-2 py-1 text-[12px] font-semibold text-[var(--jos-ink)] hover:bg-[var(--jos-bg)]"
+                onClick={() => applyPreset(preset)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <label className={labelClass()} htmlFor="ai-help-instructions">
             Instructions
           </label>
@@ -286,14 +357,7 @@ export function AiHelpPanel({
                             <button
                               type="button"
                               className="flex w-full items-baseline gap-2 px-3 py-2 text-left text-[13px] hover:bg-[var(--jos-surface)]"
-                              onClick={() => {
-                                setPeople((current) => {
-                                  if (current.some((row) => row.id === hit.id)) return current;
-                                  return [...current, { id: hit.id, name: hit.name }];
-                                });
-                                setPeopleQuery("");
-                                setPeopleHits([]);
-                              }}
+                              onClick={() => addPerson(hit)}
                             >
                               <span className="font-semibold">{hit.name}</span>
                               {hit.firm ? (
@@ -306,24 +370,30 @@ export function AiHelpPanel({
                     ) : null}
                   </div>
                   {people.length ? (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="space-y-2">
                       {people.map((person) => (
-                        <span
-                          key={person.id}
-                          className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-surface)] px-2 py-0.5 text-[12px]"
-                        >
-                          {person.name}
-                          <button
-                            type="button"
-                            className="text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
-                            aria-label={`Remove ${person.name}`}
-                            onClick={() =>
-                              setPeople((current) => current.filter((row) => row.id !== person.id))
-                            }
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
+                        <div key={person.id} className="space-y-1">
+                          <span className="inline-flex items-center gap-1 rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-surface)] px-2 py-0.5 text-[12px]">
+                            {person.name}
+                            <button
+                              type="button"
+                              className="text-[var(--jos-muted)] hover:text-[var(--jos-ink)]"
+                              aria-label={`Remove ${person.name}`}
+                              onClick={() =>
+                                setPeople((current) =>
+                                  current.filter((row) => row.id !== person.id)
+                                )
+                              }
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                          {person.contextLine ? (
+                            <p className="text-[13px] text-[var(--jos-muted)]">{person.contextLine}</p>
+                          ) : (
+                            <p className="text-[13px] text-[var(--jos-muted)]">Reading person context…</p>
+                          )}
+                        </div>
                       ))}
                     </div>
                   ) : (

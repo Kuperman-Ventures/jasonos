@@ -68,11 +68,31 @@ export async function setGoalMcp(input: { deck_id: string; goal: string }) {
   return { ok: true, goal: result.goal };
 }
 
+export async function getPersonContextMcp(input: { contact_id: string }) {
+  const { buildPersonContext } = await import("@/lib/live/person-context");
+  const ctx = await buildPersonContext(input.contact_id);
+  return {
+    ok: true,
+    contact_id: ctx.contactId,
+    name: ctx.name,
+    sections: ctx.sections.map((row) => ({
+      key: row.key,
+      label: row.label,
+      text: row.text,
+      words: row.words,
+      source: row.source,
+    })),
+    missing: ctx.missing,
+    text: ctx.text,
+  };
+}
+
 export async function runAiHelpMcp(input: {
   deck_id: string;
-  instructions: string;
-  mode: "add" | "replace";
-  sources: {
+  instructions?: string;
+  mode?: "add" | "replace";
+  preset?: "why" | "rapport" | "what_how" | "tailor" | null;
+  sources?: {
     people?: string[];
     playbook_id?: string | null;
     open_text?: string | null;
@@ -81,15 +101,17 @@ export async function runAiHelpMcp(input: {
   };
 }) {
   const { runAiHelp } = await import("@/lib/server-actions/decks");
+  const sources = input.sources ?? {};
   const result = await runAiHelp(input.deck_id, {
     instructions: input.instructions,
     mode: input.mode,
+    preset: input.preset ?? null,
     sources: {
-      people: input.sources.people,
-      playbookId: input.sources.playbook_id,
-      openText: input.sources.open_text,
-      transcriptDeckIds: input.sources.transcript_deck_ids,
-      meeting: input.sources.meeting,
+      people: sources.people,
+      playbookId: sources.playbook_id,
+      openText: sources.open_text,
+      transcriptDeckIds: sources.transcript_deck_ids,
+      meeting: sources.meeting,
     },
   });
   if (!result.ok) throw new Error(result.error);
