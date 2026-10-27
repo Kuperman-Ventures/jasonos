@@ -179,7 +179,10 @@ export function TripNearbyMap({
     for (const [id, point] of pointsById) {
       let marker = markersRef.current.get(id);
       const containerId = `trip-pin-${id}`;
+      const isNew = !marker;
       if (!marker) {
+        // Create the icon DOM once. Recreating it tears down the React root and
+        // drops favicons every time trip membership / route redraws.
         marker = L.marker([point.lat, point.lng], {
           icon: L.divIcon({
             className: "",
@@ -192,16 +195,9 @@ export function TripNearbyMap({
         markersRef.current.set(id, marker);
       } else {
         marker.setLatLng([point.lat, point.lng]);
-        marker.setIcon(
-          L.divIcon({
-            className: "",
-            html: pinHtml(point, id === schoolId, containerId),
-            iconSize: undefined,
-          }),
-        );
       }
 
-      requestAnimationFrame(() => {
+      const mountMark = () => {
         const el = document.getElementById(containerId);
         if (!el) return;
         let root = pinRootsRef.current.get(id);
@@ -210,7 +206,9 @@ export function TripNearbyMap({
           pinRootsRef.current.set(id, root);
         }
         root.render(<SchoolMark name={point.name} website={point.website} />);
-      });
+      };
+      if (isNew) requestAnimationFrame(mountMark);
+      else mountMark();
 
       const pressed = inTrip.has(id);
       const driveHint =
@@ -250,8 +248,14 @@ export function TripNearbyMap({
       if (pin) {
         const dimmed = schoolIds.length > 0 && !inTrip.has(id);
         const live = id === propsRef.current.activeSchoolId;
+        pin.dataset.level = point.interest;
+        pin.classList.toggle("none", point.interest === "none");
+        pin.classList.toggle("here", id === schoolId);
         pin.classList.toggle("dim", dimmed && !live);
         pin.classList.toggle("live", live);
+        if (point.nudge) pin.style.marginLeft = `${point.nudge}px`;
+        else pin.style.marginLeft = "";
+        pin.title = point.name;
       }
     }
 

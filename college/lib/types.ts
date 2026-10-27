@@ -556,19 +556,35 @@ export function isListPhaseId(value: string): value is ListPhaseId {
   return value === "exploration" || value === "consideration" || value === "applications";
 }
 
-export function schoolFaviconUrl(website: string): string {
+/** Hostname for icon lookups (strips www.). */
+export function schoolFaviconHost(website: string): string {
   const trimmed = website.trim();
   if (!trimmed) return "";
   try {
     let host = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).hostname;
     if (!host) return "";
-    // Icon CDNs often miss www.* hosts (e.g. www.uci.edu → 404); apex usually works.
     if (host.startsWith("www.")) host = host.slice(4);
-    // DuckDuckGo’s icon CDN is more reliable than Google’s s2/favicons (which 404s for some schools).
-    return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
+    return host;
   } catch {
     return "";
   }
+}
+
+/**
+ * Candidate favicon URLs, preferred order.
+ * DuckDuckGo covers many .edu hosts; Google’s s2 fills gaps (and vice versa).
+ */
+export function schoolFaviconCandidates(website: string): string[] {
+  const host = schoolFaviconHost(website);
+  if (!host) return [];
+  return [
+    `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`,
+    `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`,
+  ];
+}
+
+export function schoolFaviconUrl(website: string): string {
+  return schoolFaviconCandidates(website)[0] ?? "";
 }
 
 export function schoolMark(name: string): string {

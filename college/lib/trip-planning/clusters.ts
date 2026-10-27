@@ -3,6 +3,7 @@
  */
 
 import type { School } from "@/lib/types";
+import { knownWebsite } from "@/lib/school-websites";
 import type { GeoPoint } from "@/lib/visit-geo";
 import { haversineMiles } from "@/lib/visit-geo";
 import {
@@ -90,7 +91,7 @@ export function toTripSchoolPoint(
     lng: coords.lng,
     region: regionForLocation(school.location) ?? regionForLocation(`${loc.city}, ${loc.state}`),
     nudge,
-    website: school.website,
+    website: school.website?.trim() || knownWebsite(school.id),
   };
 }
 
