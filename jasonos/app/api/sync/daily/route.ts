@@ -178,7 +178,9 @@ async function runDailySync() {
     steps.push({
       step: "connections",
       ok: true,
-      checked: connections.total,
+      checked: connections.checked,
+      skipped: connections.skipped,
+      total: connections.total,
       healthy: connections.healthy,
       down: connections.down,
       problems: connections.problems,

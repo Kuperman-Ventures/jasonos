@@ -23,6 +23,7 @@ import {
   SERVICE_DEFINITIONS,
   envStatus,
   getServiceDefinition,
+  isServiceConnectionEnabled,
   maskSecret,
   statusFromConnectionCheck,
   type HealthStatus,
@@ -48,6 +49,11 @@ export const SaveConnectionSchema = z.object({
   service_name: ServiceNameSchema,
   credentials: CredentialsSchema.optional(),
   disconnect: z.boolean().optional(),
+});
+
+export const SetServiceEnabledSchema = z.object({
+  service_name: ServiceNameSchema,
+  enabled: z.boolean(),
 });
 
 export const SaveMeetingFollowupPromptSchema = z.object({
@@ -686,6 +692,7 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
       user_id: userId,
       service_name: service.name,
       status: test.success ? "connected" : "error",
+      enabled: true,
       connection_type: service.connectionType,
       config: safeConfig,
       api_key_masked: key ? maskSecret(key) : undefined,
@@ -742,6 +749,8 @@ export async function persistConnectionHealth(
 
 export interface ConnectionCheckSummary {
   total: number;
+  checked: number;
+  skipped: number;
   connected: number;
   healthy: number;
   degraded: number;
@@ -759,18 +768,58 @@ export async function checkConnectionsOnSync(): Promise<ConnectionCheckSummary> 
     throw new Error("No JasonOS owner to store connection checks.");
   }
   const supabase = createPublicServiceRoleClient();
+  const { data: enabledRows } = await supabase
+    .from("service_connections")
+    .select("service_name, enabled")
+    .eq("user_id", userId);
+  const enabledByName = new Map(
+    ((enabledRows ?? []) as Array<{ service_name: string; enabled: boolean | null }>).map(
+      (row) => [row.service_name, isServiceConnectionEnabled(row)]
+    )
+  );
   const now = new Date().toISOString();
   const checked = await Promise.all(
     SERVICE_DEFINITIONS.map(async (service) => {
+      const enabled = enabledByName.get(service.name) ?? true;
+      if (!enabled) {
+        const { error } = await supabase.from("service_connections").upsert(
+          {
+            user_id: userId,
+            service_name: service.name,
+            status: "disabled",
+            enabled: false,
+            connection_type: service.connectionType,
+            last_health_check: now,
+            health_status: "unknown",
+            health_details: "Off — skipped on Sync.",
+            error_message: null,
+            updated_at: now,
+          },
+          { onConflict: "user_id,service_name" }
+        );
+        if (error) throw new Error(error.message);
+        return {
+          label: service.label,
+          skipped: true as const,
+          result: {
+            success: true,
+            message: "Off — skipped on Sync.",
+            health_status: "unknown" as HealthStatus,
+            status: "disabled" as ServiceStatus,
+          },
+        };
+      }
+
       const result = await testServiceConnection(service.name).catch((error) =>
         failed(error, `${service.label} health check failed.`)
       );
-      const status = statusFromConnectionCheck(service, result);
+      const status = statusFromConnectionCheck(service, result, { enabled: true });
       const { error } = await supabase.from("service_connections").upsert(
         {
           user_id: userId,
           service_name: service.name,
           status,
+          enabled: true,
           connection_type: service.connectionType,
           last_health_check: now,
           health_status: result.health_status,
@@ -781,24 +830,109 @@ export async function checkConnectionsOnSync(): Promise<ConnectionCheckSummary> 
         { onConflict: "user_id,service_name" }
       );
       if (error) throw new Error(error.message);
-      return { label: service.label, result };
+      return { label: service.label, skipped: false as const, result };
     })
   );
 
   revalidatePath("/settings");
 
-  const problems = checked
+  const probed = checked.filter((row) => !row.skipped);
+  const problems = probed
     .filter((row) => !row.result.success || row.result.health_status === "down")
     .map((row) => `${row.label}: ${row.result.message}`);
 
   return {
     total: checked.length,
-    connected: checked.filter((row) => row.result.success).length,
-    healthy: checked.filter((row) => row.result.health_status === "healthy").length,
-    degraded: checked.filter((row) => row.result.health_status === "degraded").length,
-    down: checked.filter((row) => row.result.health_status === "down").length,
+    checked: probed.length,
+    skipped: checked.length - probed.length,
+    connected: probed.filter((row) => row.result.success).length,
+    healthy: probed.filter((row) => row.result.health_status === "healthy").length,
+    degraded: probed.filter((row) => row.result.health_status === "degraded").length,
+    down: probed.filter((row) => row.result.health_status === "down").length,
     checked_at: now,
     problems,
+  };
+}
+
+/** Turn a connection on or off. Off connections keep their keys but are skipped on Sync. */
+export async function setServiceEnabled(
+  input: z.infer<typeof SetServiceEnabledSchema>
+) {
+  const { supabase, userId } = await getUserContext();
+  const service = getServiceDefinition(input.service_name);
+  if (!service) throw new Error("Unknown service");
+  const now = new Date().toISOString();
+
+  if (!input.enabled) {
+    const { data: existing } = await supabase
+      .from("service_connections")
+      .select("config, api_key_masked, connected_at, connection_type")
+      .eq("user_id", userId)
+      .eq("service_name", service.name)
+      .maybeSingle();
+    const { error } = await supabase.from("service_connections").upsert(
+      {
+        user_id: userId,
+        service_name: service.name,
+        status: "disabled",
+        enabled: false,
+        connection_type: existing?.connection_type ?? service.connectionType,
+        config: existing?.config ?? {},
+        api_key_masked: existing?.api_key_masked ?? null,
+        connected_at: existing?.connected_at ?? null,
+        last_health_check: now,
+        health_status: "unknown",
+        health_details: "Off — skipped on Sync.",
+        error_message: null,
+        updated_at: now,
+      },
+      { onConflict: "user_id,service_name" }
+    );
+    if (error) throw new Error(error.message);
+    return {
+      enabled: false,
+      status: "disabled" as ServiceStatus,
+      health_status: "unknown" as HealthStatus,
+      message: "Turned off. Sync will skip this connection.",
+    };
+  }
+
+  const result = await testServiceConnection(service.name).catch((error) =>
+    failed(error, `${service.label} health check failed.`)
+  );
+  const status = statusFromConnectionCheck(service, result, { enabled: true });
+  const { data: existing } = await supabase
+    .from("service_connections")
+    .select("config, api_key_masked, connected_at, connection_type")
+    .eq("user_id", userId)
+    .eq("service_name", service.name)
+    .maybeSingle();
+  const { error } = await supabase.from("service_connections").upsert(
+    {
+      user_id: userId,
+      service_name: service.name,
+      status,
+      enabled: true,
+      connection_type: existing?.connection_type ?? service.connectionType,
+      config: existing?.config ?? {},
+      api_key_masked: existing?.api_key_masked ?? null,
+      connected_at: result.success
+        ? (existing?.connected_at ?? now)
+        : (existing?.connected_at ?? null),
+      last_health_check: now,
+      health_status: result.health_status,
+      health_details: result.message,
+      error_message: result.success ? null : result.message,
+      updated_at: now,
+    },
+    { onConflict: "user_id,service_name" }
+  );
+  if (error) throw new Error(error.message);
+  return {
+    enabled: true,
+    status,
+    health_status: result.health_status,
+    message: result.message,
   };
 }
 

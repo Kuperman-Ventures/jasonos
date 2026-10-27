@@ -98,6 +98,7 @@ export function overlayGoogleOauthOntoServices<
   T extends {
     service_name: string;
     status: ServiceStatus;
+    enabled?: boolean;
     health_status: HealthStatus | null;
     health_details: string | null;
     error_message: string | null;
@@ -135,6 +136,15 @@ export function overlayGoogleOauthOntoServices<
   return services.map((service) => {
     if (service.service_name !== "gmail" && service.service_name !== "google_calendar") {
       return service;
+    }
+    if (service.enabled === false) {
+      return {
+        ...service,
+        status: "disabled",
+        health_status: "unknown",
+        health_details: "Off — skipped on Sync.",
+        error_message: null,
+      };
     }
     return {
       ...service,

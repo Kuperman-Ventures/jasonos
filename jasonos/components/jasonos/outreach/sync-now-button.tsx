@@ -455,9 +455,11 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
               resultText: result.problems[0],
             });
           } else {
+            const skipNote =
+              result.skipped > 0 ? ` · ${result.skipped} off` : "";
             patchStep("connections", {
               status: "done",
-              resultText: `${result.healthy} of ${result.total} healthy`,
+              resultText: `${result.healthy} of ${result.checked} healthy${skipNote}`,
             });
           }
           return result;

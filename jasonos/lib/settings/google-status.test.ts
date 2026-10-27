@@ -175,4 +175,30 @@ describe("overlayGoogleOauthOntoServices", () => {
     assert.match(services[0].error_message ?? "", /missing Gmail send/);
     assert.equal(services[1].health_status, "degraded");
   });
+
+  it("leaves an off Gmail row alone instead of marking OAuth expiry", () => {
+    const services = overlayGoogleOauthOntoServices(
+      [
+        {
+          service_name: "gmail",
+          status: "disabled" as const,
+          enabled: false,
+          health_status: "unknown" as const,
+          health_details: "Off — skipped on Sync.",
+          error_message: null,
+        },
+      ],
+      {
+        advisorsConnected: false,
+        gmailConnected: false,
+        advisorsNeedsReconnect: false,
+        gmailNeedsReconnect: false,
+        advisorsError: null,
+        gmailError: null,
+      }
+    );
+    assert.equal(services[0].status, "disabled");
+    assert.equal(services[0].error_message, null);
+    assert.match(services[0].health_details ?? "", /Off/);
+  });
 });
