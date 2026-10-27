@@ -15,6 +15,8 @@ import {
 import { OUTLOOK_ACCOUNT_EMAIL } from "@/lib/integrations/outlook-tokens";
 import { isFromMe } from "@/lib/outreach/contact-lookup";
 import { buildContactLookup } from "@/lib/outreach/email-matching";
+import { recordUserAction } from "@/lib/actions/action-log";
+import { followUpDetail } from "@/lib/actions/action-log-format";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { SUGGESTED_SCAN_DAYS_BACK } from "@/lib/outreach/suggested-scan";
 import {
@@ -448,6 +450,31 @@ export async function getHomeSentEmailFollowups(): Promise<SentEmailFollowup[]> 
   return getSentEmailFollowups();
 }
 
+async function logSentDecision(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  id: string,
+  verb: string,
+  detail?: string | null
+) {
+  const { data } = await sb
+    .from("sent_email_followups")
+    .select("subject,to_line")
+    .eq("id", id)
+    .maybeSingle();
+  const subject = typeof data?.subject === "string" ? data.subject.trim() : "";
+  const to = typeof data?.to_line === "string" ? data.to_line.trim() : "";
+  const extra = subject && to ? `To ${to}` : null;
+  const line = [detail, extra].filter(Boolean).join(" · ");
+  await recordUserAction({
+    verb,
+    area: "Email follow-up",
+    subject: subject || to || "Email",
+    detail: line || null,
+    targetTable: "sent_email_followups",
+    targetId: id,
+  });
+}
+
 export async function scheduleSentEmailFollowup(
   id: string,
   days: number
@@ -470,6 +497,7 @@ export async function scheduleSentEmailFollowup(
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data?.length) return { ok: false, error: "That email is no longer in the list." };
+  await logSentDecision(sb, id, "Snoozed", followUpDetail(days, due));
   revalidatePath("/outreach/sent");
   revalidatePath("/");
   return { ok: true };
@@ -490,6 +518,7 @@ export async function dismissSentEmailFollowup(id: string): Promise<ActionResult
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logSentDecision(sb, id, "No follow-up");
   revalidatePath("/outreach/sent");
   revalidatePath("/");
   return { ok: true };
@@ -508,6 +537,7 @@ export async function completeSentEmailFollowup(id: string): Promise<ActionResul
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logSentDecision(sb, id, "Done");
   revalidatePath("/");
   revalidatePath("/outreach/sent");
   return { ok: true };

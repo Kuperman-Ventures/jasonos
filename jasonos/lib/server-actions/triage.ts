@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { recordUserAction } from "@/lib/actions/action-log";
 import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
@@ -220,7 +221,7 @@ export async function skipContactFromTriage(input: {
   // they are removed from the Needs to Be Scheduled list.
   const { data: contact } = await supabase
     .from("contacts")
-    .select("source_ids")
+    .select("source_ids,name")
     .eq("id", input.contactId)
     .maybeSingle();
 
@@ -249,6 +250,16 @@ export async function skipContactFromTriage(input: {
       recruiter_id: recruiterId ?? null,
       triaged_at: new Date().toISOString(),
     },
+  });
+
+  const skippedName =
+    typeof contact?.name === "string" && contact.name.trim() ? contact.name.trim() : "Contact";
+  await recordUserAction({
+    verb: "Skipped",
+    area: "Triage",
+    subject: skippedName,
+    targetTable: "contacts",
+    targetId: input.contactId,
   });
 
   revalidatePath("/runner/triage");

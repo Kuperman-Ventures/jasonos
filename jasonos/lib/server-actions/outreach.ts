@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { lookupContactName, recordUserAction } from "@/lib/actions/action-log";
+import { cadenceWords, formatCalendarDay, snoozeDetail } from "@/lib/actions/action-log-format";
 import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
@@ -131,6 +133,26 @@ export async function setRelationshipType(
 // rr_contact_state so the recruiter pipeline view stays in sync.
 // ---------------------------------------------------------------------------
 
+async function logContactAction(
+  contactId: string,
+  name: string | null | undefined,
+  verb: string,
+  detail?: string | null
+) {
+  const subject =
+    (typeof name === "string" && name.trim()) ||
+    (await lookupContactName(contactId)) ||
+    "Contact";
+  await recordUserAction({
+    verb,
+    area: "Contact",
+    subject,
+    detail: detail ?? null,
+    targetTable: "contacts",
+    targetId: contactId,
+  });
+}
+
 export async function setCadence(
   contactId: string,
   cadence: CadenceInterval
@@ -143,7 +165,7 @@ export async function setCadence(
 
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("source_ids, next_touch_date, next_touch_is_manual")
+    .select("source_ids, next_touch_date, next_touch_is_manual, name")
     .eq("id", contactId)
     .maybeSingle();
 
@@ -152,7 +174,7 @@ export async function setCadence(
     if (/next_touch_is_manual/i.test(readError.message)) {
       const { data: legacy, error: legacyErr } = await sb
         .from("contacts")
-        .select("source_ids, next_touch_date")
+        .select("source_ids, next_touch_date, name")
         .eq("id", contactId)
         .maybeSingle();
       if (legacyErr) return { ok: false, error: legacyErr.message };
@@ -165,6 +187,7 @@ export async function setCadence(
         .eq("id", contactId);
       if (error) return { ok: false, error: error.message };
       await mirrorPipelineDueDate(legacy.source_ids, nextTouchDate);
+      await logContactAction(contactId, legacy.name as string | null, "Set cadence", cadenceWords(cadence));
       revalidate();
       return { ok: true };
     }
@@ -197,6 +220,12 @@ export async function setCadence(
   if (error) return { ok: false, error: error.message };
 
   await mirrorPipelineDueDate(existing.source_ids, nextTouchDate);
+  await logContactAction(
+    contactId,
+    (existing as { name?: string | null }).name,
+    "Set cadence",
+    cadenceWords(cadence)
+  );
 
   revalidate();
   return { ok: true };
@@ -765,7 +794,7 @@ export async function logContactTouch(input: {
   // edits don't clobber the user's chosen date.
   const { data: contact } = await sb
     .from("contacts")
-    .select("source_ids, next_touch_date")
+    .select("source_ids, next_touch_date, name")
     .eq("id", input.contactId)
     .maybeSingle();
 
@@ -838,6 +867,15 @@ export async function logContactTouch(input: {
       );
   }
 
+  const channel = input.channel.replaceAll("_", " ");
+  const direction = input.direction === "inbound" ? "Inbound" : "Outbound";
+  await logContactAction(
+    input.contactId,
+    (contact as { name?: string | null } | null)?.name,
+    "Logged a touch",
+    `${direction} · ${channel}`
+  );
+
   revalidate();
   return { ok: true };
 }
@@ -863,7 +901,7 @@ export async function setNextTouchDate(
   const sb = createServiceRoleClient();
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("source_ids")
+    .select("source_ids,name")
     .eq("id", contactId)
     .maybeSingle();
   if (readError) return { ok: false, error: readError.message };
@@ -887,6 +925,12 @@ export async function setNextTouchDate(
   if (error) return { ok: false, error: error.message };
 
   await mirrorPipelineDueDate(existing.source_ids, date);
+  await logContactAction(
+    contactId,
+    existing.name as string | null,
+    date ? "Set next touch" : "Cleared next touch",
+    date ? formatCalendarDay(date) : null
+  );
 
   revalidate();
   return { ok: true };
@@ -909,7 +953,7 @@ export async function snoozeContact(
   const sb = createServiceRoleClient();
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("source_ids")
+    .select("source_ids,name")
     .eq("id", contactId)
     .maybeSingle();
   if (readError) return { ok: false, error: readError.message };
@@ -934,6 +978,12 @@ export async function snoozeContact(
   if (error) return { ok: false, error: error.message };
 
   await mirrorPipelineDueDate(existing.source_ids, nextDate);
+  await logContactAction(
+    contactId,
+    existing.name as string | null,
+    "Snoozed",
+    snoozeDetail(Math.max(1, Math.floor(days)), nextDate)
+  );
 
   revalidate();
   return { ok: true };
