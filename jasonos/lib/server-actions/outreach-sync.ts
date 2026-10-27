@@ -1276,6 +1276,12 @@ function unavailableOutlookResult(
 // Orchestrator — run all configured syncs and aggregate results.
 // ---------------------------------------------------------------------------
 
+/** Probe every Settings connection and stamp Last checked. Runs with Sync. */
+export async function checkSettingsConnectionsOnSync() {
+  const { checkConnectionsOnSync } = await import("@/lib/settings/actions");
+  return checkConnectionsOnSync();
+}
+
 export async function syncOutreachAll(opts?: {
   daysBack?: number;
   daysForward?: number;

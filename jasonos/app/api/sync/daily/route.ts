@@ -23,6 +23,7 @@ import {
 } from "@/lib/server-actions/outreach-sync";
 import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 import { researchPendingWeeklyProvocations } from "@/lib/post-master/weekly-provocation/prepare";
+import { checkConnectionsOnSync } from "@/lib/settings/actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,7 +173,26 @@ async function runDailySync() {
     });
   }
 
+  try {
+    const connections = await checkConnectionsOnSync();
+    steps.push({
+      step: "connections",
+      ok: true,
+      checked: connections.total,
+      healthy: connections.healthy,
+      down: connections.down,
+      problems: connections.problems,
+    });
+  } catch (err) {
+    steps.push({
+      step: "connections",
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   revalidatePath("/");
+  revalidatePath("/settings");
   revalidatePath("/outreach/queue");
   revalidatePath("/outreach/sent");
 

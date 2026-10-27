@@ -329,3 +329,21 @@ export function envStatus(service: ServiceDefinition): ServiceStatus {
   if (!service.envVars?.length) return service.connectionType === "mcp" ? "connected" : "not_configured";
   return service.envVars.every((name) => !!process.env[name]) ? "connected" : "not_configured";
 }
+
+/**
+ * Badge status after a live check. A failed probe must not stay "connected"
+ * just because an API key or env var is present.
+ */
+export function statusFromConnectionCheck(
+  service: ServiceDefinition,
+  result: {
+    success: boolean;
+    status?: ServiceStatus;
+    health_status: HealthStatus;
+  }
+): ServiceStatus {
+  if (result.status) return result.status;
+  if (result.success) return "connected";
+  if (service.connectionType === "env_var") return envStatus(service);
+  return "error";
+}
