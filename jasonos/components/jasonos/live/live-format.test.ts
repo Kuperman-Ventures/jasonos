@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { filterUpcomingWeekMeetings } from "./live-format.ts";
+import { filterUpcomingWeekMeetings, formatAttendeeLine } from "./live-format.ts";
 
 describe("filterUpcomingWeekMeetings", () => {
   const now = Date.parse("2026-10-27T16:00:00.000Z");
@@ -24,6 +24,17 @@ describe("filterUpcomingWeekMeetings", () => {
     assert.deepEqual(
       filterUpcomingWeekMeetings([{ id: "x", startsAt: "2026-10-01T00:00:00.000Z" }], 7, now),
       []
+    );
+  });
+});
+
+describe("formatAttendeeLine", () => {
+  it("truncates long attendee lists", () => {
+    assert.equal(formatAttendeeLine([]), "No attendees listed");
+    assert.equal(formatAttendeeLine(["Ada", "Bob"]), "Ada, Bob");
+    assert.equal(
+      formatAttendeeLine(["Ada", "Bob", "Cara", "Dan"]),
+      "Ada, Bob +2"
     );
   });
 });

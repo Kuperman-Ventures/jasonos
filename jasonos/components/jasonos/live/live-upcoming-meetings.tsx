@@ -15,9 +15,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  formatAttendeeLine,
   formatMeetingDate,
   formatMeetingTime,
 } from "@/components/jasonos/live/live-format";
+import { LiveCollapsibleList } from "@/components/jasonos/live/live-collapsible-list";
 import type { AttachableMeeting, DeckSummary } from "@/lib/server-actions/decks";
 import {
   createBlankDeck,
@@ -26,11 +28,6 @@ import {
 } from "@/lib/server-actions/decks";
 
 type StartMode = "choose" | "playbook" | "library" | "name-playbook";
-
-function meetingPeopleLine(names: string[]): string {
-  if (!names.length) return "No attendees listed";
-  return names.join(", ");
-}
 
 export function LiveUpcomingMeetings({
   meetings,
@@ -130,31 +127,28 @@ export function LiveUpcomingMeetings({
 
   return (
     <>
-      <section className="mt-12">
-        <h2 className="text-sm font-extrabold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          Upcoming
-        </h2>
-        <p className="mt-1 text-[13px] text-[var(--jos-muted)]">Next 7 days</p>
-        {meetings.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--jos-muted)]">No meetings in the next week.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-[var(--jos-line)]">
-            {meetings.map((meeting) => (
-              <li
-                key={meeting.id}
-                className="flex flex-wrap items-baseline justify-between gap-3 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-[var(--jos-muted)]">
-                    {formatMeetingDate(meeting.startsAt)}, {formatMeetingTime(meeting.startsAt)}
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-[var(--jos-ink)]">
-                    {meeting.title}
-                  </p>
-                  <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">
-                    {meetingPeopleLine(meeting.attendeeNames)}
-                  </p>
-                </div>
+      <LiveCollapsibleList
+        title="Upcoming"
+        subtitle="Next 7 days"
+        count={meetings.length}
+        storageKey="jasonos.live.upcoming.collapsed"
+        empty={<p className="text-sm text-[var(--jos-muted)]">No meetings in the next week.</p>}
+      >
+        <ul className="mt-4 divide-y divide-[var(--jos-line)]">
+          {meetings.map((meeting) => (
+            <li key={meeting.id} className="flex items-start justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-semibold text-[var(--jos-muted)]">
+                  {formatMeetingDate(meeting.startsAt)}, {formatMeetingTime(meeting.startsAt)}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-[var(--jos-ink)]">
+                  {meeting.title}
+                </p>
+                <p className="mt-0.5 truncate text-[12px] text-[var(--jos-muted)]">
+                  {formatAttendeeLine(meeting.attendeeNames)}
+                </p>
+              </div>
+              <div className="shrink-0 pt-0.5">
                 {meeting.hasDeck && meeting.deckId ? (
                   <Link
                     href={`/live/decks/${meeting.deckId}`}
@@ -173,11 +167,11 @@ export function LiveUpcomingMeetings({
                     Start deck
                   </Button>
                 )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </LiveCollapsibleList>
 
       <Dialog
         open={Boolean(target)}
@@ -194,7 +188,7 @@ export function LiveUpcomingMeetings({
             <p className="text-[13px] text-[var(--jos-muted)]">
               {target.title}
               {target.attendeeNames.length
-                ? ` · ${meetingPeopleLine(target.attendeeNames)}`
+                ? ` · ${formatAttendeeLine(target.attendeeNames, 4)}`
                 : ""}
             </p>
           ) : null}

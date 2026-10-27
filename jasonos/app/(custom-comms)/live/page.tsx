@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { LiveBreadcrumb } from "@/components/jasonos/live/live-breadcrumb";
 import { LiveHomeStart } from "@/components/jasonos/live/live-home-start";
+import { LiveRecentDecks } from "@/components/jasonos/live/live-recent-decks";
 import { LiveUpcomingMeetings } from "@/components/jasonos/live/live-upcoming-meetings";
 import {
   filterUpcomingWeekMeetings,
   formatMeetingWhen,
-  homeDeckState,
 } from "@/components/jasonos/live/live-format";
 import {
   deckMeetingFields,
@@ -36,6 +35,17 @@ export default async function LiveHomePage() {
     recent.map((deck) => deck.meetingPrepId)
   );
 
+  const recentRows = recent.map((deck) => {
+    const { meetingTitle, meetingStartsAt } = deckMeetingFields(deck, meetingMap);
+    const meetingLine =
+      meetingTitle || meetingStartsAt
+        ? [meetingTitle, meetingStartsAt ? formatMeetingWhen(meetingStartsAt) : null]
+            .filter(Boolean)
+            .join(" · ")
+        : "No meeting";
+    return { deck, meetingLine };
+  });
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <LiveBreadcrumb crumbs={[{ label: "Live" }]} />
@@ -64,45 +74,7 @@ export default async function LiveHomePage() {
         libraryDecks={decks}
       />
 
-      <section className="mt-12">
-        <h2 className="text-sm font-extrabold uppercase tracking-[0.08em] text-[var(--jos-muted)]">
-          Recent
-        </h2>
-        {recent.length === 0 ? (
-          <p className="mt-4 text-sm text-[var(--jos-muted)]">No decks yet.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-[var(--jos-line)]">
-            {recent.map((deck) => {
-              const { meetingTitle, meetingStartsAt } = deckMeetingFields(deck, meetingMap);
-              const meetingLine =
-                meetingTitle || meetingStartsAt
-                  ? [meetingTitle, meetingStartsAt ? formatMeetingWhen(meetingStartsAt) : null]
-                      .filter(Boolean)
-                      .join(" · ")
-                  : "No meeting";
-              return (
-                <li
-                  key={deck.id}
-                  className="flex flex-wrap items-baseline justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/live/decks/${deck.id}`}
-                      className="text-sm font-semibold text-[var(--jos-ink)] hover:underline"
-                    >
-                      {deck.name}
-                    </Link>
-                    <p className="mt-0.5 text-[12px] text-[var(--jos-muted)]">{meetingLine}</p>
-                  </div>
-                  <span className="text-[12px] font-semibold text-[var(--jos-muted)]">
-                    {homeDeckState(deck)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      <LiveRecentDecks rows={recentRows} />
     </div>
   );
 }

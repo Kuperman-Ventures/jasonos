@@ -34,6 +34,14 @@ export function filterUpcomingWeekMeetings<T extends { startsAt: string }>(
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 }
 
+/** Compact attendee line so long invites don't blow out list rows. */
+export function formatAttendeeLine(names: string[], maxShown = 2): string {
+  const cleaned = names.map((name) => name.trim()).filter(Boolean);
+  if (!cleaned.length) return "No attendees listed";
+  if (cleaned.length <= maxShown) return cleaned.join(", ");
+  return `${cleaned.slice(0, maxShown).join(", ")} +${cleaned.length - maxShown}`;
+}
+
 export function formatMeetingDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     timeZone: TZ,
