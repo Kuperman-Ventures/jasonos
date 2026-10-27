@@ -100,7 +100,9 @@ export function registerNetworkScreenTools(server: McpServer) {
             partner_note: screen.partnerNote,
           },
           counts: { bucket, tier },
-          tier1: screen.candidates.filter((person) => person.tier === "tier1").map(slim),
+          tier1: screen.candidates
+            .filter((person) => person.tier === "tier1")
+            .map((person) => ({ ...slim(person), intro_blurb: person.introBlurb })),
           tier2: screen.candidates.filter((person) => person.tier === "tier2").map(slim),
           draft:
             screen.draftSubject || screen.draftBody

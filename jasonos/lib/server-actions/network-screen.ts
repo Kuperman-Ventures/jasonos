@@ -2,20 +2,21 @@
 
 import { generateText } from "ai";
 import { z } from "zod";
-import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
+import { JASON_CORE_VOICE, JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { fastModel, hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { stripEmDashes } from "@/lib/email-templates/render";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { getConnectionByLinkedInUrl } from "@/lib/integrations/leaddelta";
 import { normalizeLinkedInUrl } from "@/lib/integrations/leaddelta-parse";
+import { blurbWordCount, peopleInTheAsk } from "@/lib/network-screen/blurbs";
 import {
   IMPORT_SIBLING_WINDOW_MS,
   importedSiblingId,
   type ScreenSnapshot,
 } from "@/lib/network-screen/follow-import";
 import { selectIntroRecommendations, type IntroPick } from "@/lib/network-screen/score";
-import { DRAFT_RULES, NETWORK_SCREEN_STRATEGY } from "@/lib/network-screen/strategy";
+import { BLURB_RULES, DRAFT_RULES, NETWORK_SCREEN_STRATEGY } from "@/lib/network-screen/strategy";
 import {
   isBucket,
   isQueueStatus,
@@ -143,6 +144,7 @@ type ScreenRow = {
   status: string;
   draft_subject: string | null;
   draft_body: string | null;
+  include_blurbs_in_email?: boolean | null;
   requested_at: string | null;
   created_at: string;
   updated_at: string;
@@ -163,6 +165,8 @@ type CandidateRow = {
   tier: string;
   why: string | null;
   ask: string | null;
+  intro_blurb?: string | null;
+  intro_blurb_generated_at?: string | null;
   next_action: string | null;
   queue_status: string;
   intro_requested_at: string | null;
@@ -191,6 +195,7 @@ function mapScreen(row: ScreenRow, connectorEmail: string | null): NetworkScreen
     status: isScreenStatus(row.status) ? row.status : "awaiting_capture",
     draftSubject: row.draft_subject,
     draftBody: row.draft_body,
+    includeBlurbsInEmail: Boolean(row.include_blurbs_in_email),
     requestedAt: row.requested_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -213,6 +218,8 @@ function mapCandidate(row: CandidateRow): NetworkScreenCandidate {
     tier: isTier(row.tier) ? row.tier : "none",
     why: row.why,
     ask: row.ask,
+    introBlurb: row.intro_blurb ?? null,
+    introBlurbGeneratedAt: row.intro_blurb_generated_at ?? null,
     nextAction: row.next_action,
     queueStatus: isQueueStatus(row.queue_status) ? row.queue_status : "queued",
     introRequestedAt: row.intro_requested_at,
@@ -692,6 +699,7 @@ export type CandidatePatch = {
   tier?: Tier;
   why?: string | null;
   ask?: string | null;
+  introBlurb?: string | null;
   nextAction?: string | null;
   queueStatus?: QueueStatus;
 };
@@ -733,6 +741,7 @@ export async function updateCandidate({
   }
   if ("why" in patch) next.why = blank(patch.why);
   if ("ask" in patch) next.ask = blank(patch.ask);
+  if ("introBlurb" in patch) next.intro_blurb = blank(patch.introBlurb);
   if ("nextAction" in patch && !("next_action" in next)) next.next_action = blank(patch.nextAction);
   if (patch.queueStatus && isQueueStatus(patch.queueStatus)) {
     next.queue_status = patch.queueStatus;
@@ -765,6 +774,7 @@ export async function updateNetworkScreen({
     partnerNote?: string | null;
     draftSubject?: string | null;
     draftBody?: string | null;
+    includeBlurbsInEmail?: boolean;
   };
 }): Promise<{ ok: true; screen: NetworkScreenDetail } | ActionError> {
   if (!ensureConfigured()) return notConfigured();
@@ -777,6 +787,7 @@ export async function updateNetworkScreen({
   if ("partnerNote" in patch) next.partner_note = blank(patch.partnerNote);
   if ("draftSubject" in patch) next.draft_subject = blank(patch.draftSubject);
   if ("draftBody" in patch) next.draft_body = patch.draftBody ? stripEmDashes(patch.draftBody) : null;
+  if ("includeBlurbsInEmail" in patch) next.include_blurbs_in_email = Boolean(patch.includeBlurbsInEmail);
   if (!Object.keys(next).length) return getNetworkScreen(screenId);
   const sb = createServiceRoleClient();
   const { error } = await sb.from("network_screens").update(next).eq("id", screenId);
@@ -864,21 +875,127 @@ function tier1ForDraft(screen: NetworkScreenDetail): NetworkScreenCandidate[] {
     );
 }
 
+export async function generateIntroBlurbs({
+  screenId,
+  candidateIds,
+}: {
+  screenId: string;
+  candidateIds?: string[];
+}): Promise<{ ok: true; screen: NetworkScreenDetail } | ActionError> {
+  if (!ensureConfigured()) return notConfigured();
+  const loaded = await getNetworkScreen(screenId);
+  if (!loaded.ok) return loaded;
+  const screen = loaded.screen;
+  const tier1 = tier1ForDraft(screen);
+  const wanted = candidateIds?.length
+    ? new Set(candidateIds.filter((id) => z.string().uuid().safeParse(id).success))
+    : null;
+  const people = wanted ? tier1.filter((person) => wanted.has(person.id)) : peopleInTheAsk(screen);
+  if (!people.length) return { ok: false, error: "No intro recommendations to write about." };
+
+  const system = `${JASON_IDENTITY}
+
+${NO_AI_SLOP_WRITING_RULES}
+
+${BLURB_RULES}
+
+Return STRICT JSON only: {"blurbs":[{"id":"...","blurb":"..."}]}`;
+  const listed = people
+    .map(
+      (person) =>
+        `id: ${person.id}\nname: ${person.name}\ntitle: ${person.title || "(none)"}\ncompany: ${person.company || "(none)"}\nbucket: ${person.bucket}\nwhy: ${person.why || "(none)"}\nask: ${person.ask || "(none)"}`
+    )
+    .join("\n\n");
+  const prompt = `Write one forwardable intro blurb for each person below. The voice is ${screen.connectorName}, not Jason.
+
+Connector: ${screen.connectorName}
+Headline: ${screen.connectorHeadline || "(none)"}
+Company: ${screen.connectorCompany || "(none)"}
+
+Meeting notes:
+${screen.meetingNotesSummary || "(none)"}
+
+Partner note:
+${screen.partnerNote || "(none)"}
+
+People:
+${listed}`;
+
+  try {
+    const { text } = await generateText({
+      model: heavyModel(),
+      maxOutputTokens: 2000,
+      system,
+      messages: [{ role: "user", content: prompt }],
+      providerOptions: anthropicOptions(),
+    });
+    const parsed = parseJsonObject(text);
+    const raw = parsed?.blurbs;
+    if (!Array.isArray(raw)) {
+      return { ok: false, error: "The blurbs did not come back in a usable form. Try again." };
+    }
+    const byId = new Map(people.map((person) => [person.id, person]));
+    const writes: { id: string; blurb: string }[] = [];
+    const tooLong: string[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const record = entry as { id?: unknown; blurb?: unknown };
+      const id = blank(record.id);
+      const blurb = stripEmDashes(blank(record.blurb) ?? "");
+      const person = id ? byId.get(id) : undefined;
+      if (!person || !blurb) continue;
+      if (blurbWordCount(blurb) > 160) {
+        tooLong.push(person.name);
+        continue;
+      }
+      writes.push({ id: person.id, blurb });
+    }
+    if (!writes.length && !tooLong.length) {
+      return { ok: false, error: "The blurbs did not come back in a usable form. Try again." };
+    }
+    const sb = createServiceRoleClient();
+    const now = new Date().toISOString();
+    for (const write of writes) {
+      const { error } = await sb
+        .from("network_screen_candidates")
+        .update({ intro_blurb: write.blurb, intro_blurb_generated_at: now })
+        .eq("id", write.id)
+        .eq("screen_id", screenId);
+      if (error) return { ok: false, error: error.message };
+    }
+    if (tooLong.length) {
+      const names = tooLong.join(", ");
+      return {
+        ok: false,
+        error: `The intro for ${names} is over 160 words. Try again.`,
+      };
+    }
+    return getNetworkScreen(screenId);
+  } catch (err) {
+    console.error("[network-screen.blurbs]", err);
+    return { ok: false, error: "Couldn't reach the drafting model. Try again." };
+  }
+}
+
 export async function draftIntroRequest({
   screenId,
 }: {
   screenId: string;
-}): Promise<{ ok: true; subject: string; body: string; screen: NetworkScreenDetail } | ActionError> {
+}): Promise<
+  | { ok: true; subject: string; body: string; screen: NetworkScreenDetail; blurbError: string | null }
+  | ActionError
+> {
   if (!ensureConfigured()) return notConfigured();
   const loaded = await getNetworkScreen(screenId);
   if (!loaded.ok) return loaded;
   const tier1 = tier1ForDraft(loaded.screen);
   if (!tier1.length) return { ok: false, error: "No intro recommendations to ask about." };
   const screen = loaded.screen;
-  const warm = screen.relationshipWarmth === "warm" || screen.relationshipWarmth === "expecting_review";
-  const sizing = warm
-    ? "Ask for an introduction to each of these people."
-    : "Ask for an introduction to the first person only. Mention the other names in one line as the other people worth an introduction. Do not ask for all of them at once.";
+  const asked = peopleInTheAsk(screen);
+  const sizing =
+    asked.length === tier1.length
+      ? "Ask for an introduction to each of these people."
+      : "Ask for an introduction to the first person only. Mention the other names in one line as the other people worth an introduction. Do not ask for all of them at once.";
   const people = tier1
     .map(
       (person, index) =>
@@ -924,18 +1041,33 @@ ${people}`;
       return { ok: false, error: "The draft did not come back in a usable form. Try again." };
     }
     const sb = createServiceRoleClient();
+    const firstDraft = !blank(screen.draftBody);
     const { error } = await sb
       .from("network_screens")
       .update({
         draft_subject: subject,
         draft_body: body,
         status: "drafted" satisfies ScreenStatus,
+        ...(firstDraft
+          ? {
+              include_blurbs_in_email:
+                screen.relationshipWarmth === "warm" ||
+                screen.relationshipWarmth === "expecting_review",
+            }
+          : {}),
       })
       .eq("id", screenId);
     if (error) return { ok: false, error: error.message };
+    const blurbs = await generateIntroBlurbs({ screenId });
     const saved = await getNetworkScreen(screenId);
     if (!saved.ok) return saved;
-    return { ok: true, subject, body, screen: saved.screen };
+    return {
+      ok: true,
+      subject,
+      body,
+      screen: saved.screen,
+      blurbError: blurbs.ok ? null : blurbs.error,
+    };
   } catch (err) {
     console.error("[network-screen.draft]", err);
     return { ok: false, error: "Couldn't reach the drafting model. Try again." };

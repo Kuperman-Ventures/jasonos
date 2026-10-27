@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ContactPicker } from "@/components/jasonos/email/contact-picker";
 import { buildMailtoUrl } from "@/lib/email-templates/render";
+import { blurbWordCount, buildEmailBodyWithBlurbs, peopleInTheAsk } from "@/lib/network-screen/blurbs";
 import { buildCapturePrompt } from "@/lib/network-screen/capture-prompt";
 import {
   SCREEN_STATUS_LABELS,
   WARMTHS,
   WARMTH_LABELS,
+  type NetworkScreenCandidate,
   type NetworkScreenDetail,
   type NetworkScreenListItem,
   type RelationshipWarmth,
@@ -23,12 +25,14 @@ import {
 import {
   createNetworkScreen,
   draftIntroRequest,
+  generateIntroBlurbs,
   getNetworkScreen,
   listNetworkScreens,
   deleteNetworkScreen,
   markIntrosRequested,
   scoreNetworkScreen,
   saveNetworkScreenAnalysis,
+  updateCandidate,
   updateNetworkScreen,
 } from "@/lib/server-actions/network-screen";
 
@@ -67,7 +71,9 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [reasons, setReasons] = useState<Record<string, { why: string; ask: string }>>({});
+  const [blurbs, setBlurbs] = useState<Record<string, string>>({});
   const [seenReasons, setSeenReasons] = useState("");
+  const [seenBlurbs, setSeenBlurbs] = useState("");
   const [seenScreen, setSeenScreen] = useState("");
   const [picked, setPicked] = useState<string[] | null>(null);
   const [pickedFor, setPickedFor] = useState<string | null>(null);
@@ -101,6 +107,20 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
           screen.candidates
             .filter((person) => person.tier === "tier1")
             .map((person) => [person.id, { why: person.why ?? "", ask: person.ask ?? "" }])
+        )
+      );
+    }
+    const blurbKey = `${screen.id}:${screen.candidates
+      .filter((person) => person.tier === "tier1")
+      .map((person) => `${person.id}:${person.introBlurb ?? ""}`)
+      .join("|")}`;
+    if (seenBlurbs !== blurbKey) {
+      setSeenBlurbs(blurbKey);
+      setBlurbs(
+        Object.fromEntries(
+          screen.candidates
+            .filter((person) => person.tier === "tier1")
+            .map((person) => [person.id, person.introBlurb ?? ""])
         )
       );
     }
@@ -268,6 +288,46 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     });
   }
 
+  function saveBlurb(person: NetworkScreenCandidate) {
+    if (!screen) return;
+    const next = blurbs[person.id] ?? "";
+    if (next === (person.introBlurb ?? "")) return;
+    startTransition(async () => {
+      const result = await updateCandidate({ id: person.id, patch: { introBlurb: next } });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScreen((current) =>
+        current
+          ? {
+              ...current,
+              candidates: current.candidates.map((row) => (row.id === person.id ? result.candidate : row)),
+            }
+          : current
+      );
+    });
+  }
+
+  function writeBlurb(id: string) {
+    if (!screen) return;
+    startTransition(async () => {
+      const result = await generateIntroBlurbs({ screenId: screen.id, candidateIds: [id] });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScreen(result.screen);
+    });
+  }
+
+  function copyBlurb(name: string, text: string) {
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success(`Copied intro for ${name}`),
+      () => toast.error(`Could not copy the intro for ${name}.`)
+    );
+  }
+
   function saveScreen(patch: Parameters<typeof updateNetworkScreen>[0]["patch"]) {
     if (!screen) return;
     startTransition(async () => {
@@ -282,7 +342,52 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
 
   const step = creating || !screen ? 1 : stepFor(screen);
   const recommendations = (screen?.candidates.filter((person) => person.tier === "tier1") ?? []).slice(0, 3);
+  const asked = screen ? peopleInTheAsk(screen) : [];
+  const askedIds = new Set(asked.map((person) => person.id));
+  const outsideAsk = recommendations.filter((person) => !askedIds.has(person.id));
   const checked = new Set(picked ?? recommendations.map((person) => person.id));
+
+  function blurbCard(person: NetworkScreenCandidate) {
+    const text = blurbs[person.id] ?? "";
+    return (
+      <div key={person.id} className="space-y-2 rounded-lg border p-3">
+        <div>
+          <p className="font-medium">{person.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {[person.title, person.company].filter(Boolean).join(" · ") || "No title captured"}
+          </p>
+        </div>
+        {text.trim() ? (
+          <>
+            <Textarea
+              value={text}
+              onChange={(event) =>
+                setBlurbs((current) => ({ ...current, [person.id]: event.target.value }))
+              }
+              onBlur={() => saveBlurb(person)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">{blurbWordCount(text)} words</span>
+              <Button type="button" variant="outline" onClick={() => copyBlurb(person.name, text)}>
+                <ClipboardCopy className="h-4 w-4" />
+                Copy
+              </Button>
+              <Button type="button" variant="outline" disabled={pending} onClick={() => writeBlurb(person.id)}>
+                Regenerate
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm text-muted-foreground">No intro written yet</p>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => writeBlurb(person.id)}>
+              Write intro
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!screen && !creating) {
     return (
@@ -623,6 +728,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                       setScreen(result.screen);
                       setDraftSubject(result.subject);
                       setDraftBody(result.body);
+                      if (result.blurbError) toast.error(result.blurbError);
                     });
                   }}
                 >
@@ -656,6 +762,30 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                     }}
                   />
                 </label>
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-semibold">Forwardable intros</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Written as {screen.connectorName}, for them to paste into their own email. Edit anything that does not sound like them.
+                    </p>
+                  </div>
+                  {asked.map((person) => blurbCard(person))}
+                  {outsideAsk.length ? (
+                    <details className="text-sm">
+                      <summary className="cursor-pointer font-medium">Other recommendations</summary>
+                      <div className="mt-3 space-y-3">
+                        {outsideAsk.map((person) => blurbCard(person))}
+                      </div>
+                    </details>
+                  ) : null}
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={screen.includeBlurbsInEmail}
+                      onCheckedChange={(value) => saveScreen({ includeBlurbsInEmail: value === true })}
+                    />
+                    Include forwardable intros in the email
+                  </label>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" disabled={pending} onClick={saveAnalysis}>
                     Done
@@ -667,7 +797,16 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                       window.location.href = buildMailtoUrl({
                         to: screen.connectorEmail ?? "",
                         subject: draftSubject,
-                        body: draftBody,
+                        body: screen.includeBlurbsInEmail
+                          ? buildEmailBodyWithBlurbs({
+                              ...screen,
+                              draftBody,
+                              candidates: screen.candidates.map((person) => ({
+                                ...person,
+                                introBlurb: blurbs[person.id] ?? person.introBlurb,
+                              })),
+                            })
+                          : draftBody,
                       });
                     }}
                   >

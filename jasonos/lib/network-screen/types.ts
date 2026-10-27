@@ -92,6 +92,7 @@ export type NetworkScreen = {
   status: ScreenStatus;
   draftSubject: string | null;
   draftBody: string | null;
+  includeBlurbsInEmail: boolean;
   requestedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -112,6 +113,8 @@ export type NetworkScreenCandidate = {
   tier: Tier;
   why: string | null;
   ask: string | null;
+  introBlurb: string | null;
+  introBlurbGeneratedAt: string | null;
   nextAction: string | null;
   queueStatus: QueueStatus;
   introRequestedAt: string | null;
