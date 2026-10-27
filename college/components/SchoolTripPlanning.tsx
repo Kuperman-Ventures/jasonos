@@ -382,8 +382,8 @@ export function SchoolTripPlanning({
           </div>
           <InterestLegend here />
           <p className="trip-foot">
-            Select schools within 3 hours to build a drive route. Lines show visiting order, not
-            turn-by-turn roads. Double-click the map to see every nearby school.
+            Select schools within 3 hours to build a drive route. The map stays zoomed to every
+            school in that radius; lines show visiting order, not turn-by-turn roads.
           </p>
         </div>
       ) : null}
