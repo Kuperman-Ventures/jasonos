@@ -119,28 +119,6 @@ export function LiveUpcomingMeetings({
     });
   };
 
-  const setDisposition = (
-    meeting: AttachableMeeting,
-    disposition: "no_deck" | "hidden" | null,
-    okMessage: string
-  ) => {
-    start(async () => {
-      const result = await setMeetingLiveDisposition(meeting.id, disposition);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(okMessage);
-      router.refresh();
-    });
-  };
-
-  const markNoDeck = (meeting: AttachableMeeting) =>
-    setDisposition(meeting, "no_deck", "Marked no deck needed");
-
-  const undoNoDeck = (meeting: AttachableMeeting) =>
-    setDisposition(meeting, null, "Back on the list for a deck");
-
   const removeMeeting = (meeting: AttachableMeeting) => {
     if (
       !window.confirm(
@@ -149,7 +127,15 @@ export function LiveUpcomingMeetings({
     ) {
       return;
     }
-    setDisposition(meeting, "hidden", "Removed from Upcoming");
+    start(async () => {
+      const result = await setMeetingLiveDisposition(meeting.id, "hidden");
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Removed from Upcoming");
+      router.refresh();
+    });
   };
 
   const dialogTitle =
@@ -172,8 +158,8 @@ export function LiveUpcomingMeetings({
       >
         <ul className="mt-4 divide-y divide-[var(--jos-line)]">
           {meetings.map((meeting) => {
+            const hasDeck = Boolean(meeting.hasDeck && meeting.deckId);
             const state = liveListState({
-              noDeck: meeting.liveDisposition === "no_deck",
               reviewedAt: meeting.deckReviewedAt,
               hasTranscript: meeting.deckHasTranscript,
               runEndedAt: meeting.deckRunEndedAt,
@@ -194,9 +180,7 @@ export function LiveUpcomingMeetings({
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
-                  {meeting.liveDisposition === "no_deck" ? (
-                    <LiveStateBadge state="no_deck" />
-                  ) : meeting.hasDeck && meeting.deckId ? (
+                  {hasDeck ? (
                     <>
                       <LiveStateBadge state={state} />
                       <Link
@@ -217,35 +201,14 @@ export function LiveUpcomingMeetings({
                       Start deck
                     </Button>
                   )}
-                  <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
-                    {meeting.liveDisposition === "no_deck" ? (
-                      <button
-                        type="button"
-                        className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
-                        disabled={pending}
-                        onClick={() => undoNoDeck(meeting)}
-                      >
-                        Undo
-                      </button>
-                    ) : !meeting.hasDeck ? (
-                      <button
-                        type="button"
-                        className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
-                        disabled={pending}
-                        onClick={() => markNoDeck(meeting)}
-                      >
-                        No deck needed
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
-                      disabled={pending}
-                      onClick={() => removeMeeting(meeting)}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="text-[11px] font-semibold text-[var(--jos-muted)] underline-offset-2 hover:text-[var(--jos-ink)] hover:underline"
+                    disabled={pending}
+                    onClick={() => removeMeeting(meeting)}
+                  >
+                    Remove
+                  </button>
                 </div>
               </li>
             );
