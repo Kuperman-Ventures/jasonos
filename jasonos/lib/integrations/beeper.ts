@@ -5,7 +5,10 @@ import {
   beeperHrefStrings,
   toE164,
 } from "@/lib/integrations/beeper-links";
-import { describeBeeperTokenProblem } from "@/lib/integrations/beeper-health";
+import {
+  describeBeeperTokenProblem,
+  pickBeeperConnectionConfig,
+} from "@/lib/integrations/beeper-health";
 import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
 import {
   isUsablePhone,
@@ -119,9 +122,10 @@ async function loadBeeperConnectionConfig(): Promise<BeeperConnectionConfig> {
       .select("config")
       .eq("service_name", "beeper")
       .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    return ((data?.config ?? {}) as BeeperConnectionConfig) ?? {};
+      .limit(10);
+    return pickBeeperConnectionConfig(
+      (data ?? []).map((row) => (row.config ?? {}) as BeeperConnectionConfig)
+    );
   } catch {
     return {};
   }

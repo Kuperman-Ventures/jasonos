@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   describeBeeperTokenProblem,
   interpretBeeperAuthStatuses,
+  pickBeeperConnectionConfig,
 } from "./beeper-health.ts";
 
 describe("interpretBeeperAuthStatuses", () => {
@@ -56,5 +57,16 @@ describe("describeBeeperTokenProblem", () => {
       describeBeeperTokenProblem("bp_live_abc123XYZ-_~"),
       null
     );
+  });
+});
+
+describe("pickBeeperConnectionConfig", () => {
+  it("keeps the Funnel URL when a newer row has no address", () => {
+    const picked = pickBeeperConnectionConfig([
+      { access_token: "new-but-no-url" },
+      { access_token: "real-token", base_url: "https://jasons-mac-mini.tail3a2028.ts.net" },
+    ]);
+    assert.equal(picked.access_token, "real-token");
+    assert.equal(picked.base_url, "https://jasons-mac-mini.tail3a2028.ts.net");
   });
 });

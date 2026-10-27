@@ -33,6 +33,7 @@ import {
   describeBeeperTokenProblem,
   interpretBeeperAuthStatuses,
   isAuthDeniedStatus,
+  pickBeeperConnectionConfig,
 } from "@/lib/integrations/beeper-health";
 
 const CredentialsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
@@ -309,12 +310,13 @@ export async function testServiceConnection(
           .select("config")
           .eq("service_name", "beeper")
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const cfg = (data?.config ?? {}) as {
-          access_token?: string;
-          base_url?: string;
-        };
+          .limit(10);
+        const cfg = pickBeeperConnectionConfig(
+          (data ?? []).map((row) => (row.config ?? {}) as {
+            access_token?: string;
+            base_url?: string;
+          })
+        );
         if (!beeperKey) beeperKey = cfg.access_token?.trim() || undefined;
         savedBase = cfg.base_url?.trim().replace(/\/$/, "") || undefined;
       } catch {
