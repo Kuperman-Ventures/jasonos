@@ -57,14 +57,19 @@ function ensureMapView(map: L.Map, center: L.LatLngExpression, zoom: number) {
   if (!mapIsReady(map)) map.setView(center, zoom, { animate: false });
 }
 
-function flyToPointBounds(
-  map: L.Map,
-  pts: Array<[number, number]>,
-  options: L.FitBoundsOptions & { duration?: number },
-) {
+/** Fit once to every nearby pin — no animated zoom on hover/select. */
+function fitNearbyBounds(map: L.Map, pts: Array<[number, number]>) {
   if (!pts.length) return;
   ensureMapView(map, pts[0]!, MAP_FALLBACK_ZOOM);
-  map.flyToBounds(pts, options);
+  if (pts.length === 1) {
+    map.setView(pts[0]!, 10, { animate: false });
+    return;
+  }
+  map.fitBounds(pts, {
+    padding: [48, 48],
+    maxZoom: 11,
+    animate: false,
+  });
 }
 
 export function TripNearbyMap({
@@ -140,15 +145,6 @@ export function TripNearbyMap({
       if (!air || !mapIsReady(map)) return;
       if (map.getZoom() >= 10.5) air.addTo(map);
       else air.remove();
-    });
-
-    mapEl.current.addEventListener("dblclick", () => {
-      const pts = [...propsRef.current.pointsById.values()].map(
-        (p) => [p.lat, p.lng] as [number, number],
-      );
-      if (pts.length) {
-        flyToPointBounds(map, pts, { padding: [28, 28], duration: 0.6 });
-      }
     });
 
     return () => {
@@ -322,30 +318,15 @@ export function TripNearbyMap({
     map.invalidateSize();
   }, [schoolId, pointsById, schoolIds, routeOrder, routeLegs, airport]);
 
-  // Fly to active school (or full route when focusing the base with multiple stops)
+  // Fit once to every school in the 3-hour ring — no zoom on hover/select/toggle.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const active = pointsById.get(activeSchoolId);
-    if (!active) return;
-    const routePts = routeOrder
-      .map((id) => pointsById.get(id))
-      .filter((p): p is TripSchoolPoint => Boolean(p))
-      .map((p) => [p.lat, p.lng] as [number, number]);
-    if (activeSchoolId === schoolId && routePts.length >= 2) {
-      flyToPointBounds(map, routePts, {
-        padding: [70, 70],
-        duration: 0.6,
-        maxZoom: 12,
-      });
-      return;
-    }
-    flyToPointBounds(map, [[active.lat, active.lng]], {
-      padding: [70, 70],
-      duration: 0.5,
-      maxZoom: 11,
-    });
-  }, [activeSchoolId, pointsById, routeOrder, schoolId]);
+    const nearbyPts = [...pointsById.values()].map(
+      (p) => [p.lat, p.lng] as [number, number],
+    );
+    fitNearbyBounds(map, nearbyPts);
+  }, [schoolId, pointsById]);
 
   return (
     <div
