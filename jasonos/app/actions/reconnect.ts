@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { lookupRecruiterName, recordUserAction } from "@/lib/actions/action-log";
+import { formatCalendarDay } from "@/lib/actions/action-log-format";
 import { createPublicServiceRoleClient } from "@/lib/supabase/server";
+import { RECRUITER_STATUS_LABELS } from "@/lib/reconnect/constants";
 import type { RecruiterStatus } from "@/lib/reconnect/types";
 
 type ActionResult = { ok: true; persisted: boolean } | { ok: false; message: string };
@@ -29,6 +32,15 @@ async function tryPersistStatus(
       .eq("contact_id", recruiterId);
 
     if (error) return { ok: false, message: error.message };
+    const due = extra?.next_action_due_date;
+    await recordUserAction({
+      verb: RECRUITER_STATUS_LABELS[status] ?? status,
+      area: "Reconnect",
+      subject: (await lookupRecruiterName(recruiterId)) ?? "Contact",
+      detail: typeof due === "string" && due ? `back ${formatCalendarDay(due.slice(0, 10))}` : null,
+      targetTable: "rr_recruiters",
+      targetId: recruiterId,
+    });
     paths();
     return { ok: true, persisted: true };
   } catch (error) {
@@ -98,6 +110,14 @@ export async function addReconnectNote(
       body: body.trim(),
     });
     if (error) return { ok: false, message: error.message };
+    await recordUserAction({
+      verb: "Note",
+      area: "Reconnect",
+      subject: (await lookupRecruiterName(recruiterId)) ?? "Contact",
+      detail: body.trim().slice(0, 160),
+      targetTable: "rr_recruiters",
+      targetId: recruiterId,
+    });
     paths();
     return { ok: true, persisted: true };
   } catch (error) {

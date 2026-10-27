@@ -6,6 +6,7 @@
 // and marks a customization logged once it's added to NYUI.
 
 import { revalidatePath } from "next/cache";
+import { recordUserAction } from "@/lib/actions/action-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { lookupCompanyHomepage } from "@/lib/nyui/company-homepage-lookup";
 import {
@@ -143,11 +144,23 @@ export async function markResumeApplicationLogged(
   if (!hasConfig()) return { ok: false, error: "Not configured." };
   if (!customizationId) return { ok: false, error: "customizationId is required." };
   const sb = createServiceRoleClient();
+  const { data: row } = await sb
+    .from("resume_customizations")
+    .select("company,filename")
+    .eq("id", customizationId)
+    .maybeSingle();
   const { error } = await sb
     .from("resume_customizations")
     .update({ nyui_logged_at: new Date().toISOString() })
     .eq("id", customizationId);
   if (error) return { ok: false, error: error.message };
+  await recordUserAction({
+    verb: "Logged",
+    area: "Job application",
+    subject: applicationSubject(row),
+    targetTable: "resume_customizations",
+    targetId: customizationId,
+  });
   revalidatePath("/nyui");
   revalidatePath("/resume-customizer");
   return { ok: true };
@@ -159,11 +172,29 @@ export async function dismissResumeApplication(
   if (!hasConfig()) return { ok: false, error: "Not configured." };
   if (!customizationId) return { ok: false, error: "customizationId is required." };
   const sb = createServiceRoleClient();
+  const { data: row } = await sb
+    .from("resume_customizations")
+    .select("company,filename")
+    .eq("id", customizationId)
+    .maybeSingle();
   const { error } = await sb
     .from("resume_customizations")
     .update({ nyui_dismissed_at: new Date().toISOString() })
     .eq("id", customizationId);
   if (error) return { ok: false, error: error.message };
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Job application",
+    subject: applicationSubject(row),
+    targetTable: "resume_customizations",
+    targetId: customizationId,
+  });
   revalidatePath("/nyui");
   return { ok: true };
+}
+
+function applicationSubject(row: { company?: string | null; filename?: string | null } | null): string {
+  const company = typeof row?.company === "string" ? row.company.trim() : "";
+  const filename = typeof row?.filename === "string" ? row.filename.trim() : "";
+  return company || filename || "Application";
 }

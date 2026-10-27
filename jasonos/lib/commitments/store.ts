@@ -2,6 +2,8 @@
  * Commitment Check data access. Service-role, MCP-safe (no Next.js imports),
  * so the home page, server actions and the JasonOS MCP share it.
  */
+import { recordUserAction } from "../actions/action-log";
+import { untilDetail } from "../actions/action-log-format";
 import { jasonosDb } from "../mcp/db";
 import { buildViews, etDate, parseCommitmentPayload } from "./logic";
 import {
@@ -124,6 +126,7 @@ export async function setCommitmentItemState(input: {
   if (input.state === "open") {
     const { error } = await db.from("commitment_item_states").delete().eq("item_key", key);
     if (error) fail(error);
+    await logCommitmentDecision(key, "open", null, input.actor);
     return { ok: true, item_key: key, state: "open" };
   }
   if (!(ITEM_STATES as readonly string[]).includes(input.state)) throw new Error("Unknown state.");
@@ -141,5 +144,61 @@ export async function setCommitmentItemState(input: {
     { onConflict: "item_key" }
   );
   if (error) fail(error);
+  await logCommitmentDecision(
+    key,
+    input.state,
+    input.state === "snoozed" ? input.snoozed_until ?? null : null,
+    input.actor
+  );
   return { ok: true, item_key: key, state: input.state };
+}
+
+async function logCommitmentDecision(
+  key: string,
+  state: ItemState | "open",
+  snoozedUntil: string | null,
+  actor: "jasonos" | "claude"
+) {
+  let subject = key;
+  let to: string | null = null;
+  try {
+    const { data } = await jasonosDb()
+      .from("commitment_checks")
+      .select("payload")
+      .order("check_date", { ascending: false })
+      .limit(8);
+    for (const row of data ?? []) {
+      const items = (
+        row.payload as { items?: { key?: string; promise?: string; to?: string }[] } | null
+      )?.items;
+      const hit = items?.find((item) => item.key === key);
+      if (hit?.promise?.trim()) {
+        subject = hit.promise.trim();
+        to = hit.to?.trim() || null;
+        break;
+      }
+    }
+  } catch {
+    // The key is enough if the published check cannot be read.
+  }
+  const verb =
+    state === "done"
+      ? "Done"
+      : state === "dismissed"
+        ? "Not a commitment"
+        : state === "snoozed"
+          ? "Snoozed"
+          : "Reopened";
+  const detail = [state === "snoozed" && snoozedUntil ? untilDetail(snoozedUntil) : null, to ? `To ${to}` : null]
+    .filter(Boolean)
+    .join(" · ");
+  await recordUserAction({
+    verb,
+    area: "Commitment",
+    subject,
+    detail: detail || null,
+    actor: actor === "claude" ? "claude" : "jason",
+    targetTable: "commitment_item_states",
+    targetId: key,
+  });
 }

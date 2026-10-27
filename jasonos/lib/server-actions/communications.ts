@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { lookupContactName, lookupRecruiterName, recordUserAction } from "@/lib/actions/action-log";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import {
   createPublicServiceRoleClient,
@@ -493,6 +494,14 @@ export async function dismissCommunicationContact(contactId: string): Promise<vo
     },
     { onConflict: "contact_id" }
   );
+  const name = (await lookupContactName(contactId)) ?? (await lookupRecruiterName(contactId));
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Schedule",
+    subject: name ?? "Contact",
+    targetTable: "rr_contact_state",
+    targetId: contactId,
+  });
   revalidatePath("/communications");
 }
 
@@ -638,6 +647,14 @@ export async function dismissContactFromSchedule(contactId: string): Promise<voi
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
   const sb = createServiceRoleClient();
   await sb.from("contacts").update({ intent: "backrow" }).eq("id", contactId);
+  const name = await lookupContactName(contactId);
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Schedule",
+    subject: name ?? "Contact",
+    targetTable: "contacts",
+    targetId: contactId,
+  });
   revalidatePath("/communications");
   revalidatePath("/outreach/schedule");
 }

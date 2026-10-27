@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { recordUserAction } from "@/lib/actions/action-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   CADENCE_DAYS,
@@ -336,11 +337,21 @@ export async function dismissCadenceContact(cardId: string): Promise<VoidResult>
     return { ok: false, error: "Supabase service role is not configured." };
   }
   const sb = createServiceRoleClient();
-  const { error } = await sb
+  const { data, error } = await sb
     .from("cards")
     .update({ state: "archived" })
-    .eq("id", cardId);
+    .eq("id", cardId)
+    .select("title")
+    .maybeSingle();
   if (error) return { ok: false, error: error.message };
+  const title = typeof data?.title === "string" && data.title.trim() ? data.title.trim() : "Contact";
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Cadence",
+    subject: title,
+    targetTable: "cards",
+    targetId: cardId,
+  });
 
   revalidatePath("/communications");
   return { ok: true };

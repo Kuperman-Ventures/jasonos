@@ -4,6 +4,8 @@ import {
   isApplicationWorkSearch,
   resolvedScoreboardStatus,
 } from "../scoreboard/types";
+import { recordUserAction } from "../actions/action-log";
+import { untilDetail } from "../actions/action-log-format";
 import { jasonosDb, publicDb } from "./db";
 import { sanitizeSearch, uniqueAlerts } from "./result";
 
@@ -242,6 +244,15 @@ export async function addTodo(input: {
     .select("id,track,title,notes,due_date,state,created_at")
     .single();
   if (error) throw new Error(error.message);
+  await recordUserAction({
+    verb: "Added",
+    area: "To-do",
+    subject: data.title as string,
+    detail: data.due_date ? untilDetail(String(data.due_date)).replace(/^until /, "due ") : null,
+    actor: "claude",
+    targetTable: "todos",
+    targetId: data.id as string,
+  });
   return { ok: true, todo: data };
 }
 
@@ -259,6 +270,15 @@ export async function completeTodo(input: { id: string; completion_note?: string
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`No todo found for id ${input.id}`);
+  await recordUserAction({
+    verb: "Done",
+    area: "To-do",
+    subject: (data.title as string) || "To-do",
+    detail: input.completion_note?.trim() || null,
+    actor: "claude",
+    targetTable: "todos",
+    targetId: data.id as string,
+  });
   return { ok: true, todo: data };
 }
 
@@ -334,6 +354,14 @@ export async function addActionCard(input: {
     .select("id,track,module,title,subtitle,why_now,state,created_at")
     .single();
   if (error) throw new Error(error.message);
+  await recordUserAction({
+    verb: "Added",
+    area: "Card",
+    subject: (data.title as string) || "Card",
+    actor: "claude",
+    targetTable: "cards",
+    targetId: data.id as string,
+  });
   return { ok: true, card: data };
 }
 
@@ -369,6 +397,28 @@ export async function updateCard(input: {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`No card found for id ${input.id}`);
+  const verb =
+    input.state === "actioned"
+      ? "Done"
+      : input.state === "dismissed"
+        ? "Dismissed"
+        : input.state === "snoozed"
+          ? "Snoozed"
+          : input.state === "archived"
+            ? "Archived"
+            : "Reopened";
+  await recordUserAction({
+    verb,
+    area: "Card",
+    subject: (data.title as string) || "Card",
+    detail:
+      input.state === "snoozed" && data.snoozed_until
+        ? untilDetail(String(data.snoozed_until))
+        : null,
+    actor: "claude",
+    targetTable: "cards",
+    targetId: data.id as string,
+  });
   return { ok: true, card: data };
 }
 
@@ -382,6 +432,14 @@ export async function pinCard(input: { id: string; pin: boolean }) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`No card found for id ${input.id}`);
+  await recordUserAction({
+    verb: input.pin ? "Pinned" : "Unpinned",
+    area: "Card",
+    subject: (data.title as string) || "Card",
+    actor: "claude",
+    targetTable: "cards",
+    targetId: data.id as string,
+  });
   return { ok: true, card: data };
 }
 

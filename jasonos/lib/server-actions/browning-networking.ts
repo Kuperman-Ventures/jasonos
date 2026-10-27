@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { recordUserAction } from "@/lib/actions/action-log";
 import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
 import { canEditOfferedTimes } from "@/lib/browning-networking/lanes";
@@ -137,7 +138,7 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("status, call_starts_at, card_id")
+    .select("status, call_starts_at, card_id, contact_name")
     .eq("id", handoffId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
@@ -158,6 +159,17 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
     await sb.from("cards").update({ state: "actioned" }).eq("id", data.card_id as string);
   }
   const holdWarning = await syncHolds(sb, handoffId);
+  const actedName =
+    typeof data.contact_name === "string" && data.contact_name.trim()
+      ? data.contact_name.trim()
+      : "Handoff";
+  await recordUserAction({
+    verb: "Acted on",
+    area: "Browning",
+    subject: actedName,
+    targetTable: "browning_handoffs",
+    targetId: handoffId,
+  });
   revalidate();
   return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
@@ -169,7 +181,7 @@ export async function dismissHandoff(handoffId: string): Promise<ActionResult> {
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("status, call_starts_at, card_id")
+    .select("status, call_starts_at, card_id, contact_name")
     .eq("id", handoffId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
@@ -191,6 +203,17 @@ export async function dismissHandoff(handoffId: string): Promise<ActionResult> {
     await sb.from("cards").update({ state: "dismissed" }).eq("id", data.card_id as string);
   }
   const holdWarning = await syncHolds(sb, handoffId, true);
+  const dismissedName =
+    typeof data.contact_name === "string" && data.contact_name.trim()
+      ? data.contact_name.trim()
+      : "Handoff";
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Browning",
+    subject: dismissedName,
+    targetTable: "browning_handoffs",
+    targetId: handoffId,
+  });
   revalidate();
   return holdWarning ? { ok: true, holdWarning } : { ok: true };
 }
