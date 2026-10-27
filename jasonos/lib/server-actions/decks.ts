@@ -1477,10 +1477,11 @@ export async function runAiHelp(
 ${NO_AI_SLOP_WRITING_RULES}
 
 ${modeLine}
-Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide. No markdown.
+Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide. No markdown in slide text.
 Facts from context that you cannot verify from the provided sources should be phrased cautiously or omitted.
 
-Return JSON only — a JSON array of slides:
+Reply with a single JSON array only. No markdown fences. No commentary before or after.
+Shape:
 [{"headline":"...","bullets":["..."]}]`;
 
     const user = `Instructions:\n${instructions}
@@ -1496,18 +1497,26 @@ ${JSON.stringify(
 )}`;
 
     const { callClaude } = await import("@/lib/ai/models");
-    const callModel = async () =>
+    const callModel = async (messages: { role: "user" | "assistant"; content: string }[]) =>
       callClaude({
         model: "claude-sonnet-4-6",
         maxTokens: 6000,
         system,
-        messages: [{ role: "user", content: user }],
+        messages,
       });
 
-    let raw = await callModel();
+    let raw = await callModel([{ role: "user", content: user }]);
     let parsed = parseAiHelpSlidesJson(raw);
     if (!parsed.ok) {
-      raw = await callModel();
+      raw = await callModel([
+        { role: "user", content: user },
+        { role: "assistant", content: raw.slice(0, 4000) },
+        {
+          role: "user",
+          content:
+            'That reply was not valid JSON. Reply again with ONLY a JSON array of slides — no markdown fences, no prose. Example: [{"headline":"...","bullets":["..."]}]',
+        },
+      ]);
       parsed = parseAiHelpSlidesJson(raw);
     }
     if (!parsed.ok) return { ok: false, error: parsed.error };

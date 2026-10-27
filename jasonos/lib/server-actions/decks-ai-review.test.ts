@@ -26,6 +26,14 @@ describe("parseAiHelpSlidesJson edge cases", () => {
     assert.equal(result.ok, false);
   });
 
+  it("accepts fenced JSON with surrounding prose", () => {
+    const result = parseAiHelpSlidesJson(
+      'Updated slides:\n```json\n[{"headline":"Hi","bullets":["Line"]}]\n```\n'
+    );
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.value[0].headline, "Hi");
+  });
+
   it("caps bullets per slide at six", () => {
     const bullets = new Array(10).fill("short line");
     const result = parseAiHelpSlidesJson(JSON.stringify([{ headline: "X", bullets }]));

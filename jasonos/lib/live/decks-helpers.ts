@@ -136,20 +136,74 @@ export function alignRubricScores(
 }
 
 function stripJsonFence(raw: string): string {
-  return raw
-    .trim()
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced?.[1]) return fenced[1].trim();
+  return trimmed
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/```$/i, "")
     .trim();
 }
 
-function parseJsonValue(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
-  try {
-    return { ok: true, value: JSON.parse(stripJsonFence(raw)) };
-  } catch {
-    return { ok: false, error: "Claude returned invalid JSON." };
+/** Soft cleanup for common model JSON nits (trailing commas). */
+function softenJson(text: string): string {
+  return text.replace(/,\s*([\]}])/g, "$1");
+}
+
+function tryParseJson(text: string): unknown | null {
+  const candidates = [text, softenJson(text)];
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // try next
+    }
   }
+  return null;
+}
+
+/**
+ * Pull a JSON value out of a Claude reply that may include prose or fences.
+ * Prefers arrays (AI help slides) when both an array and object are present.
+ */
+export function extractJsonValue(raw: string): unknown | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const direct = tryParseJson(stripJsonFence(trimmed));
+  if (direct !== null) return direct;
+
+  const fenceBodies = [...trimmed.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map((m) =>
+    m[1]?.trim()
+  );
+  for (const body of fenceBodies) {
+    if (!body) continue;
+    const parsed = tryParseJson(body);
+    if (parsed !== null) return parsed;
+  }
+
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    const parsed = tryParseJson(trimmed.slice(arrayStart, arrayEnd + 1));
+    if (parsed !== null) return parsed;
+  }
+
+  const objectStart = trimmed.indexOf("{");
+  const objectEnd = trimmed.lastIndexOf("}");
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    const parsed = tryParseJson(trimmed.slice(objectStart, objectEnd + 1));
+    if (parsed !== null) return parsed;
+  }
+
+  return null;
+}
+
+function parseJsonValue(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
+  const value = extractJsonValue(raw);
+  if (value === null) return { ok: false, error: "Claude returned invalid JSON." };
+  return { ok: true, value };
 }
 
 function capEvidence(text: string): string {
@@ -276,19 +330,10 @@ export function parseReviewJson(
 export function parseTailorJson(
   raw: string
 ): { ok: true; value: { notes: string; slides: SlideInput[] } } | { ok: false; error: string } {
-  const trimmed = raw.trim();
-  const jsonText = trimmed
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
+  const parsed = extractJsonValue(raw);
+  if (!parsed || typeof parsed !== "object") {
     return { ok: false, error: "Claude returned invalid JSON." };
   }
-  if (!parsed || typeof parsed !== "object") return { ok: false, error: "Claude returned invalid JSON." };
   const notes =
     typeof (parsed as { notes?: unknown }).notes === "string"
       ? (parsed as { notes: string }).notes.trim()

@@ -102,6 +102,25 @@ describe("decks pure helpers", () => {
     }
   });
 
+  it("parseAiHelpSlidesJson tolerates prose and fences", () => {
+    const payload = '[{"headline":"Open","bullets":["One short line"]}]';
+    const wrapped = parseAiHelpSlidesJson(
+      `Here are the slides:\n\`\`\`json\n${payload}\n\`\`\`\nLet me know if you want changes.`
+    );
+    assert.equal(wrapped.ok, true);
+    if (wrapped.ok) assert.equal(wrapped.value[0].headline, "Open");
+
+    const trailingComma = parseAiHelpSlidesJson(
+      '[{"headline":"Open","bullets":["One short line",]},]'
+    );
+    assert.equal(trailingComma.ok, true);
+
+    const objectForm = parseAiHelpSlidesJson(
+      'Sure.\n{"slides":[{"headline":"Open","bullets":["One short line"]}]}'
+    );
+    assert.equal(objectForm.ok, true);
+  });
+
   it("extractTranscriptSection pulls transcript block", () => {
     const text = extractTranscriptSection("Summary\n\n--- Transcript ---\nJason: hi");
     assert.equal(text, "Jason: hi");
