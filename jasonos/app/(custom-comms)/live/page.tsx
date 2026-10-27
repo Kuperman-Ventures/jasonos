@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LiveBreadcrumb } from "@/components/jasonos/live/live-breadcrumb";
 import { LiveHomeStart } from "@/components/jasonos/live/live-home-start";
-import { formatMeetingWhen, homeDeckState } from "@/components/jasonos/live/live-format";
+import { LiveUpcomingMeetings } from "@/components/jasonos/live/live-upcoming-meetings";
+import {
+  filterUpcomingWeekMeetings,
+  formatMeetingWhen,
+  homeDeckState,
+} from "@/components/jasonos/live/live-format";
 import {
   deckMeetingFields,
   enrichMeetingMap,
@@ -25,6 +30,7 @@ export default async function LiveHomePage() {
   const recent = decks.slice(0, 5);
 
   const meetings = meetingsResult.ok ? meetingsResult.meetings : [];
+  const upcoming = filterUpcomingWeekMeetings(meetings, 7);
   const meetingMap = await enrichMeetingMap(
     meetingMapFromAttachable(meetings),
     recent.map((deck) => deck.meetingPrepId)
@@ -46,8 +52,17 @@ export default async function LiveHomePage() {
       {!decksResult.ok ? (
         <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{decksResult.error}</p>
       ) : null}
+      {!meetingsResult.ok ? (
+        <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{meetingsResult.error}</p>
+      ) : null}
 
       <LiveHomeStart playbooks={playbooks} />
+
+      <LiveUpcomingMeetings
+        meetings={upcoming}
+        playbooks={playbooks}
+        libraryDecks={decks}
+      />
 
       <section className="mt-12">
         <h2 className="text-sm font-extrabold uppercase tracking-[0.08em] text-[var(--jos-muted)]">

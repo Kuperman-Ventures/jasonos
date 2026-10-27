@@ -19,6 +19,21 @@ export function formatMeetingWhen(iso: string) {
   });
 }
 
+/** Meetings from now through the next `days` days (default 7). */
+export function filterUpcomingWeekMeetings<T extends { startsAt: string }>(
+  meetings: T[],
+  days = 7,
+  nowMs = Date.now()
+): T[] {
+  const end = nowMs + days * 86_400_000;
+  return meetings
+    .filter((meeting) => {
+      const ms = Date.parse(meeting.startsAt);
+      return Number.isFinite(ms) && ms >= nowMs && ms <= end;
+    })
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+}
+
 export function formatMeetingDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
     timeZone: TZ,
