@@ -38,6 +38,8 @@ function sampleDeck(overrides: Partial<DeckInput> = {}): DeckInput {
     ],
     transcript: "Jason: Hi.\nAlex: Hello.",
     transcriptSource: "granola",
+    transcriptChars: 22,
+    transcriptComplete: true,
     review: {
       slides: [
         {
@@ -74,6 +76,7 @@ function sampleDeck(overrides: Partial<DeckInput> = {}): DeckInput {
     aiLastRun: null,
     hasAiUndo: false,
     rubric: ["Led with their context", "Asked for a clear next step"],
+    rubricSource: "default",
     ...overrides,
   };
 }

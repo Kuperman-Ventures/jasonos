@@ -8,6 +8,7 @@ import {
   extractTranscriptSection,
   normalizeRubricLines,
   normalizeSlideInputs,
+  extractJsonValue,
   parseAiHelpSlidesJson,
   parseReviewJson,
   parseRubricFromJson,
@@ -35,15 +36,32 @@ export type DeckReview = {
     mark: ReviewSlideMark;
     evidence: string;
     overridden: boolean;
+    evidence_unverified?: boolean;
   }>;
-  goal: { mark: ReviewGoalMark; evidence: string; overridden: boolean } | null;
+  goal: {
+    mark: ReviewGoalMark;
+    evidence: string;
+    overridden: boolean;
+    evidence_unverified?: boolean;
+  } | null;
   said: string[];
   committed: string[];
   next_time: string[];
   model: string;
   transcript_source: "granola" | "wispr" | null;
-  rubric: RubricScore[];
+  rubric: Array<RubricScore & { evidence_unverified?: boolean }>;
   rubric_average: number | null;
+  caveat?: string | null;
+  coverage_warning?: string | null;
+  speakers?: Record<string, string> | null;
+  jason_speaker?: string | null;
+  talk_share?: { jason_chars: number; others_chars: number; jason_pct: number } | null;
+  segments?: Array<{
+    from_line: number;
+    to_line: number;
+    topic: string;
+    who_led: string;
+  }> | null;
 };
 
 export type AiLastRun = {
@@ -93,10 +111,13 @@ export type DeckDetail = DeckSummary & {
   slides: Slide[];
   transcript: string | null;
   transcriptSource: "granola" | "wispr" | null;
+  transcriptChars: number | null;
+  transcriptComplete: boolean | null;
   review: DeckReview | null;
   aiLastRun: AiLastRun | null;
   hasAiUndo: boolean;
   rubric: string[];
+  rubricSource: string | null;
 };
 
 export type AttachableMeeting = {
@@ -139,6 +160,7 @@ type DeckRow = {
   description: string | null;
   goal: string | null;
   rubric: unknown;
+  rubric_source: string | null;
   source_playbook_id: string | null;
   meeting_prep_id: string | null;
   ai_notes: string | null;
@@ -152,6 +174,8 @@ type DeckRow = {
   transcript_source: string | null;
   transcript_note_id: string | null;
   transcript_fetched_at: string | null;
+  transcript_chars: number | null;
+  transcript_complete: boolean | null;
   updated_at: string;
 };
 
@@ -164,7 +188,7 @@ type SlideRow = {
 };
 
 const DECK_COLUMNS =
-  "id, kind, name, description, goal, rubric, source_playbook_id, meeting_prep_id, ai_notes, ai_undo, ai_last_run, review, reviewed_at, run_started_at, run_ended_at, transcript, transcript_source, transcript_note_id, transcript_fetched_at, updated_at";
+  "id, kind, name, description, goal, rubric, rubric_source, source_playbook_id, meeting_prep_id, ai_notes, ai_undo, ai_last_run, review, reviewed_at, run_started_at, run_ended_at, transcript, transcript_source, transcript_note_id, transcript_fetched_at, transcript_chars, transcript_complete, updated_at";
 
 function hasConfig(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -214,6 +238,7 @@ function parseReview(value: unknown): DeckReview | null {
       mark,
       evidence: typeof item.evidence === "string" ? item.evidence : "",
       overridden: Boolean(item.overridden),
+      evidence_unverified: Boolean(item.evidence_unverified),
     });
   }
   let goal: DeckReview["goal"] = null;
@@ -224,18 +249,32 @@ function parseReview(value: unknown): DeckReview | null {
         mark: g.mark,
         evidence: typeof g.evidence === "string" ? g.evidence : "",
         overridden: Boolean(g.overridden),
+        evidence_unverified: Boolean(g.evidence_unverified),
       };
     }
   }
   const list = (key: string) =>
     Array.isArray(raw[key])
-      ? (raw[key] as unknown[]).filter((line): line is string => typeof line === "string").slice(0, 6)
+      ? (raw[key] as unknown[])
+          .filter((line): line is string => typeof line === "string")
+          .slice(0, key === "committed" ? 20 : 6)
       : [];
-  const rubric = parseStoredRubricScores(raw.rubric);
+  const rubric = parseStoredRubricScores(raw.rubric).map((row, index) => {
+    const rawRow = Array.isArray(raw.rubric) ? (raw.rubric as unknown[])[index] : null;
+    const unverified =
+      rawRow && typeof rawRow === "object"
+        ? Boolean((rawRow as { evidence_unverified?: unknown }).evidence_unverified)
+        : false;
+    return { ...row, evidence_unverified: unverified };
+  });
   const avg =
     typeof raw.rubric_average === "number"
       ? raw.rubric_average
       : averageRubricScores(rubric);
+  const talk =
+    raw.talk_share && typeof raw.talk_share === "object"
+      ? (raw.talk_share as Record<string, unknown>)
+      : null;
   return {
     slides,
     goal,
@@ -249,6 +288,30 @@ function parseReview(value: unknown): DeckReview | null {
         : null,
     rubric,
     rubric_average: avg,
+    caveat: typeof raw.caveat === "string" ? raw.caveat : null,
+    coverage_warning: typeof raw.coverage_warning === "string" ? raw.coverage_warning : null,
+    speakers:
+      raw.speakers && typeof raw.speakers === "object" && !Array.isArray(raw.speakers)
+        ? (raw.speakers as Record<string, string>)
+        : null,
+    jason_speaker: typeof raw.jason_speaker === "string" ? raw.jason_speaker : null,
+    talk_share: talk
+      ? {
+          jason_chars: Number(talk.jason_chars) || 0,
+          others_chars: Number(talk.others_chars) || 0,
+          jason_pct: Number(talk.jason_pct) || 0,
+        }
+      : null,
+    segments: Array.isArray(raw.segments)
+      ? (raw.segments as unknown[])
+          .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+          .map((row) => ({
+            from_line: Number(row.from_line) || 0,
+            to_line: Number(row.to_line) || 0,
+            topic: typeof row.topic === "string" ? row.topic : "",
+            who_led: typeof row.who_led === "string" ? row.who_led : "",
+          }))
+      : null,
   };
 }
 
@@ -412,10 +475,15 @@ export async function getDeck(deckId: string): Promise<ActionResult<{ deck: Deck
           row.transcript_source === "granola" || row.transcript_source === "wispr"
             ? row.transcript_source
             : null,
+        transcriptChars:
+          typeof row.transcript_chars === "number" ? row.transcript_chars : null,
+        transcriptComplete:
+          typeof row.transcript_complete === "boolean" ? row.transcript_complete : null,
         review: parseReview(row.review),
         aiLastRun: parseAiLastRun(row.ai_last_run),
         hasAiUndo: Boolean(row.ai_undo && typeof row.ai_undo === "object"),
         rubric: parseRubricFromJson(row.rubric),
+        rubricSource: row.rubric_source?.trim() || null,
       },
     };
   } catch (err) {
@@ -425,16 +493,18 @@ export async function getDeck(deckId: string): Promise<ActionResult<{ deck: Deck
 
 export async function setRubric(
   deckId: string,
-  lines: string[]
+  lines: string[],
+  sourceLabel?: string | null
 ): Promise<ActionResult<{ rubric: string[] }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = deckId.trim();
   const rubric = normalizeRubricLines(lines);
   try {
     const sb = createServiceRoleClient();
+    const rubric_source = sourceLabel?.trim() || "custom";
     const { data, error } = await sb
       .from("decks")
-      .update({ rubric, updated_at: new Date().toISOString() })
+      .update({ rubric, rubric_source, updated_at: new Date().toISOString() })
       .eq("id", id)
       .select("id, kind, meeting_prep_id")
       .maybeSingle();
@@ -677,11 +747,12 @@ export async function listHeldMeetings(): Promise<ActionResult<{ rows: HeldMeeti
 async function loadTranscriptFromNote(
   noteId: string,
   source: "granola" | "wispr"
-): Promise<string | null> {
+): Promise<{ text: string; complete: boolean } | null> {
   if (source === "granola") {
     const granola = await import("@/lib/integrations/granola");
     const direct = await granola.getGranolaTranscript(noteId);
     let transcript = direct?.text?.trim() || "";
+    let complete = direct?.complete ?? true;
     if (!transcript) {
       const listed = await granola.listRecentGranolaNotes({ daysBack: 30, limit: 40 });
       if (listed.ok) {
@@ -693,11 +764,25 @@ async function loadTranscriptFromNote(
             extractTranscriptSection(hit.summary ?? undefined) ||
             hit.summary?.trim() ||
             "";
+          complete = again?.complete ?? Boolean(transcript);
         }
       }
     }
-    return transcript || null;
+    if (!transcript) return null;
+    const { transcriptHasPagingMarker } = await import("@/lib/integrations/wispr-transcript");
+    if (transcriptHasPagingMarker(transcript)) complete = false;
+    return { text: transcript, complete };
   }
+  const { getWisprTranscript } = await import("@/lib/integrations/wispr");
+  const { transcriptHasPagingMarker } = await import("@/lib/integrations/wispr-transcript");
+  const direct = await getWisprTranscript(noteId);
+  if (direct?.text?.trim()) {
+    return {
+      text: direct.text.trim(),
+      complete: direct.complete && !transcriptHasPagingMarker(direct.text),
+    };
+  }
+  // Fallback: list recent notes (already paged when includeTranscript is set).
   const { listRecentWisprNotes } = await import("@/lib/integrations/wispr");
   const listed = await listRecentWisprNotes({
     daysBack: 30,
@@ -711,7 +796,19 @@ async function loadTranscriptFromNote(
     extractTranscriptSection(hit?.summary ?? undefined) ||
     hit?.summary?.trim() ||
     "";
-  return transcript || null;
+  if (!transcript) return null;
+  return {
+    text: transcript,
+    complete: !transcriptHasPagingMarker(transcript),
+  };
+}
+
+function transcriptMeta(text: string, complete: boolean) {
+  return {
+    transcript: text,
+    transcript_chars: text.length,
+    transcript_complete: complete,
+  };
 }
 
 export async function attachTranscript(input: {
@@ -741,8 +838,10 @@ export async function attachTranscript(input: {
   }
 
   try {
-    const transcript = await loadTranscriptFromNote(noteId, source);
-    if (!transcript) return { ok: false, error: "Could not read that transcript." };
+    const loadedTranscript = await loadTranscriptFromNote(noteId, source);
+    if (!loadedTranscript?.text) return { ok: false, error: "Could not read that transcript." };
+    const transcript = loadedTranscript.text;
+    const complete = loadedTranscript.complete;
 
     const sb = createServiceRoleClient();
     let deckRow: DeckRow | null = null;
@@ -778,6 +877,7 @@ export async function attachTranscript(input: {
             name: title,
             goal: null,
             rubric,
+            rubric_source: "default",
             meeting_prep_id: prepId,
           })
           .select(DECK_COLUMNS)
@@ -796,6 +896,7 @@ export async function attachTranscript(input: {
           name: orphanName!,
           goal: null,
           rubric,
+          rubric_source: "default",
           meeting_prep_id: null,
         })
         .select(DECK_COLUMNS)
@@ -809,7 +910,7 @@ export async function attachTranscript(input: {
 
     const fetchedAt = new Date().toISOString();
     const update: Record<string, unknown> = {
-      transcript,
+      ...transcriptMeta(transcript, complete),
       transcript_source: source,
       transcript_note_id: noteId,
       transcript_fetched_at: fetchedAt,
@@ -970,7 +1071,7 @@ export async function createPlaybook(name?: string): Promise<ActionResult<{ id: 
     const rubric = await loadDefaultRubricLines(sb);
     const { data, error } = await sb
       .from("decks")
-      .insert({ kind: "playbook", name: label, rubric })
+      .insert({ kind: "playbook", name: label, rubric, rubric_source: "default" })
       .select("id, kind")
       .single();
     if (error || !data?.id) return { ok: false, error: error?.message || "Could not create playbook." };
@@ -1009,7 +1110,13 @@ export async function createBlankDeck(
     const rubric = await loadDefaultRubricLines(sb);
     const { data, error } = await sb
       .from("decks")
-      .insert({ kind: "deck", name: label, meeting_prep_id: prepId, rubric })
+      .insert({
+        kind: "deck",
+        name: label,
+        meeting_prep_id: prepId,
+        rubric,
+        rubric_source: "default",
+      })
       .select("id, kind")
       .single();
     if (error || !data?.id) return { ok: false, error: error?.message || "Could not create deck." };
@@ -1070,6 +1177,9 @@ export async function createDeckFromPlaybook(
     const playbookRubric = parseRubricFromJson(sourceRow.rubric);
     const rubric =
       playbookRubric.length > 0 ? playbookRubric : await loadDefaultRubricLines(sb);
+    const rubric_source =
+      sourceRow.rubric_source?.trim() ||
+      (playbookRubric.length > 0 ? sourceRow.name : "default");
     const { data: created, error: createError } = await sb
       .from("decks")
       .insert({
@@ -1078,6 +1188,7 @@ export async function createDeckFromPlaybook(
         description: sourceRow.description,
         goal: sourceRow.goal?.trim() || null,
         rubric,
+        rubric_source,
         source_playbook_id: sourceId,
         meeting_prep_id: prepId,
       })
@@ -1278,6 +1389,8 @@ export async function fetchTranscript(
     let transcript: string | null = null;
     let source: "granola" | "wispr" | null = null;
     let noteId: string | null = null;
+    let complete = true;
+    const { transcriptHasPagingMarker } = await import("@/lib/integrations/wispr-transcript");
 
     const { getGranolaTranscript, searchGranolaForContact } = await import("@/lib/integrations/granola");
     const granola = await searchGranolaForContact(searchBase);
@@ -1285,25 +1398,40 @@ export async function fetchTranscript(
       noteId = granola.meetings[0].id;
       const direct = await getGranolaTranscript(noteId);
       transcript = direct?.text?.trim() || extractTranscriptSection(granola.summary) || null;
+      complete = direct?.complete ?? Boolean(transcript);
       if (transcript) source = "granola";
     }
 
     if (!transcript) {
-      const { searchWisprForContact } = await import("@/lib/integrations/wispr");
+      const { searchWisprForContact, getWisprTranscript } = await import(
+        "@/lib/integrations/wispr"
+      );
       const wispr = await searchWisprForContact(searchBase);
-      if (wispr.found && wispr.summary?.trim()) {
-        transcript = extractTranscriptSection(wispr.summary) || wispr.summary.trim();
+      if (wispr.found) {
         noteId = wispr.meetingId ?? null;
-        source = "wispr";
+        if (noteId) {
+          const paged = await getWisprTranscript(noteId);
+          transcript = paged?.text?.trim() || null;
+          complete = paged?.complete ?? false;
+        }
+        if (!transcript && wispr.summary?.trim()) {
+          transcript = extractTranscriptSection(wispr.summary) || wispr.summary.trim();
+          complete = !transcriptHasPagingMarker(transcript);
+        }
+        if (transcript) source = "wispr";
       }
     }
+
+    if (transcript && transcriptHasPagingMarker(transcript)) complete = false;
 
     const fetchedAt = new Date().toISOString();
     const sb = createServiceRoleClient();
     await sb
       .from("decks")
       .update({
-        transcript,
+        ...(transcript
+          ? transcriptMeta(transcript, complete)
+          : { transcript: null, transcript_chars: null, transcript_complete: null }),
         transcript_source: source,
         transcript_note_id: noteId,
         transcript_fetched_at: fetchedAt,
@@ -1553,7 +1681,10 @@ ${JSON.stringify(
   }
 }
 
-export async function reviewRun(deckId: string): Promise<ActionResult<{ review: DeckReview }>> {
+export async function reviewRun(
+  deckId: string,
+  options?: { speakerOverrides?: Record<string, string> | null; skipPass1?: boolean }
+): Promise<ActionResult<{ review: DeckReview }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const id = deckId.trim();
   try {
@@ -1561,7 +1692,135 @@ export async function reviewRun(deckId: string): Promise<ActionResult<{ review: 
     if (!loaded.ok) return loaded;
     const deck = loaded.deck;
     if (deck.kind !== "deck") return { ok: false, error: "Review is for decks only." };
-    if (!deck.transcript?.trim()) return { ok: false, error: "Fetch a transcript before running review." };
+    if (!deck.transcript?.trim()) {
+      return { ok: false, error: "Fetch a transcript before running review." };
+    }
+
+    const { transcriptHasPagingMarker } = await import("@/lib/integrations/wispr-transcript");
+    const incomplete =
+      deck.transcriptComplete === false || transcriptHasPagingMarker(deck.transcript);
+    if (incomplete) {
+      return {
+        ok: false,
+        error: "The transcript is incomplete. Re-attach it, then review.",
+      };
+    }
+
+    const engine = await import("@/lib/live/review-engine");
+    const numbered = engine.numberTranscriptLines(deck.transcript);
+    const numberedText = engine.formatNumberedTranscript(numbered);
+    const coverage = engine.coverageMinutes(
+      deck.transcript.length,
+      deck.runStartedAt,
+      deck.runEndedAt
+    );
+    let coverageWarning: string | null = null;
+    if (coverage && coverage.ratio < 0.6) {
+      coverageWarning = `The transcript covers about ${coverage.coveredMinutes} of the ${coverage.recordedMinutes} minutes recorded. Scores may be low for the part not covered.`;
+    }
+
+    let attendeesText = "(no meeting attached)";
+    if (deck.meetingPrepId) {
+      const { getMeetingPrep } = await loadMeetingPrep();
+      const prepResult = await getMeetingPrep(deck.meetingPrepId);
+      if (prepResult.ok) {
+        attendeesText = prepResult.prep.attendees
+          .map((row) => `${row.name || "(no name)"}${row.email ? ` <${row.email}>` : ""}`)
+          .join("\n");
+      }
+    }
+
+    let playbookName: string | null = null;
+    if (deck.sourcePlaybookId) {
+      const sb = createServiceRoleClient();
+      const { data: pb } = await sb
+        .from("decks")
+        .select("name")
+        .eq("id", deck.sourcePlaybookId)
+        .maybeSingle();
+      playbookName = typeof pb?.name === "string" ? pb.name : null;
+    }
+    const rubricSourceLabel =
+      deck.rubricSource === "default"
+        ? "Default (Browning networking)"
+        : deck.rubricSource || playbookName || "custom";
+
+    const { callClaude } = await import("@/lib/ai/models");
+    const { NO_AI_SLOP_WRITING_RULES } = await import("@/lib/ai/no-ai-slop");
+
+    let layout: import("@/lib/live/review-engine").Pass1Layout | null = null;
+    if (options?.skipPass1 && options.speakerOverrides && deck.review?.speakers) {
+      const speakers = { ...deck.review.speakers, ...options.speakerOverrides };
+      let jasonSpeaker = deck.review.jason_speaker ?? null;
+      for (const [label, name] of Object.entries(speakers)) {
+        if (/jason|kupe/i.test(name)) {
+          jasonSpeaker = label;
+          break;
+        }
+      }
+      layout = {
+        speakers,
+        jason_speaker: jasonSpeaker,
+        segments: deck.review.segments ?? [],
+        talk_share: engine.computeTalkShare(numbered, jasonSpeaker),
+      };
+    } else {
+      const pass1System = `Identify speakers and lay out Jason Kuperman's call.
+${NO_AI_SLOP_WRITING_RULES}
+Jason Kuperman is the user. Others may address him as Jason or Kupe.
+Critical: when a line is "Speaker N: Hi, Ian", Speaker N is greeting Ian — Speaker N is NOT Ian. The name in a greeting is the other person.
+Decide who Jason is from greetings, how speakers address each other, and from what he says about himself; when unsure, say "unknown" and never guess from position.
+Return JSON only:
+{
+  "speakers": { "Speaker 1": "Jason Kuperman", "Speaker 2": "Name", "Speaker 3": "unknown" },
+  "jason_speaker": "Speaker 1",
+  "segments": [{ "from_line": 1, "to_line": 40, "topic": "...", "who_led": "Jason" }]
+}
+Do not invent talk_share — that is computed in code.`;
+      const pass1User = `Meeting attendees:
+${attendeesText}
+
+Numbered transcript:
+${numberedText}`;
+      let pass1Raw = await callClaude({
+        model: "claude-sonnet-4-6",
+        maxTokens: 4000,
+        system: pass1System,
+        messages: [{ role: "user", content: pass1User }],
+      });
+      layout = engine.parsePass1Layout(pass1Raw, numbered);
+      if (!layout) {
+        pass1Raw = await callClaude({
+          model: "claude-sonnet-4-6",
+          maxTokens: 4000,
+          system: pass1System,
+          messages: [
+            { role: "user", content: pass1User },
+            { role: "assistant", content: pass1Raw.slice(0, 3000) },
+            {
+              role: "user",
+              content: "That was not valid JSON. Reply with ONLY the speakers/segments JSON object.",
+            },
+          ],
+        });
+        layout = engine.parsePass1Layout(pass1Raw, numbered);
+      }
+      if (!layout) {
+        return { ok: false, error: "Could not identify speakers for this transcript." };
+      }
+      if (options?.speakerOverrides) {
+        layout.speakers = { ...layout.speakers, ...options.speakerOverrides };
+        let jasonSpeaker = layout.jason_speaker;
+        for (const [label, name] of Object.entries(layout.speakers)) {
+          if (/jason|kupe/i.test(name)) {
+            jasonSpeaker = label;
+            break;
+          }
+        }
+        layout.jason_speaker = jasonSpeaker;
+        layout.talk_share = engine.computeTalkShare(numbered, jasonSpeaker);
+      }
+    }
 
     const slideIds = deck.slides.map((slide) => slide.id);
     const slidePayload = deck.slides.map((slide) => ({
@@ -1571,37 +1830,52 @@ export async function reviewRun(deckId: string): Promise<ActionResult<{ review: 
       bullets: slide.bullets,
     }));
     const rubricLines = deck.rubric;
+    const mentionItems = [
+      ...deck.slides.map((slide, index) => ({
+        label: `Slide ${index + 1}`,
+        text: `${slide.headline}\n${slide.bullets.join("\n")}`,
+      })),
+      ...rubricLines.map((line, index) => ({
+        label: `Rubric ${index + 1}`,
+        text: line,
+      })),
+    ];
+    const mentions = engine.buildMentionsIndex(numbered, mentionItems);
+    const mentionsText = engine.formatMentionsIndex(mentions);
 
-    const { NO_AI_SLOP_WRITING_RULES } = await import("@/lib/ai/no-ai-slop");
-    const system = `You review how Jason Kuperman's live call matched his slide deck, goal, and rubric.
+    const pass2System = `You review how Jason Kuperman's live call matched his slide deck, goal, and rubric.
 ${NO_AI_SLOP_WRITING_RULES}
 
-If there are slides, mark every slide:
-- covered: its headline or most of its bullets were spoken about in substance.
-- partly: only some of the slide was spoken about.
-- skipped: not spoken about at all.
-If there are no slides, return "slides": [].
-Goal mark (hit | partly | missed) uses the same rule against the goal line; null if no goal.
-Evidence is a verbatim quote of at most 30 words, or empty.
-The three lists (up to six lines each) quote or closely paraphrase the transcript and never add facts:
-- said: what they said that matters
-- committed: what Jason committed to
-- next_time: do differently next time — each line names a moment in the call.
+Use jason_speaker to decide who said what. Rubric lines about what Jason did are judged on Jason's lines only.
+Every evidence field and every rubric note must end with the line numbers it relies on, as [L212-L215]. Evidence is a verbatim quote of at most 30 words from those lines.
+Score the whole call. Do not write "visible transcript", "truncated", or "not reached" in any note; if the transcript seems to end early, say so once in a caveat field and score what is there.
+Mark a rubric line na when it describes a kind of call this one is not (for example asking for networking contacts or recruiters on a client discovery / pitch call). The playbook name and the slides tell you the kind of call. Use na instead of a 1 whenever the line does not apply.
+For negative rubric lines (for example "Did not ask for a job"), score 5 when Jason complied and 1 only when he broke the rule.
+A slide or rubric line may be marked skipped, scored 1, or "not mentioned" only if the mentions index shows none of its terms were found; when a term was found, the note must cite the line and must not treat the slide as skipped.
+committed must list every promise Jason made, including sending a document, a proposal, pricing, an introduction, or a date, each with the line number. Prefer over-listing to missing a promise.
+goal: judge against the exact goal line; if the goal names a decision the other person had to make, quote where they made it or say they did not, with line numbers.
 
-For each rubric line in order: score 1–5 (5 = fully done, 1 = not attempted); one sentence why naming the moment; if the line cannot apply to this kind of call, set na true, score null, and say why in the note. Return the same number of rubric rows, same order.
-
+If there are slides, mark every slide covered|partly|skipped. If none, return "slides": [].
 Return JSON only:
 {
-  "slides": [{"slide_id":"uuid","mark":"covered|partly|skipped","evidence":"..."}],
-  "goal": {"mark":"hit|partly|missed","evidence":"..."} or null,
+  "slides": [{"slide_id":"uuid","mark":"covered|partly|skipped","evidence":"... [L12]"}],
+  "goal": {"mark":"hit|partly|missed","evidence":"... [L12]"} or null,
   "said": ["..."],
-  "committed": ["..."],
+  "committed": ["... [L12]"],
   "next_time": ["..."],
-  "rubric": [{"line":"...","score":1,"note":"...","na":false}]
+  "rubric": [{"line":"...","score":1,"note":"... [L12]","na":false}],
+  "caveat": ""
 }
 Use the exact slide_id values provided when slides exist.`;
 
-    const user = `Goal: ${deck.goal?.trim() || "(none)"}
+    const pass2User = `Playbook / rubric source: ${rubricSourceLabel}
+Goal: ${deck.goal?.trim() || "(none)"}
+
+Pass 1 speakers and layout:
+${JSON.stringify(layout, null, 2)}
+
+Mentions index:
+${mentionsText}
 
 Slides:
 ${JSON.stringify(slidePayload, null, 2)}
@@ -1609,31 +1883,160 @@ ${JSON.stringify(slidePayload, null, 2)}
 Rubric lines (score in this order):
 ${JSON.stringify(rubricLines, null, 2)}
 
-Transcript:
-${deck.transcript}`;
+Numbered transcript:
+${numberedText}`;
 
-    const { callClaude } = await import("@/lib/ai/models");
-    const callModel = async () =>
+    const callPass2 = async (extra?: string) =>
       callClaude({
         model: "claude-sonnet-4-6",
-        maxTokens: 8000,
-        system,
-        messages: [{ role: "user", content: user }],
+        maxTokens: 10_000,
+        system: pass2System,
+        messages: [
+          { role: "user", content: pass2User },
+          ...(extra
+            ? ([
+                {
+                  role: "user" as const,
+                  content: extra,
+                },
+              ] as const)
+            : []),
+        ],
       });
 
-    let raw = await callModel();
+    let raw = await callPass2();
     let parsed = parseReviewJson(raw, slideIds, rubricLines);
     if (!parsed.ok) {
-      raw = await callModel();
+      raw = await callPass2(
+        "That reply was not valid JSON. Reply again with ONLY the review JSON object."
+      );
       parsed = parseReviewJson(raw, slideIds, rubricLines);
     }
     if (!parsed.ok) return { ok: false, error: parsed.error };
+
+    // Validate evidence quotes and line refs; flag mismatches with mentions.
+    const maxLine = numbered.length;
+    const transcriptText = deck.transcript;
+    const mentionByLabel = new Map(mentions.map((entry) => [entry.label, entry]));
+
+    const validateEvidence = (evidence: string): { evidence: string; unverified: boolean } => {
+      let cleaned = engine.stripInvalidLineRefs(evidence, maxLine);
+      const quote = cleaned.replace(/\[L\d+(?:\s*[-–]\s*L?\d+)?\]/gi, "").trim();
+      if (quote && !engine.quoteInTranscript(quote, transcriptText)) {
+        return { evidence: engine.stripInvalidLineRefs(cleaned.replace(quote, "").trim(), maxLine), unverified: true };
+      }
+      return { evidence: cleaned, unverified: false };
+    };
+
+    for (const row of parsed.value.slides) {
+      const checked = validateEvidence(row.evidence);
+      row.evidence = checked.evidence;
+      (row as { evidence_unverified?: boolean }).evidence_unverified = checked.unverified;
+    }
+    if (parsed.value.goal) {
+      const checked = validateEvidence(parsed.value.goal.evidence);
+      parsed.value.goal.evidence = checked.evidence;
+      (parsed.value.goal as { evidence_unverified?: boolean }).evidence_unverified =
+        checked.unverified;
+    }
+    for (const row of parsed.value.rubric) {
+      const checked = validateEvidence(row.note);
+      row.note = checked.evidence;
+      (row as { evidence_unverified?: boolean }).evidence_unverified = checked.unverified;
+    }
+    parsed.value.committed = parsed.value.committed.map((line) =>
+      engine.stripInvalidLineRefs(line, maxLine)
+    );
+    parsed.value.said = parsed.value.said.map((line) =>
+      engine.stripInvalidLineRefs(line, maxLine)
+    );
+    parsed.value.next_time = parsed.value.next_time.map((line) =>
+      engine.stripInvalidLineRefs(line, maxLine)
+    );
+
+    // Re-ask once for skipped/1 rows that have mention hits.
+    const conflicts: string[] = [];
+    for (let index = 0; index < parsed.value.slides.length; index += 1) {
+      const row = parsed.value.slides[index]!;
+      const entry = mentionByLabel.get(`Slide ${index + 1}`);
+      if (row.mark === "skipped" && entry && entry.found.length) {
+        const quotes = entry.found
+          .flatMap((hit) =>
+            hit.lines.slice(0, 3).map((n) => {
+              const line = numbered.find((item) => item.n === n);
+              return line ? `[L${n}] ${line.raw}` : `[L${n}]`;
+            })
+          )
+          .join("\n");
+        conflicts.push(
+          `Slide ${index + 1} (${deck.slides[index]?.headline}) was marked skipped but terms were found:\n${quotes}`
+        );
+      }
+    }
+    for (let index = 0; index < parsed.value.rubric.length; index += 1) {
+      const row = parsed.value.rubric[index]!;
+      const entry = mentionByLabel.get(`Rubric ${index + 1}`);
+      if (!row.na && row.score === 1 && entry && entry.found.length) {
+        const quotes = entry.found
+          .flatMap((hit) =>
+            hit.lines.slice(0, 3).map((n) => {
+              const line = numbered.find((item) => item.n === n);
+              return line ? `[L${n}] ${line.raw}` : `[L${n}]`;
+            })
+          )
+          .join("\n");
+        conflicts.push(
+          `Rubric ${index + 1} ("${row.line}") scored 1 but terms were found:\n${quotes}`
+        );
+      }
+    }
+    if (conflicts.length) {
+      const repairRaw = await callPass2(
+        `Re-score ONLY these conflicting rows. Keep every other row identical. Found lines:\n\n${conflicts.join(
+          "\n\n"
+        )}\n\nReturn the full review JSON again.`
+      );
+      const repaired = parseReviewJson(repairRaw, slideIds, rubricLines);
+      if (repaired.ok) {
+        parsed = repaired;
+        for (const row of parsed.value.slides) {
+          const checked = validateEvidence(row.evidence);
+          row.evidence = checked.evidence;
+          (row as { evidence_unverified?: boolean }).evidence_unverified = checked.unverified;
+        }
+        if (parsed.value.goal) {
+          const checked = validateEvidence(parsed.value.goal.evidence);
+          parsed.value.goal.evidence = checked.evidence;
+          (parsed.value.goal as { evidence_unverified?: boolean }).evidence_unverified =
+            checked.unverified;
+        }
+        for (const row of parsed.value.rubric) {
+          const checked = validateEvidence(row.note);
+          row.note = checked.evidence;
+          (row as { evidence_unverified?: boolean }).evidence_unverified = checked.unverified;
+        }
+      }
+    }
+
+    const caveatValue = extractJsonValue(raw);
+    const caveat =
+      caveatValue &&
+      typeof caveatValue === "object" &&
+      typeof (caveatValue as { caveat?: unknown }).caveat === "string"
+        ? String((caveatValue as { caveat: string }).caveat).trim() || null
+        : null;
 
     const review: DeckReview = {
       ...parsed.value,
       model: "claude-sonnet-4-6",
       transcript_source: deck.transcriptSource,
       rubric_average: averageRubricScores(parsed.value.rubric),
+      caveat,
+      coverage_warning: coverageWarning,
+      speakers: layout.speakers,
+      jason_speaker: layout.jason_speaker,
+      talk_share: layout.talk_share,
+      segments: layout.segments,
     };
 
     const reviewedAt = new Date().toISOString();
@@ -1653,6 +2056,13 @@ ${deck.transcript}`;
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+export async function reassignReviewSpeakers(
+  deckId: string,
+  speakers: Record<string, string>
+): Promise<ActionResult<{ review: DeckReview }>> {
+  return reviewRun(deckId, { speakerOverrides: speakers, skipPass1: true });
 }
 
 export async function setRubricMark(
@@ -2158,6 +2568,7 @@ export async function copyDeck(deckId: string): Promise<ActionResult<{ id: strin
         description: row.description,
         goal: row.goal?.trim() || null,
         rubric: parseRubricFromJson(row.rubric),
+        rubric_source: row.rubric_source?.trim() || "custom",
         source_playbook_id: kind === "deck" ? row.source_playbook_id : null,
         meeting_prep_id: null,
       })

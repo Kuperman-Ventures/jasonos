@@ -12,6 +12,13 @@ import {
   loadWisprConnectionRow,
   wisprIsConnected,
 } from "@/lib/integrations/wispr-oauth";
+import { fetchWisprTranscriptPages } from "@/lib/integrations/wispr-transcript";
+
+export {
+  transcriptHasPagingMarker,
+  stripPagingMarker,
+  WISPR_TRUNCATION_MARKER_RE,
+} from "@/lib/integrations/wispr-transcript";
 
 export interface WisprSearchResult {
   found: boolean;
@@ -258,23 +265,32 @@ export async function searchWisprForContact(input: {
       try {
         const byCal = await callTool(client, "get_meeting_by_calendar_id", {
           calendar_id: calendarId,
-          ...(input.includeTranscript ? { view_transcript: {} } : {}),
         });
         if (!byCal.isError) {
           const detail = asRecord(byCal.json) ?? {};
+          const meetingId = meetingIdFrom(detail);
           const summary =
             (typeof detail.summary === "string" && detail.summary.trim()) ||
             (typeof detail.content === "string" && detail.content.trim()) ||
-            (input.includeTranscript && typeof detail.transcript === "string"
-              ? detail.transcript.trim()
-              : "") ||
             byCal.text;
-          if (summary) {
+          let fullTranscript: string | null = null;
+          if (input.includeTranscript && meetingId) {
+            const paged = await fetchWisprTranscriptPages(meetingId, (name, args) =>
+              callTool(client, name, args)
+            );
+            fullTranscript = paged.text || null;
+          }
+          if (summary || fullTranscript) {
             return {
               found: true as const,
-              summary: appendTranscript(summary, detail, input.includeTranscript),
+              summary: appendTranscript(
+                summary || fullTranscript || "",
+                detail,
+                input.includeTranscript,
+                fullTranscript
+              ),
               url: urlOf(detail) ?? undefined,
-              meetingId: meetingIdFrom(detail) ?? undefined,
+              meetingId: meetingId ?? undefined,
             };
           }
         }
@@ -328,7 +344,6 @@ export async function searchWisprForContact(input: {
 
     const detailCall = await callTool(client, "get_meeting", {
       meeting_id: id,
-      ...(input.includeTranscript ? { view_transcript: {} } : {}),
     });
     const detail = asRecord(detailCall.json) ?? best;
     const summary =
@@ -337,9 +352,16 @@ export async function searchWisprForContact(input: {
       summaryOf(best) ||
       detailCall.text ||
       titleOf(best);
+    let fullTranscript: string | null = null;
+    if (input.includeTranscript) {
+      const paged = await fetchWisprTranscriptPages(id, (name, args) =>
+        callTool(client, name, args)
+      );
+      fullTranscript = paged.text || null;
+    }
     return {
       found: true as const,
-      summary: appendTranscript(summary, detail, input.includeTranscript),
+      summary: appendTranscript(summary, detail, input.includeTranscript, fullTranscript),
       url: urlOf(detail) ?? urlOf(best) ?? undefined,
       meetingId: id,
     };
@@ -352,14 +374,32 @@ export async function searchWisprForContact(input: {
 function appendTranscript(
   summary: string,
   detail: Record<string, unknown>,
-  include?: boolean
+  include?: boolean,
+  fullTranscript?: string | null
 ): string {
   if (!include) return summary.slice(0, 12_000);
   const transcript =
-    typeof detail.transcript === "string" ? detail.transcript.trim() : "";
+    (fullTranscript?.trim() ||
+      (typeof detail.transcript === "string" ? detail.transcript.trim() : "")) ||
+    "";
   if (!transcript) return summary.slice(0, 12_000);
-  if (summary.includes(transcript.slice(0, 80))) return summary.slice(0, 16_000);
-  return `${summary}\n\n--- Transcript ---\n${transcript}`.slice(0, 16_000);
+  if (summary.includes(transcript.slice(0, 80))) return transcript;
+  return `${summary}\n\n--- Transcript ---\n${transcript}`;
+}
+
+/** Full Wispr transcript with paging; no truncation markers in the result. */
+export async function getWisprTranscript(
+  meetingId: string
+): Promise<{ text: string; complete: boolean } | null> {
+  const id = meetingId.trim();
+  if (!id) return null;
+  if (!(await wisprIsConnected())) return null;
+  const result = await withWisprClient(async (client) =>
+    fetchWisprTranscriptPages(id, (name, args) => callTool(client, name, args))
+  );
+  if (!result.ok) return null;
+  if (!result.value.text.trim()) return null;
+  return result.value;
 }
 
 /** Recent meetings for Sync scanners (commitments, enrich). */
@@ -406,15 +446,18 @@ export async function listRecentWisprNotes(opts?: {
         try {
           const detailCall = await callTool(client, "get_meeting", {
             meeting_id: id,
-            ...(opts?.includeTranscript ? { view_transcript: {} } : {}),
           });
           const detail = asRecord(detailCall.json) ?? {};
           summary =
             (typeof detail.summary === "string" && detail.summary.trim()) ||
             (typeof detail.content === "string" && detail.content.trim()) ||
             summary;
-          transcript =
-            typeof detail.transcript === "string" ? detail.transcript.slice(0, 12_000) : null;
+          if (opts?.includeTranscript) {
+            const paged = await fetchWisprTranscriptPages(id, (name, args) =>
+              callTool(client, name, args)
+            );
+            transcript = paged.text || null;
+          }
           url = urlOf(detail) ?? url;
           title = titleOf({ ...row, ...detail });
           scheduledStart = startOf(detail) ?? scheduledStart;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ import type {
 } from "@/lib/server-actions/decks";
 import { AttachTranscriptDialog } from "@/components/jasonos/live/attach-transcript-dialog";
 import {
-  fetchTranscript,
+  reassignReviewSpeakers,
   reviewRun,
   setReviewMark,
   setRubricMark,
@@ -40,6 +40,7 @@ import {
   reviewPackageFilename,
   reviewPackageToMarkdown,
 } from "@/lib/live/review-export";
+import { numberTranscriptLines } from "@/lib/live/review-engine";
 import { cn } from "@/lib/utils";
 
 function downloadTextFile(filename: string, text: string, mime: string) {
@@ -140,11 +141,13 @@ function RubricReviewRow({
   disabled,
   onScore,
   onNa,
+  renderNote,
 }: {
-  row: RubricScore;
+  row: RubricScore & { evidence_unverified?: boolean };
   disabled?: boolean;
   onScore: (score: number) => void;
   onNa: () => void;
+  renderNote?: (text: string) => ReactNode;
 }) {
   return (
     <div className="border-b border-[var(--jos-line)] py-3">
@@ -169,7 +172,12 @@ function RubricReviewRow({
         </div>
       </div>
       {row.note ? (
-        <p className="mt-1.5 text-[14px] text-[var(--jos-muted)]">{row.note}</p>
+        <div className="mt-1.5 text-[14px] text-[var(--jos-muted)]">
+          {renderNote ? renderNote(row.note) : row.note}
+          {row.evidence_unverified ? (
+            <p className="mt-1 text-[12px]">quote not found in transcript</p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -184,7 +192,15 @@ function countSlideMarks(review: DeckReview | null) {
   return counts;
 }
 
-function ReviewList({ title, items }: { title: string; items: string[] }) {
+function ReviewList({
+  title,
+  items,
+  renderItem,
+}: {
+  title: string;
+  items: string[];
+  renderItem?: (text: string) => ReactNode;
+}) {
   return (
     <section className="mt-8">
       <h2 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
@@ -194,7 +210,7 @@ function ReviewList({ title, items }: { title: string; items: string[] }) {
         <ul className="mt-2 space-y-1.5 text-[14px] leading-snug">
           {items.map((line, index) => (
             <li key={`${index}-${line.slice(0, 24)}`} className="border-l-2 border-[var(--jos-line)] pl-3">
-              {line}
+              {renderItem ? renderItem(line) : line}
             </li>
           ))}
         </ul>
@@ -216,13 +232,16 @@ export function ReviewView({
   const [pending, start] = useTransition();
   const [reviewing, setReviewing] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
-  const [autoFetching, setAutoFetching] = useState(false);
-  const [autoFetchTried, setAutoFetchTried] = useState(false);
+  const [speakerEditOpen, setSpeakerEditOpen] = useState(false);
+  const [speakerDraft, setSpeakerDraft] = useState<Record<string, string>>({});
+  const [highlightLine, setHighlightLine] = useState<number | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [review, setReview] = useState<DeckReview | null>(deck.review);
   const [reviewedAt, setReviewedAt] = useState(deck.reviewedAt);
   const [transcript, setTranscript] = useState(deck.transcript);
   const [transcriptSource, setTranscriptSource] = useState(deck.transcriptSource);
   const [transcriptFetchedAt, setTranscriptFetchedAt] = useState(deck.transcriptFetchedAt);
+  const [transcriptComplete, setTranscriptComplete] = useState(deck.transcriptComplete);
 
   const refresh = useCallback(() => {
     router.refresh();
@@ -234,27 +253,18 @@ export function ReviewView({
     setTranscript(deck.transcript);
     setTranscriptSource(deck.transcriptSource);
     setTranscriptFetchedAt(deck.transcriptFetchedAt);
+    setTranscriptComplete(deck.transcriptComplete);
   }, [deck]);
 
-  useEffect(() => {
-    if (autoFetchTried) return;
-    if (deck.transcript?.trim()) return;
-    if (!deck.runEndedAt || !deck.meetingPrepId) return;
-    setAutoFetchTried(true);
-    setAutoFetching(true);
-    void fetchTranscript(deck.id).then((result) => {
-      setAutoFetching(false);
-      if (!result.ok) return;
-      if (result.transcript?.trim()) {
-        setTranscript(result.transcript);
-        setTranscriptSource(result.source);
-        setTranscriptFetchedAt(new Date().toISOString());
-        refresh();
-      }
-    });
-  }, [autoFetchTried, deck.id, deck.meetingPrepId, deck.runEndedAt, deck.transcript, refresh]);
-
   const hasTranscript = Boolean(transcript?.trim());
+  const transcriptIncomplete =
+    transcriptComplete === false ||
+    Boolean(transcript?.includes("view_transcript.start_char="));
+  const numberedLines = transcript ? numberTranscriptLines(transcript) : [];
+  const rubricSourceLabel =
+    deck.rubricSource === "default"
+      ? "Default (Browning networking)"
+      : deck.rubricSource?.trim() || "custom";
   const runSummary = formatRunSummary(deck.runStartedAt, deck.runEndedAt);
   const slideCounts = countSlideMarks(review);
   const hasSlides = deck.slides.length > 0;
@@ -297,16 +307,62 @@ export function ReviewView({
 
   const onReviewRun = () => {
     setReviewing(true);
+    setReviewError(null);
     start(async () => {
       const result = await reviewRun(deck.id);
       setReviewing(false);
       if (!result.ok) {
+        setReviewError(result.error);
         toast.error(result.error);
         return;
       }
       setReview(result.review);
       setReviewedAt(new Date().toISOString());
       toast.success("Review complete");
+      refresh();
+    });
+  };
+
+  const scrollToLine = (line: number) => {
+    setHighlightLine(line);
+    const el = document.getElementById(`tx-line-${line}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const renderLinkedText = (text: string) => {
+    const parts = text.split(/(\[L\d+(?:\s*[-–]\s*L?\d+)?\])/gi);
+    return parts.map((part, index) => {
+      const match = part.match(/^\[L(\d+)(?:\s*[-–]\s*L?(\d+))?\]$/i);
+      if (!match) return <span key={`${part}-${index}`}>{part}</span>;
+      const line = Number(match[1]);
+      return (
+        <button
+          key={`${part}-${index}`}
+          type="button"
+          className="font-semibold text-[var(--jos-ink)] underline underline-offset-2"
+          onClick={() => scrollToLine(line)}
+        >
+          {part}
+        </button>
+      );
+    });
+  };
+
+  const openSpeakerEdit = () => {
+    setSpeakerDraft({ ...(review?.speakers ?? {}) });
+    setSpeakerEditOpen(true);
+  };
+
+  const saveSpeakers = () => {
+    start(async () => {
+      const result = await reassignReviewSpeakers(deck.id, speakerDraft);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setReview(result.review);
+      setSpeakerEditOpen(false);
+      toast.success("Speakers updated; scores refreshed");
       refresh();
     });
   };
@@ -412,6 +468,26 @@ export function ReviewView({
 
       <div className="mt-8 grid grid-cols-1 gap-8 min-[1100px]:grid-cols-[1.1fr_1fr] min-[1100px]:items-start">
         <div className="min-w-0">
+          {review?.coverage_warning || review?.caveat || transcriptIncomplete || reviewError ? (
+            <div className="mb-6 space-y-2 rounded-[2px] border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+              {transcriptIncomplete ? (
+                <p>
+                  The transcript is incomplete. Re-attach it, then review.{" "}
+                  <button
+                    type="button"
+                    className="font-semibold underline"
+                    onClick={() => setAttachOpen(true)}
+                  >
+                    Re-attach transcript
+                  </button>
+                </p>
+              ) : null}
+              {reviewError && !transcriptIncomplete ? <p>{reviewError}</p> : null}
+              {review?.coverage_warning ? <p>{review.coverage_warning}</p> : null}
+              {review?.caveat ? <p>{review.caveat}</p> : null}
+            </div>
+          ) : null}
+
           {deck.goal?.trim() ? (
             <section className="rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-surface)] px-4 py-3">
               <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
@@ -428,7 +504,16 @@ export function ReviewView({
                     disabled={pending || !review}
                   />
                   {review.goal.evidence ? (
-                    <p className="min-w-0 flex-1 text-[13px] text-[var(--jos-muted)]">{review.goal.evidence}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] text-[var(--jos-muted)]">
+                        {renderLinkedText(review.goal.evidence)}
+                      </p>
+                      {review.goal.evidence_unverified ? (
+                        <p className="mt-1 text-[12px] text-[var(--jos-muted)]">
+                          quote not found in transcript
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ) : null}
@@ -437,11 +522,44 @@ export function ReviewView({
             <p className="text-[14px] text-[var(--jos-muted)]">No goal was set for this deck.</p>
           )}
 
+          {review?.speakers && Object.keys(review.speakers).length ? (
+            <p className="mt-6 text-[13px] text-[var(--jos-muted)]">
+              <span className="font-semibold text-[var(--jos-ink)]">Speakers</span>
+              {": "}
+              {Object.entries(review.speakers)
+                .map(([label, name]) =>
+                  /jason|kupe/i.test(name) || label === review.jason_speaker
+                    ? `Jason = ${label}`
+                    : `${name} = ${label}`
+                )
+                .join(" · ")}
+              {review.talk_share ? (
+                <>
+                  {" · "}
+                  Jason spoke {review.talk_share.jason_pct} percent of the words
+                </>
+              ) : null}
+              {" · "}
+              <button
+                type="button"
+                className="font-semibold text-[var(--jos-ink)] underline"
+                onClick={() => openSpeakerEdit()}
+              >
+                Change
+              </button>
+            </p>
+          ) : null}
+
           <section className="mt-8">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
-                Rubric
-              </h2>
+              <div>
+                <h2 className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+                  Rubric
+                </h2>
+                <p className="mt-1 text-[12px] text-[var(--jos-muted)]">
+                  Rubric: {rubricSourceLabel}
+                </p>
+              </div>
               {review && rubricAverage != null ? (
                 <p className="text-[13px] font-semibold tabular-nums text-[var(--jos-ink)]">
                   {rubricAverage} of 5
@@ -471,6 +589,7 @@ export function ReviewView({
                     onNa={() =>
                       onSetRubricMark(index, { score: row.na ? 1 : "na" })
                     }
+                    renderNote={renderLinkedText}
                   />
                 ))}
               </div>
@@ -526,7 +645,10 @@ export function ReviewView({
                               )}
                             </td>
                             <td className="py-2.5 text-[13px] text-[var(--jos-muted)]">
-                              {row?.evidence ?? "—"}
+                              {row?.evidence ? renderLinkedText(row.evidence) : "—"}
+                              {row?.evidence_unverified ? (
+                                <p className="mt-1 text-[12px]">quote not found in transcript</p>
+                              ) : null}
                             </td>
                           </tr>
                         );
@@ -540,9 +662,21 @@ export function ReviewView({
 
           {review ? (
             <>
-              <ReviewList title="What they said that matters" items={review.said} />
-              <ReviewList title="What I committed to" items={review.committed} />
-              <ReviewList title="Do differently next time" items={review.next_time} />
+              <ReviewList
+                title="What they said that matters"
+                items={review.said}
+                renderItem={renderLinkedText}
+              />
+              <ReviewList
+                title="What I committed to"
+                items={review.committed}
+                renderItem={renderLinkedText}
+              />
+              <ReviewList
+                title="Do differently next time"
+                items={review.next_time}
+                renderItem={renderLinkedText}
+              />
             </>
           ) : null}
 
@@ -551,14 +685,30 @@ export function ReviewView({
               <>
                 <Button
                   type="button"
-                  disabled={!hasTranscript || reviewing || pending}
-                  title={!hasTranscript ? "Fetch the transcript first" : undefined}
+                  disabled={!hasTranscript || transcriptIncomplete || reviewing || pending}
+                  title={
+                    !hasTranscript
+                      ? "Attach a transcript first"
+                      : transcriptIncomplete
+                        ? "Re-attach the incomplete transcript first"
+                        : undefined
+                  }
                   onClick={() => onReviewRun()}
                 >
                   {reviewing ? "Reading the transcript…" : "Review this run"}
                 </Button>
                 {!hasTranscript ? (
                   <p className="mt-2 text-[13px] text-[var(--jos-muted)]">Attach a transcript first</p>
+                ) : transcriptIncomplete ? (
+                  <p className="mt-2 text-[13px] text-[var(--jos-muted)]">
+                    <button
+                      type="button"
+                      className="font-semibold underline"
+                      onClick={() => setAttachOpen(true)}
+                    >
+                      Re-attach transcript
+                    </button>
+                  </p>
                 ) : null}
               </>
             ) : null}
@@ -601,9 +751,7 @@ export function ReviewView({
               </Button>
             </div>
             <div className="max-h-[min(70vh,720px)] overflow-y-auto px-4 py-3">
-              {autoFetching ? (
-                <p className="text-[14px] text-[var(--jos-muted)]">Looking for a transcript…</p>
-              ) : hasTranscript ? (
+              {hasTranscript ? (
                 <>
                   {transcriptFetchedAt ? (
                     <p className="mb-3 text-[12px] text-[var(--jos-muted)]">
@@ -616,11 +764,26 @@ export function ReviewView({
                         minute: "2-digit",
                       })}
                       {transcriptSource ? ` · ${transcriptSource === "granola" ? "Granola" : "Wispr"}` : ""}
+                      {transcriptIncomplete ? " · incomplete" : ""}
                     </p>
                   ) : null}
-                  <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-[var(--jos-ink)]">
-                    {transcript}
-                  </pre>
+                  <div className="space-y-0.5 font-sans text-[13px] leading-relaxed text-[var(--jos-ink)]">
+                    {numberedLines.map((line) => (
+                      <div
+                        key={line.n}
+                        id={`tx-line-${line.n}`}
+                        className={cn(
+                          "grid grid-cols-[3rem_1fr] gap-2 rounded-[2px] px-1 py-0.5",
+                          highlightLine === line.n ? "bg-amber-100" : ""
+                        )}
+                      >
+                        <span className="tabular-nums text-[11px] text-[var(--jos-muted)]">
+                          {String(line.n).padStart(4, "0")}
+                        </span>
+                        <span className="whitespace-pre-wrap">{line.raw || " "}</span>
+                      </div>
+                    ))}
+                  </div>
                 </>
               ) : (
                 <p className="text-[14px] text-[var(--jos-muted)]">No matching note found.</p>
@@ -643,6 +806,39 @@ export function ReviewView({
             refresh();
           }}
         />
+      ) : null}
+
+      {speakerEditOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="w-full max-w-md rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-bg)] p-4 shadow-lg">
+            <h3 className="text-[15px] font-bold">Change speakers</h3>
+            <p className="mt-1 text-[12px] text-[var(--jos-muted)]">
+              Reassign labels, then scores refresh from Pass 2.
+            </p>
+            <div className="mt-4 space-y-3">
+              {Object.entries(speakerDraft).map(([label, name]) => (
+                <label key={label} className="block text-[13px]">
+                  <span className="font-semibold">{label}</span>
+                  <input
+                    className="mt-1 w-full rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-bg)] px-2 py-1.5"
+                    value={name}
+                    onChange={(event) =>
+                      setSpeakerDraft((prev) => ({ ...prev, [label]: event.target.value }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setSpeakerEditOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={pending} onClick={() => saveSpeakers()}>
+                {pending ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
