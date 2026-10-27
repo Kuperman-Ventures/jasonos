@@ -83,7 +83,7 @@ export function TripWhenPanel({
       ) : null}
 
       {!tripSchoolIds.length ? (
-        <p className="trip-empty">Add a cluster in Nearby to see its calendars.</p>
+        <p className="trip-empty">Add schools in Nearby to see their calendars.</p>
       ) : (
         <>
           <div className="trip-wk">

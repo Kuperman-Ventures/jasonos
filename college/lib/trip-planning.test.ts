@@ -10,6 +10,7 @@ import {
   TRIP_WEEK0,
   chsTripWindows,
   chsVisitBreaks,
+  buildNearbyDriveSchools,
   defaultTripPlanState,
   isoDate,
   kyleBreakCellLabel,
@@ -18,10 +19,11 @@ import {
   preferredTripSeason,
   regionForLocation,
   regionForState,
-  toggleClusterInTrip,
+  toggleSchoolInTrip,
   tripPlanStorageKey,
   weekDate,
 } from "./trip-planning/index";
+import type { School } from "./types";
 
 test("regionForState maps sample states", () => {
   assert.equal(regionForState("NJ"), "Northeast");
@@ -59,24 +61,48 @@ test("tripPlanStorageKey is per user and school", () => {
 test("parseTripPlanState validates shape", () => {
   assert.equal(parseTripPlanState(null), null);
   assert.equal(parseTripPlanState({ weekIndex: 2 }), null);
-  assert.deepEqual(parseTripPlanState({ clusterIds: ["same", "plus1"], weekIndex: 5 }), {
-    clusterIds: ["same", "plus1"],
+  assert.equal(parseTripPlanState({ clusterIds: ["same", "plus1"], weekIndex: 5 }), null);
+  assert.deepEqual(parseTripPlanState({ schoolIds: ["upenn", "drexel-university"], weekIndex: 5 }), {
+    schoolIds: ["upenn", "drexel-university"],
     weekIndex: 5,
   });
-  assert.deepEqual(parseTripPlanState({ clusterIds: ["same"], weekIndex: 99 }), {
-    clusterIds: ["same"],
+  assert.deepEqual(parseTripPlanState({ schoolIds: ["upenn"], weekIndex: 99 }), {
+    schoolIds: ["upenn"],
     weekIndex: 8,
   });
 });
 
-test("defaultTripPlanState and toggleClusterInTrip", () => {
-  const base = defaultTripPlanState(["same"]);
-  assert.deepEqual(base.clusterIds, ["same"]);
+test("defaultTripPlanState and toggleSchoolInTrip", () => {
+  const base = defaultTripPlanState(["upenn"]);
+  assert.deepEqual(base.schoolIds, ["upenn"]);
   assert.equal(base.weekIndex, DEFAULT_TRIP_WEEK_INDEX);
-  const added = toggleClusterInTrip(base, "plus1");
-  assert.deepEqual(added.clusterIds, ["same", "plus1"]);
-  const removed = toggleClusterInTrip(added, "same");
-  assert.deepEqual(removed.clusterIds, ["plus1"]);
+  const added = toggleSchoolInTrip(base, "drexel-university", "upenn");
+  assert.deepEqual(added.schoolIds, ["upenn", "drexel-university"]);
+  const removed = toggleSchoolInTrip(added, "upenn");
+  assert.deepEqual(removed.schoolIds, ["drexel-university"]);
+  const peerOnly = toggleSchoolInTrip(defaultTripPlanState([]), "drexel-university", "upenn");
+  assert.deepEqual(peerOnly.schoolIds, ["upenn", "drexel-university"]);
+});
+
+test("buildNearbyDriveSchools lists base plus peers within 3 hours", () => {
+  const stub = (id: string, name: string, location: string): School =>
+    ({
+      id,
+      name,
+      location,
+      interestLevel: "High interest",
+      archived: false,
+    }) as School;
+  const upenn = stub("upenn", "University of Pennsylvania", "Philadelphia, PA");
+  const rows = buildNearbyDriveSchools(upenn, [
+    upenn,
+    stub("drexel-university", "Drexel University", "Philadelphia, PA"),
+    stub("stanford-university", "Stanford University", "Stanford, CA"),
+  ]);
+  assert.equal(rows[0]?.schoolId, "upenn");
+  assert.equal(rows[0]?.driveLabel, "Here");
+  assert.ok(rows.some((row) => row.schoolId === "drexel-university"));
+  assert.ok(!rows.some((row) => row.schoolId === "stanford-university"));
 });
 
 test("CHS schedule keeps full year data with red visit breaks", () => {
@@ -143,7 +169,8 @@ test("preferredTripSeason picks fall for all-Drive trips", () => {
 });
 
 test("defaultTripPlanState can seed fall season", () => {
-  const fall = defaultTripPlanState(["same"], "fall");
+  const fall = defaultTripPlanState(["upenn"], "fall");
   assert.equal(fall.season, "fall");
   assert.equal(fall.weekIndex, FALL_TRIP_GRID.defaultWeekIndex);
+  assert.deepEqual(fall.schoolIds, ["upenn"]);
 });

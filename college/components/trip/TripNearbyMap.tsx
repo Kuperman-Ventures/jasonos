@@ -4,10 +4,7 @@ import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  clusterLegLabels,
-  clusterPolylinePoints,
   tripInterestLabel,
-  type TripCluster,
   type TripSchoolPoint,
 } from "@/lib/trip-planning";
 import { createRoot, type Root } from "react-dom/client";
@@ -72,49 +69,55 @@ function flyToPointBounds(
 
 export function TripNearbyMap({
   schoolId,
-  clusters,
   pointsById,
-  clusterIds,
-  activeClusterId,
+  schoolIds,
+  routeOrder,
+  routeLegs,
+  activeSchoolId,
   airport,
-  onActiveCluster,
-  onToggleCluster,
+  onActiveSchool,
+  onToggleSchool,
 }: {
   schoolId: string;
-  clusters: TripCluster[];
   pointsById: Map<string, TripSchoolPoint>;
-  clusterIds: string[];
-  activeClusterId: string;
+  schoolIds: string[];
+  /** Visiting order for the orange route line (school ids). */
+  routeOrder: string[];
+  /** Drive labels between consecutive route stops (same length as routeOrder − 1). */
+  routeLegs: (string | null)[];
+  activeSchoolId: string;
   airport: { iata: string; lat: number; lng: number };
-  onActiveCluster: (id: string) => void;
-  onToggleCluster: (id: string) => void;
+  onActiveSchool: (id: string) => void;
+  onToggleSchool: (id: string) => void;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const linesRef = useRef<Map<string, L.Polyline>>(new Map());
-  const legsRef = useRef<Map<string, L.LayerGroup>>(new Map());
+  const routeLineRef = useRef<L.Polyline | null>(null);
+  const legsGroupRef = useRef<L.LayerGroup | null>(null);
   const airRef = useRef<L.Marker | null>(null);
   const pinRootsRef = useRef<Map<string, Root>>(new Map());
   const propsRef = useRef({
     schoolId,
-    clusters,
     pointsById,
-    clusterIds,
-    activeClusterId,
+    schoolIds,
+    routeOrder,
+    routeLegs,
+    activeSchoolId,
     airport,
-    onActiveCluster,
-    onToggleCluster,
+    onActiveSchool,
+    onToggleSchool,
   });
   propsRef.current = {
     schoolId,
-    clusters,
     pointsById,
-    clusterIds,
-    activeClusterId,
+    schoolIds,
+    routeOrder,
+    routeLegs,
+    activeSchoolId,
     airport,
-    onActiveCluster,
-    onToggleCluster,
+    onActiveSchool,
+    onToggleSchool,
   };
 
   useEffect(() => {
@@ -154,18 +157,18 @@ export function TripNearbyMap({
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
-      linesRef.current.clear();
-      legsRef.current.clear();
+      routeLineRef.current = null;
+      legsGroupRef.current = null;
       airRef.current = null;
     };
   }, []);
 
-  // Sync markers, lines, airport when data changes
+  // Sync markers, route, airport when data changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const inTrip = new Set(schoolIds);
 
-    // Markers
     const keep = new Set(pointsById.keys());
     for (const [id, marker] of markersRef.current) {
       if (!keep.has(id)) {
@@ -202,7 +205,6 @@ export function TripNearbyMap({
         );
       }
 
-      // Mount SchoolMark into pin after DOM insert
       requestAnimationFrame(() => {
         const el = document.getElementById(containerId);
         if (!el) return;
@@ -214,39 +216,44 @@ export function TripNearbyMap({
         root.render(<SchoolMark name={point.name} website={point.website} />);
       });
 
-      const cluster =
-        clusters.find((c) => c.stops.some((s) => s.schoolId === id)) ?? clusters[0];
-      if (cluster) {
-        const pressed = clusterIds.includes(cluster.id);
-        marker.bindPopup(
-          () => {
-            const wrap = document.createElement("div");
-            wrap.className = "trip-pop";
-            wrap.innerHTML = `<b>${escapeAttr(point.name)}</b><span>${escapeAttr(
-              tripInterestLabel(point.interest === "none" ? "" : point.interest),
-            )}${id === schoolId ? " · viewing" : ""}</span><span>${escapeAttr(
-              cluster.name,
-            )} · ${escapeAttr(cluster.sub)}</span>`;
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "trip-inc";
-            btn.setAttribute("aria-pressed", pressed ? "true" : "false");
-            btn.textContent = pressed
-              ? "In trip ✓"
-              : `Add ${cluster.name.toLowerCase()} to trip`;
-            btn.addEventListener("click", () => {
-              propsRef.current.onToggleCluster(cluster.id);
-              map.closePopup();
-            });
-            wrap.appendChild(btn);
-            return wrap;
-          },
-          { closeButton: false, offset: [0, -8] },
-        );
-      }
+      const pressed = inTrip.has(id);
+      const driveHint =
+        id === schoolId
+          ? "Viewing"
+          : tripInterestLabel(point.interest === "none" ? "" : point.interest);
+      marker.bindPopup(
+        () => {
+          const wrap = document.createElement("div");
+          wrap.className = "trip-pop";
+          wrap.innerHTML = `<b>${escapeAttr(point.name)}</b><span>${escapeAttr(
+            driveHint,
+          )}${id === schoolId ? " · this school" : ""}</span>`;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "trip-inc";
+          btn.setAttribute("aria-pressed", pressed ? "true" : "false");
+          btn.textContent = pressed ? "In trip ✓" : "Add to trip";
+          btn.addEventListener("click", () => {
+            propsRef.current.onToggleSchool(id);
+            map.closePopup();
+          });
+          wrap.appendChild(btn);
+          return wrap;
+        },
+        { closeButton: false, offset: [0, -8] },
+      );
+
+      marker.off("mouseover");
+      marker.on("mouseover", () => {
+        if (id !== propsRef.current.activeSchoolId) {
+          propsRef.current.onActiveSchool(id);
+        }
+      });
+
+      const pin = marker.getElement()?.firstElementChild;
+      pin?.classList.toggle("dim", schoolIds.length > 0 && !inTrip.has(id));
     }
 
-    // Airport
     if (airport.iata !== "—" && airport.lat && airport.lng) {
       if (!airRef.current) {
         airRef.current = L.marker([airport.lat, airport.lng], {
@@ -270,42 +277,29 @@ export function TripNearbyMap({
       if (mapIsReady(map) && map.getZoom() >= 10.5) airRef.current.addTo(map);
     }
 
-    // Polylines
-    for (const [id, line] of linesRef.current) {
-      if (!clusters.some((c) => c.id === id)) {
-        line.remove();
-        linesRef.current.delete(id);
-        legsRef.current.get(id)?.remove();
-        legsRef.current.delete(id);
-      }
-    }
+    const routePts = routeOrder
+      .map((id) => pointsById.get(id))
+      .filter((p): p is TripSchoolPoint => Boolean(p))
+      .map((p) => [p.lat, p.lng] as [number, number]);
 
-    for (const cluster of clusters) {
-      const pts = clusterPolylinePoints(cluster, pointsById);
-      if (pts.length < 2) continue;
-      let line = linesRef.current.get(cluster.id);
-      if (!line) {
-        line = L.polyline(pts, lineStyle(false)).addTo(map);
-        line.on("mouseover", () => {
-          if (cluster.id !== propsRef.current.activeClusterId) {
-            propsRef.current.onActiveCluster(cluster.id);
-          }
-        });
-        linesRef.current.set(cluster.id, line);
+    if (routePts.length >= 2) {
+      if (!routeLineRef.current) {
+        routeLineRef.current = L.polyline(routePts, lineStyle(true)).addTo(map);
       } else {
-        line.setLatLngs(pts);
+        routeLineRef.current.setLatLngs(routePts);
+        routeLineRef.current.setStyle(lineStyle(true));
+        if (!map.hasLayer(routeLineRef.current)) routeLineRef.current.addTo(map);
       }
+      routeLineRef.current.bringToFront();
 
-      const legs = clusterLegLabels(cluster);
-      const markers = legs
+      const markers = routeLegs
         .map((label, i) => {
           if (!label) return null;
-          const a = pts[i];
-          const b = pts[i + 1];
+          const a = routePts[i];
+          const b = routePts[i + 1];
           if (!a || !b) return null;
-          const f = cluster.at[i] ?? 0.5;
           return L.marker(
-            [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f],
+            [a[0] + (b[0] - a[0]) * 0.5, a[1] + (b[1] - a[1]) * 0.5],
             {
               icon: L.divIcon({
                 className: "",
@@ -317,52 +311,41 @@ export function TripNearbyMap({
           );
         })
         .filter((m): m is L.Marker => Boolean(m));
-      const group = L.layerGroup(markers);
-      legsRef.current.get(cluster.id)?.remove();
-      legsRef.current.set(cluster.id, group);
+      legsGroupRef.current?.remove();
+      legsGroupRef.current = L.layerGroup(markers).addTo(map);
+    } else {
+      routeLineRef.current?.remove();
+      legsGroupRef.current?.remove();
+      legsGroupRef.current = null;
     }
 
     map.invalidateSize();
-  }, [schoolId, clusters, pointsById, clusterIds, airport]);
+  }, [schoolId, pointsById, schoolIds, routeOrder, routeLegs, airport]);
 
-  // Active cluster styling / fly
+  // Fly to active school (or full route when focusing the base with multiple stops)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const active = clusters.find((c) => c.id === activeClusterId);
-    for (const cluster of clusters) {
-      const on = cluster.id === activeClusterId;
-      const line = linesRef.current.get(cluster.id);
-      if (line) {
-        line.setStyle(lineStyle(on));
-        if (on) {
-          line.bringToFront();
-          legsRef.current.get(cluster.id)?.addTo(map);
-        } else {
-          legsRef.current.get(cluster.id)?.remove();
-        }
-      }
+    const active = pointsById.get(activeSchoolId);
+    if (!active) return;
+    const routePts = routeOrder
+      .map((id) => pointsById.get(id))
+      .filter((p): p is TripSchoolPoint => Boolean(p))
+      .map((p) => [p.lat, p.lng] as [number, number]);
+    if (activeSchoolId === schoolId && routePts.length >= 2) {
+      flyToPointBounds(map, routePts, {
+        padding: [70, 70],
+        duration: 0.6,
+        maxZoom: 12,
+      });
+      return;
     }
-    const keep = new Set(
-      active
-        ? [...active.stops.map((s) => s.schoolId), active.fromId].filter(Boolean)
-        : [],
-    );
-    for (const [id, marker] of markersRef.current) {
-      const pin = marker.getElement()?.firstElementChild;
-      pin?.classList.toggle("dim", keep.size > 0 && !keep.has(id));
-    }
-    if (active) {
-      const pts = clusterPolylinePoints(active, pointsById);
-      if (pts.length) {
-        flyToPointBounds(map, pts, {
-          padding: [70, 70],
-          duration: 0.6,
-          maxZoom: 12,
-        });
-      }
-    }
-  }, [activeClusterId, clusters, pointsById]);
+    flyToPointBounds(map, [[active.lat, active.lng]], {
+      padding: [70, 70],
+      duration: 0.5,
+      maxZoom: 11,
+    });
+  }, [activeSchoolId, pointsById, routeOrder, schoolId]);
 
   return (
     <div

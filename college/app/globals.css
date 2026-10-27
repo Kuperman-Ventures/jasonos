@@ -15267,6 +15267,21 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   flex-direction: column;
   gap: 4px;
 }
+.trip-near-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 14px 10px;
+}
+.trip-near-head b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.trip-near-head span {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-subtle);
+}
 .trip-cl {
   display: flex;
   flex-direction: column;

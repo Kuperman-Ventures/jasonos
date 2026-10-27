@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DRIVE_ONE_WAY_MAX_MINUTES,
+  NEARBY_DRIVE_MAX_MINUTES,
   ROAD_TRIP_LOOP_MAX_MINUTES,
   ROAD_TRIP_ONE_WAY_MAX_MINUTES,
   buildRouteFromOrder,
@@ -13,6 +14,7 @@ import {
   fitsThreeDayRoadTripLoop,
   formatTravelLabel,
   nearestSchoolsFrom,
+  schoolsWithinDriveMinutes,
   shortestSchoolOrder,
   travelModeForMinutes,
   travelModeForSchool,
@@ -80,6 +82,23 @@ test("nearestSchoolsFrom returns three closest", () => {
   assert.equal(hits.length, 3);
   assert.equal(hits[0]?.schoolId, "drexel-university");
   assert.ok(hits[0]!.minutes <= hits[1]!.minutes);
+});
+
+test("schoolsWithinDriveMinutes keeps peers at or under 3 hours", () => {
+  const hits = schoolsWithinDriveMinutes(
+    "upenn",
+    [
+      { id: "upenn", name: "UPenn" },
+      { id: "drexel-university", name: "Drexel" },
+      { id: "lehigh-university", name: "Lehigh" },
+      { id: "njit", name: "NJIT" },
+      { id: "stanford-university", name: "Stanford" },
+    ],
+    NEARBY_DRIVE_MAX_MINUTES,
+  );
+  assert.ok(hits.length >= 2);
+  assert.ok(hits.every((hit) => hit.minutes <= NEARBY_DRIVE_MAX_MINUTES));
+  assert.ok(!hits.some((hit) => hit.schoolId === "stanford-university"));
 });
 
 test("shortestSchoolOrder visits each school once", () => {

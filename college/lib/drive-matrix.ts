@@ -202,18 +202,36 @@ export type NearestSchoolHit = {
   miles: number;
 };
 
+/** Max one-way drive for Trip planning › Nearby peers. */
+export const NEARBY_DRIVE_MAX_MINUTES = 3 * 60;
+
 /** Three closest other list schools by drive minutes from this school. */
 export function nearestSchoolsFrom(
   schoolId: string,
   candidates: { id: string; name: string }[],
   limit = 3,
 ): NearestSchoolHit[] {
+  return schoolsWithinDriveMinutes(schoolId, candidates, Number.POSITIVE_INFINITY).slice(
+    0,
+    limit,
+  );
+}
+
+/**
+ * List schools within `maxMinutes` drive of `schoolId`, nearest first.
+ * Peers missing from the drive matrix are omitted.
+ */
+export function schoolsWithinDriveMinutes(
+  schoolId: string,
+  candidates: { id: string; name: string }[],
+  maxMinutes: number = NEARBY_DRIVE_MAX_MINUTES,
+): NearestSchoolHit[] {
   const fromId = schoolTravelPointId(schoolId);
   const hits: NearestSchoolHit[] = [];
   for (const row of candidates) {
     if (row.id === schoolId) continue;
     const leg = driveLeg(fromId, schoolTravelPointId(row.id));
-    if (!leg) continue;
+    if (!leg || leg.minutes > maxMinutes) continue;
     hits.push({
       schoolId: row.id,
       name: row.name,
@@ -222,7 +240,7 @@ export function nearestSchoolsFrom(
     });
   }
   hits.sort((a, b) => a.minutes - b.minutes || a.name.localeCompare(b.name));
-  return hits.slice(0, limit);
+  return hits;
 }
 
 export function airportsForRegion(regionId: string): TravelPoint[] {

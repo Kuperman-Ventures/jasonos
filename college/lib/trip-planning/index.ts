@@ -5,3 +5,4 @@ export * from "./interest";
 export * from "./calendar";
 export * from "./clusters";
 export * from "./region-route";
+export * from "./nearby";

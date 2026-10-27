@@ -9,8 +9,8 @@ import {
 export const TRIP_PLAN_STORAGE_PREFIX = "track-trip-plan";
 
 export type TripPlanState = {
-  /** Cluster ids included in the trip (e.g. "same", "plus1"). */
-  clusterIds: string[];
+  /** School ids included in the trip (individual selection). */
+  schoolIds: string[];
   /** Index into the When-to-go week grid (0–8). */
   weekIndex: number;
   /** Season for the When-to-go grid (fall prioritized for drive schools). */
@@ -22,12 +22,12 @@ export function tripPlanStorageKey(userId: string, schoolId: string): string {
 }
 
 export function defaultTripPlanState(
-  clusterIds: string[] = ["same"],
+  schoolIds: string[] = [],
   season: TripSeasonId = "spring",
 ): TripPlanState {
   const grid = tripWeekGridForSeason(season);
   return {
-    clusterIds: [...clusterIds],
+    schoolIds: [...schoolIds],
     weekIndex: grid.defaultWeekIndex,
     season,
   };
@@ -36,8 +36,9 @@ export function defaultTripPlanState(
 export function parseTripPlanState(raw: unknown): TripPlanState | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  if (!Array.isArray(row.clusterIds)) return null;
-  const clusterIds = row.clusterIds.filter(
+  // Prefer schoolIds. Old clusterIds-only saves are ignored so Nearby re-seeds.
+  if (!Array.isArray(row.schoolIds)) return null;
+  const schoolIds = row.schoolIds.filter(
     (id): id is string => typeof id === "string" && id.length > 0,
   );
   const season: TripSeasonId | undefined =
@@ -50,7 +51,7 @@ export function parseTripPlanState(raw: unknown): TripPlanState | null {
     typeof row.weekIndex === "number" && Number.isFinite(row.weekIndex)
       ? Math.max(0, Math.min(8, Math.round(row.weekIndex)))
       : fallbackWeek;
-  return { clusterIds, weekIndex, ...(season ? { season } : {}) };
+  return { schoolIds, weekIndex, ...(season ? { season } : {}) };
 }
 
 export function readTripPlanState(
@@ -77,7 +78,7 @@ export function writeTripPlanState(
     window.localStorage.setItem(
       tripPlanStorageKey(userId, schoolId),
       JSON.stringify({
-        clusterIds: state.clusterIds,
+        schoolIds: state.schoolIds,
         weekIndex: state.weekIndex,
         ...(state.season ? { season: state.season } : {}),
       }),
@@ -87,15 +88,26 @@ export function writeTripPlanState(
   }
 }
 
-export function toggleClusterInTrip(
+/** Toggle a school in/out of the trip. Adding a peer also keeps the base school. */
+export function toggleSchoolInTrip(
   state: TripPlanState,
-  clusterId: string,
+  schoolId: string,
+  baseSchoolId?: string,
 ): TripPlanState {
-  const has = state.clusterIds.includes(clusterId);
-  return {
-    ...state,
-    clusterIds: has
-      ? state.clusterIds.filter((id) => id !== clusterId)
-      : [...state.clusterIds, clusterId],
-  };
+  const has = state.schoolIds.includes(schoolId);
+  if (has) {
+    return {
+      ...state,
+      schoolIds: state.schoolIds.filter((id) => id !== schoolId),
+    };
+  }
+  const schoolIds = [...state.schoolIds, schoolId];
+  if (
+    baseSchoolId &&
+    schoolId !== baseSchoolId &&
+    !schoolIds.includes(baseSchoolId)
+  ) {
+    schoolIds.unshift(baseSchoolId);
+  }
+  return { ...state, schoolIds };
 }
