@@ -35,7 +35,22 @@ import {
   setRubricMark,
 } from "@/lib/server-actions/decks";
 import type { RubricScore } from "@/lib/server-actions/decks";
+import {
+  buildReviewFinetunePackage,
+  reviewPackageFilename,
+  reviewPackageToMarkdown,
+} from "@/lib/live/review-export";
 import { cn } from "@/lib/utils";
+
+function downloadTextFile(filename: string, text: string, mime: string) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 function ReviewMarkPill({
   label,
@@ -304,6 +319,47 @@ export function ReviewView({
     onReviewRun();
   };
 
+  const buildPackage = () =>
+    buildReviewFinetunePackage({
+      deck,
+      meetingLabel,
+      transcript,
+      transcriptSource,
+      transcriptFetchedAt,
+      review,
+      reviewedAt,
+    });
+
+  const onDownloadPackage = () => {
+    const pkg = buildPackage();
+    if (!pkg.transcript.text?.trim()) {
+      toast.error("Attach a transcript before exporting.");
+      return;
+    }
+    downloadTextFile(
+      reviewPackageFilename(pkg),
+      `${JSON.stringify(pkg, null, 2)}\n`,
+      "application/json;charset=utf-8"
+    );
+    toast.success(
+      pkg.analysis ? "Downloaded transcript + analysis package" : "Downloaded transcript package"
+    );
+  };
+
+  const onCopyPackageMarkdown = async () => {
+    const pkg = buildPackage();
+    if (!pkg.transcript.text?.trim()) {
+      toast.error("Attach a transcript before exporting.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(reviewPackageToMarkdown(pkg));
+      toast.success("Copied transcript + analysis as markdown");
+    } catch {
+      toast.error("Could not copy to the clipboard.");
+    }
+  };
+
   const reviewBySlideId = new Map(review?.slides.map((row) => [row.slide_id, row]) ?? []);
 
   return (
@@ -323,9 +379,35 @@ export function ReviewView({
             <p className="mt-0.5 text-[13px] text-[var(--jos-muted)]">{runSummary}</p>
           ) : null}
         </div>
-        <Link href={`/live/decks/${deck.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          Edit deck
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!hasTranscript || pending}
+            title={
+              !hasTranscript
+                ? "Attach a transcript first"
+                : "Download transcript, rubric, and analysis as one JSON package"
+            }
+            onClick={() => onDownloadPackage()}
+          >
+            Export package
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={!hasTranscript || pending}
+            title="Copy the same package as markdown"
+            onClick={() => void onCopyPackageMarkdown()}
+          >
+            Copy markdown
+          </Button>
+          <Link href={`/live/decks/${deck.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Edit deck
+          </Link>
+        </div>
       </header>
 
       <div className="mt-8 grid grid-cols-1 gap-8 min-[1100px]:grid-cols-[1.1fr_1fr] min-[1100px]:items-start">
