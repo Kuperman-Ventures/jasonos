@@ -29,6 +29,9 @@ import {
   isCalendarProxyAddress,
 } from "@/lib/outreach/mail-noise";
 import { GMAIL_EXCLUDE_DRAFTS_QUERY, shouldCountGmailMessageForTouch } from "@/lib/integrations/gmail-labels";
+import { buildPlainTextRawMessage } from "@/lib/integrations/gmail-mime";
+
+export { encodeMimeHeader } from "@/lib/integrations/gmail-mime";
 
 export interface GmailReply {
   id: string;
@@ -1051,19 +1054,7 @@ export async function sendGmailMessage(input: {
   | { ok: true; id: string }
   | { ok: false; error: string; needsReconnect?: boolean }
 > {
-  const headers = [
-    `To: ${input.to}`,
-    input.cc ? `Cc: ${input.cc}` : null,
-    input.bcc ? `Bcc: ${input.bcc}` : null,
-    `Subject: ${input.subject}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/plain; charset=utf-8",
-    input.inReplyTo ? `In-Reply-To: ${input.inReplyTo}` : null,
-    input.inReplyTo ? `References: ${input.inReplyTo}` : null,
-  ]
-    .filter((line): line is string => Boolean(line))
-    .join("\r\n");
-  const raw = encodeBase64Url(`${headers}\r\n\r\n${input.body}`);
+  const raw = encodeBase64Url(buildPlainTextRawMessage(input));
   const payload: { raw: string; threadId?: string } = { raw };
   if (input.threadId) payload.threadId = input.threadId;
 
@@ -1108,19 +1099,7 @@ export async function createGmailDraft(input: {
   threadId?: string | null;
   inReplyTo?: string | null;
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
-  const headers = [
-    `To: ${input.to}`,
-    input.cc ? `Cc: ${input.cc}` : null,
-    input.bcc ? `Bcc: ${input.bcc}` : null,
-    `Subject: ${input.subject}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/plain; charset=utf-8",
-    input.inReplyTo ? `In-Reply-To: ${input.inReplyTo}` : null,
-    input.inReplyTo ? `References: ${input.inReplyTo}` : null,
-  ]
-    .filter((line): line is string => Boolean(line))
-    .join("\r\n");
-  const raw = encodeBase64Url(`${headers}\r\n\r\n${input.body}`);
+  const raw = encodeBase64Url(buildPlainTextRawMessage(input));
   const payload: { message: { raw: string; threadId?: string } } = {
     message: { raw },
   };

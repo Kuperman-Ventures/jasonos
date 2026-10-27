@@ -68,7 +68,7 @@ async function sendAttendeeReminder(input: {
   }
   await notify({
     source: "browning_networking",
-    title: `Copy — ${input.subject}`,
+    title: `Copy - ${input.subject}`,
     body: [`Reminder also sent to ${input.to}.`, "", input.body].join("\n"),
     severity: "info",
     category: "deadline",
