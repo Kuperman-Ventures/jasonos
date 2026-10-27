@@ -15231,6 +15231,25 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   font: 600 10px/1 var(--font-mono);
 }
 .trip-pin.dim { opacity: 0.35; }
+.trip-pin.live {
+  opacity: 1;
+  z-index: 1000;
+  transform: translate(-50%, -50%) scale(1.28);
+  box-shadow:
+    0 0 0 2px var(--color-bg),
+    0 0 0 4px var(--color-accent),
+    0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+.trip-pin.live .school-mark {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+.trip-pin.live .school-mark img {
+  width: 22px !important;
+  height: 22px !important;
+}
 .trip-leg {
   transform: translate(-50%, -50%);
   background: var(--color-text);

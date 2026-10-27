@@ -246,8 +246,13 @@ export function TripNearbyMap({
         }
       });
 
-      const pin = marker.getElement()?.firstElementChild;
-      pin?.classList.toggle("dim", schoolIds.length > 0 && !inTrip.has(id));
+      const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
+      if (pin) {
+        const dimmed = schoolIds.length > 0 && !inTrip.has(id);
+        const live = id === propsRef.current.activeSchoolId;
+        pin.classList.toggle("dim", dimmed && !live);
+        pin.classList.toggle("live", live);
+      }
     }
 
     if (airport.iata !== "—" && airport.lat && airport.lng) {
@@ -327,6 +332,20 @@ export function TripNearbyMap({
     );
     fitNearbyBounds(map, nearbyPts);
   }, [schoolId, pointsById]);
+
+  // Hover / list focus: wake the pin (scale + school mark) without changing zoom.
+  useEffect(() => {
+    const inTrip = new Set(schoolIds);
+    for (const [id, marker] of markersRef.current) {
+      const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
+      if (!pin) continue;
+      const live = id === activeSchoolId;
+      const dimmed = schoolIds.length > 0 && !inTrip.has(id);
+      pin.classList.toggle("live", live);
+      pin.classList.toggle("dim", dimmed && !live);
+      marker.setZIndexOffset(live ? 2000 : id === schoolId ? 1000 : 0);
+    }
+  }, [activeSchoolId, schoolIds, schoolId]);
 
   return (
     <div
