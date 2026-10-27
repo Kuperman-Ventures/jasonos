@@ -24,6 +24,7 @@ import {
   envStatus,
   getServiceDefinition,
   maskSecret,
+  statusFromConnectionCheck,
   type HealthStatus,
   type ServiceStatus,
 } from "./services";
@@ -162,7 +163,20 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "dispatch") {
-    const userId = await getUserId();
+    let userId: string | null = null;
+    try {
+      userId = await getUserId();
+    } catch {
+      const { resolveJasonosOwnerUserId } = await import("@/lib/integrations/owner");
+      userId = await resolveJasonosOwnerUserId();
+    }
+    if (!userId) {
+      return {
+        success: false,
+        message: "Dispatch has no owner to check.",
+        health_status: "down",
+      };
+    }
     const supabase = createPublicServiceRoleClient();
     const { count } = await supabase
       .from("dispatch_requests")
@@ -330,14 +344,16 @@ export async function testServiceConnection(
       "http://127.0.0.1:23373";
     const expiredResult = {
       success: false as const,
+      status: "expired" as const,
       message:
         "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, paste it here, click Save, then Test Connection.",
       health_status: "down" as const,
     };
     const unreachableResult = {
-      success: true as const,
-      message: `Token saved, but this server couldn’t reach ${base}. Keep Beeper Desktop open and Tailscale Funnel up, paste that Funnel URL in Desktop base URL, Save, then Test again.`,
-      health_status: "degraded" as const,
+      success: false as const,
+      status: "error" as const,
+      message: `Couldn’t reach ${base}. Beeper Desktop has to be open on that Mac, and Tailscale Funnel has to be answering, or Sync cannot read texts.`,
+      health_status: "down" as const,
       metadata: { base_url: base },
     };
     try {
@@ -356,7 +372,8 @@ export async function testServiceConnection(
       if (probe.kind === "bad_response") {
         return {
           success: false,
-          message: `Beeper responded ${probe.status}. Check the token and that Desktop API is enabled.`,
+          status: "error" as const,
+          message: `Beeper at ${base} responded ${probe.status}. Desktop is not answering on that address.`,
           health_status: "down",
         };
       }
@@ -702,8 +719,7 @@ export async function persistConnectionHealth(
   const service = getServiceDefinition(serviceName);
   if (!service) return;
   const now = new Date().toISOString();
-  const status =
-    result.status ?? (result.success ? "connected" : envStatus(service));
+  const status = statusFromConnectionCheck(service, result);
   const { error } = await supabase.from("service_connections").upsert(
     {
       user_id: userId,
@@ -722,19 +738,37 @@ export async function persistConnectionHealth(
   if (error) throw new Error(error.message);
 }
 
-export async function healthCheckAll() {
-  const { supabase, userId } = await getUserContext();
+export interface ConnectionCheckSummary {
+  total: number;
+  connected: number;
+  healthy: number;
+  degraded: number;
+  down: number;
+  checked_at: string;
+  problems: string[];
+}
+
+/** Live-check every Settings connection and stamp Last checked. Sync and Check All both use this. */
+export async function checkConnectionsOnSync(): Promise<ConnectionCheckSummary> {
+  const { revalidatePath } = await import("next/cache");
+  const { resolveJasonosOwnerUserId } = await import("@/lib/integrations/owner");
+  const userId = await resolveJasonosOwnerUserId();
+  if (!userId) {
+    throw new Error("No JasonOS owner to store connection checks.");
+  }
+  const supabase = createPublicServiceRoleClient();
   const now = new Date().toISOString();
-  const results = await Promise.all(
+  const checked = await Promise.all(
     SERVICE_DEFINITIONS.map(async (service) => {
       const result = await testServiceConnection(service.name).catch((error) =>
         failed(error, `${service.label} health check failed.`)
       );
+      const status = statusFromConnectionCheck(service, result);
       const { error } = await supabase.from("service_connections").upsert(
         {
           user_id: userId,
           service_name: service.name,
-          status: result.status ?? (result.success ? "connected" : envStatus(service)),
+          status,
           connection_type: service.connectionType,
           last_health_check: now,
           health_status: result.health_status,
@@ -745,18 +779,30 @@ export async function healthCheckAll() {
         { onConflict: "user_id,service_name" }
       );
       if (error) throw new Error(error.message);
-      return result;
+      return { label: service.label, result };
     })
   );
 
+  revalidatePath("/settings");
+
+  const problems = checked
+    .filter((row) => !row.result.success || row.result.health_status === "down")
+    .map((row) => `${row.label}: ${row.result.message}`);
+
   return {
-    total: SERVICE_DEFINITIONS.length,
-    connected: results.filter((result) => result.success).length,
-    healthy: results.filter((result) => result.health_status === "healthy").length,
-    degraded: results.filter((result) => result.health_status === "degraded").length,
-    down: results.filter((result) => result.health_status === "down").length,
+    total: checked.length,
+    connected: checked.filter((row) => row.result.success).length,
+    healthy: checked.filter((row) => row.result.health_status === "healthy").length,
+    degraded: checked.filter((row) => row.result.health_status === "degraded").length,
+    down: checked.filter((row) => row.result.health_status === "down").length,
     checked_at: now,
+    problems,
   };
+}
+
+export async function healthCheckAll() {
+  await requireJasonosUser();
+  return checkConnectionsOnSync();
 }
 
 export async function saveMeetingFollowupPrompt(

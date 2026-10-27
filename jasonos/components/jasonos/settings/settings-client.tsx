@@ -85,6 +85,9 @@ export function SettingsClient({
   billing,
 }: SettingsClientProps) {
   const [settings, setSettings] = useState(initialSettings);
+  useEffect(() => {
+    setSettings(initialSettings);
+  }, [initialSettings]);
   const [followupPrompt, setFollowupPrompt] = useState(
     initialSettings.meetingFollowupPrompt
   );
@@ -200,6 +203,7 @@ export function SettingsClient({
       toast.success("Health checks complete", {
         description: `${payload.summary.healthy} healthy, ${payload.summary.degraded} degraded, ${payload.summary.down} down.`,
       });
+      router.refresh();
     });
   };
 
@@ -907,7 +911,7 @@ function ServiceCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={connection.status} />
+        <StatusBadge status={badgeStatus(connection)} />
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-foreground/85">{definition.description}</p>
@@ -1147,6 +1151,13 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
       ))}
     </dl>
   );
+}
+
+function badgeStatus(connection: ServiceConnection): ServiceConnection["status"] {
+  if (connection.health_status === "down" && connection.status === "connected") {
+    return "error";
+  }
+  return connection.status;
 }
 
 function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
