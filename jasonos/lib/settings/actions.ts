@@ -256,12 +256,14 @@ export async function testServiceConnection(
   }
 
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
+  // These services load a saved Settings token below when the form omits api_key.
   if (
     !key &&
     serviceName !== "beeper" &&
     serviceName !== "jasonos_mcp" &&
     serviceName !== "firecrawl" &&
-    serviceName !== "granola"
+    serviceName !== "granola" &&
+    serviceName !== "leaddelta"
   ) {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
