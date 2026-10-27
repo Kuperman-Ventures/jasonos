@@ -15172,11 +15172,14 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 24px;
+  align-items: start;
 }
 .trip-vmap {
   height: 540px;
   border-radius: 2px;
   background: var(--color-surface);
+  position: sticky;
+  top: 0;
 }
 .trip-vmap-loading { min-height: 540px; }
 .trip-vmap .leaflet-tile-pane { filter: var(--tile-filter); }
@@ -15286,6 +15289,12 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-height: 540px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
 }
 .trip-near-head {
   display: flex;
@@ -16256,7 +16265,16 @@ html[data-mode="dark"] .trip-cell.kbreak {
   .trip-nat-layout,
   .trip-verdict { grid-template-columns: 1fr; }
   .trip-wk { grid-template-columns: 110px repeat(9, minmax(0, 1fr)); }
-  .trip-vmap { height: 420px; }
+  .trip-vmap {
+    height: 420px;
+    position: static;
+  }
+  .trip-clist {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+    scrollbar-gutter: auto;
+  }
 }
 @media (forced-colors: active) {
   .trip-inc,
