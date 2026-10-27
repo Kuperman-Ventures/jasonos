@@ -125,7 +125,7 @@ export function TripItineraryPanel({
           ))}
         </div>
       ) : (
-        <p className="trip-empty">Add a cluster in Nearby to start a trip.</p>
+        <p className="trip-empty">Add schools in Nearby to start a trip.</p>
       )}
       <p className="trip-foot">Tour and info session times are placeholders until booked.</p>
     </div>

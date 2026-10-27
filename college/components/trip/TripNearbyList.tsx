@@ -3,105 +3,106 @@
 import { SchoolMark } from "../SchoolMark";
 import {
   tripInterestLabel,
-  type TripCluster,
+  type NearbySchoolRow,
   type TripSchoolPoint,
 } from "@/lib/trip-planning";
 
 export function TripNearbyList({
   schoolId,
-  clusters,
+  rows,
   pointsById,
-  clusterIds,
-  activeClusterId,
+  schoolIds,
+  activeSchoolId,
   flight,
   areaLabel,
-  onActiveCluster,
-  onToggleCluster,
+  onActiveSchool,
+  onToggleSchool,
 }: {
   schoolId: string;
-  clusters: TripCluster[];
+  rows: NearbySchoolRow[];
   pointsById: Map<string, TripSchoolPoint>;
-  clusterIds: string[];
-  activeClusterId: string;
+  schoolIds: string[];
+  activeSchoolId: string;
   flight: string;
   areaLabel: string;
-  onActiveCluster: (id: string) => void;
-  onToggleCluster: (id: string) => void;
+  onActiveSchool: (id: string) => void;
+  onToggleSchool: (id: string) => void;
 }) {
-  const inTrip = new Set(clusterIds);
+  const inTrip = new Set(schoolIds);
+  const peerCount = rows.filter((row) => !row.isBase).length;
 
   return (
     <div className="trip-clist">
-      {clusters.map((cluster) => {
-        const daysLabel =
-          cluster.id === "same"
-            ? "1 day"
-            : `+${cluster.days} ${cluster.days === 1 ? "day" : "days"}`;
+      <div className="trip-near-head">
+        <b>Within a 3-hour drive</b>
+        <span>
+          {peerCount
+            ? `${peerCount} other list school${peerCount === 1 ? "" : "s"} near ${areaLabel || "this campus"}. Tap to build a route.`
+            : `No other list schools within 3 hours of ${areaLabel || "this campus"} yet.`}
+        </span>
+      </div>
+      {rows.map((row) => {
+        const point = pointsById.get(row.schoolId);
+        const level = point?.interest ?? "none";
+        const selected = inTrip.has(row.schoolId);
         return (
           <div
-            key={cluster.id}
-            className={`trip-cl${cluster.id === activeClusterId ? " on" : ""}`}
-            data-cl={cluster.id}
+            key={row.schoolId}
+            className={`trip-cl${row.schoolId === activeSchoolId ? " on" : ""}`}
+            data-school={row.schoolId}
             tabIndex={0}
             role="button"
-            onMouseEnter={() => onActiveCluster(cluster.id)}
-            onClick={() => onActiveCluster(cluster.id)}
+            onMouseEnter={() => onActiveSchool(row.schoolId)}
+            onClick={() => onActiveSchool(row.schoolId)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onActiveCluster(cluster.id);
+                onActiveSchool(row.schoolId);
               }
             }}
           >
             <div className="trip-cl-top">
-              <b>{cluster.name}</b>
-              <span className="trip-cl-days">{daysLabel}</span>
+              <b>{row.name}</b>
+              <span className="trip-cl-days">{row.driveLabel}</span>
             </div>
             <span className="trip-cl-sub">
-              {cluster.sub}
-              {cluster.note ? `. ${cluster.note}` : ""}
+              {row.isBase
+                ? "School you’re viewing — starts in the trip"
+                : `${row.miles != null ? `${Math.round(row.miles)} mi · ` : ""}${tripInterestLabel(
+                    level === "none" ? "" : level,
+                  )}`}
             </span>
             <div className="trip-cl-bot">
               <div className="trip-cl-marks">
-                {cluster.stops.map((stop) => {
-                  const point = pointsById.get(stop.schoolId);
-                  const level = point?.interest ?? "none";
-                  return (
-                    <span
-                      key={stop.schoolId}
-                      className={`trip-mk trip-mk-sm${level === "none" ? " none" : ""}`}
-                      data-level={level}
-                      title={`${point?.name ?? stop.schoolId} · ${tripInterestLabel(
-                        level === "none" ? "" : level,
-                      )}`}
-                      style={
-                        stop.schoolId === schoolId
-                          ? {
-                              boxShadow:
-                                "0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-text)",
-                            }
-                          : undefined
-                      }
-                    >
-                      {point ? (
-                        <SchoolMark name={point.name} website={point.website} />
-                      ) : (
-                        "?"
-                      )}
-                    </span>
-                  );
-                })}
+                <span
+                  className={`trip-mk trip-mk-sm${level === "none" ? " none" : ""}`}
+                  data-level={level}
+                  style={
+                    row.schoolId === schoolId
+                      ? {
+                          boxShadow:
+                            "0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-text)",
+                        }
+                      : undefined
+                  }
+                >
+                  {point ? (
+                    <SchoolMark name={point.name} website={point.website} />
+                  ) : (
+                    "?"
+                  )}
+                </span>
               </div>
               <button
                 type="button"
                 className="trip-inc"
-                aria-pressed={inTrip.has(cluster.id)}
+                aria-pressed={selected}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onToggleCluster(cluster.id);
+                  onToggleSchool(row.schoolId);
                 }}
               >
-                {inTrip.has(cluster.id) ? "In trip ✓" : "Add to trip"}
+                {selected ? "In trip ✓" : "Add to trip"}
               </button>
             </div>
           </div>
@@ -109,7 +110,7 @@ export function TripNearbyList({
       })}
       <div className="trip-fly">
         <span className="trip-label trip-label-sm">Getting there</span>
-        Fly {flight}. Base near {areaLabel}; every cluster starts within a drive of it.
+        Fly {flight}. Drive times are from the saved school-to-school matrix.
       </div>
     </div>
   );

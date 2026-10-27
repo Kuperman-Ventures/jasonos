@@ -7,12 +7,18 @@ import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { memberOwnerId } from "@/lib/project-todos";
 import type { School } from "@/lib/types";
 import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
-import { parseSchoolLocation, schoolMapById, shortSchoolName } from "@/lib/visit-planning";
+import {
+  buildTripFromSelection,
+  defaultVisitStartId,
+  parseSchoolLocation,
+  schoolMapById,
+  shortSchoolName,
+} from "@/lib/visit-planning";
 import {
   KYLE_STUDENT,
   TRIP_INTEREST_LABEL,
   TRIP_INTEREST_ORDER,
-  buildTripClusters,
+  buildNearbyDriveSchools,
   climateForCityState,
   computePinNudges,
   defaultTripPlanState,
@@ -21,13 +27,11 @@ import {
   preferredTripSeason,
   readTripPlanState,
   resolveCompareClimate,
-  schoolsInTripClusters,
   buildCampusCalendar,
   toTripSchoolPoint,
-  tripDaysFromClusters,
   tripTitle,
   tripWeekGridForSeason,
-  toggleClusterInTrip,
+  toggleSchoolInTrip,
   weekDate,
   writeTripPlanState,
   type TripInterestKey,
@@ -67,73 +71,79 @@ export function SchoolTripPlanning({
     todos: PersistedProjectStep[];
   }) => void;
 }) {
-  const clusters = useMemo(
-    () => buildTripClusters(school, listSchools),
-    [school, listSchools],
-  );
   const byId = useMemo(() => schoolMapById(listSchools), [listSchools]);
   const peerRows = useMemo(
     () => listSchools.filter((row) => !row.archived).map((row) => ({ id: row.id, name: row.name })),
     [listSchools],
   );
+  const nearbyRows = useMemo(
+    () => buildNearbyDriveSchools(school, listSchools),
+    [school, listSchools],
+  );
+  const nearbyIdSet = useMemo(
+    () => new Set(nearbyRows.map((row) => row.schoolId)),
+    [nearbyRows],
+  );
 
   const [subtab, setSubtab] = useState<TripSubtab>("nearby");
   const [plan, setPlan] = useState<TripPlanState>(() =>
-    defaultTripPlanState(clusters[0] ? [clusters[0].id] : ["same"], "fall"),
+    defaultTripPlanState([school.id], "fall"),
   );
-  const [activeClusterId, setActiveClusterId] = useState<string>(
-    () => clusters[0]?.id ?? "same",
-  );
+  const [activeSchoolId, setActiveSchoolId] = useState<string>(school.id);
   const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [cmpId, setCmpId] = useState("home");
   const [toast, setToast] = useState<string | null>(null);
 
+  const endpointId = useMemo(() => defaultVisitStartId(school), [school]);
+
   // Reload plan + land on Nearby only when switching school or member.
-  // Do not depend on `clusters` — list rebuilds bounce the All-schools tab.
   useEffect(() => {
     const stored = readTripPlanState(memberId, school.id);
-    const available = new Set<string>(clusters.map((c) => c.id));
-    const seedClusters = clusters[0] ? [clusters[0].id] : ["same"];
     if (stored) {
-      const clusterIds = stored.clusterIds.filter((id) => available.has(id));
+      const schoolIds = stored.schoolIds.filter((id) => nearbyIdSet.has(id) || id === school.id);
       setPlan({
-        clusterIds: clusterIds.length ? clusterIds : seedClusters,
+        schoolIds: schoolIds.length ? schoolIds : [school.id],
         weekIndex: stored.weekIndex,
         season: stored.season,
       });
     } else {
-      setPlan(defaultTripPlanState(seedClusters, "fall"));
+      setPlan(defaultTripPlanState([school.id], "fall"));
     }
-    setActiveClusterId(clusters[0]?.id ?? "same");
+    setActiveSchoolId(school.id);
     setSubtab("nearby");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- school/member switch only
   }, [memberId, school.id]);
 
-  // Keep selected clusters valid when the cluster list rebuilds (coords, list edits).
+  // Drop schools that leave the 3-hour ring when the list rebuilds.
   useEffect(() => {
-    const available = new Set<string>(clusters.map((c) => c.id));
-    const seed = clusters[0]?.id ?? "same";
     setPlan((prev) => {
-      const nextIds = prev.clusterIds.filter((id) => available.has(id));
+      const nextIds = prev.schoolIds.filter((id) => nearbyIdSet.has(id) || id === school.id);
       if (
-        nextIds.length === prev.clusterIds.length &&
-        nextIds.every((id, i) => id === prev.clusterIds[i])
+        nextIds.length === prev.schoolIds.length &&
+        nextIds.every((id, i) => id === prev.schoolIds[i])
       ) {
         return prev;
       }
-      return { ...prev, clusterIds: nextIds.length ? nextIds : [seed] };
+      return { ...prev, schoolIds: nextIds.length ? nextIds : [school.id] };
     });
-    setActiveClusterId((prev) => (available.has(prev) ? prev : seed));
-  }, [clusters]);
+    setActiveSchoolId((prev) => (nearbyIdSet.has(prev) ? prev : school.id));
+  }, [nearbyIdSet, school.id]);
 
   useEffect(() => {
     writeTripPlanState(memberId, school.id, plan);
   }, [memberId, school.id, plan]);
 
-  const tripSchoolIds = useMemo(
-    () => schoolsInTripClusters(clusters, plan.clusterIds),
-    [clusters, plan.clusterIds],
+  const tripPlan = useMemo(
+    () =>
+      buildTripFromSelection(school, [], plan.schoolIds, byId, {
+        startId: endpointId,
+        endId: endpointId,
+      }),
+    [school, plan.schoolIds, byId, endpointId],
   );
+
+  const tripSchoolIds = tripPlan.orderedIds;
+  const tripDays = tripPlan.days;
 
   const season = useMemo<TripSeasonId>(() => {
     const ids = tripSchoolIds.length ? tripSchoolIds : [school.id];
@@ -156,11 +166,10 @@ export function SchoolTripPlanning({
   }, [season, weekGrid.defaultWeekIndex]);
 
   useEffect(() => {
-    const live = listSchools.filter((row) => !row.archived);
     const ids = new Set<string>([
       school.id,
-      ...clusters.flatMap((c) => c.stops.map((s) => s.schoolId)),
-      ...live.map((row) => row.id),
+      ...nearbyRows.map((row) => row.schoolId),
+      ...listSchools.filter((row) => !row.archived).map((row) => row.id),
     ]);
     let cancelled = false;
     void (async () => {
@@ -182,7 +191,7 @@ export function SchoolTripPlanning({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [school.id, clusters, listSchools, byId]);
+  }, [school.id, nearbyRows, listSchools, byId]);
 
   const nudges = useMemo(() => {
     const pts = [...coordsById.entries()]
@@ -191,21 +200,19 @@ export function SchoolTripPlanning({
     return computePinNudges(pts);
   }, [coordsById]);
 
-  const pointsById = useMemo(() => {
+  const nearbyPointsById = useMemo(() => {
     const map = new Map<string, TripSchoolPoint>();
-    for (const [id, coords] of coordsById) {
-      const row = byId.get(id);
-      if (!row || !coords) continue;
-      const point = toTripSchoolPoint(row, coords, nudges.get(id) ?? 0);
-      if (point) map.set(id, point);
+    for (const row of nearbyRows) {
+      const coords = coordsById.get(row.schoolId);
+      const schoolRow = byId.get(row.schoolId);
+      if (!schoolRow || !coords) continue;
+      const point = toTripSchoolPoint(schoolRow, coords, nudges.get(row.schoolId) ?? 0);
+      if (point) map.set(row.schoolId, point);
     }
     return map;
-  }, [coordsById, byId, nudges]);
+  }, [nearbyRows, coordsById, byId, nudges]);
 
-  const tripDays = useMemo(
-    () => tripDaysFromClusters(clusters, plan.clusterIds),
-    [clusters, plan.clusterIds],
-  );
+  const allCoordsById = coordsById;
 
   const calendars = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildCampusCalendar>>();
@@ -223,7 +230,6 @@ export function SchoolTripPlanning({
   const campusClimate = useMemo(() => {
     const loc = parseSchoolLocation(school.location);
     const short = shortSchoolName(school.name);
-    // Prefer "University of Maryland" over "University of Maryland, College Park"
     const display =
       loc.city && short.toLowerCase().endsWith(`, ${loc.city.toLowerCase()}`)
         ? short.slice(0, -(loc.city.length + 2)).trim()
@@ -231,16 +237,24 @@ export function SchoolTripPlanning({
     return climateForCityState(school.id, display, loc.city, loc.state);
   }, [school]);
 
-  const inTripCount = plan.clusterIds.filter((id) =>
-    clusters.some((c) => c.id === id),
-  ).length;
+  const routeLegs = useMemo(() => {
+    const ordered = tripPlan.orderedIds;
+    const labels: (string | null)[] = [];
+    for (let i = 1; i < ordered.length; i += 1) {
+      const stop = tripPlan.stops.find((row) => row.schoolId === ordered[i]);
+      labels.push(stop?.driveFromPrev ?? null);
+    }
+    return labels;
+  }, [tripPlan]);
+
+  const inTripCount = plan.schoolIds.length;
 
   function setWeekIndex(weekIndex: number) {
     setPlan((prev) => ({ ...prev, weekIndex }));
   }
 
-  function toggleCluster(clusterId: string) {
-    setPlan((prev) => toggleClusterInTrip(prev, clusterId));
+  function toggleSchool(id: string) {
+    setPlan((prev) => toggleSchoolInTrip(prev, id, school.id));
   }
 
   function sendToCalendar() {
@@ -341,33 +355,35 @@ export function SchoolTripPlanning({
           <div className="trip-map-layout">
             <TripNearbyMap
               schoolId={school.id}
-              clusters={clusters}
-              pointsById={pointsById}
-              clusterIds={plan.clusterIds}
-              activeClusterId={activeClusterId}
+              pointsById={nearbyPointsById}
+              schoolIds={plan.schoolIds}
+              routeOrder={tripPlan.orderedIds}
+              routeLegs={routeLegs}
+              activeSchoolId={activeSchoolId}
               airport={{
                 iata: flight.airport,
                 lat: flight.lat,
                 lng: flight.lng,
               }}
-              onActiveCluster={setActiveClusterId}
-              onToggleCluster={toggleCluster}
+              onActiveSchool={setActiveSchoolId}
+              onToggleSchool={toggleSchool}
             />
             <TripNearbyList
               schoolId={school.id}
-              clusters={clusters}
-              pointsById={pointsById}
-              clusterIds={plan.clusterIds}
-              activeClusterId={activeClusterId}
+              rows={nearbyRows}
+              pointsById={nearbyPointsById}
+              schoolIds={plan.schoolIds}
+              activeSchoolId={activeSchoolId}
               flight={flight.flight}
               areaLabel={parseSchoolLocation(school.location).label}
-              onActiveCluster={setActiveClusterId}
-              onToggleCluster={toggleCluster}
+              onActiveSchool={setActiveSchoolId}
+              onToggleSchool={toggleSchool}
             />
           </div>
           <InterestLegend here />
           <p className="trip-foot">
-            Lines show visiting order, not road routes. Double-click the map to see every cluster.
+            Select schools within 3 hours to build a drive route. Lines show visiting order, not
+            turn-by-turn roads. Double-click the map to see every nearby school.
           </p>
         </div>
       ) : null}
@@ -418,7 +434,7 @@ export function SchoolTripPlanning({
         <TripAllSchoolsPanel
           schoolId={school.id}
           listSchools={listSchools}
-          coordsById={coordsById}
+          coordsById={allCoordsById}
         />
       ) : null}
 
