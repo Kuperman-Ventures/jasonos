@@ -12,6 +12,7 @@ import {
   COMMITMENT_SECTIONS,
   SECTION_LABEL,
   type CommitmentCheckForHome,
+  type CommitmentSection,
   type CommitmentView,
 } from "@/lib/commitments/types";
 import {
@@ -21,6 +22,16 @@ import {
 } from "@/lib/server-actions/commitments";
 
 const STORAGE_KEY = "jasonos.commitment-check.collapsed";
+const SECTION_STORAGE_KEY = "jasonos.commitment-check.section-collapsed";
+
+/** Sections start expanded; Scheduled defaults collapsed once you have a calendar block. */
+const DEFAULT_SECTION_COLLAPSED: Record<CommitmentSection, boolean> = {
+  overdue: false,
+  due_today: false,
+  coming_up: false,
+  no_date: false,
+  scheduled: true,
+};
 
 const SOURCE_LABEL: Record<CommitmentView["source"], string> = {
   gmail: "Open in Gmail",
@@ -30,6 +41,21 @@ const SOURCE_LABEL: Record<CommitmentView["source"], string> = {
 
 function checkedLabel(ymd: string): string {
   return formatDue(ymd);
+}
+
+function readSectionCollapsed(): Record<CommitmentSection, boolean> {
+  const next = { ...DEFAULT_SECTION_COLLAPSED };
+  try {
+    const raw = window.localStorage.getItem(SECTION_STORAGE_KEY);
+    if (!raw) return next;
+    const parsed = JSON.parse(raw) as Partial<Record<CommitmentSection, boolean>>;
+    for (const section of COMMITMENT_SECTIONS) {
+      if (typeof parsed[section] === "boolean") next[section] = parsed[section];
+    }
+  } catch {
+    // private mode / bad JSON
+  }
+  return next;
 }
 
 /**
@@ -46,6 +72,7 @@ export function CommitmentCheckPanel({
 }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
+  const [sectionCollapsed, setSectionCollapsed] = useState(DEFAULT_SECTION_COLLAPSED);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [scheduleItem, setScheduleItem] = useState<CommitmentView | null>(null);
@@ -60,6 +87,7 @@ export function CommitmentCheckPanel({
     } catch {
       // private mode / quota
     }
+    setSectionCollapsed(readSectionCollapsed());
   }, []);
 
   const toggleCollapsed = () => {
@@ -67,6 +95,18 @@ export function CommitmentCheckPanel({
       const next = !prev;
       try {
         window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const toggleSection = (section: CommitmentSection) => {
+    setSectionCollapsed((prev) => {
+      const next = { ...prev, [section]: !prev[section] };
+      try {
+        window.localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -160,89 +200,54 @@ export function CommitmentCheckPanel({
                   {COMMITMENT_SECTIONS.map((section) => {
                     const rows = items.filter((i) => i.section === section);
                     if (!rows.length) return null;
+                    const sectionClosed = sectionCollapsed[section];
                     return (
                       <div key={section}>
-                        <h3 className="bg-muted/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                          {SECTION_LABEL[section]} · {rows.length}
-                        </h3>
-                        <ul className="divide-y divide-border">
-                          {rows.map((item) => (
-                            <li key={item.key} className="px-4 py-3">
-                              <p className="text-sm font-medium">&ldquo;{item.promise}&rdquo;</p>
-                              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                To {item.to} · {item.due_date ? `Due ${formatDue(item.due_date)}` : "No date set"}
-                                {item.context ? ` · ${item.context}` : ""}
-                              </p>
-                              {item.state === "scheduled" ? (
-                                <p className="mt-1 flex items-start gap-2 text-xs">
-                                  <StatusPill rung={3}>Scheduled</StatusPill>
-                                  <span className="text-muted-foreground">
-                                    Work block is on your calendar
-                                  </span>
-                                </p>
-                              ) : null}
-                              {item.delivery === "possibly_delivered" ? (
-                                <p className="mt-1 flex items-start gap-2 text-xs">
-                                  <StatusPill rung={2}>Possibly delivered</StatusPill>
-                                  {item.evidence ? <span className="text-muted-foreground">{item.evidence}</span> : null}
-                                </p>
-                              ) : null}
-                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                {item.source_url ? (
-                                  <a
-                                    href={item.source_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--jos-action)] underline underline-offset-2"
-                                  >
-                                    {SOURCE_LABEL[item.source]} <ExternalLink className="h-3 w-3" />
-                                  </a>
-                                ) : null}
-                                <span className="ml-auto flex flex-wrap gap-1.5">
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    disabled={busyKey === item.key}
-                                    onClick={() => setScheduleItem(item)}
-                                  >
-                                    <CalendarDays className="h-3 w-3" />
-                                    Calendar
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ok"
-                                    disabled={busyKey === item.key}
-                                    onClick={() => void run(item.key, () => markCommitmentDone(item.key), "Marked done")}
-                                  >
-                                    Done
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    disabled={busyKey === item.key}
-                                    onClick={() =>
-                                      void run(item.key, () => snoozeCommitmentToTomorrow(item.key), "Snoozed to tomorrow")
-                                    }
-                                  >
-                                    Tomorrow
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    disabled={busyKey === item.key}
-                                    onClick={() => void run(item.key, () => dismissCommitment(item.key), "Dismissed")}
-                                  >
-                                    Not a commitment
-                                  </Button>
-                                </span>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(section)}
+                          aria-expanded={!sectionClosed}
+                          aria-label={
+                            sectionClosed
+                              ? `Expand ${SECTION_LABEL[section]}`
+                              : `Collapse ${SECTION_LABEL[section]}`
+                          }
+                          className="flex w-full items-center gap-2 bg-muted/40 px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+                        >
+                          <span>
+                            {SECTION_LABEL[section]} · {rows.length}
+                          </span>
+                          <ChevronDown
+                            className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform ${
+                              sectionClosed ? "-rotate-90" : ""
+                            }`}
+                          />
+                        </button>
+                        {!sectionClosed ? (
+                          <ul className="divide-y divide-border">
+                            {rows.map((item) => (
+                              <CommitmentRow
+                                key={item.key}
+                                item={item}
+                                busy={busyKey === item.key}
+                                onSchedule={() => setScheduleItem(item)}
+                                onDone={() =>
+                                  void run(item.key, () => markCommitmentDone(item.key), "Marked done")
+                                }
+                                onTomorrow={() =>
+                                  void run(
+                                    item.key,
+                                    () => snoozeCommitmentToTomorrow(item.key),
+                                    "Snoozed to tomorrow"
+                                  )
+                                }
+                                onDismiss={() =>
+                                  void run(item.key, () => dismissCommitment(item.key), "Dismissed")
+                                }
+                              />
+                            ))}
+                          </ul>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -265,5 +270,64 @@ export function CommitmentCheckPanel({
         }}
       />
     </section>
+  );
+}
+
+function CommitmentRow({
+  item,
+  busy,
+  onSchedule,
+  onDone,
+  onTomorrow,
+  onDismiss,
+}: {
+  item: CommitmentView;
+  busy: boolean;
+  onSchedule: () => void;
+  onDone: () => void;
+  onTomorrow: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <li className="px-4 py-3">
+      <p className="text-sm font-medium">&ldquo;{item.promise}&rdquo;</p>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        To {item.to} · {item.due_date ? `Due ${formatDue(item.due_date)}` : "No date set"}
+        {item.context ? ` · ${item.context}` : ""}
+      </p>
+      {item.delivery === "possibly_delivered" ? (
+        <p className="mt-1 flex items-start gap-2 text-xs">
+          <StatusPill rung={2}>Possibly delivered</StatusPill>
+          {item.evidence ? <span className="text-muted-foreground">{item.evidence}</span> : null}
+        </p>
+      ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {item.source_url ? (
+          <a
+            href={item.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--jos-action)] underline underline-offset-2"
+          >
+            {SOURCE_LABEL[item.source]} <ExternalLink className="h-3 w-3" />
+          </a>
+        ) : null}
+        <span className="ml-auto flex flex-wrap gap-1.5">
+          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={onSchedule}>
+            <CalendarDays className="h-3 w-3" />
+            Calendar
+          </Button>
+          <Button type="button" size="xs" variant="ok" disabled={busy} onClick={onDone}>
+            Done
+          </Button>
+          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={onTomorrow}>
+            Tomorrow
+          </Button>
+          <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={onDismiss}>
+            Not a commitment
+          </Button>
+        </span>
+      </div>
+    </li>
   );
 }

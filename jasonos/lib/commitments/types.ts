@@ -1,6 +1,12 @@
 /** Commitment Check types. Shared by the home panel, the publisher and the JasonOS MCP. */
 
-export const COMMITMENT_SECTIONS = ["overdue", "due_today", "coming_up", "no_date"] as const;
+export const COMMITMENT_SECTIONS = [
+  "overdue",
+  "due_today",
+  "coming_up",
+  "no_date",
+  "scheduled",
+] as const;
 export type CommitmentSection = (typeof COMMITMENT_SECTIONS)[number];
 
 export const SECTION_LABEL: Record<CommitmentSection, string> = {
@@ -8,6 +14,7 @@ export const SECTION_LABEL: Record<CommitmentSection, string> = {
   due_today: "Due Today",
   coming_up: "Coming Up",
   no_date: "Open Items Without A Date",
+  scheduled: "Scheduled",
 };
 
 export const DELIVERY_STATES = ["not_delivered", "possibly_delivered"] as const;

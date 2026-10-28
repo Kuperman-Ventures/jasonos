@@ -134,8 +134,16 @@ export function etDate(date = new Date()): string {
   return date.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
-/** Section from the due date and today's Eastern date (YYYY-MM-DD strings compare correctly). */
-export function sectionFor(dueDate: string | null, today: string): CommitmentSection {
+/**
+ * Section from due date and today's Eastern date (YYYY-MM-DD strings compare correctly).
+ * Items marked scheduled on Home use the Scheduled section instead.
+ */
+export function sectionFor(
+  dueDate: string | null,
+  today: string,
+  state: CommitmentItemStateRow["state"] | null = null
+): CommitmentSection {
+  if (state === "scheduled") return "scheduled";
   if (!dueDate) return "no_date";
   if (dueDate < today) return "overdue";
   if (dueDate === today) return "due_today";
@@ -164,10 +172,11 @@ export function buildViews(
       hidden += 1;
       continue;
     }
+    const itemState = state?.state ?? null;
     visible.push({
       ...item,
-      section: sectionFor(item.due_date, today),
-      state: state?.state ?? null,
+      section: sectionFor(item.due_date, today, itemState),
+      state: itemState,
       snoozed_until: state?.snoozed_until ?? null,
     });
   }
