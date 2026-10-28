@@ -7,6 +7,7 @@ import { DomainBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MeetingFollowupControls } from "@/components/jasonos/outreach/meeting-followup-controls";
+import { OpenContactButton } from "@/components/jasonos/outreach/open-contact-button";
 import {
   completeMeetingFollowup,
   draftMeetingFollowupMailto,
@@ -137,6 +138,12 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <OpenContactButton
+                      contactId={row.contactId}
+                      contactName={row.contactName}
+                      variant="calendarGhost"
+                      disabled={busyId === row.id}
+                    />
                     <Button
                       type="button"
                       size="sm"

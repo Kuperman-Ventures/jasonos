@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Mail } from "lucide-react";
 import { DomainBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
+import { OpenContactButton } from "@/components/jasonos/outreach/open-contact-button";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
 import {
@@ -157,7 +158,13 @@ export function SentFollowupsPanel({
                             followupId={row.id}
                             appleMailUrl={row.appleMailUrl}
                           />
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <OpenContactButton
+                              contactId={row.contactId}
+                              contactName={row.contactName}
+                              variant="emailGhost"
+                              disabled={busyId === row.id}
+                            />
                             <SentFollowupControls
                               busy={busyId === row.id}
                               onSchedule={(days) =>
@@ -213,7 +220,13 @@ export function SentFollowupsPanel({
                             followupId={row.id}
                             appleMailUrl={row.appleMailUrl}
                           />
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <OpenContactButton
+                              contactId={row.contactId}
+                              contactName={row.contactName}
+                              variant="emailGhost"
+                              disabled={busyId === row.id}
+                            />
                             <SentFollowupControls
                               busy={busyId === row.id}
                               onSchedule={(days) =>
