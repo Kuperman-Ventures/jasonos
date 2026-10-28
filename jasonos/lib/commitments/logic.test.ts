@@ -88,7 +88,7 @@ describe("buildViews", () => {
     assert.deepEqual(visible.map((v) => v.section), ["overdue", "coming_up", "no_date"]);
   });
 
-  it("keeps scheduled items visible with scheduled state", () => {
+  it("puts scheduled items in the Scheduled section", () => {
     const { visible, hidden } = buildViews(
       items,
       [state(items[0].key, "scheduled")],
@@ -97,6 +97,7 @@ describe("buildViews", () => {
     assert.equal(hidden, 0);
     const hit = visible.find((v) => v.key === items[0].key);
     assert.equal(hit?.state, "scheduled");
+    assert.equal(hit?.section, "scheduled");
   });
 });
 
