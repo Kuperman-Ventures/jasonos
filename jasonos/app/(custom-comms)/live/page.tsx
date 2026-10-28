@@ -1,58 +1,80 @@
 import type { Metadata } from "next";
-import { LiveMeetingsClient } from "@/components/jasonos/meeting-prep/live-meetings-client";
-import { etToday, mondayStartOfWeekYmd } from "@/lib/dates";
-import { getWeeklyActivity } from "@/lib/server-actions/activity-log";
-import { getSheetStatuses } from "@/lib/server-actions/call-sheet";
-import { getLiveSettings } from "@/lib/server-actions/live-settings";
-import { listLivePlans, listPlaybooks } from "@/lib/server-actions/live-scripts";
-import { getUpcomingMeetingPreps } from "@/lib/server-actions/meeting-prep";
+import { LiveBreadcrumb } from "@/components/jasonos/live/live-breadcrumb";
+import { LiveHomeStart } from "@/components/jasonos/live/live-home-start";
+import { LiveRecentDecks } from "@/components/jasonos/live/live-recent-decks";
+import { LiveUpcomingMeetings } from "@/components/jasonos/live/live-upcoming-meetings";
+import {
+  filterUpcomingWeekMeetings,
+  formatMeetingWhen,
+} from "@/components/jasonos/live/live-format";
+import {
+  deckMeetingFields,
+  enrichMeetingMap,
+  meetingMapFromAttachable,
+} from "@/lib/live/meeting-meta";
+import { listAttachableMeetings, listDecks, listPlaybooks } from "@/lib/server-actions/decks";
 
-export const metadata: Metadata = { title: "Live · JasonOS" };
+export const metadata: Metadata = { title: "Start · Live · JasonOS" };
 export const dynamic = "force-dynamic";
 
-export default async function LiveMeetingsPage() {
-  const [result, activityResult, sheetsResult, upcomingResult, playbooksResult, settingsResult] =
-    await Promise.all([
-      getUpcomingMeetingPreps(2),
-      getWeeklyActivity(),
-      listLivePlans(),
-      getUpcomingMeetingPreps(14),
-      listPlaybooks(),
-      getLiveSettings(),
-    ]);
-  const meetings = result.ok ? result.meetings : [];
-  const statusesResult = await getSheetStatuses(
-    meetings.map((meeting) => ({
-      id: meeting.id,
-      primaryContactId: meeting.primaryContactId,
-      attendeeContactIds: meeting.attendees
-        .map((attendee) => attendee.contactId)
-        .filter((id): id is string => Boolean(id)),
-    }))
+export default async function LiveHomePage() {
+  const [playbooksResult, decksResult, meetingsResult] = await Promise.all([
+    listPlaybooks(),
+    listDecks(),
+    listAttachableMeetings(),
+  ]);
+
+  const playbooks = playbooksResult.ok ? playbooksResult.playbooks : [];
+  const decks = decksResult.ok ? decksResult.decks : [];
+  const recent = decks.slice(0, 5);
+
+  const meetings = meetingsResult.ok ? meetingsResult.meetings : [];
+  const upcoming = filterUpcomingWeekMeetings(meetings, 7);
+  const meetingMap = await enrichMeetingMap(
+    meetingMapFromAttachable(meetings),
+    recent.map((deck) => deck.meetingPrepId)
   );
-  const warnings = result.ok ? [...result.warnings] : [];
-  if (!statusesResult.ok) warnings.push(statusesResult.error);
+
+  const recentRows = recent.map((deck) => {
+    const { meetingTitle, meetingStartsAt } = deckMeetingFields(deck, meetingMap);
+    const meetingLine =
+      meetingTitle || meetingStartsAt
+        ? [meetingTitle, meetingStartsAt ? formatMeetingWhen(meetingStartsAt) : null]
+            .filter(Boolean)
+            .join(" · ")
+        : "No meeting";
+    return { deck, meetingLine, meetingStartsAt };
+  });
+
   return (
-    <LiveMeetingsClient
-      nowIso={new Date().toISOString()}
-      meetings={meetings}
-      statuses={statusesResult.ok ? statusesResult.statuses : {}}
-      error={result.ok ? null : result.error}
-      warnings={warnings}
-      activity={activityResult.ok ? activityResult.activity : null}
-      activityError={activityResult.ok ? null : activityResult.error}
-      weekStart={mondayStartOfWeekYmd(etToday())}
-      sheets={sheetsResult.ok ? sheetsResult.plans.filter((sheet) => !sheet.attachedPrepId) : []}
-      sheetsError={sheetsResult.ok ? null : sheetsResult.error}
-      upcomingMeetings={upcomingResult.ok ? upcomingResult.meetings : []}
-      playbooks={playbooksResult.ok ? playbooksResult.playbooks : []}
-      playbooksError={playbooksResult.ok ? null : playbooksResult.error}
-      settings={
-        settingsResult.ok
-          ? { targetCompanies: settingsResult.targetCompanies, snapshot: settingsResult.snapshot }
-          : { targetCompanies: [], snapshot: null }
-      }
-      settingsError={settingsResult.ok ? null : settingsResult.error}
-    />
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <LiveBreadcrumb crumbs={[{ label: "Live" }]} />
+      <div className="mt-3">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+          Live
+        </p>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">Start</h1>
+      </div>
+
+      {!playbooksResult.ok ? (
+        <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{playbooksResult.error}</p>
+      ) : null}
+      {!decksResult.ok ? (
+        <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{decksResult.error}</p>
+      ) : null}
+      {!meetingsResult.ok ? (
+        <p className="mt-4 text-sm text-[var(--jos-danger-text)]">{meetingsResult.error}</p>
+      ) : null}
+
+      <LiveHomeStart playbooks={playbooks} />
+
+      <LiveUpcomingMeetings
+        meetings={upcoming}
+        playbooks={playbooks}
+        libraryDecks={decks}
+      />
+
+      <LiveRecentDecks rows={recentRows} />
+    </div>
   );
 }

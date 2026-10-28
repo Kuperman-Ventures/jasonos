@@ -19,6 +19,9 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker/vermont"), true);
     assert.equal(isPublicJasonosPath("/api/dark-matter-travel-tracker"), true);
     assert.equal(isPublicJasonosPath("/dark-matter"), true);
+    assert.equal(isPublicJasonosPath("/rank"), true);
+    assert.equal(isPublicJasonosPath("/api/rank"), true);
+    assert.equal(isPublicJasonosPath("/christmas"), true);
   });
 
   it("leaves login, Auth callback, MCP, publish routes, and well-known open", () => {
@@ -45,6 +48,9 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/api/dark-matter-travel-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/dark-matter-evil"), false);
+    assert.equal(isPublicJasonosPath("/ranking"), false);
+    assert.equal(isPublicJasonosPath("/api/ranking"), false);
+    assert.equal(isPublicJasonosPath("/christmaseve"), false);
     assert.equal(isPublicJasonosPath("/api/mcpish"), false);
     assert.equal(isPublicJasonosPath("/api/dashboard/action-queue"), false);
   });
@@ -56,12 +62,13 @@ describe("public JasonOS paths", () => {
   });
 
   it("recognizes the live call screen", () => {
-    assert.equal(isLiveCallPath("/meetings/abc/live"), true);
-    assert.equal(isLiveCallPath("/meetings/abc/live/"), true);
-    assert.equal(isLiveCallPath("/meetings/abc"), false);
-    assert.equal(isLiveCallPath("/meetings/abc/live/extra"), false);
-    assert.equal(isLiveCallPath("/live/scripts/abc/rehearse"), true);
-    assert.equal(isLiveCallPath("/live/scripts/abc"), false);
+    assert.equal(isLiveCallPath("/live/decks/abc/rehearse"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc/run"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc/run/"), true);
+    assert.equal(isLiveCallPath("/live/decks/abc"), false);
+    assert.equal(isLiveCallPath("/live/decks/abc/run/extra"), false);
+    assert.equal(isLiveCallPath("/live/slides/abc/run"), true);
+    assert.equal(isLiveCallPath("/meetings/abc/live"), false);
     assert.equal(isLiveCallPath("/live/playbooks/abc/rehearse"), true);
     assert.equal(isLiveCallPath("/live/playbooks/abc"), false);
   });
@@ -73,6 +80,8 @@ describe("public JasonOS paths", () => {
     assert.equal(hidesJasonosChrome("/projects/ski-tracker"), true);
     assert.equal(hidesJasonosChrome("/projects/dark-matter-travel-tracker"), true);
     assert.equal(hidesJasonosChrome("/dark-matter"), true);
+    assert.equal(hidesJasonosChrome("/rank"), true);
+    assert.equal(hidesJasonosChrome("/christmas"), true);
     assert.equal(hidesJasonosChrome("/today"), false);
     assert.equal(hidesJasonosChrome("/projects"), false);
   });

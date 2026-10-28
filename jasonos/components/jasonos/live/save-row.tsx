@@ -70,9 +70,12 @@ export function SaveRow({
         <button type="button" className={buttonVariants({ variant: "ghost", size: "sm" })} onClick={onCancel}>
           Cancel
         </button>
-        <span className="inline-flex items-center gap-1.5 font-semibold text-[var(--color-accent-2-text)]">
+        <span
+          className="inline-flex items-center gap-1.5 font-semibold text-[var(--color-accent-2-text)]"
+          title={error ?? undefined}
+        >
           <WarningCircle size={18} weight="duotone" aria-hidden />
-          {error ? `Did not save. ${error}` : "Did not save."}
+          Could not save. Your text is kept.
         </span>
       </div>
     );

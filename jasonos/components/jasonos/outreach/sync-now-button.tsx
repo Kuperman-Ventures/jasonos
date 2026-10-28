@@ -21,6 +21,7 @@ import {
   Users,
   Briefcase,
   Handshake,
+  Plug,
   Send,
   CalendarClock,
   ListChecks,
@@ -32,6 +33,7 @@ import {
   syncOutreachFromBeeper,
   syncOutreachFromOutlook,
   listSyncTargets,
+  checkSettingsConnectionsOnSync,
   type SyncResult,
 } from "@/lib/server-actions/outreach-sync";
 import { checkBrowningHandoffs } from "@/lib/server-actions/browning-networking";
@@ -241,6 +243,13 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           icon: Handshake,
           status: "running",
         },
+        {
+          id: "connections",
+          label: "Settings connections",
+          group: "other",
+          icon: Plug,
+          status: "running",
+        },
       ];
 
       setSteps([...mailSteps, ...otherSteps]);
@@ -437,6 +446,30 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         return result;
       })();
 
+      const connectionsJob = (async () => {
+        try {
+          const result = await checkSettingsConnectionsOnSync();
+          if (result.problems.length) {
+            patchStep("connections", {
+              status: "failed",
+              resultText: result.problems[0],
+            });
+          } else {
+            const skipNote =
+              result.skipped > 0 ? ` · ${result.skipped} off` : "";
+            patchStep("connections", {
+              status: "done",
+              resultText: `${result.healthy} of ${result.checked} healthy${skipNote}`,
+            });
+          }
+          return result;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connection check failed";
+          patchStep("connections", { status: "failed", resultText: message });
+          return null;
+        }
+      })();
+
       const jobAlertsJob = (async () => {
         const result = await scanJobAlerts(runId);
         if (result.ok) {
@@ -464,6 +497,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         sentFollowups,
         browning,
         jobAlerts,
+        connections,
       ] = await Promise.all([
         Promise.all(gmailJobs),
         outlookJob,
@@ -475,6 +509,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         sentJob,
         browningJob,
         jobAlertsJob,
+        connectionsJob,
       ]);
 
       const gmailOk = gmailResults.some((r) => r.ok);
@@ -669,6 +704,10 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !sentFollowUpFatal &&
         !browningFatal &&
         !jobAlertsFatal;
+      const connectionProblems = connections?.problems ?? [];
+      if (connectionProblems.length) {
+        messages.push(connectionProblems[0]!);
+      }
       const mailboxWarning = Boolean(
         gcal?.warnings?.length || gmailWarnings.length || outlook?.warnings?.length
       );
@@ -688,7 +727,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !jobAlertsFatal &&
         mailboxOk;
 
-      if ((allOk || softOnlyMiss) && mailboxWarning) {
+      if ((allOk || softOnlyMiss) && (mailboxWarning || connectionProblems.length)) {
         toast.warning(messages.join(" · ") || "Sync finished with a warning");
       } else if (allOk || softOnlyMiss) {
         toast.success(messages.join(" · ") || "Sync complete");

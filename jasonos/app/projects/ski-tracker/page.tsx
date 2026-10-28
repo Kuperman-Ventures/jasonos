@@ -24,6 +24,12 @@ export default async function SkiTrackerPage() {
           Weekend call: stay at Mountain Creek, drive to a 2-hour Epic mountain,
           or book a hotel overnight.
         </p>
+        <a href="/rank" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium">
+          Mountain rank
+        </a>
+        <a href="/christmas" className="mt-3 ml-4 inline-flex min-h-11 items-center text-sm font-medium">
+          Christmas
+        </a>
       </header>
 
       <section className="rounded-xl border bg-card p-4">

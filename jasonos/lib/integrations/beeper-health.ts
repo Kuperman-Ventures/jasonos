@@ -12,6 +12,27 @@ export function isAuthDeniedStatus(status: number): boolean {
   return status === 401 || status === 403;
 }
 
+export type BeeperSavedConfig = {
+  base_url?: string;
+  access_token?: string;
+};
+
+/**
+ * Rows must be newest first. A newer row that only got a health-check
+ * timestamp, with no Funnel URL, must not hide the row that has the URL.
+ */
+export function pickBeeperConnectionConfig(
+  rows: Array<BeeperSavedConfig | null | undefined>
+): BeeperSavedConfig {
+  const configs = rows.filter((row): row is BeeperSavedConfig => Boolean(row));
+  const withBoth = configs.find((row) => row.base_url?.trim() && row.access_token?.trim());
+  if (withBoth) return withBoth;
+  const withUrl = configs.find((row) => row.base_url?.trim());
+  if (withUrl) return withUrl;
+  const withToken = configs.find((row) => row.access_token?.trim());
+  return withToken ?? {};
+}
+
 /** Reject Sync-toast paste-ins and other non-token junk before fetch. */
 export function describeBeeperTokenProblem(token: string): string | null {
   const value = token.trim();

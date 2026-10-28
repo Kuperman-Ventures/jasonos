@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -36,9 +37,9 @@ import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { PasskeysCard } from "@/components/jasonos/settings/passkeys-card";
-import { NarrativesSection } from "@/components/jasonos/settings/narratives-section";
+import { RubricEditor } from "@/components/jasonos/live/rubric-editor";
 import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
-import type { Narrative } from "@/lib/server-actions/narratives";
+import { getDefaultRubric, setDefaultRubric } from "@/lib/server-actions/decks";
 import {
   SERVICE_DEFINITIONS,
   serviceLogoUrl,
@@ -78,17 +79,16 @@ interface BillingPreview {
 interface SettingsClientProps {
   initialSettings: SettingsPayload;
   billing: BillingPreview;
-  narratives: Narrative[];
-  narrativesError: string | null;
 }
 
 export function SettingsClient({
   initialSettings,
   billing,
-  narratives,
-  narrativesError,
 }: SettingsClientProps) {
   const [settings, setSettings] = useState(initialSettings);
+  useEffect(() => {
+    setSettings(initialSettings);
+  }, [initialSettings]);
   const [followupPrompt, setFollowupPrompt] = useState(
     initialSettings.meetingFollowupPrompt
   );
@@ -97,8 +97,21 @@ export function SettingsClient({
   );
   const [isChecking, startChecking] = useTransition();
   const [isSavingFollowupPrompt, startSavingFollowupPrompt] = useTransition();
+  const [defaultRubric, setDefaultRubricLines] = useState<string[]>([]);
+  const [defaultRubricLoaded, setDefaultRubricLoaded] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  useEffect(() => {
+    void getDefaultRubric().then((result) => {
+      if (result.ok) {
+        setDefaultRubricLines(result.rubric);
+      } else {
+        toast.error(result.error);
+      }
+      setDefaultRubricLoaded(true);
+    });
+  }, []);
 
   useEffect(() => {
     const connected = searchParams.get("google_gmail_connected") === "1";
@@ -160,13 +173,14 @@ export function SettingsClient({
     connected: number;
     status: "healthy" | "issues" | "critical";
   }>(() => {
-    const connected = settings.services.filter((service) => service.status === "connected").length;
-    const down = settings.services.filter((service) => service.health_status === "down").length;
-    const degraded = settings.services.filter(
+    const active = settings.services.filter((service) => service.enabled !== false);
+    const connected = active.filter((service) => service.status === "connected").length;
+    const down = active.filter((service) => service.health_status === "down").length;
+    const degraded = active.filter(
       (service) => service.health_status === "degraded" || service.status === "expired"
     ).length;
     return {
-      total: settings.services.length,
+      total: active.length,
       connected,
       status: down ? "critical" : degraded ? "issues" : "healthy",
     };
@@ -177,7 +191,14 @@ export function SettingsClient({
       const res = await fetch("/api/settings/health-check-all", { method: "POST" });
       const payload = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
-        summary?: { checked_at: string; connected: number; healthy: number; degraded: number; down: number };
+        summary?: {
+          checked_at: string;
+          connected: number;
+          healthy: number;
+          degraded: number;
+          down: number;
+          skipped?: number;
+        };
         error?: string;
       };
       if (!res.ok || !payload.ok || !payload.summary) {
@@ -188,9 +209,11 @@ export function SettingsClient({
         ...current,
         lastChecked: payload.summary?.checked_at ?? new Date().toISOString(),
       }));
+      const skipped = payload.summary.skipped ?? 0;
       toast.success("Health checks complete", {
-        description: `${payload.summary.healthy} healthy, ${payload.summary.degraded} degraded, ${payload.summary.down} down.`,
+        description: `${payload.summary.healthy} healthy, ${payload.summary.degraded} degraded, ${payload.summary.down} down${skipped ? `, ${skipped} off` : ""}.`,
       });
+      router.refresh();
     });
   };
 
@@ -260,7 +283,7 @@ export function SettingsClient({
       <section className="space-y-3">
         <SectionHeading
           title="Connected Services"
-          description="Configure, test, and disconnect user-actionable integrations."
+          description="Turn a service off to skip it on Sync. Off does not wipe saved keys."
         />
         <div className="grid gap-3 lg:grid-cols-2">
           {settings.services.map((connection) => (
@@ -281,7 +304,6 @@ export function SettingsClient({
         </div>
       </section>
 
-      <NarrativesSection narratives={narratives} error={narrativesError} />
 
       <section id="follow-up-prompt" className="rounded-xl border bg-card">
         <header className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
@@ -354,6 +376,29 @@ export function SettingsClient({
 
       <RelationshipBriefSection initial={initialSettings} />
 
+      <section id="live" className="rounded-xl border bg-card p-4">
+        <SectionHeading
+          title="Live"
+          description="Defaults for playbooks and decks you create from scratch."
+        />
+        {defaultRubricLoaded ? (
+          <RubricEditor
+            title="Default rubric"
+            note="Used by new playbooks and decks made from scratch. Changing it does not change existing ones."
+            lines={defaultRubric}
+            onSave={async (lines) => {
+              const result = await setDefaultRubric(lines);
+              if (!result.ok) return { ok: false, error: result.error };
+              setDefaultRubricLines(result.rubric);
+              toast.success("Default rubric saved");
+              return { ok: true };
+            }}
+          />
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">Loading default rubric…</p>
+        )}
+      </section>
+
       <section className="rounded-xl border bg-card p-4">
         <SectionHeading
           title="Data & Account"
@@ -378,19 +423,27 @@ function MailAccountsCard({
   const advisorsHealth = googleMailboxHealth({
     connected: accounts.advisorsConnected,
     needsReconnect: accounts.advisorsNeedsReconnect,
+    missingScopes: accounts.advisorsMissingScopes,
   });
   const gmailHealth = googleMailboxHealth({
     connected: accounts.gmailConnected,
     needsReconnect: accounts.gmailNeedsReconnect,
+    missingScopes: accounts.gmailMissingScopes,
   });
   const outlookHealth = googleMailboxHealth({
     connected: outlook.connected,
     needsReconnect: outlook.needsReconnect,
+    missingScopes: outlook.missingScopes,
   });
   const expiredLabels = [
     advisorsHealth === "expired" ? "Advisors Google" : null,
     gmailHealth === "expired" ? "Personal Gmail" : null,
     outlookHealth === "expired" ? "Outlook" : null,
+  ].filter((label): label is string => Boolean(label));
+  const limitedLabels = [
+    advisorsHealth === "limited" ? "Advisors Google" : null,
+    gmailHealth === "limited" ? "Personal Gmail" : null,
+    outlookHealth === "limited" ? "Outlook" : null,
   ].filter((label): label is string => Boolean(label));
   const missingLabels = [
     advisorsHealth === "not_connected" ? "Advisors Google" : null,
@@ -405,6 +458,11 @@ function MailAccountsCard({
     advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
     outlookHealth === "expired" ? "jason.kuperman@outlook.com" : null,
   ].filter((value): value is string => Boolean(value));
+  const limitedErrors = [
+    advisorsHealth === "limited" ? accounts.advisorsError : null,
+    gmailHealth === "limited" ? accounts.gmailError : null,
+    outlookHealth === "limited" ? outlook.error : null,
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <section id="google-accounts" className="rounded-xl border bg-card p-4">
@@ -418,19 +476,37 @@ function MailAccountsCard({
             Sync reads mail from each connected account. Advisors and Personal Gmail
             are separate Google logins — sharing a calendar is not enough. Outlook.com
             uses Microsoft and is separate from those Gmail forwards. Meet invites and
-            Browning meeting reminders send from the Advisors calendar/Gmail. Reconnect
-            Advisors Google once and allow calendar events plus Gmail send. Status below
-            is live, including when Settings is in preview.
+            Browning meeting reminders send from the Advisors calendar/Gmail. Status
+            below checks sign-in and required permissions (including Gmail send),
+            including when Settings is in preview.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             {connectedCount} of 3 connected
+            {limitedLabels.length
+              ? ` · ${limitedLabels.length} missing permissions`
+              : ""}
             {expiredLabels.length ? ` · ${expiredLabels.length} sign-in expired` : ""}
             {missingLabels.length ? ` · ${missingLabels.length} not connected` : ""}
           </p>
         </div>
       </div>
 
-      {expiredLabels.length ? (
+      {limitedLabels.length ? (
+        <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                {limitedLabels.join(" and ")} missing permissions
+              </p>
+              <p className="mt-1 text-xs text-rung-ink">
+                {limitedErrors.join(" ") ||
+                  "Reconnect below and allow every permission JasonOS requests. A green “connected” sign-in is not enough if send/read scopes are missing."}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : expiredLabels.length ? (
         <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -458,6 +534,7 @@ function MailAccountsCard({
           email="jason@kupermanadvisors.com"
           connected={accounts.advisorsConnected}
           needsReconnect={accounts.advisorsNeedsReconnect}
+          missingScopes={accounts.advisorsMissingScopes}
           connectedEmail={accounts.advisorsEmail}
           error={accounts.advisorsError}
           href="/api/auth/google"
@@ -470,6 +547,7 @@ function MailAccountsCard({
           email="jasonkuperman@gmail.com"
           connected={accounts.gmailConnected}
           needsReconnect={accounts.gmailNeedsReconnect}
+          missingScopes={accounts.gmailMissingScopes}
           connectedEmail={accounts.gmailEmail}
           error={accounts.gmailError}
           href="/api/auth/google?account=gmail"
@@ -482,6 +560,7 @@ function MailAccountsCard({
           email="jason.kuperman@outlook.com"
           connected={outlook.connected}
           needsReconnect={outlook.needsReconnect}
+          missingScopes={outlook.missingScopes}
           connectedEmail={outlook.email}
           error={outlook.error}
           href="/api/auth/microsoft"
@@ -506,13 +585,14 @@ function MailAccountRow({
   email,
   connected,
   needsReconnect,
+  missingScopes,
   connectedEmail,
   error,
   href,
   connectLabel,
   reconnectLabel,
   connectDisabled = false,
-  connectedDetail = "Sign-in is valid. Sync can read sent mail and calendar on this account.",
+  connectedDetail = "Sign-in is valid with every required permission (mail read/send and calendar where applicable).",
   missingDetail = "Not connected. Sync cannot read this mailbox or calendar.",
 }: {
   id: string;
@@ -520,6 +600,7 @@ function MailAccountRow({
   email: string;
   connected: boolean;
   needsReconnect?: boolean;
+  missingScopes?: string[];
   connectedEmail: string | null;
   error?: string | null;
   href: string;
@@ -532,14 +613,16 @@ function MailAccountRow({
   const health = googleMailboxHealth({
     connected,
     needsReconnect: Boolean(needsReconnect),
+    missingScopes,
   });
+  const problem = health === "expired" || health === "limited";
 
   return (
     <div
       id={id}
       className={cn(
         "flex flex-col gap-3 rounded-lg border bg-background/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
-        health === "expired" && "border-[var(--jos-line)] bg-rung-2",
+        problem && "border-[var(--jos-line)] bg-rung-2",
         health === "not_connected" && "border-border",
         health === "connected" && "border-[var(--jos-line)]"
       )}
@@ -547,7 +630,11 @@ function MailAccountRow({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm font-medium">{label}</div>
-          {health === "expired" ? (
+          {health === "limited" ? (
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-2 ">
+              missing permissions
+            </Badge>
+          ) : health === "expired" ? (
             <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-2 ">
               sign-in expired
             </Badge>
@@ -564,13 +651,16 @@ function MailAccountRow({
         <div className="mt-1 truncate text-xs text-foreground/80">
           {connectedEmail ?? email}
         </div>
-        <p className={cn("mt-1 text-xs", health === "expired" ? "text-rung-ink" : "text-muted-foreground")}>
-          {health === "expired"
+        <p className={cn("mt-1 text-xs", problem ? "text-rung-ink" : "text-muted-foreground")}>
+          {health === "limited"
             ? error ??
-              "Sign-in expired. Mail on this account will not sync until you reconnect."
-            : health === "connected"
-              ? connectedDetail
-              : missingDetail}
+              "Missing required permissions. Reconnect and allow every permission JasonOS requests."
+            : health === "expired"
+              ? error ??
+                "Sign-in expired. Mail on this account will not sync until you reconnect."
+              : health === "connected"
+                ? connectedDetail
+                : missingDetail}
         </p>
       </div>
       {health === "not_connected" && connectDisabled ? (
@@ -582,14 +672,18 @@ function MailAccountRow({
           href={href}
           className={cn(
             "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
-            health === "expired"
-              ? "bg-rung-2  hover:bg-rung-2"
+            problem
+              ? "bg-rung-2 hover:bg-rung-2"
               : health === "connected"
                 ? "text-muted-foreground hover:text-foreground hover:underline"
                 : "border hover:bg-muted"
           )}
         >
-          {health === "not_connected" ? connectLabel : health === "expired" ? reconnectLabel : "Reconnect"}
+          {health === "not_connected"
+            ? connectLabel
+            : problem
+              ? reconnectLabel
+              : "Reconnect"}
         </a>
       )}
     </div>
@@ -740,6 +834,43 @@ function ServiceCard({
   const [isPending, startTransition] = useTransition();
   const [mcpPassword, setMcpPassword] = useState("");
   const FallbackIcon = CONNECTION_ICONS[definition.connectionType];
+  const isOn = connection.enabled !== false;
+
+  const setEnabled = (enabled: boolean) => {
+    startTransition(async () => {
+      const res = await fetch("/api/settings/set-enabled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service_name: definition.name, enabled }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        enabled?: boolean;
+        status?: ServiceConnection["status"];
+        health_status?: ServiceConnection["health_status"];
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || !payload.ok) {
+        toast.error("Could not update connection", {
+          description: payload.error ?? "Please try again.",
+        });
+        return;
+      }
+      const now = new Date().toISOString();
+      if (!enabled) setExpanded(false);
+      onChange({
+        ...connection,
+        enabled: payload.enabled ?? enabled,
+        status: payload.status ?? (enabled ? connection.status : "disabled"),
+        health_status: payload.health_status ?? (enabled ? connection.health_status : "unknown"),
+        health_details: payload.message ?? null,
+        error_message: enabled ? connection.error_message : null,
+        last_health_check: now,
+      });
+      toast.success(payload.message ?? (enabled ? "Turned on" : "Turned off"));
+    });
+  };
 
   const test = () => {
     startTransition(async () => {
@@ -758,6 +889,7 @@ function ServiceCard({
       const now = new Date().toISOString();
       onChange({
         ...connection,
+        enabled: true,
         status: payload.success
           ? (payload.status ?? "connected")
           : payload.status === "expired"
@@ -797,6 +929,7 @@ function ServiceCard({
       const now = new Date().toISOString();
       onChange({
         ...connection,
+        enabled: disconnect ? connection.enabled : true,
         status: payload.status ?? connection.status,
         api_key_masked: payload.api_key_masked ?? (disconnect ? null : connection.api_key_masked),
         connected_at: payload.status === "connected" ? now : null,
@@ -812,7 +945,12 @@ function ServiceCard({
   };
 
   return (
-    <article className="rounded-xl border bg-card p-4">
+    <article
+      className={cn(
+        "rounded-xl border bg-card p-4",
+        !isOn && "opacity-70"
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <ServiceMark definition={definition} FallbackIcon={FallbackIcon} />
@@ -827,7 +965,18 @@ function ServiceCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={connection.status} />
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <StatusBadge status={badgeStatus(connection)} />
+          <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{isOn ? "On" : "Off"}</span>
+            <Switch
+              checked={isOn}
+              disabled={isPending}
+              aria-label={`${definition.label} ${isOn ? "on" : "off"}`}
+              onCheckedChange={setEnabled}
+            />
+          </label>
+        </div>
       </div>
 
       <p className="mt-3 text-sm leading-relaxed text-foreground/85">{definition.description}</p>
@@ -840,17 +989,24 @@ function ServiceCard({
       </div>
 
       <div className="mt-3 text-xs text-muted-foreground">
-        Last checked:{" "}
-        {connection.last_health_check
-          ? formatDistanceToNow(new Date(connection.last_health_check), { addSuffix: true })
-          : "not yet"}
-        {connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}
+        {isOn ? (
+          <>
+            Last checked:{" "}
+            {connection.last_health_check
+              ? formatDistanceToNow(new Date(connection.last_health_check), { addSuffix: true })
+              : "not yet"}
+            {connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}
+          </>
+        ) : (
+          <>Off — skipped on Sync{connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}</>
+        )}
       </div>
 
-      {connection.error_message ||
-      (connection.health_status &&
-        connection.health_status !== "healthy" &&
-        connection.health_details) ? (
+      {isOn &&
+      (connection.error_message ||
+        (connection.health_status &&
+          connection.health_status !== "healthy" &&
+          connection.health_details)) ? (
         <p
           className={cn(
             "mt-2 text-xs",
@@ -1030,14 +1186,19 @@ function ServiceCard({
 
       <div className="mt-4 flex flex-wrap gap-2">
         {definition.configurable ? (
-          <Button size="sm" variant="outline" onClick={() => setExpanded((value) => !value)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setExpanded((value) => !value)}
+            disabled={!isOn}
+          >
             Configure
           </Button>
         ) : null}
-        <Button size="sm" variant="outline" onClick={test} disabled={isPending}>
+        <Button size="sm" variant="outline" onClick={test} disabled={isPending || !isOn}>
           Test Connection
         </Button>
-        {definition.disconnectable && connection.status === "connected" ? (
+        {definition.disconnectable && connection.status === "connected" && isOn ? (
           <Button size="sm" variant="destructive" onClick={() => save(true)} disabled={isPending}>
             Disconnect
           </Button>
@@ -1069,16 +1230,26 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
   );
 }
 
+function badgeStatus(connection: ServiceConnection): ServiceConnection["status"] {
+  if (connection.enabled === false) return "disabled";
+  if (connection.health_status === "down" && connection.status === "connected") {
+    return "error";
+  }
+  return connection.status;
+}
+
 function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
   const classes = {
     connected: "border-[var(--jos-line)] bg-rung-done",
     not_configured: "border-[var(--jos-line)] bg-rung-2 ",
     error: "border-rung-1 bg-rung-1 ",
     expired: "border-[var(--jos-line)] bg-rung-2 ",
+    disabled: "border-[var(--jos-line)] bg-muted text-muted-foreground",
   }[status];
+  const label = status === "disabled" ? "off" : status.replace("_", " ");
   return (
     <Badge variant="outline" className={classes}>
-      {status.replace("_", " ")}
+      {label}
     </Badge>
   );
 }

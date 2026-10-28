@@ -17,6 +17,8 @@ import {
 } from "@/lib/integrations/outlook";
 import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
 import { buildContactLookup } from "@/lib/outreach/email-matching";
+import { recordUserAction } from "@/lib/actions/action-log";
+import { snoozeDetail } from "@/lib/actions/action-log-format";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { composeMeetingFollowupDraft } from "@/lib/outreach/meeting-followup-compose";
 import {
@@ -146,6 +148,29 @@ function rowPayload(
 function revalidate() {
   revalidatePath("/");
   revalidatePath("/outreach/sent");
+}
+
+async function logMeetingDecision(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  id: string,
+  verb: string,
+  detail?: string | null
+) {
+  const { data } = await sb
+    .from("meeting_followups")
+    .select("title")
+    .eq("id", id)
+    .maybeSingle();
+  const title =
+    typeof data?.title === "string" && data.title.trim() ? data.title.trim() : "Meeting";
+  await recordUserAction({
+    verb,
+    area: "Meeting follow-up",
+    subject: title,
+    detail: detail ?? null,
+    targetTable: "meeting_followups",
+    targetId: id,
+  });
 }
 
 export async function captureMeetingFollowups(opts?: {
@@ -534,6 +559,7 @@ export async function snoozeMeetingFollowup(
     .select("id");
   if (error) return { ok: false, error: error.message };
   if (!data?.length) return { ok: false, error: "That follow-up is gone." };
+  await logMeetingDecision(sb, id, "Snoozed", snoozeDetail(days, until));
   revalidate();
   return { ok: true };
 }
@@ -552,6 +578,7 @@ export async function dismissMeetingFollowup(id: string): Promise<ActionResult> 
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logMeetingDecision(sb, id, "Skipped");
   revalidate();
   return { ok: true };
 }
@@ -569,6 +596,7 @@ export async function completeMeetingFollowup(id: string): Promise<ActionResult>
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logMeetingDecision(sb, id, "Done");
   revalidate();
   return { ok: true };
 }

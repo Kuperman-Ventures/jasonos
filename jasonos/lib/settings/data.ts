@@ -37,6 +37,8 @@ export interface ServiceConnection {
   id?: string;
   service_name: string;
   status: ServiceStatus;
+  /** false = turned off in Settings; skipped on Sync / Check All. */
+  enabled: boolean;
   connection_type: string;
   config: Record<string, unknown>;
   api_key_masked: string | null;
@@ -81,9 +83,9 @@ function publicSupabaseConfigured() {
 export async function getSettingsPayload(): Promise<SettingsPayload> {
   const configured = publicSupabaseConfigured();
   const [googleAccounts, outlookAccount] = await Promise.all([
-    getGoogleConnectionStatus().catch(() => ({
-      ...EMPTY_GOOGLE_CONNECTION_STATUS,
-    })),
+    getGoogleConnectionStatus().catch(
+      (): GoogleConnectionStatus => ({ ...EMPTY_GOOGLE_CONNECTION_STATUS })
+    ),
     getOutlookConnectionStatus().catch(() => emptyOutlookConnectionStatus()),
   ]);
 
@@ -104,7 +106,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     supabase
       .from("service_connections")
       .select(
-        "id,service_name,status,connection_type,config,api_key_masked,connected_at,last_health_check,health_status,health_details,error_message"
+        "id,service_name,status,enabled,connection_type,config,api_key_masked,connected_at,last_health_check,health_status,health_details,error_message"
       )
       .eq("user_id", user.id),
     supabase
@@ -122,18 +124,25 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
   const services = SERVICE_DEFINITIONS.map((definition) => {
     const row = rowsByName.get(definition.name);
     const inferredStatus = envStatus(definition);
+    const enabled = row?.enabled !== false;
+    const status = !enabled
+      ? ("disabled" as const)
+      : (row?.status ?? inferredStatus);
     return {
       id: row?.id,
       service_name: definition.name,
-      status: row?.status ?? inferredStatus,
+      status,
+      enabled,
       connection_type: row?.connection_type ?? definition.connectionType,
       config: row?.config ?? {},
       api_key_masked: row?.api_key_masked ?? null,
       connected_at: row?.connected_at ?? null,
       last_health_check: row?.last_health_check ?? null,
-      health_status: row?.health_status ?? (inferredStatus === "connected" ? "healthy" : "unknown"),
+      health_status: !enabled
+        ? "unknown"
+        : (row?.health_status ?? (inferredStatus === "connected" ? "healthy" : "unknown")),
       health_details: row?.health_details ?? null,
-      error_message: row?.error_message ?? null,
+      error_message: !enabled ? null : (row?.error_message ?? null),
     } satisfies ServiceConnection;
   });
 
@@ -177,11 +186,52 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
   );
 }
 
+async function warnMailboxCapabilityGaps(
+  google: GoogleConnectionStatus,
+  outlook: OutlookConnectionStatus
+): Promise<void> {
+  try {
+    const { notify } = await import("@/lib/notify");
+    const gaps: { title: string; body: string }[] = [];
+    if (google.advisorsMissingScopes.length && google.advisorsError) {
+      gaps.push({
+        title: "Advisors Google missing permissions",
+        body: google.advisorsError,
+      });
+    }
+    if (google.gmailMissingScopes.length && google.gmailError) {
+      gaps.push({
+        title: "Personal Gmail missing permissions",
+        body: google.gmailError,
+      });
+    }
+    if (outlook.missingScopes.length && outlook.error) {
+      gaps.push({
+        title: "Outlook missing permissions",
+        body: outlook.error,
+      });
+    }
+    for (const gap of gaps) {
+      await notify({
+        source: "settings",
+        title: gap.title,
+        body: gap.body,
+        severity: "warn",
+        category: "error",
+      });
+    }
+  } catch {
+    // Settings must still load if notify fails.
+  }
+}
+
 function attachMailboxStatus(
   payload: SettingsPayload,
   googleAccounts: GoogleConnectionStatus,
   outlookAccount: OutlookConnectionStatus
 ): SettingsPayload {
+  // Fire-and-forget Action Queue warnings for permission gaps (deduped by title).
+  void warnMailboxCapabilityGaps(googleAccounts, outlookAccount);
   return {
     ...payload,
     googleAccounts,
@@ -206,6 +256,7 @@ async function seedConnections(userId: string) {
       user_id: userId,
       service_name: service.name,
       status: envStatus(service),
+      enabled: true,
       connection_type: service.connectionType,
       health_status: envStatus(service) === "connected" ? "healthy" : "unknown",
       config: service.name === "dispatch" ? { enabled: true, polling_interval_minutes: 2 } : {},
@@ -253,6 +304,7 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     return {
       service_name: definition.name,
       status,
+      enabled: true,
       connection_type: definition.connectionType,
       config: definition.name === "dispatch" ? { enabled: true, polling_interval_minutes: 2 } : {},
       api_key_masked: null,

@@ -119,6 +119,7 @@ const NAV: NavItem[] = [
     children: [
       { href: "/settings", label: "General" },
       { href: "/ai-usage", label: "AI Usage" },
+      { href: "/settings/action-log", label: "Action Log" },
       { href: "/settings/sync-log", label: "Sync Log" },
       { href: "/settings/connections", label: "Connections" },
     ],

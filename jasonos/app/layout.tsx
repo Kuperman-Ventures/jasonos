@@ -43,8 +43,10 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className={`min-h-full flex flex-col bg-background text-foreground${
-          publicSurface ? "" : " max-[900px]:pr-[72px]"
+        className={`min-h-full flex flex-col bg-background text-foreground ${
+          publicSurface || headerStore.get("x-jasonos-full-bleed") === "1"
+            ? ""
+            : "max-[900px]:pr-[72px]"
         }`}
       >
         <TooltipProvider delay={150}>

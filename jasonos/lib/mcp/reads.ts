@@ -64,24 +64,31 @@ export function listJasonosAreas() {
         tools: [
           "list_meetings",
           "list_upcoming_meeting_preps",
-          "get_call_sheet",
-          "build_call_sheet",
-          "set_call_sheet",
-          "create_sheet",
-          "use_sheet_for_meeting",
-          "mark_sheet_ready",
-          "get_meeting_plan",
-          "build_meeting_plan",
-          "accept_meeting_plan",
-          "set_meeting_plan",
-          "create_guide",
-          "use_guide_for_meeting",
+          "list_playbooks",
+          "list_decks",
+          "get_deck",
+          "create_deck",
+          "set_deck_slides",
+          "set_goal",
+          "run_ai_help",
+          "attach_meeting",
+          "get_transcript",
+          "review_run",
+          "get_review",
+          "set_rubric",
+          "get_default_rubric",
+          "set_default_rubric",
+          "attach_transcript",
+          "list_recent_notes",
         ],
       },
-      { area: "people", tools: ["list_people", "get_person"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
       { area: "post_master", tools: ["list_post_master_projects", "list_weekly_provocations"] },
+      {
+        area: "network_screen",
+        tools: ["import_network_screen", "get_network_screen", "list_pending_intros"],
+      },
       { area: "connections", tools: ["get_connection_status"] },
       {
         area: "connections_register",
@@ -350,12 +357,6 @@ export async function listMeetings(input: { limit?: number } = {}) {
   return { meetings: data ?? [] };
 }
 
-/** Live meeting plan reads (server actions). Loaded lazily for MCP unit tests. */
-export async function getMeetingPlan(input: { prep_id: string }) {
-  const { getMeetingPlan: read } = await import("./plans");
-  return read(input);
-}
-
 export async function listUpcomingMeetingPreps(input: { days?: number } = {}) {
   const { listUpcomingMeetingPreps: list } = await import("./plans");
   return list(input);
@@ -507,22 +508,58 @@ export async function getConnectionStatus() {
     .order("service_name", { ascending: true });
   if (error) throw new Error(error.message);
 
-  let google: { provider: string; connected: boolean; expires_at: string | null }[] = [];
+  type OauthRow = {
+    provider: string;
+    connected: boolean;
+    needs_reconnect: boolean;
+    missing_scopes: string[];
+    error: string | null;
+    email: string | null;
+  };
+
+  let oauth_connections: OauthRow[] = [];
   try {
-    const { data: integrations } = await jasonosDb()
-      .from("user_integrations")
-      .select("provider,expires_at");
-    google = (integrations ?? []).map((row) => ({
-      provider: row.provider as string,
-      connected: true,
-      expires_at: (row.expires_at as string | null) ?? null,
-    }));
+    const [{ getGoogleConnectionStatus }, { getOutlookConnectionStatus }] =
+      await Promise.all([
+        import("@/lib/integrations/google-tokens"),
+        import("@/lib/integrations/outlook-tokens"),
+      ]);
+    const [google, outlook] = await Promise.all([
+      getGoogleConnectionStatus(),
+      getOutlookConnectionStatus(),
+    ]);
+    oauth_connections = [
+      {
+        provider: "google",
+        connected: google.advisorsConnected,
+        needs_reconnect: google.advisorsNeedsReconnect,
+        missing_scopes: google.advisorsMissingScopes,
+        error: google.advisorsError,
+        email: google.advisorsEmail,
+      },
+      {
+        provider: "google_gmail",
+        connected: google.gmailConnected,
+        needs_reconnect: google.gmailNeedsReconnect,
+        missing_scopes: google.gmailMissingScopes,
+        error: google.gmailError,
+        email: google.gmailEmail,
+      },
+      {
+        provider: "outlook",
+        connected: outlook.connected,
+        needs_reconnect: outlook.needsReconnect,
+        missing_scopes: outlook.missingScopes,
+        error: outlook.error,
+        email: outlook.email,
+      },
+    ].filter((row) => row.connected || row.needs_reconnect);
   } catch {
-    google = [];
+    oauth_connections = [];
   }
 
   return {
     services: data ?? [],
-    oauth_connections: google,
+    oauth_connections,
   };
 }

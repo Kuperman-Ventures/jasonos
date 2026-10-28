@@ -80,6 +80,9 @@ export function pickGranolaNote(
   );
 }
 
+/** Wispr notes use the same candidate shape and scoring as Granola. */
+export const pickWisprNote = pickGranolaNote;
+
 function pickBest(
   notes: GranolaNoteCandidate[],
   query: {

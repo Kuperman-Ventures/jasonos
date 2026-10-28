@@ -56,7 +56,7 @@ export function SentFollowupsPanel({
   dueRows: SentEmailFollowup[];
 }) {
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const visibleDue = dueRows.filter((row) => !hidden.has(row.id));
@@ -64,18 +64,14 @@ export function SentFollowupsPanel({
   const totalVisible = visibleDue.length + visiblePick.length;
 
   useEffect(() => {
-    // Keep the queue open when either group has items so Home matches Follow Up.
-    if (rows.length > 0 || dueRows.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCollapsed(false);
-      return;
-    }
+    // Default collapsed; only expand if Jason previously chose open.
     try {
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }
-  }, [rows.length, dueRows.length]);
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {

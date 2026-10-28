@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { recordUserAction } from "@/lib/actions/action-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { listRecentCounterparties } from "@/lib/integrations/gmail";
@@ -433,6 +434,18 @@ export async function addCandidateAsContact(
     .eq("id", id);
   if (updErr) return { ok: false, error: updErr.message };
 
+  const addedName =
+    (typeof cand.name === "string" && cand.name.trim()) ||
+    (typeof cand.email === "string" && cand.email.trim()) ||
+    "Suggested contact";
+  await recordUserAction({
+    verb: "Added",
+    area: "Suggested",
+    subject: addedName,
+    targetTable: "contact_candidates",
+    targetId: id,
+  });
+
   revalidatePath("/outreach/suggested");
   revalidatePath("/outreach/people");
   revalidatePath("/outreach/queue");
@@ -443,11 +456,27 @@ export async function dismissCandidate(id: string): Promise<ActionResult> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   if (!id) return { ok: false, error: "id is required." };
   const sb = createServiceRoleClient();
+  const { data: row } = await sb
+    .from("contact_candidates")
+    .select("name,email")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await sb
     .from("contact_candidates")
     .update({ status: "dismissed", updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+  const name =
+    (typeof row?.name === "string" && row.name.trim()) ||
+    (typeof row?.email === "string" && row.email.trim()) ||
+    "Suggested contact";
+  await recordUserAction({
+    verb: "Dismissed",
+    area: "Suggested",
+    subject: name,
+    targetTable: "contact_candidates",
+    targetId: id,
+  });
   revalidatePath("/outreach/suggested");
   return { ok: true };
 }

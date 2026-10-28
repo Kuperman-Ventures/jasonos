@@ -7,11 +7,8 @@ export function chooseBrowningStrategyName(hasPriorHeldMeeting: boolean): string
 
 export function shouldSkipPlanBuild(input: {
   planBuiltAt: string | null | undefined;
-  pointCount: number;
   force?: boolean;
 }): boolean {
   if (input.force) return false;
-  if (input.planBuiltAt) return true;
-  if (input.pointCount > 0) return true;
-  return false;
+  return Boolean(input.planBuiltAt);
 }

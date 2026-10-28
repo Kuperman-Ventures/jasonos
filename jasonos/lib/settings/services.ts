@@ -1,4 +1,9 @@
-export type ServiceStatus = "connected" | "not_configured" | "error" | "expired";
+export type ServiceStatus =
+  | "connected"
+  | "not_configured"
+  | "error"
+  | "expired"
+  | "disabled";
 export type ConnectionType = "env_var" | "oauth" | "api_key" | "mcp" | "webhook";
 export type HealthStatus = "healthy" | "degraded" | "down" | "unknown";
 
@@ -328,4 +333,32 @@ export function maskSecret(value?: string) {
 export function envStatus(service: ServiceDefinition): ServiceStatus {
   if (!service.envVars?.length) return service.connectionType === "mcp" ? "connected" : "not_configured";
   return service.envVars.every((name) => !!process.env[name]) ? "connected" : "not_configured";
+}
+
+/**
+ * Badge status after a live check. A failed probe must not stay "connected"
+ * just because an API key or env var is present.
+ * Disabled (off) connections keep "disabled" and are never probed.
+ */
+export function statusFromConnectionCheck(
+  service: ServiceDefinition,
+  result: {
+    success: boolean;
+    status?: ServiceStatus;
+    health_status: HealthStatus;
+  },
+  opts?: { enabled?: boolean }
+): ServiceStatus {
+  if (opts?.enabled === false) return "disabled";
+  if (result.status) return result.status;
+  if (result.success) return "connected";
+  if (service.connectionType === "env_var") return envStatus(service);
+  return "error";
+}
+
+/** Off connections are skipped on Sync / Check All. Missing row = on. */
+export function isServiceConnectionEnabled(
+  row: { enabled?: boolean | null } | null | undefined
+): boolean {
+  return row?.enabled !== false;
 }

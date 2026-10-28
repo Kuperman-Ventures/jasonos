@@ -145,7 +145,9 @@ function transcriptLines(items: TranscriptItem[] | null | undefined): string {
 }
 
 /** Transcript text for a note, or null when Granola has no transcript. */
-export async function getGranolaTranscript(noteId: string): Promise<{ text: string } | null> {
+export async function getGranolaTranscript(
+  noteId: string
+): Promise<{ text: string; complete: boolean } | null> {
   const id = noteId.trim();
   if (!id) return null;
   const key = await resolveGranolaApiKey();
@@ -158,19 +160,24 @@ export async function getGranolaTranscript(noteId: string): Promise<{ text: stri
     );
     if (inline.ok) {
       const text = transcriptLines((inline.json as { transcript?: TranscriptItem[] | null }).transcript);
-      if (text) return { text };
+      // Inline include often returns the full transcript; treat as complete when present.
+      if (text) return { text, complete: true };
     }
 
     const lines: string[] = [];
     let cursor: string | null = null;
-    for (let page = 0; page < 30; page += 1) {
+    let complete = true;
+    const maxPages = 30;
+    for (let page = 0; page < maxPages; page += 1) {
       const params = new URLSearchParams({ page_size: "100" });
       if (cursor) params.set("cursor", cursor);
       const listed = await granolaGet(
         `/v1/notes/${encodeURIComponent(id)}/transcript?${params}`,
         key
       );
-      if (!listed.ok) return lines.length ? { text: lines.join("\n") } : null;
+      if (!listed.ok) {
+        return lines.length ? { text: lines.join("\n"), complete: false } : null;
+      }
       const body = listed.json as {
         transcript?: TranscriptItem[];
         hasMore?: boolean;
@@ -180,9 +187,10 @@ export async function getGranolaTranscript(noteId: string): Promise<{ text: stri
       if (pageText) lines.push(pageText);
       if (!body.hasMore || !body.cursor) break;
       cursor = body.cursor;
+      if (page === maxPages - 1 && body.hasMore) complete = false;
     }
     const text = lines.join("\n").trim();
-    return text ? { text } : null;
+    return text ? { text, complete } : null;
   } catch {
     return null;
   }
@@ -306,10 +314,9 @@ export async function searchGranolaForContact({
     if (includeTranscript && match.id) {
       const transcript = await getGranolaTranscript(match.id);
       if (transcript?.text) {
-        const clipped = transcript.text.slice(0, 12_000);
         summary = summary
-          ? `${summary}\n\n--- Transcript ---\n${clipped}`
-          : clipped;
+          ? `${summary}\n\n--- Transcript ---\n${transcript.text}`
+          : transcript.text;
       }
     }
     return {
@@ -387,7 +394,7 @@ export async function listRecentGranolaNotes(opts?: {
       let transcript: string | null = null;
       if (opts?.includeTranscript) {
         const t = await getGranolaTranscript(candidate.id);
-        transcript = t?.text?.slice(0, 12_000) ?? null;
+        transcript = t?.text ?? null;
       }
       notes.push({
         id: candidate.id,

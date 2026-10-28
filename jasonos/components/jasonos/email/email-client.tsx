@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { LayoutTemplate, Wand2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LayoutTemplate, Users, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmailTemplatesClient } from "@/components/jasonos/email-templates/email-templates-client";
 import { EmailBuilderClient } from "@/components/jasonos/email/email-builder-client";
+import { NetworkScreenClient } from "@/components/jasonos/email/network-screen-client";
 
-type Section = "templates" | "builder";
+type Section = "templates" | "builder" | "network-screen";
 
 const SECTIONS: {
   id: Section;
@@ -28,11 +30,29 @@ const SECTIONS: {
     blurb:
       "No template fits? Answer a few questions about the relationship and get a first draft in your voice.",
   },
+  {
+    id: "network-screen",
+    label: "Network Screen",
+    icon: <Users className="h-4 w-4" />,
+    blurb:
+      "Pick a contact, let Claude capture their visible LinkedIn network, then score it and draft the intro request.",
+  },
 ];
 
 export function EmailClient() {
-  const [section, setSection] = useState<Section>("templates");
+  const router = useRouter();
+  const params = useSearchParams();
+  const [section, setSection] = useState<Section>(() =>
+    params.get("section") === "network-screen" ? "network-screen" : "templates"
+  );
   const active = SECTIONS.find((s) => s.id === section)!;
+
+  function choose(id: Section) {
+    setSection(id);
+    if (id !== "network-screen") {
+      router.replace("/email-templates", { scroll: false });
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -44,7 +64,7 @@ export function EmailClient() {
           <button
             key={s.id}
             type="button"
-            onClick={() => setSection(s.id)}
+            onClick={() => choose(s.id)}
             aria-pressed={section === s.id}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
@@ -61,7 +81,13 @@ export function EmailClient() {
 
       <p className="text-sm text-muted-foreground">{active.blurb}</p>
 
-      {section === "templates" ? <EmailTemplatesClient /> : <EmailBuilderClient />}
+      {section === "templates" ? (
+        <EmailTemplatesClient />
+      ) : section === "builder" ? (
+        <EmailBuilderClient />
+      ) : (
+        <NetworkScreenClient initialScreenId={params.get("screen")} />
+      )}
     </div>
   );
 }

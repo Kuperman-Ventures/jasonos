@@ -18,6 +18,9 @@ const PUBLIC_PREFIXES = [
   "/projects/dark-matter-travel-tracker",
   "/api/dark-matter-travel-tracker",
   "/dark-matter",
+  "/rank",
+  "/api/rank",
+  "/christmas",
   "/api/mcp",
   "/.well-known",
   "/api/auth/google/callback",
@@ -68,7 +71,11 @@ export function isCronPath(pathname: string): boolean {
 export function isLiveCallPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return (
-    /^\/meetings\/[^/]+\/live$/.test(path) || /^\/live\/(scripts|playbooks)\/[^/]+\/rehearse$/.test(path)
+    /^\/live\/decks\/[^/]+\/run$/.test(path) ||
+    /^\/live\/decks\/[^/]+\/rehearse$/.test(path) ||
+    /^\/live\/slides\/[^/]+\/run$/.test(path) ||
+    /^\/live\/slides\/[^/]+\/rehearse$/.test(path) ||
+    /^\/live\/playbooks\/[^/]+\/rehearse$/.test(path)
   );
 }
 
@@ -81,6 +88,8 @@ export function hidesJasonosChrome(pathname: string): boolean {
     matchesPathPrefix(path, "/projects/ski-tracker") ||
     matchesPathPrefix(path, "/projects/dark-matter-travel-tracker") ||
     matchesPathPrefix(path, "/dark-matter") ||
+    matchesPathPrefix(path, "/rank") ||
+    matchesPathPrefix(path, "/christmas") ||
     matchesPathPrefix(path, "/projects/family-meeting/print")
   );
 }

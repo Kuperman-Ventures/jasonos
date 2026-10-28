@@ -24,16 +24,16 @@ function agoText(row: MeetingFollowup): string {
 
 export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const visible = rows.filter((row) => !hidden.has(row.id));
 
   useEffect(() => {
-    // Read after mount so SSR and first paint match (expanded).
+    // Default collapsed; only expand if Jason previously chose open.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }

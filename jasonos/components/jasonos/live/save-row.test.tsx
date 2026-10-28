@@ -105,7 +105,7 @@ describe("SaveRow", () => {
     assert.equal(field.model.savedValue, "Old");
     const html = render(field.model);
     assert.match(html, /data-save-state="failed"/);
-    assert.match(text(html), /Retry Cancel Did not save\. Network down\./);
+    assert.match(text(html), /Retry Cancel Could not save\. Your text is kept\./);
   });
 
   it("a thrown save counts as a failure", async () => {

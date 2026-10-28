@@ -23,7 +23,9 @@ import {
   SERVICE_DEFINITIONS,
   envStatus,
   getServiceDefinition,
+  isServiceConnectionEnabled,
   maskSecret,
+  statusFromConnectionCheck,
   type HealthStatus,
   type ServiceStatus,
 } from "./services";
@@ -32,6 +34,7 @@ import {
   describeBeeperTokenProblem,
   interpretBeeperAuthStatuses,
   isAuthDeniedStatus,
+  pickBeeperConnectionConfig,
 } from "@/lib/integrations/beeper-health";
 
 const CredentialsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
@@ -46,6 +49,11 @@ export const SaveConnectionSchema = z.object({
   service_name: ServiceNameSchema,
   credentials: CredentialsSchema.optional(),
   disconnect: z.boolean().optional(),
+});
+
+export const SetServiceEnabledSchema = z.object({
+  service_name: ServiceNameSchema,
+  enabled: z.boolean(),
 });
 
 export const SaveMeetingFollowupPromptSchema = z.object({
@@ -109,12 +117,14 @@ export async function testServiceConnection(
         connected: google.advisorsConnected,
         needsReconnect: google.advisorsNeedsReconnect,
         error: google.advisorsError,
+        missingScopes: google.advisorsMissingScopes,
       },
       {
         label: "Personal Gmail",
         connected: google.gmailConnected,
         needsReconnect: google.gmailNeedsReconnect,
         error: google.gmailError,
+        missingScopes: google.gmailMissingScopes,
       },
     ]);
     return {
@@ -160,7 +170,20 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "dispatch") {
-    const userId = await getUserId();
+    let userId: string | null = null;
+    try {
+      userId = await getUserId();
+    } catch {
+      const { resolveJasonosOwnerUserId } = await import("@/lib/integrations/owner");
+      userId = await resolveJasonosOwnerUserId();
+    }
+    if (!userId) {
+      return {
+        success: false,
+        message: "Dispatch has no owner to check.",
+        health_status: "down",
+      };
+    }
     const supabase = createPublicServiceRoleClient();
     const { count } = await supabase
       .from("dispatch_requests")
@@ -233,12 +256,14 @@ export async function testServiceConnection(
   }
 
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
+  // These services load a saved Settings token below when the form omits api_key.
   if (
     !key &&
     serviceName !== "beeper" &&
     serviceName !== "jasonos_mcp" &&
     serviceName !== "firecrawl" &&
-    serviceName !== "granola"
+    serviceName !== "granola" &&
+    serviceName !== "leaddelta"
   ) {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
@@ -293,12 +318,13 @@ export async function testServiceConnection(
           .select("config")
           .eq("service_name", "beeper")
           .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        const cfg = (data?.config ?? {}) as {
-          access_token?: string;
-          base_url?: string;
-        };
+          .limit(10);
+        const cfg = pickBeeperConnectionConfig(
+          (data ?? []).map((row) => (row.config ?? {}) as {
+            access_token?: string;
+            base_url?: string;
+          })
+        );
         if (!beeperKey) beeperKey = cfg.access_token?.trim() || undefined;
         savedBase = cfg.base_url?.trim().replace(/\/$/, "") || undefined;
       } catch {
@@ -328,14 +354,16 @@ export async function testServiceConnection(
       "http://127.0.0.1:23373";
     const expiredResult = {
       success: false as const,
+      status: "expired" as const,
       message:
         "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, paste it here, click Save, then Test Connection.",
       health_status: "down" as const,
     };
     const unreachableResult = {
-      success: true as const,
-      message: `Token saved, but this server couldn’t reach ${base}. Keep Beeper Desktop open and Tailscale Funnel up, paste that Funnel URL in Desktop base URL, Save, then Test again.`,
-      health_status: "degraded" as const,
+      success: false as const,
+      status: "error" as const,
+      message: `Couldn’t reach ${base}. Beeper Desktop has to be open on that Mac, and Tailscale Funnel has to be answering, or Sync cannot read texts.`,
+      health_status: "down" as const,
       metadata: { base_url: base },
     };
     try {
@@ -354,7 +382,8 @@ export async function testServiceConnection(
       if (probe.kind === "bad_response") {
         return {
           success: false,
-          message: `Beeper responded ${probe.status}. Check the token and that Desktop API is enabled.`,
+          status: "error" as const,
+          message: `Beeper at ${base} responded ${probe.status}. Desktop is not answering on that address.`,
           health_status: "down",
         };
       }
@@ -665,6 +694,7 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
       user_id: userId,
       service_name: service.name,
       status: test.success ? "connected" : "error",
+      enabled: true,
       connection_type: service.connectionType,
       config: safeConfig,
       api_key_masked: key ? maskSecret(key) : undefined,
@@ -700,8 +730,7 @@ export async function persistConnectionHealth(
   const service = getServiceDefinition(serviceName);
   if (!service) return;
   const now = new Date().toISOString();
-  const status =
-    result.status ?? (result.success ? "connected" : envStatus(service));
+  const status = statusFromConnectionCheck(service, result);
   const { error } = await supabase.from("service_connections").upsert(
     {
       user_id: userId,
@@ -720,19 +749,79 @@ export async function persistConnectionHealth(
   if (error) throw new Error(error.message);
 }
 
-export async function healthCheckAll() {
-  const { supabase, userId } = await getUserContext();
+export interface ConnectionCheckSummary {
+  total: number;
+  checked: number;
+  skipped: number;
+  connected: number;
+  healthy: number;
+  degraded: number;
+  down: number;
+  checked_at: string;
+  problems: string[];
+}
+
+/** Live-check every Settings connection and stamp Last checked. Sync and Check All both use this. */
+export async function checkConnectionsOnSync(): Promise<ConnectionCheckSummary> {
+  const { revalidatePath } = await import("next/cache");
+  const { resolveJasonosOwnerUserId } = await import("@/lib/integrations/owner");
+  const userId = await resolveJasonosOwnerUserId();
+  if (!userId) {
+    throw new Error("No JasonOS owner to store connection checks.");
+  }
+  const supabase = createPublicServiceRoleClient();
+  const { data: enabledRows } = await supabase
+    .from("service_connections")
+    .select("service_name, enabled")
+    .eq("user_id", userId);
+  const enabledByName = new Map(
+    ((enabledRows ?? []) as Array<{ service_name: string; enabled: boolean | null }>).map(
+      (row) => [row.service_name, isServiceConnectionEnabled(row)]
+    )
+  );
   const now = new Date().toISOString();
-  const results = await Promise.all(
+  const checked = await Promise.all(
     SERVICE_DEFINITIONS.map(async (service) => {
+      const enabled = enabledByName.get(service.name) ?? true;
+      if (!enabled) {
+        const { error } = await supabase.from("service_connections").upsert(
+          {
+            user_id: userId,
+            service_name: service.name,
+            status: "disabled",
+            enabled: false,
+            connection_type: service.connectionType,
+            last_health_check: now,
+            health_status: "unknown",
+            health_details: "Off — skipped on Sync.",
+            error_message: null,
+            updated_at: now,
+          },
+          { onConflict: "user_id,service_name" }
+        );
+        if (error) throw new Error(error.message);
+        return {
+          label: service.label,
+          skipped: true as const,
+          result: {
+            success: true,
+            message: "Off — skipped on Sync.",
+            health_status: "unknown" as HealthStatus,
+            status: "disabled" as ServiceStatus,
+          },
+        };
+      }
+
       const result = await testServiceConnection(service.name).catch((error) =>
         failed(error, `${service.label} health check failed.`)
       );
+      const status = statusFromConnectionCheck(service, result, { enabled: true });
       const { error } = await supabase.from("service_connections").upsert(
         {
           user_id: userId,
           service_name: service.name,
-          status: result.status ?? (result.success ? "connected" : envStatus(service)),
+          status,
+          enabled: true,
           connection_type: service.connectionType,
           last_health_check: now,
           health_status: result.health_status,
@@ -743,18 +832,115 @@ export async function healthCheckAll() {
         { onConflict: "user_id,service_name" }
       );
       if (error) throw new Error(error.message);
-      return result;
+      return { label: service.label, skipped: false as const, result };
     })
   );
 
+  revalidatePath("/settings");
+
+  const probed = checked.filter((row) => !row.skipped);
+  const problems = probed
+    .filter((row) => !row.result.success || row.result.health_status === "down")
+    .map((row) => `${row.label}: ${row.result.message}`);
+
   return {
-    total: SERVICE_DEFINITIONS.length,
-    connected: results.filter((result) => result.success).length,
-    healthy: results.filter((result) => result.health_status === "healthy").length,
-    degraded: results.filter((result) => result.health_status === "degraded").length,
-    down: results.filter((result) => result.health_status === "down").length,
+    total: checked.length,
+    checked: probed.length,
+    skipped: checked.length - probed.length,
+    connected: probed.filter((row) => row.result.success).length,
+    healthy: probed.filter((row) => row.result.health_status === "healthy").length,
+    degraded: probed.filter((row) => row.result.health_status === "degraded").length,
+    down: probed.filter((row) => row.result.health_status === "down").length,
     checked_at: now,
+    problems,
   };
+}
+
+/** Turn a connection on or off. Off connections keep their keys but are skipped on Sync. */
+export async function setServiceEnabled(
+  input: z.infer<typeof SetServiceEnabledSchema>
+) {
+  const { supabase, userId } = await getUserContext();
+  const service = getServiceDefinition(input.service_name);
+  if (!service) throw new Error("Unknown service");
+  const now = new Date().toISOString();
+
+  if (!input.enabled) {
+    const { data: existing } = await supabase
+      .from("service_connections")
+      .select("config, api_key_masked, connected_at, connection_type")
+      .eq("user_id", userId)
+      .eq("service_name", service.name)
+      .maybeSingle();
+    const { error } = await supabase.from("service_connections").upsert(
+      {
+        user_id: userId,
+        service_name: service.name,
+        status: "disabled",
+        enabled: false,
+        connection_type: existing?.connection_type ?? service.connectionType,
+        config: existing?.config ?? {},
+        api_key_masked: existing?.api_key_masked ?? null,
+        connected_at: existing?.connected_at ?? null,
+        last_health_check: now,
+        health_status: "unknown",
+        health_details: "Off — skipped on Sync.",
+        error_message: null,
+        updated_at: now,
+      },
+      { onConflict: "user_id,service_name" }
+    );
+    if (error) throw new Error(error.message);
+    return {
+      enabled: false,
+      status: "disabled" as ServiceStatus,
+      health_status: "unknown" as HealthStatus,
+      message: "Turned off. Sync will skip this connection.",
+    };
+  }
+
+  const result = await testServiceConnection(service.name).catch((error) =>
+    failed(error, `${service.label} health check failed.`)
+  );
+  const status = statusFromConnectionCheck(service, result, { enabled: true });
+  const { data: existing } = await supabase
+    .from("service_connections")
+    .select("config, api_key_masked, connected_at, connection_type")
+    .eq("user_id", userId)
+    .eq("service_name", service.name)
+    .maybeSingle();
+  const { error } = await supabase.from("service_connections").upsert(
+    {
+      user_id: userId,
+      service_name: service.name,
+      status,
+      enabled: true,
+      connection_type: existing?.connection_type ?? service.connectionType,
+      config: existing?.config ?? {},
+      api_key_masked: existing?.api_key_masked ?? null,
+      connected_at: result.success
+        ? (existing?.connected_at ?? now)
+        : (existing?.connected_at ?? null),
+      last_health_check: now,
+      health_status: result.health_status,
+      health_details: result.message,
+      error_message: result.success ? null : result.message,
+      updated_at: now,
+    },
+    { onConflict: "user_id,service_name" }
+  );
+  if (error) throw new Error(error.message);
+  return {
+    enabled: true,
+    status,
+    health_status: result.health_status,
+    message: result.message,
+  };
+}
+
+export async function healthCheckAll() {
+  await requireJasonosUser();
+  return checkConnectionsOnSync();
 }
 
 export async function saveMeetingFollowupPrompt(

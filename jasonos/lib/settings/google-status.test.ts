@@ -14,6 +14,17 @@ describe("googleMailboxHealth", () => {
     );
   });
 
+  it("treats missing required scopes as limited, not connected", () => {
+    assert.equal(
+      googleMailboxHealth({
+        connected: true,
+        needsReconnect: true,
+        missingScopes: ["https://www.googleapis.com/auth/gmail.send"],
+      }),
+      "limited"
+    );
+  });
+
   it("treats a usable token as connected", () => {
     assert.equal(
       googleMailboxHealth({ connected: true, needsReconnect: false }),
@@ -51,6 +62,29 @@ describe("summarizeGoogleMailboxes", () => {
     assert.equal(summary.success, false);
     assert.match(summary.error_message ?? "", /jskuperman@gmail.com: sign-in expired/);
     assert.match(summary.health_details, /Advisors Google: connected/);
+  });
+
+  it("flags Advisors missing Gmail send as degraded, not healthy", () => {
+    const summary = summarizeGoogleMailboxes([
+      {
+        label: "Advisors Google",
+        connected: true,
+        needsReconnect: true,
+        missingScopes: ["https://www.googleapis.com/auth/gmail.send"],
+        error:
+          "jason@kupermanadvisors.com: missing Gmail send. Reconnect Advisors Google in Settings and allow all requested permissions.",
+      },
+      {
+        label: "Personal Gmail",
+        connected: true,
+        needsReconnect: false,
+        error: null,
+      },
+    ]);
+    assert.equal(summary.status, "expired");
+    assert.equal(summary.health_status, "degraded");
+    assert.equal(summary.success, false);
+    assert.match(summary.error_message ?? "", /missing Gmail send/);
   });
 
   it("marks both mailboxes missing as not configured", () => {
@@ -106,5 +140,65 @@ describe("overlayGoogleOauthOntoServices", () => {
     assert.equal(services[1].status, "expired");
     assert.equal(services[2].status, "connected");
     assert.equal(services[2].health_status, "healthy");
+  });
+
+  it("surfaces Advisors missing send on Gmail and Calendar service rows", () => {
+    const services = overlayGoogleOauthOntoServices(
+      [
+        {
+          service_name: "gmail",
+          status: "connected" as const,
+          health_status: "healthy" as const,
+          health_details: null,
+          error_message: null,
+        },
+        {
+          service_name: "google_calendar",
+          status: "connected" as const,
+          health_status: "healthy" as const,
+          health_details: null,
+          error_message: null,
+        },
+      ],
+      {
+        advisorsConnected: true,
+        gmailConnected: true,
+        advisorsNeedsReconnect: true,
+        gmailNeedsReconnect: false,
+        advisorsError: "jason@kupermanadvisors.com: missing Gmail send.",
+        gmailError: null,
+        advisorsMissingScopes: ["https://www.googleapis.com/auth/gmail.send"],
+        gmailMissingScopes: [],
+      }
+    );
+    assert.equal(services[0].health_status, "degraded");
+    assert.match(services[0].error_message ?? "", /missing Gmail send/);
+    assert.equal(services[1].health_status, "degraded");
+  });
+
+  it("leaves an off Gmail row alone instead of marking OAuth expiry", () => {
+    const services = overlayGoogleOauthOntoServices(
+      [
+        {
+          service_name: "gmail",
+          status: "disabled" as const,
+          enabled: false,
+          health_status: "unknown" as const,
+          health_details: "Off — skipped on Sync.",
+          error_message: null,
+        },
+      ],
+      {
+        advisorsConnected: false,
+        gmailConnected: false,
+        advisorsNeedsReconnect: false,
+        gmailNeedsReconnect: false,
+        advisorsError: null,
+        gmailError: null,
+      }
+    );
+    assert.equal(services[0].status, "disabled");
+    assert.equal(services[0].error_message, null);
+    assert.match(services[0].health_details ?? "", /Off/);
   });
 });

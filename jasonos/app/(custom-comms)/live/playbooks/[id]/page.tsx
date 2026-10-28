@@ -1,51 +1,29 @@
-import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
-import { PlaybookClient } from "@/components/jasonos/meeting-prep/playbook-client";
-import {
-  getLiveScript,
-  listMeetingsUsingScript,
-  listPlaybookQuestions,
-} from "@/lib/server-actions/live-scripts";
+import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { DeckEditor } from "@/components/jasonos/live/deck-editor";
+import { getDeck } from "@/lib/server-actions/decks";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
-  const loaded = await getLiveScript(id);
-  return { title: `${loaded.ok ? loaded.script.name : "Playbook"} · Live · JasonOS` };
-}
-
-export default async function PlaybookPage({
+export default async function PlaybookEditPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const loaded = await getLiveScript(id);
-  if (!loaded.ok) {
-    if (loaded.error === "Playbook not found.") notFound();
+  const result = await getDeck(id);
+  if (!result.ok) {
+    if (result.error === "Not found.") notFound();
     return (
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <p className="text-sm text-muted-foreground">{loaded.error}</p>
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        <p className="text-sm text-[var(--jos-danger-text)]">{result.error}</p>
       </div>
     );
   }
-  if (loaded.script.kind === "plan") redirect(`/live/sheets/${id}`);
-
-  const [questionsResult, usedOnResult] = await Promise.all([
-    listPlaybookQuestions(id),
-    listMeetingsUsingScript(id, 5),
-  ]);
+  if (result.deck.kind !== "playbook") notFound();
   return (
-    <PlaybookClient
-      script={loaded.script}
-      items={loaded.items}
-      questions={questionsResult.ok ? questionsResult.questions : []}
-      usedOn={usedOnResult.ok ? usedOnResult.meetings : []}
-    />
+    <Suspense fallback={<div className="px-4 py-8 text-sm text-[var(--jos-muted)]">Loading…</div>}>
+      <DeckEditor deck={result.deck} />
+    </Suspense>
   );
 }

@@ -2,11 +2,8 @@ import "server-only";
 
 import { callClaude } from "@/lib/ai/models";
 import { gmailThreadUrl } from "@/lib/meeting-prep/context-model";
-import { isContactThin } from "@/lib/meeting-prep/research-policy";
 import type { TodaysMeeting } from "@/lib/meeting-prep/today";
-import { acceptAdaptation, proposeAdaptation } from "@/lib/server-actions/live-scripts";
 import { ensureMeetingPrepForEvent } from "@/lib/server-actions/meeting-prep";
-import { runMeetingResearch } from "@/lib/server-actions/meeting-research";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { BookedCall } from "./booking";
 import { packetForPrompt, type PacketDocument } from "./packet";
@@ -116,19 +113,17 @@ export async function ensurePrepForHandoff(
 
   const { data: prep } = await sb
     .from("meeting_preps")
-    .select("id, purpose, track, handoff_id")
+    .select("id, purpose, handoff_id")
     .eq("id", prepId)
     .maybeSingle();
 
   const patch: Record<string, unknown> = {
-    track: "job_search",
     handoff_id: handoff.id,
   };
   if (!(prep?.purpose as string | null)?.trim()) {
     patch.purpose = purpose;
     patch.purpose_source = "suggested";
   }
-  if (contactId) patch.primary_contact_id = contactId;
   await sb.from("meeting_preps").update(patch).eq("id", prepId);
 
   await sb.from("browning_handoffs").update({ prep_id: prepId }).eq("id", handoff.id);
@@ -209,41 +204,6 @@ async function writePacketSources(
   }
 }
 
-async function hasPriorHeldMeeting(sb: Sb, contactId: string | null): Promise<boolean> {
-  if (!contactId) return false;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const { data, error } = await sb
-    .from("meetings")
-    .select("id, status, held_at, scheduled_at")
-    .eq("contact_id", contactId)
-    .or(`status.eq.held,held_at.not.is.null`)
-    .limit(20);
-  if (error) {
-    console.error("[browning-networking] prior meetings", error);
-    return false;
-  }
-  const cutoff = todayStart.getTime();
-  return (data ?? []).some((row) => {
-    const heldAt = (row.held_at as string | null) ?? (row.scheduled_at as string | null);
-    if (!heldAt) return row.status === "held";
-    return Date.parse(heldAt) < cutoff;
-  });
-}
-
-async function lookupStrategyId(sb: Sb, name: string): Promise<string | null> {
-  const { data, error } = await sb
-    .from("live_scripts")
-    .select("id, name")
-    .eq("name", name)
-    .maybeSingle();
-  if (error) {
-    console.error("[browning-networking] strategy", name, error);
-    return null;
-  }
-  return data?.id ? String(data.id) : null;
-}
-
 async function generatePacketHighlights(resumeText: string | null): Promise<string[]> {
   if (!resumeText?.trim()) return [];
   try {
@@ -268,31 +228,6 @@ async function generatePacketHighlights(resumeText: string | null): Promise<stri
   }
 }
 
-async function researchIfThin(sb: Sb, prepId: string, contactId: string | null): Promise<void> {
-  if (!contactId) return;
-  const { data: contact } = await sb
-    .from("contacts")
-    .select("id, title, company_id, linkedin_url, research_at")
-    .eq("id", contactId)
-    .maybeSingle();
-  if (!contact) return;
-  if (
-    !isContactThin({
-      title: (contact.title as string | null) ?? null,
-      companyId: (contact.company_id as string | null) ?? null,
-      linkedinUrl: (contact.linkedin_url as string | null) ?? null,
-      researchAt: (contact.research_at as string | null) ?? null,
-    })
-  ) {
-    return;
-  }
-  try {
-    await runMeetingResearch(prepId);
-  } catch (err) {
-    console.error("[browning-networking] research", err);
-  }
-}
-
 export async function buildBrowningPlan(
   prepId: string,
   handoff: HandoffPrepRow,
@@ -300,38 +235,9 @@ export async function buildBrowningPlan(
 ): Promise<{ ok: true; built: boolean; strategyName?: string } | { ok: false; error: string }> {
   const sb = createServiceRoleClient();
   const force = Boolean(options?.force);
-  const { count: pointCount } = await sb
-    .from("meeting_points")
-    .select("id", { count: "exact", head: true })
-    .eq("prep_id", prepId);
-  if (
-    shouldSkipPlanBuild({
-      planBuiltAt: handoff.plan_built_at,
-      pointCount: pointCount ?? 0,
-      force,
-    })
-  ) {
+  if (shouldSkipPlanBuild({ planBuiltAt: handoff.plan_built_at, force })) {
     return { ok: true, built: false };
   }
-
-  const contactId = contactIdOf(handoff);
-  await researchIfThin(sb, prepId, contactId);
-
-  const prior = await hasPriorHeldMeeting(sb, contactId);
-  const strategyName = chooseBrowningStrategyName(prior);
-  const scriptId = await lookupStrategyId(sb, strategyName);
-  if (!scriptId) {
-    console.error("[browning-networking] missing strategy", strategyName);
-    return { ok: false, error: `Playbook not found: ${strategyName}` };
-  }
-
-  const proposed = await proposeAdaptation({ scriptId, prepId });
-  if (!proposed.ok) return { ok: false, error: proposed.error };
-  const accepted = await acceptAdaptation({
-    adaptationId: proposed.adaptation.id,
-    mode: "replace",
-  });
-  if (!accepted.ok) return { ok: false, error: accepted.error };
 
   const highlights = await generatePacketHighlights(handoff.resume_text ?? null);
   const nowIso = new Date().toISOString();
@@ -340,7 +246,6 @@ export async function buildBrowningPlan(
     .update({
       plan_source: "playbook",
       packet_highlights: highlights.length ? highlights : null,
-      track: "job_search",
       handoff_id: handoff.id,
     })
     .eq("id", prepId);
@@ -349,7 +254,7 @@ export async function buildBrowningPlan(
     .update({ plan_built_at: nowIso, prep_id: prepId })
     .eq("id", handoff.id);
 
-  return { ok: true, built: true, strategyName };
+  return { ok: true, built: true, strategyName: chooseBrowningStrategyName(false) };
 }
 
 /** Reload handoff packet columns after booking for plan build. */

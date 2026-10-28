@@ -45,12 +45,13 @@ export function TodaysMeetingsPanel({
   warnings: string[];
   nowIso: string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   useEffect(() => {
+    // Default collapsed; only expand if Jason previously chose open.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }
@@ -137,16 +138,8 @@ export function TodaysMeetingsPanel({
                         {attendeeLine(row.attendees)}
                       </p>
                     </Link>
-                    {row.pointCount > 0 || row.conferenceUrl ? (
+                    {row.conferenceUrl ? (
                       <div className="flex shrink-0 items-center gap-3 pt-0.5">
-                        {row.pointCount > 0 ? (
-                          <Link
-                            href={`/meetings/${row.id}/live`}
-                            className="text-[11px] font-medium text-rung-ink hover:underline"
-                          >
-                            Live
-                          </Link>
-                        ) : null}
                         {row.conferenceUrl ? (
                           <a
                             href={row.conferenceUrl}

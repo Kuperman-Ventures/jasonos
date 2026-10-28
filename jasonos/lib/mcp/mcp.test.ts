@@ -24,17 +24,10 @@ import {
   wwwAuthenticate,
 } from "./oauth.ts";
 import { FYB_TOOL_NAMES } from "./fyb-tools.ts";
-import {
-  CALL_SHEET_TOOL_NAMES,
-  MEETING_PLAN_TOOL_NAMES,
-  mergeSheetLines,
-  validateSheetBlocks,
-  validatePlanPoints,
-} from "./plan-points.ts";
+import { NETWORK_SCREEN_TOOL_NAMES } from "./network-screen-tools.ts";
 import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
-import { REACTION_SHAPES } from "../meeting-prep/reactions.ts";
 import {
   TODAY_TASK_COLUMNS,
   actionCardBody,
@@ -282,17 +275,38 @@ describe("registerJasonosTools", () => {
     for (const name of FYB_TOOL_NAMES) {
       assert.ok(registered.includes(name), `missing ${name}`);
     }
-    for (const name of MEETING_PLAN_TOOL_NAMES) {
-      assert.ok(registered.includes(name), `missing ${name}`);
-    }
-    for (const name of CALL_SHEET_TOOL_NAMES) {
-      assert.ok(registered.includes(name), `missing ${name}`);
-    }
-    assert.ok(registered.includes("set_call_sheet"));
+    assert.ok(registered.includes("list_upcoming_meeting_preps"));
+    assert.ok(registered.includes("list_playbooks"));
+    assert.ok(registered.includes("list_decks"));
+    assert.ok(registered.includes("get_deck"));
+    assert.ok(registered.includes("create_deck"));
+    assert.ok(registered.includes("set_deck_slides"));
+    assert.ok(registered.includes("update_playbook_from_deck"));
+    assert.ok(registered.includes("create_playbook_from_deck"));
+    assert.ok(registered.includes("get_transcript"));
+    assert.ok(registered.includes("set_goal"));
+    assert.ok(registered.includes("get_person_context"));
+    assert.ok(registered.includes("run_ai_help"));
+    assert.ok(registered.includes("review_run"));
+    assert.ok(registered.includes("get_review"));
+    assert.ok(registered.includes("attach_meeting"));
+    assert.ok(registered.includes("set_rubric"));
+    assert.ok(registered.includes("get_default_rubric"));
+    assert.ok(registered.includes("set_default_rubric"));
+    assert.ok(registered.includes("attach_transcript"));
+    assert.ok(registered.includes("list_recent_notes"));
+    assert.ok(!registered.includes("review_meeting"));
+    assert.ok(!registered.includes("build_call_sheet"));
+    assert.ok(!registered.includes("tailor"));
+    assert.ok(!registered.includes("tailor_slides"));
     assert.ok(!registered.includes("list_people_in_motion"));
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
     assert.ok(registered.includes("list_weekly_provocations"));
+    for (const name of NETWORK_SCREEN_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /import_network_screen/);
   });
 });
 
@@ -320,113 +334,21 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("list_project_links"));
     assert.ok(tools.includes("add_project_link"));
     assert.ok(tools.includes("list_weekly_provocations"));
+    assert.ok(tools.includes("import_network_screen"));
+    assert.ok(tools.includes("get_network_screen"));
+    assert.ok(tools.includes("list_pending_intros"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
-    assert.ok(tools.includes("build_meeting_plan"));
-    assert.ok(tools.includes("accept_meeting_plan"));
-    assert.ok(tools.includes("set_meeting_plan"));
-    assert.ok(tools.includes("create_guide"));
-    assert.ok(tools.includes("use_guide_for_meeting"));
-    assert.ok(tools.includes("get_meeting_plan"));
     assert.ok(tools.includes("list_upcoming_meeting_preps"));
-    for (const name of CALL_SHEET_TOOL_NAMES) {
-      assert.ok(tools.includes(name), `area map missing ${name}`);
-    }
+    assert.ok(tools.includes("list_playbooks"));
+    assert.ok(tools.includes("get_deck"));
   });
 
-  it("tells Claude to write call sheets with set_call_sheet in Jason's words", () => {
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /set_call_sheet/);
-    assert.match(
-      JASONOS_MCP_INSTRUCTIONS,
-      /Plan the call sheet with Jason in conversation\. Fill the Why and What-and-how lines in his words with set_call_sheet/
-    );
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /Never write meeting_points or call_sheet_blocks through SQL\./);
-    assert.match(JASONOS_MCP_INSTRUCTIONS, /mark_sheet_ready/);
-  });
-
-  it("registers mark_sheet_ready and keeps the earlier names", () => {
-    const server = new McpServer({ name: "jasonos-test", version: "0.0.0" });
-    registerJasonosTools(server);
-    const registered = Object.keys(
-      (server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools
-    );
-    assert.ok(registered.includes("mark_sheet_ready"));
-    for (const name of ["build_meeting_plan", "set_meeting_plan", "create_guide", "use_guide_for_meeting"]) {
-      assert.ok(registered.includes(name), `missing alias ${name}`);
-    }
-  });
-});
-
-describe("validateSheetBlocks", () => {
-  const blocks = [
-    { key: "who", title: "Who", kind: "text", lines: [] },
-    {
-      key: "why",
-      title: "Why",
-      kind: "lines",
-      lines: [{ label: "Why them" }, { label: "Why now" }, { label: "To discuss" }],
-    },
-    { key: "conversation", title: "The conversation", kind: "points", lines: [] },
-    { key: "after", title: "After", kind: "after", lines: [] },
-  ];
-
-  it("accepts known keys, block titles, and matching line labels", () => {
-    assert.deepEqual(
-      validateSheetBlocks(blocks, [
-        { key: "who", body: "Ran growth at Acme" },
-        { key: "Why", lines: [{ label: "why now", text: "Hiring" }, { text: "Unlabeled fills by position" }] },
-      ]),
-      { ok: true }
-    );
-  });
-
-  it("rejects an unknown block key and lists the keys", () => {
-    const result = validateSheetBlocks(blocks, [{ key: "rapport", body: "x" }]);
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-      assert.match(result.error, /No block "rapport"/);
-      assert.match(result.error, /who, why, conversation, after/);
-    }
-  });
-
-  it("rejects a line label the block does not have", () => {
-    const result = validateSheetBlocks(blocks, [{ key: "why", lines: [{ label: "Why me", text: "x" }] }]);
-    assert.equal(result.ok, false);
-    if (!result.ok) assert.match(result.error, /no line "Why me".*Why them, Why now, To discuss/);
-  });
-
-  it("rejects more unlabeled lines than the block has", () => {
-    const result = validateSheetBlocks(blocks, [
-      { key: "why", lines: [{ text: "a" }, { text: "b" }, { text: "c" }, { text: "d" }] },
-    ]);
-    assert.equal(result.ok, false);
-  });
-
-  it("rejects lines on a text block, and points or After blocks", () => {
-    assert.equal(validateSheetBlocks(blocks, [{ key: "who", lines: [{ text: "x" }] }]).ok, false);
-    assert.equal(validateSheetBlocks(blocks, [{ key: "conversation", body: "x" }]).ok, false);
-    assert.equal(validateSheetBlocks(blocks, [{ key: "after", body: "x" }]).ok, false);
-  });
-});
-
-describe("mergeSheetLines", () => {
-  it("replaces by label, then by position, and adds new labeled lines", () => {
-    const existing = [
-      { label: "Why them", text: "" },
-      { label: "Why now", text: "old" },
-      { label: "To discuss", text: "" },
-    ];
-    const merged = mergeSheetLines(existing, [
-      { label: "why now", text: "Tracy said they are hiring" },
-      { text: "They ran growth at Acme" },
-      { label: "Extra", text: "One more" },
-    ]);
-    assert.deepEqual(merged, [
-      { label: "Why them", text: "They ran growth at Acme" },
-      { label: "Why now", text: "Tracy said they are hiring" },
-      { label: "To discuss", text: "" },
-      { label: "Extra", text: "One more" },
-    ]);
+  it("mentions Live Playbooks and Decks in MCP instructions", () => {
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /list_upcoming_meeting_preps/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /list_playbooks/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /run_ai_help/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /review_run/);
   });
 });
 
@@ -554,79 +476,3 @@ describe("add_action_card / update_card links", () => {
   });
 });
 
-describe("validatePlanPoints", () => {
-  it("clamps headlines and details", () => {
-    const result = validatePlanPoints([
-      {
-        kind: "question",
-        headline: "  How is AI going?  ",
-        detail: "Listen for whether they have a house approach.",
-        listen_for: "house approach vs improvising",
-      },
-    ]);
-    assert.equal(result.ok, true);
-    if (!result.ok) return;
-    assert.equal(result.points[0].headline, "How is AI going?");
-    assert.equal(result.points[0].listenFor, "house approach vs improvising");
-  });
-
-  it("truncates headlines over 80 characters", () => {
-    const long = `Ask ${"x".repeat(100)}`;
-    const result = validatePlanPoints([{ kind: "ask", headline: long }]);
-    assert.equal(result.ok, true);
-    if (!result.ok) return;
-    assert.equal(result.points[0].headline.length <= 80, true);
-  });
-
-  it("truncates details over 400 characters", () => {
-    const result = validatePlanPoints([
-      {
-        kind: "point",
-        headline: "Open with the stake",
-        detail: "y".repeat(450),
-      },
-    ]);
-    assert.equal(result.ok, true);
-    if (!result.ok) return;
-    assert.equal((result.points[0].detail ?? "").length <= 400, true);
-  });
-
-  it("rejects unknown kinds and empty lists", () => {
-    assert.equal(validatePlanPoints([]).ok, false);
-    assert.equal(
-      validatePlanPoints([{ kind: "slide", headline: "Nope" }]).ok,
-      false
-    );
-  });
-
-  it("rejects empty headlines", () => {
-    assert.equal(validatePlanPoints([{ kind: "point", headline: "   " }]).ok, false);
-  });
-
-  it("requires all six reaction shapes when reactions are provided", () => {
-    const incomplete = validatePlanPoints([
-      {
-        kind: "ask",
-        headline: "Can we set a date?",
-        reactions: [{ shape: "agree", soundsLike: "Yes", pivot: "Great" }],
-      },
-    ]);
-    assert.equal(incomplete.ok, false);
-
-    const full = validatePlanPoints([
-      {
-        kind: "ask",
-        headline: "Can we set a date?",
-        reactions: REACTION_SHAPES.map((shape) => ({
-          shape,
-          soundsLike: `Sounds like ${shape}`,
-          pivot: `Pivot for ${shape}`,
-        })),
-      },
-    ]);
-    assert.equal(full.ok, true);
-    if (!full.ok) return;
-    assert.equal(full.points[0].reactions?.length, 6);
-    assert.equal(full.points[0].prepareReactions, true);
-  });
-});
