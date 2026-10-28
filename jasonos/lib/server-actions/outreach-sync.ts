@@ -570,10 +570,10 @@ export async function syncOutreachFromGmail(opts?: {
 
 // ---------------------------------------------------------------------------
 // Calendar sync — captures meetings from the last `daysBack` days (and
-// upcoming `daysForward` days) where any attendee resolves to a contact.
-// Past events also become contact_touches (cadence). All matched events are
-// upserted into jasonos.meetings so they appear on the contact Meetings tab.
-// Reads Advisors Google primary and, when connected, personal Gmail primary.
+// upcoming `daysForward` days). Guests who are not in People are staged onto
+// Suggested. Meetings that match at least one contact become contact_touches
+// (past) and jasonos.meetings rows (Meetings tab). Reads Advisors Google
+// primary and, when connected, personal Gmail primary.
 // ---------------------------------------------------------------------------
 
 export async function syncOutreachFromCalendar(opts?: {

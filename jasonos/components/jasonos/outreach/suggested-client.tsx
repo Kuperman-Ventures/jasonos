@@ -134,11 +134,11 @@ export function SuggestedClient({
             Suggested contacts
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            People from email, calendar invites, and Beeper chats who aren&rsquo;t
-            already in People. Beeper rows are the person&rsquo;s name; phone or
-            email is extra when we have it. Merge if they&rsquo;re already in
-            People. Dismissed people don&rsquo;t come back. Use Sync in the top
-            bar to look for new people.
+            People from email, calendar meetings (including invitees who aren&rsquo;t
+            in People yet), and Beeper chats. Beeper rows are the person&rsquo;s
+            name; phone or email is extra when we have it. Merge if they&rsquo;re
+            already in People. Dismissed people don&rsquo;t come back. Use Sync
+            in the top bar to look for new people.
           </p>
         </div>
       </header>

@@ -8,6 +8,11 @@ import { isNoiseEmail } from "./mail-noise";
 
 export const MEETING_FOLLOWUP_SCAN_DAYS_BACK = 21;
 export const MEETING_FOLLOWUP_MAX_GUESTS = 8;
+/**
+ * 1:1 / small meetings with guests not yet in People still count for Follow Up
+ * and Suggested. Larger no-contact events stay out (webinars / blast invites).
+ */
+export const MEETING_FOLLOWUP_UNKNOWN_GUEST_MAX = 3;
 /** Brief pause after the meeting ends so Sync does not fire mid-wrap-up. */
 export const MEETING_FOLLOWUP_GRACE_MS = 15 * 60 * 1000;
 export const MEETING_FOLLOWUP_SNOOZE_PRESETS = [1, 3, 5] as const;
@@ -233,7 +238,11 @@ export function qualifyPastMeeting(input: {
     (input.knownEmails
       ? meetingHasKnownContact(attendees, input.knownEmails)
       : false);
-  if (!known) return null;
+  // Small meetings with nobody in People yet still qualify — Suggested can
+  // pick those invitees up. Bigger no-contact lists look like webinars.
+  if (!known && attendees.length > MEETING_FOLLOWUP_UNKNOWN_GUEST_MAX) {
+    return null;
+  }
   return {
     gcalEventId: input.gcalEventId,
     icalUid: input.icalUid?.trim() || null,

@@ -206,13 +206,18 @@ describe("qualifyPastMeeting", () => {
     );
   });
 
-  it("rejects meetings with no JasonOS contact (webinars)", () => {
+  it("rejects large no-contact meetings (webinars)", () => {
     assert.equal(
       qualifyPastMeeting({
         gcalEventId: "ev1",
         startsAt: "2026-09-01T12:00:00.000Z",
         endsAt: "2026-09-01T13:00:00.000Z",
-        guests: [{ email: "webinar@example.com", name: "Webinar Host" }],
+        guests: [
+          { email: "a@example.com" },
+          { email: "b@example.com" },
+          { email: "c@example.com" },
+          { email: "d@example.com" },
+        ],
         knownEmails: new Set(["ada@example.com"]),
         now: new Date("2026-09-22T12:00:00.000Z"),
       }),
@@ -228,6 +233,23 @@ describe("qualifyPastMeeting", () => {
         now: new Date("2026-09-22T12:00:00.000Z"),
       })
     );
+  });
+
+  it("keeps small meetings whose invitees are not in People yet", () => {
+    const meeting = qualifyPastMeeting({
+      gcalEventId: "ev-new",
+      startsAt: "2026-09-01T12:00:00.000Z",
+      endsAt: "2026-09-01T13:00:00.000Z",
+      guests: [
+        { email: "pat@new.co", name: "Pat New" },
+        { email: "sam@new.co", name: "Sam New" },
+      ],
+      knownEmails: new Set(["ada@example.com"]),
+      now: new Date("2026-09-22T12:00:00.000Z"),
+    });
+    assert.ok(meeting);
+    assert.equal(meeting?.attendees.length, 2);
+    assert.equal(meeting?.attendees[0]?.email, "pat@new.co");
   });
 });
 
