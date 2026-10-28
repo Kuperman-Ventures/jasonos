@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   SlotCalendar,
   mondayOf,
@@ -19,6 +20,7 @@ import {
 import { formatSlotLabel } from "@/lib/browning-networking/draft";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import type { BusyBlock, HandoffSlot } from "@/lib/browning-networking/types";
+import { fallbackCommitmentEventTitle } from "@/lib/commitments/calendar-title";
 import type { CommitmentView } from "@/lib/commitments/types";
 import { etToday } from "@/lib/dates";
 import {
@@ -35,7 +37,7 @@ type Props = {
 
 /**
  * Pick a free 30-minute slot (same week grid as Browning Networking) and put a
- * work block on the Advisors calendar. Title is AI-written from the commitment.
+ * work block on the Advisors calendar. Jason sets the event title.
  */
 export function CommitmentScheduleDialog({
   item,
@@ -48,13 +50,22 @@ export function CommitmentScheduleDialog({
   const [slots, setSlots] = useState<HandoffSlot[]>([]);
   const [busy, setBusy] = useState<BusyBlock[]>([]);
   const [busyLoading, setBusyLoading] = useState(false);
+  const [title, setTitle] = useState("");
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !item) return;
     setWeekMonday(mondayOf(today));
     setSlots([]);
-  }, [open, item?.key, today]);
+    setTitle(
+      fallbackCommitmentEventTitle({
+        promise: item.promise,
+        to: item.to,
+        due_date: item.due_date,
+        context: item.context,
+      })
+    );
+  }, [open, item, today]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,6 +92,11 @@ export function CommitmentScheduleDialog({
 
   const schedule = () => {
     if (!item || !selected) return;
+    const trimmed = title.trim();
+    if (!trimmed) {
+      toast.error("Enter a calendar title.");
+      return;
+    }
     start(async () => {
       const result = await scheduleCommitmentOnCalendar({
         itemKey: item.key,
@@ -89,6 +105,7 @@ export function CommitmentScheduleDialog({
         due_date: item.due_date,
         context: item.context,
         source_url: item.source_url,
+        title: trimmed,
         startIso: selected.start,
         endIso: selected.end,
       });
@@ -130,14 +147,28 @@ export function CommitmentScheduleDialog({
             {item ? (
               <>
                 Click a free 30-minute slot for “{item.promise}”
-                {item.to ? ` (to ${item.to})` : ""}. The event title is written
-                from this commitment.
+                {item.to ? ` (to ${item.to})` : ""}. Edit the title, then add
+                it to your calendar.
               </>
             ) : (
               "Pick a free time on your calendar."
             )}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-1.5">
+          <label htmlFor="commitment-event-title" className="text-xs font-medium">
+            Calendar title
+          </label>
+          <Input
+            id="commitment-event-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="What should this block be called?"
+            maxLength={80}
+            disabled={pending || !item}
+          />
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -181,6 +212,7 @@ export function CommitmentScheduleDialog({
         </div>
 
         <SlotCalendar
+          key={item?.key ?? "closed"}
           slots={slots}
           busy={busy}
           eligibleYmd={today}
@@ -200,7 +232,7 @@ export function CommitmentScheduleDialog({
           </Button>
           <Button
             type="button"
-            disabled={!selected || pending || !item}
+            disabled={!selected || pending || !item || !title.trim()}
             onClick={schedule}
           >
             {pending ? "Scheduling…" : "Add to calendar"}

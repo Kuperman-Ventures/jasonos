@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { etYmd } from "@/lib/dates";
 import { formatSlotLabel } from "@/lib/browning-networking/draft";
@@ -45,6 +45,12 @@ export function SlotCalendar({
   const days = useMemo(() => weekdaysOf(weekMonday), [weekMonday]);
   const [local, setLocal] = useState(slots);
   const blockWarning = useRef<string | null>(null);
+
+  // Keep internal draft slots aligned when the parent resets or trims the list
+  // (e.g. Commitment schedule keeps a single work block).
+  useEffect(() => {
+    setLocal(slots);
+  }, [slots]);
 
   function commit(next: HandoffSlot[]) {
     if (readOnly || !onChange) return;
@@ -178,7 +184,9 @@ function DayColumn({
       style={{ height }}
       onClick={(event) => {
         if (readOnly || locked) return;
-        if ((event.target as HTMLElement).closest("[data-slot]")) return;
+        // Use data-handoff-slot (not data-slot) — Dialog/Button set data-slot on
+        // ancestors, which would make every click inside a modal a no-op.
+        if ((event.target as HTMLElement).closest("[data-handoff-slot]")) return;
         if ((event.target as HTMLElement).closest("[data-meeting]")) return;
         onAdd(minutesAt(event.clientY));
       }}
@@ -271,7 +279,7 @@ function OfferedSlotBlock({
   );
   return (
     <div
-      data-slot
+      data-handoff-slot
       className={`pointer-events-none absolute inset-x-1 z-10 rounded border px-1 py-0.5 text-[10px] leading-tight text-rung-ink ${
         conflict
           ? "border-rung-1/60 bg-rung-1/70"
@@ -306,7 +314,7 @@ function SlotBlock({
 
   return (
     <div
-      data-slot
+      data-handoff-slot
       className={`absolute inset-x-1 z-10 cursor-grab rounded border px-1 py-0.5 text-[10px] leading-tight text-rung-ink ${
         conflict ? "border-rung-1 bg-rung-1" : "border-[var(--jos-line)] bg-rung-2"
       } ${dragging ? "opacity-80" : ""}`}
