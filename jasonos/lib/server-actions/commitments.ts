@@ -93,8 +93,8 @@ export type ScheduleCommitmentInput = CommitmentTitleInput & {
 };
 
 /**
- * Put a 30-minute work block on the Advisors primary calendar for a Commitment
- * Check item. Uses the title Jason entered in the schedule dialog.
+ * Put a work block (typically 30 or 60 minutes) on the Advisors primary calendar
+ * for a Commitment Check item, then mark the item scheduled on Home.
  */
 export async function scheduleCommitmentOnCalendar(
   input: ScheduleCommitmentInput
@@ -150,6 +150,21 @@ export async function scheduleCommitmentOnCalendar(
     endIso: new Date(end).toISOString(),
   });
   if (!created.ok) return { ok: false, error: created.error };
+
+  try {
+    await setCommitmentItemState({
+      item_key: input.itemKey,
+      state: "scheduled",
+      actor: "jasonos",
+    });
+  } catch (error) {
+    console.error("[commitments.schedule-state]", error);
+    return {
+      ok: false,
+      error:
+        "Calendar event was created, but the commitment could not be marked scheduled. Refresh and try marking it again.",
+    };
+  }
 
   revalidatePath("/");
   return { ok: true, title, htmlLink: created.htmlLink };

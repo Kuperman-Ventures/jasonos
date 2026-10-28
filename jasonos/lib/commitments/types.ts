@@ -13,7 +13,7 @@ export const SECTION_LABEL: Record<CommitmentSection, string> = {
 export const DELIVERY_STATES = ["not_delivered", "possibly_delivered"] as const;
 export type DeliveryState = (typeof DELIVERY_STATES)[number];
 
-export const ITEM_STATES = ["done", "dismissed", "snoozed"] as const;
+export const ITEM_STATES = ["done", "dismissed", "snoozed", "scheduled"] as const;
 export type ItemState = (typeof ITEM_STATES)[number];
 
 export type CommitmentSource = "gmail" | "granola" | "other";

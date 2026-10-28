@@ -18,6 +18,8 @@ const END_HOUR = 19;
 const PX_PER_HOUR = 48;
 const ET = "America/New_York";
 
+const RESIZE_DURATIONS = [30, 60] as const;
+
 type Props = {
   slots: HandoffSlot[];
   busy: BusyBlock[];
@@ -29,6 +31,11 @@ type Props = {
   readOnly?: boolean;
   onSelectMeeting?: (block: BusyBlock) => void;
   selectedEventId?: string | null;
+  /**
+   * Drag the bottom edge to snap between 30 and 60 minutes.
+   * Move keeps the current duration. Browning leave this off.
+   */
+  allowResize?: boolean;
 };
 
 export function SlotCalendar({
@@ -41,6 +48,7 @@ export function SlotCalendar({
   readOnly = false,
   onSelectMeeting,
   selectedEventId = null,
+  allowResize = false,
 }: Props) {
   const days = useMemo(() => weekdaysOf(weekMonday), [weekMonday]);
   const [local, setLocal] = useState(slots);
@@ -58,9 +66,20 @@ export function SlotCalendar({
     onChange(next);
   }
 
+  function durationMinutesOf(slot: HandoffSlot): number {
+    const ms = Date.parse(slot.end) - Date.parse(slot.start);
+    if (!Number.isFinite(ms) || ms <= 0) return SLOT_MINUTES;
+    const mins = Math.round(ms / 60_000);
+    if (allowResize) {
+      return mins >= 45 ? 60 : 30;
+    }
+    return SLOT_MINUTES;
+  }
+
   function addAt(ymd: string, startMin: number) {
     if (readOnly || !onChange) return;
     if (ymd < eligibleYmd) return;
+    if (startMin + SLOT_MINUTES > END_HOUR * 60) return;
     const start = etIso(ymd, startMin);
     const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
     if (slotOverlaps(start, end, local)) return;
@@ -75,8 +94,11 @@ export function SlotCalendar({
   function previewMove(id: string, ymd: string, startMin: number) {
     if (readOnly) return;
     if (ymd < eligibleYmd) return;
+    const current = local.find((slot) => slot.id === id);
+    const duration = current ? durationMinutesOf(current) : SLOT_MINUTES;
+    if (startMin + duration > END_HOUR * 60) return;
     const start = etIso(ymd, startMin);
-    const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
+    const end = new Date(Date.parse(start) + duration * 60_000).toISOString();
     const others = local.filter((slot) => slot.id !== id);
     if (slotOverlaps(start, end, others)) return;
     const reason = placementBlockReason(start, end, busy);
@@ -86,6 +108,41 @@ export function SlotCalendar({
     }
     blockWarning.current = null;
     setLocal(local.map((slot) => (slot.id === id ? { ...slot, start, end } : slot)));
+  }
+
+  function previewResize(id: string, endMin: number) {
+    if (readOnly || !allowResize) return;
+    const current = local.find((slot) => slot.id === id);
+    if (!current) return;
+    const ymd = etYmd(current.start);
+    const startMin = etMinutes(current.start);
+    const raw = endMin - startMin;
+    const duration =
+      raw < 45 ? RESIZE_DURATIONS[0] : RESIZE_DURATIONS[1];
+    if (startMin + duration > END_HOUR * 60) {
+      blockWarning.current = "That block runs past the day grid.";
+      return;
+    }
+    const start = current.start;
+    const end = new Date(Date.parse(start) + duration * 60_000).toISOString();
+    const others = local.filter((slot) => slot.id !== id);
+    if (slotOverlaps(start, end, others)) return;
+    const reason = placementBlockReason(start, end, busy);
+    if (reason) {
+      blockWarning.current = reason;
+      return;
+    }
+    blockWarning.current = null;
+    setLocal(local.map((slot) => (slot.id === id ? { ...slot, end } : slot)));
+  }
+
+  function finishEdit() {
+    if (readOnly || !onChange) return;
+    if (blockWarning.current) {
+      onBlocked?.(blockWarning.current);
+      blockWarning.current = null;
+    }
+    onChange(local);
   }
 
   return (
@@ -118,19 +175,14 @@ export function SlotCalendar({
             ymd={day.ymd}
             locked={day.ymd < eligibleYmd}
             readOnly={readOnly}
+            allowResize={allowResize}
             slots={(readOnly ? slots : local).filter((slot) => etYmd(slot.start) === day.ymd)}
             busy={busy.filter((block) => blockHitsDay(block, day.ymd))}
             selectedEventId={selectedEventId}
             onAdd={(min) => addAt(day.ymd, min)}
             onPreviewMove={(id, min) => previewMove(id, day.ymd, min)}
-            onCommitMove={() => {
-              if (readOnly || !onChange) return;
-              if (blockWarning.current) {
-                onBlocked?.(blockWarning.current);
-                blockWarning.current = null;
-              }
-              onChange(local);
-            }}
+            onPreviewResize={(id, min) => previewResize(id, min)}
+            onCommitMove={finishEdit}
             onRemove={(id) => commit(local.filter((slot) => slot.id !== id))}
             onSelectMeeting={onSelectMeeting}
           />
@@ -144,11 +196,13 @@ function DayColumn({
   ymd,
   locked,
   readOnly,
+  allowResize,
   slots,
   busy,
   selectedEventId,
   onAdd,
   onPreviewMove,
+  onPreviewResize,
   onCommitMove,
   onRemove,
   onSelectMeeting,
@@ -156,11 +210,13 @@ function DayColumn({
   ymd: string;
   locked: boolean;
   readOnly: boolean;
+  allowResize: boolean;
   slots: HandoffSlot[];
   busy: BusyBlock[];
   selectedEventId: string | null;
   onAdd: (startMin: number) => void;
   onPreviewMove: (id: string, startMin: number) => void;
+  onPreviewResize: (id: string, endMin: number) => void;
   onCommitMove: () => void;
   onRemove: (id: string) => void;
   onSelectMeeting?: (block: BusyBlock) => void;
@@ -174,7 +230,7 @@ function DayColumn({
     const y = Math.min(Math.max(clientY - rect.top, 0), height);
     const raw = START_HOUR * 60 + (y / PX_PER_HOUR) * 60;
     const snapped = Math.round(raw / 30) * 30;
-    return Math.min(Math.max(snapped, START_HOUR * 60), (END_HOUR - 1) * 60);
+    return Math.min(Math.max(snapped, START_HOUR * 60), END_HOUR * 60);
   }
 
   return (
@@ -254,7 +310,9 @@ function DayColumn({
             key={slot.id}
             slot={slot}
             conflict={busy.some((block) => rangesOverlap(slot.start, slot.end, block, ymd))}
+            allowResize={allowResize}
             onPreviewMove={(min) => onPreviewMove(slot.id, min)}
+            onPreviewResize={(min) => onPreviewResize(slot.id, min)}
             onCommitMove={onCommitMove}
             onRemove={() => onRemove(slot.id)}
             minutesAt={minutesAt}
@@ -296,46 +354,68 @@ function OfferedSlotBlock({
 function SlotBlock({
   slot,
   conflict,
+  allowResize,
   onPreviewMove,
+  onPreviewResize,
   onCommitMove,
   onRemove,
   minutesAt,
 }: {
   slot: HandoffSlot;
   conflict: boolean;
+  allowResize: boolean;
   onPreviewMove: (startMin: number) => void;
+  onPreviewResize: (endMin: number) => void;
   onCommitMove: () => void;
   onRemove: () => void;
   minutesAt: (clientY: number) => number;
 }) {
-  const [dragging, setDragging] = useState(false);
+  const [active, setActive] = useState(false);
+  const modeRef = useRef<"idle" | "move" | "resize">("idle");
   const top = minutesToPx(etMinutes(slot.start));
-  const height = Math.max(22, ((Date.parse(slot.end) - Date.parse(slot.start)) / 3600000) * PX_PER_HOUR);
+  const durationMins = Math.max(
+    30,
+    Math.round((Date.parse(slot.end) - Date.parse(slot.start)) / 60_000)
+  );
+  const height = Math.max(22, (durationMins / 60) * PX_PER_HOUR);
+
+  function begin(mode: "move" | "resize", target: HTMLElement, pointerId: number) {
+    modeRef.current = mode;
+    setActive(true);
+    target.setPointerCapture(pointerId);
+  }
+
+  function finish() {
+    if (modeRef.current === "idle") return;
+    modeRef.current = "idle";
+    setActive(false);
+    onCommitMove();
+  }
 
   return (
     <div
       data-handoff-slot
       className={`absolute inset-x-1 z-10 cursor-grab rounded border px-1 py-0.5 text-[10px] leading-tight text-rung-ink ${
         conflict ? "border-rung-1 bg-rung-1" : "border-[var(--jos-line)] bg-rung-2"
-      } ${dragging ? "opacity-80" : ""}`}
+      } ${active ? "opacity-80" : ""}`}
       style={{ top, height }}
       onPointerDown={(event) => {
         if ((event.target as HTMLElement).closest("button")) return;
-        event.currentTarget.setPointerCapture(event.pointerId);
-        setDragging(true);
+        if ((event.target as HTMLElement).closest("[data-resize-handle]")) return;
+        begin("move", event.currentTarget, event.pointerId);
       }}
       onPointerMove={(event) => {
-        if (!dragging) return;
-        onPreviewMove(minutesAt(event.clientY));
+        if (modeRef.current === "move") onPreviewMove(minutesAt(event.clientY));
+        if (modeRef.current === "resize") onPreviewResize(minutesAt(event.clientY));
       }}
-      onPointerUp={() => {
-        if (!dragging) return;
-        setDragging(false);
-        onCommitMove();
-      }}
+      onPointerUp={finish}
+      onPointerCancel={finish}
     >
       <div className="flex items-start justify-between gap-1">
-        <span>{formatSlotLabel(slot.start).replace(" ET", "")}</span>
+        <span>
+          {formatSlotLabel(slot.start).replace(" ET", "")}
+          {allowResize ? ` · ${durationMins}m` : ""}
+        </span>
         <button
           type="button"
           className="rounded p-0.5 hover:bg-black/10"
@@ -348,6 +428,33 @@ function SlotBlock({
           <X className="h-3 w-3" />
         </button>
       </div>
+      {allowResize ? (
+        <button
+          type="button"
+          data-resize-handle
+          aria-label="Drag to set 30 or 60 minutes"
+          title="Drag to 30 or 60 minutes"
+          className="absolute inset-x-0 bottom-0 z-20 h-3 cursor-ns-resize rounded-b"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            begin("resize", event.currentTarget, event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            if (modeRef.current !== "resize") return;
+            onPreviewResize(minutesAt(event.clientY));
+          }}
+          onPointerUp={(event) => {
+            event.stopPropagation();
+            finish();
+          }}
+          onPointerCancel={(event) => {
+            event.stopPropagation();
+            finish();
+          }}
+        >
+          <span className="mx-auto mt-1 block h-0.5 w-6 rounded-full bg-rung-ink/40" />
+        </button>
+      ) : null}
     </div>
   );
 }

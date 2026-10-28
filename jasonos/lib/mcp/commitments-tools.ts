@@ -52,10 +52,10 @@ export function registerCommitmentTools(server: McpServer) {
     {
       title: "Mark a commitment",
       description:
-        "Mark a commitment done, dismissed, snoozed until a date, or open again (clears the mark). item_key comes from get_commitment_check.",
+        "Mark a commitment done, dismissed, snoozed until a date, scheduled (calendar work block set), or open again (clears the mark). item_key comes from get_commitment_check.",
       inputSchema: z.object({
         item_key: z.string().min(1).max(160),
-        state: z.enum(["done", "dismissed", "snoozed", "open"]),
+        state: z.enum(["done", "dismissed", "snoozed", "scheduled", "open"]),
         snoozed_until: z.string().describe("YYYY-MM-DD, required when state is snoozed").optional(),
         note: z.string().max(500).optional(),
       }),
