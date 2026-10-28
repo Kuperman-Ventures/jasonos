@@ -36,8 +36,8 @@ type Props = {
 };
 
 /**
- * Pick a free 30-minute slot (same week grid as Browning Networking) and put a
- * work block on the Advisors calendar. Jason sets the event title.
+ * Pick a free work block (30 or 60 minutes on the Browning week grid) and put it
+ * on the Advisors calendar. Jason sets the event title.
  */
 export function CommitmentScheduleDialog({
   item,
@@ -146,9 +146,9 @@ export function CommitmentScheduleDialog({
           <DialogDescription>
             {item ? (
               <>
-                Click a free 30-minute slot for “{item.promise}”
-                {item.to ? ` (to ${item.to})` : ""}. Edit the title, then add
-                it to your calendar.
+                Click a free slot for “{item.promise}”
+                {item.to ? ` (to ${item.to})` : ""}. Drag the bottom edge to
+                30 or 60 minutes, edit the title, then add it to your calendar.
               </>
             ) : (
               "Pick a free time on your calendar."
@@ -203,6 +203,12 @@ export function CommitmentScheduleDialog({
           {selected ? (
             <span className="ml-auto text-xs text-muted-foreground">
               Selected {formatSlotLabel(selected.start)}
+              {" · "}
+              {Math.max(
+                30,
+                Math.round((Date.parse(selected.end) - Date.parse(selected.start)) / 60_000)
+              )}
+              m
             </span>
           ) : (
             <span className="ml-auto text-xs text-muted-foreground">
@@ -217,6 +223,7 @@ export function CommitmentScheduleDialog({
           busy={busy}
           eligibleYmd={today}
           weekMonday={weekMonday}
+          allowResize
           onChange={placeSlot}
           onBlocked={(message) => toast.error(message)}
         />

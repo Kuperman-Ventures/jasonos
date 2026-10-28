@@ -87,6 +87,17 @@ describe("buildViews", () => {
     const { visible } = buildViews(items, [state(items[2].key, "snoozed", "2026-10-11")], "2026-10-11");
     assert.deepEqual(visible.map((v) => v.section), ["overdue", "coming_up", "no_date"]);
   });
+
+  it("keeps scheduled items visible with scheduled state", () => {
+    const { visible, hidden } = buildViews(
+      items,
+      [state(items[0].key, "scheduled")],
+      "2026-10-10"
+    );
+    assert.equal(hidden, 0);
+    const hit = visible.find((v) => v.key === items[0].key);
+    assert.equal(hit?.state, "scheduled");
+  });
 });
 
 describe("dates", () => {

@@ -173,6 +173,14 @@ export function CommitmentCheckPanel({
                                 To {item.to} · {item.due_date ? `Due ${formatDue(item.due_date)}` : "No date set"}
                                 {item.context ? ` · ${item.context}` : ""}
                               </p>
+                              {item.state === "scheduled" ? (
+                                <p className="mt-1 flex items-start gap-2 text-xs">
+                                  <StatusPill rung={3}>Scheduled</StatusPill>
+                                  <span className="text-muted-foreground">
+                                    Work block is on your calendar
+                                  </span>
+                                </p>
+                              ) : null}
                               {item.delivery === "possibly_delivered" ? (
                                 <p className="mt-1 flex items-start gap-2 text-xs">
                                   <StatusPill rung={2}>Possibly delivered</StatusPill>
@@ -250,6 +258,10 @@ export function CommitmentCheckPanel({
         open={Boolean(scheduleItem)}
         onOpenChange={(next) => {
           if (!next) setScheduleItem(null);
+        }}
+        onScheduled={() => {
+          setScheduleItem(null);
+          router.refresh();
         }}
       />
     </section>

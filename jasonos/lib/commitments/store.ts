@@ -188,7 +188,9 @@ async function logCommitmentDecision(
         ? "Not a commitment"
         : state === "snoozed"
           ? "Snoozed"
-          : "Reopened";
+          : state === "scheduled"
+            ? "Scheduled"
+            : "Reopened";
   const detail = [state === "snoozed" && snoozedUntil ? untilDetail(snoozedUntil) : null, to ? `To ${to}` : null]
     .filter(Boolean)
     .join(" · ");
