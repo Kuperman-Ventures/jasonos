@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Mail } from "lucide-react";
 import { DomainBand, StatusPill } from "@/components/jasonos/brand/status";
@@ -13,8 +13,6 @@ import {
   scheduleSentEmailFollowup,
   type SentEmailFollowup,
 } from "@/lib/server-actions/sent-followups";
-
-const STORAGE_KEY = "jasonos.sent-followups.collapsed";
 
 function sentLabel(iso: string): string {
   const t = Date.parse(iso);
@@ -56,6 +54,8 @@ export function SentFollowupsPanel({
   dueRows: SentEmailFollowup[];
 }) {
   const router = useRouter();
+  // Always start collapsed on each Home visit — items must not force it open,
+  // and a prior "left open" preference must not either.
   const [collapsed, setCollapsed] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -63,26 +63,8 @@ export function SentFollowupsPanel({
   const visiblePick = rows.filter((row) => !hidden.has(row.id));
   const totalVisible = visibleDue.length + visiblePick.length;
 
-  useEffect(() => {
-    // Default collapsed; only expand if Jason previously chose open.
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
-    } catch {
-      // private mode / quota
-    }
-  }, []);
-
   const toggleCollapsed = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+    setCollapsed((prev) => !prev);
   };
 
   const run = async (
