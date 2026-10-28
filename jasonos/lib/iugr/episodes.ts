@@ -3,6 +3,7 @@ import type {
   ChapterId,
   EpisodeDefinition,
   FutureEntryTeaser,
+  LiveEntry,
 } from "./types";
 
 export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
@@ -131,6 +132,23 @@ export const EPISODE_01: EpisodeDefinition = {
   chapterIds: CHAPTER_SEQUENCE,
 };
 
+export const LIVE_ENTRIES: LiveEntry[] = [
+  {
+    id: "are-you-an-original",
+    entryNumber: 1,
+    title: "Are You an Original?",
+    statusLabel: "Live",
+    href: "/iugr",
+  },
+  {
+    id: "dark-matter-travel-tracker",
+    entryNumber: 2,
+    title: "Dark Matter Travel Tracker",
+    statusLabel: "Live",
+    href: "/iugr/dark-matter",
+  },
+];
+
 export const FUTURE_ENTRIES: FutureEntryTeaser[] = [
   {
     id: "why-time-moves",
@@ -148,6 +166,10 @@ export const FUTURE_ENTRIES: FutureEntryTeaser[] = [
     statusLabel: "Coming soon",
   },
 ];
+
+export function otherLiveEntries(currentId: string): LiveEntry[] {
+  return LIVE_ENTRIES.filter((entry) => entry.id !== currentId);
+}
 
 export function getChapter(id: ChapterId): ChapterDefinition {
   return CHAPTERS[id];

@@ -1,28 +1,6 @@
-import { notFound } from "next/navigation";
-import { DarkMatterTripView } from "@/components/dark-matter/trip-view";
-import { getTripBySlug } from "@/lib/dark-matter-travel-tracker/store";
+import { redirect } from "next/navigation";
+import { DARK_MATTER_ROOT } from "@/lib/dark-matter-travel-tracker/types";
 
-export const dynamic = "force-dynamic";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const trip = await getTripBySlug(slug);
-  return {
-    title: trip ? `${trip.title} · Dark Matter Travel Tracker` : "Trip not found",
-  };
-}
-
-export default async function DarkMatterTripPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const trip = await getTripBySlug(slug);
-  if (!trip) notFound();
-  return <DarkMatterTripView trip={trip} />;
+export default function LegacyDarkMatterTripPage() {
+  redirect(DARK_MATTER_ROOT);
 }

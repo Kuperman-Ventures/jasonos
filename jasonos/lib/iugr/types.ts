@@ -59,6 +59,14 @@ export type FutureEntryTeaser = {
   statusLabel: string;
 };
 
+export type LiveEntry = {
+  id: string;
+  entryNumber: number;
+  title: string;
+  statusLabel: "Live";
+  href: string;
+};
+
 /** User stance on whether perfect copies count as conscious people. */
 export type ConsciousnessPremise = "yes" | "unsure" | "no";
 

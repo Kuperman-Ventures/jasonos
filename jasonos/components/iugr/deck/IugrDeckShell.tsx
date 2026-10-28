@@ -16,6 +16,7 @@ import {
   pullBodyLines,
 } from "@/components/iugr/deck/CopyMachineStage";
 import { TownStage } from "@/components/iugr/deck/TownStage";
+import { IugrLibraryList } from "@/components/iugr/library-list";
 import { SourcesDrawer } from "@/components/iugr/SourcesDrawer";
 import {
   DECK,
@@ -32,7 +33,6 @@ import {
   writePersisted,
   type DeckPersisted,
 } from "@/lib/iugr/deckStorage";
-import { FUTURE_ENTRIES } from "@/lib/iugr/episodes";
 import { SERIES } from "@/lib/iugr/copy";
 import { CLOSING_SCRIPT } from "@/lib/iugr/script";
 import {
@@ -722,19 +722,7 @@ export function IugrDeckShell() {
                 </button>
               ))}
             </nav>
-            <div className="iugr-deck-menu-other">
-              <h3>Other entries</h3>
-              <ul>
-                {FUTURE_ENTRIES.map((entry) => (
-                  <li key={entry.id}>
-                    <span>{entry.title}</span>
-                    <span className="iugr-deck-menu-status">
-                      {entry.statusLabel}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <IugrLibraryList currentId="are-you-an-original" />
             <Link className="iugr-deck-menu-home" href="/">
               Back to JasonOS
             </Link>

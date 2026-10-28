@@ -59,7 +59,7 @@ clicking it shows a "needs configuration" toast.
 
 ## Login
 
-Locked JasonOS pages use Face ID / Touch ID (passkeys) with a 7-day stamp. IUGR, Ski Tracker, Dark Matter Travel Tracker, and the College tracker are not behind this login. Dashboard setup: [Login](docs/login.md). Dark Matter isolation notes: [Dark Matter Travel Tracker](docs/dark-matter-travel-tracker.md).
+Locked JasonOS pages use Face ID / Touch ID (passkeys) with a 7-day stamp. IUGR (including Dark Matter Travel Tracker), Ski Tracker, and the College tracker are not behind this login. Dashboard setup: [Login](docs/login.md). Dark Matter isolation notes: [Dark Matter Travel Tracker](docs/dark-matter-travel-tracker.md).
 
 ## Cursor & Claude
 

@@ -492,6 +492,24 @@
   white-space: nowrap;
 }
 
+.iugr-future-item.is-live {
+  opacity: 1;
+  border-style: solid;
+}
+
+.iugr-future-item.is-live a {
+  color: var(--iugr-cream);
+  text-decoration: none;
+}
+
+.iugr-future-item.is-live a:hover {
+  text-decoration: underline;
+}
+
+.iugr-future-item.is-live span:last-child {
+  color: var(--iugr-accent);
+}
+
 .iugr-dialog {
   width: min(100%, 26rem);
   border: 1px solid var(--iugr-border-strong);
@@ -4884,6 +4902,15 @@ body:has(.iugr-root) nextjs-portal {
   gap: 2px;
   color: var(--text-body);
   font-size: 14px;
+}
+
+.iugr-deck-menu-other a {
+  color: var(--cream);
+  text-decoration: none;
+}
+
+.iugr-deck-menu-other a:hover {
+  text-decoration: underline;
 }
 
 .iugr-deck-menu-status {

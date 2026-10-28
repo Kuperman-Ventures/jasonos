@@ -1,6 +1,8 @@
-export const DARK_MATTER_ROOT = "/projects/dark-matter-travel-tracker";
+export const DARK_MATTER_ROOT = "/iugr/dark-matter";
 export const DARK_MATTER_SHORT = "/dark-matter";
+export const DARK_MATTER_LEGACY = "/projects/dark-matter-travel-tracker";
 export const DARK_MATTER_API = "/api/dark-matter-travel-tracker";
+export const DARK_MATTER_ENTRY_ID = "dark-matter-travel-tracker";
 
 export const TRIP_STATUSES = [
   "idea",

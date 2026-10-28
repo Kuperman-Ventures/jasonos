@@ -12,6 +12,7 @@ describe("public JasonOS paths", () => {
   it("leaves IUGR, Ski Tracker, and Dark Matter Travel Tracker open", () => {
     assert.equal(isPublicJasonosPath("/iugr"), true);
     assert.equal(isPublicJasonosPath("/iugr/deck"), true);
+    assert.equal(isPublicJasonosPath("/iugr/dark-matter"), true);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker"), true);
     assert.equal(isPublicJasonosPath("/api/ski-tracker"), true);
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker"), true);
@@ -68,6 +69,7 @@ describe("public JasonOS paths", () => {
   it("hides chrome on login, IUGR, Ski Tracker, and Dark Matter", () => {
     assert.equal(hidesJasonosChrome("/login"), true);
     assert.equal(hidesJasonosChrome("/iugr"), true);
+    assert.equal(hidesJasonosChrome("/iugr/dark-matter"), true);
     assert.equal(hidesJasonosChrome("/projects/ski-tracker"), true);
     assert.equal(hidesJasonosChrome("/projects/dark-matter-travel-tracker"), true);
     assert.equal(hidesJasonosChrome("/dark-matter"), true);
