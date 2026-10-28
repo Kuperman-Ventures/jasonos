@@ -1,29 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Barlow_Condensed, Michroma, Newsreader } from "next/font/google";
 import "./dark-matter.css";
-
-const michroma = Michroma({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-dm-title",
-  display: "swap",
-});
-
-const barlow = Barlow_Condensed({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-dm-heading",
-  display: "swap",
-});
-
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
-  variable: "--font-dm-body",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Dark Matter · IUGR",
@@ -33,8 +10,14 @@ export const metadata: Metadata = {
 
 export default function DarkMatterLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${michroma.variable} ${barlow.variable} ${newsreader.variable}`}>
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Michroma&family=Barlow+Condensed:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap"
+      />
       {children}
-    </div>
+    </>
   );
 }

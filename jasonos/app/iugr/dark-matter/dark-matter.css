@@ -12,9 +12,9 @@
   --dm-icon: #10181c;
   --dm-panel: rgba(255, 255, 255, 0.04);
   --dm-border: rgba(255, 255, 255, 0.08);
-  --font-title: var(--font-dm-title), Michroma, sans-serif;
-  --font-heading: var(--font-dm-heading), "Barlow Condensed", sans-serif;
-  --font-body: var(--font-dm-body), Newsreader, serif;
+  --font-title: Michroma, sans-serif;
+  --font-heading: "Barlow Condensed", sans-serif;
+  --font-body: Newsreader, serif;
 
   min-height: 100dvh;
   margin: 0;
