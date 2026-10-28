@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 import { toast } from "sonner";
+import { OpenContactButton } from "@/components/jasonos/outreach/open-contact-button";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
 import {
@@ -138,7 +139,13 @@ export function SentFollowupsClient({
                             followupId={row.id}
                             appleMailUrl={row.appleMailUrl}
                           />
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <OpenContactButton
+                              contactId={row.contactId}
+                              contactName={row.contactName}
+                              variant="emailGhost"
+                              disabled={busyId === row.id}
+                            />
                             <SentFollowupControls
                               busy={busyId === row.id}
                               onSchedule={(days) =>
@@ -182,7 +189,13 @@ export function SentFollowupsClient({
                             followupId={row.id}
                             appleMailUrl={row.appleMailUrl}
                           />
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <OpenContactButton
+                              contactId={row.contactId}
+                              contactName={row.contactName}
+                              variant="emailGhost"
+                              disabled={busyId === row.id}
+                            />
                             <SentFollowupControls
                               busy={busyId === row.id}
                               onSchedule={(days) =>

@@ -50,6 +50,9 @@ export interface SentEmailFollowup {
   appleMailUrl: string | null;
   accountEmail: string;
   daysOverdue: number;
+  /** First recipient that matches a JasonOS contact, when known. */
+  contactId: string | null;
+  contactName: string | null;
 }
 
 export interface SentThreadMessageView {
@@ -103,7 +106,11 @@ function asRecipients(value: unknown): MailAddress[] {
   return out;
 }
 
-function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
+function toView(
+  row: FollowupRow,
+  today = etToday(),
+  contact: { id: string; name: string } | null = null
+): SentEmailFollowup {
   const due = row.follow_up_due?.slice(0, 10) ?? null;
   return {
     id: row.id,
@@ -119,7 +126,32 @@ function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
     appleMailUrl: appleMailMessageUrl(row.rfc822_message_id),
     accountEmail: row.account_email,
     daysOverdue: due ? followupDaysOverdue(due, today) : 0,
+    contactId: contact?.id ?? null,
+    contactName: contact?.name ?? null,
   };
+}
+
+function contactForRecipients(
+  recipients: MailAddress[],
+  lookup: Awaited<ReturnType<typeof buildContactLookup>>
+): { id: string; name: string } | null {
+  for (const addr of recipients) {
+    const hit = lookup.resolveEmail(addr.email);
+    if (hit) return { id: hit.id, name: hit.name };
+  }
+  return null;
+}
+
+async function viewsWithContacts(
+  rows: FollowupRow[],
+  today = etToday()
+): Promise<SentEmailFollowup[]> {
+  if (!rows.length) return [];
+  const lookup = await buildContactLookup();
+  return rows.map((row) => {
+    const recipients = asRecipients(row.recipients);
+    return toView(row, today, contactForRecipients(recipients, lookup));
+  });
 }
 
 function rowPayload(hit: SentMailHit, status: SentFollowupStatus) {
@@ -418,7 +450,7 @@ export async function getSentEmailFollowups(): Promise<SentEmailFollowup[]> {
     console.error("[sent-followups.list]", error);
     return [];
   }
-  return ((data ?? []) as FollowupRow[]).map((row) => toView(row));
+  return viewsWithContacts((data ?? []) as FollowupRow[]);
 }
 
 export async function getNewSentFollowupCount(): Promise<number> {
@@ -440,9 +472,8 @@ export async function getDueSentEmailFollowups(): Promise<SentEmailFollowup[]> {
     console.error("[sent-followups.due]", error);
     return [];
   }
-  return ((data ?? []) as FollowupRow[])
-    .map((row) => toView(row, today))
-    .filter((row) => isFollowupDue(row.followUpDue, today));
+  const views = await viewsWithContacts((data ?? []) as FollowupRow[], today);
+  return views.filter((row) => isFollowupDue(row.followUpDue, today));
 }
 
 /** @deprecated Use getSentEmailFollowups — Home mirrors Networking → Follow Up. */

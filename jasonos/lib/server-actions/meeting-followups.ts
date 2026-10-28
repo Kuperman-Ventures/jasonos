@@ -61,6 +61,9 @@ export interface MeetingFollowup {
   granolaUrl: string | null;
   draftSubject: string | null;
   draftBody: string | null;
+  /** Primary pending attendee that matches a JasonOS contact, when known. */
+  contactId: string | null;
+  contactName: string | null;
 }
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -105,7 +108,11 @@ function asAttendees(value: unknown): MeetingAttendee[] {
   return out;
 }
 
-function toView(row: FollowupRow, today = etToday()): MeetingFollowup {
+function toView(
+  row: FollowupRow,
+  today = etToday(),
+  contact: { id: string; name: string } | null = null
+): MeetingFollowup {
   const pending = asAttendees(row.pending_attendees);
   return {
     id: row.id,
@@ -124,7 +131,45 @@ function toView(row: FollowupRow, today = etToday()): MeetingFollowup {
     granolaUrl: row.granola_url,
     draftSubject: row.draft_subject,
     draftBody: row.draft_body,
+    contactId: contact?.id ?? null,
+    contactName: contact?.name ?? null,
   };
+}
+
+function contactForMeeting(
+  pending: MeetingAttendee[],
+  attendees: MeetingAttendee[],
+  title: string,
+  lookup: Awaited<ReturnType<typeof buildContactLookup>>
+): { id: string; name: string } | null {
+  const primary = pickPrimaryFollowupAttendee(pending, attendees, title);
+  const ordered = [primary, ...pending, ...attendees];
+  const seen = new Set<string>();
+  for (const person of ordered) {
+    const key = person.email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hit = lookup.resolveEmail(person.email);
+    if (hit) return { id: hit.id, name: hit.name };
+  }
+  return null;
+}
+
+async function viewsWithContacts(
+  rows: FollowupRow[],
+  today = etToday()
+): Promise<MeetingFollowup[]> {
+  if (!rows.length) return [];
+  const lookup = await buildContactLookup();
+  return rows.map((row) => {
+    const pending = asAttendees(row.pending_attendees);
+    const attendees = asAttendees(row.attendees);
+    return toView(
+      row,
+      today,
+      contactForMeeting(pending, attendees, row.title, lookup)
+    );
+  });
 }
 
 function rowPayload(
@@ -564,9 +609,10 @@ export async function getDueMeetingFollowups(): Promise<MeetingFollowup[]> {
     console.error("[meeting-followups.due]", error);
     return [];
   }
-  return ((data ?? []) as FollowupRow[])
-    .map((row) => toView(row, today))
-    .filter((row) => isMeetingFollowupDue(row.status, row.snoozeUntil, today));
+  const views = await viewsWithContacts((data ?? []) as FollowupRow[], today);
+  return views.filter((row) =>
+    isMeetingFollowupDue(row.status, row.snoozeUntil, today)
+  );
 }
 
 export async function getOpenMeetingFollowupCount(): Promise<number> {
