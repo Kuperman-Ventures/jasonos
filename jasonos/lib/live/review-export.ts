@@ -24,7 +24,7 @@ export type ReviewFinetunePackage = {
   }>;
   transcript: {
     text: string | null;
-    source: "granola" | "wispr" | null;
+    source: "granola" | "wispr" | "paste" | null;
     fetched_at: string | null;
   };
   analysis: {
