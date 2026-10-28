@@ -1,0 +1,665 @@
+{
+  "tokenFormat": "Letter=character, suffix=version; '*'=another variant, 'X'=local World X version",
+  "characters": {
+    "J": "Jason",
+    "D": "Daniela",
+    "C": "Charlie",
+    "A": "Amanda",
+    "R": "Ryan",
+    "B": "Blair",
+    "L": "Leighton",
+    "M": "Max"
+  },
+  "ringColors": {
+    "J": "#19c3f0",
+    "D": "#ff2e93",
+    "C": "#e8eef0",
+    "A": "#f2b84b",
+    "R": "#8fa3aa",
+    "B": "#8fa3aa",
+    "L": "#8fa3aa",
+    "M": "#8fa3aa"
+  },
+  "laneColors": {
+    "j1": "#19c3f0",
+    "j2": "#ff2e93",
+    "a": "#f2b84b",
+    "f": "#e8eef0",
+    "b": "#6c7a80"
+  },
+  "season1": {
+    "captions": [
+      "Two versions of the same lives: Chicago and the lab world. Jason 2 abducts Jason 1 and takes his life.",
+      "Jason 1 and Amanda 2 escape into the Corridor.",
+      "First stops: frozen and lethal Chicagos.",
+      "A pandemic world, with a dying Daniela. Intervening travel is omitted.",
+      "The progressive world, where the paths split.",
+      "Jason 1 continues alone, back to a home with many Jasons.",
+      "Amanda stays in a world of her own choosing."
+    ],
+    "worlds": [
+      {
+        "number": 1,
+        "firstVisibleStep": 0,
+        "title": "HOME REALITY",
+        "subtitle": "S1 E1 · Chicago",
+        "cast": [
+          "J1",
+          "D1",
+          "C1",
+          "R1"
+        ],
+        "description": "Where Jason 1, Daniela 1, Charlie 1 and Ryan 1 begin in S1 E1. Jason 2 takes his place here.",
+        "hue": 210
+      },
+      {
+        "number": 2,
+        "firstVisibleStep": 0,
+        "title": "VELOCITY REALITY",
+        "subtitle": "S1 E1–3 · lab / art world",
+        "cast": [
+          "J2",
+          "A2",
+          "L2",
+          "D2"
+        ],
+        "description": "The lab and art world of Jason 2, Amanda 2, Leighton 2 and Daniela 2. Jason 1 is taken here.",
+        "hue": 185
+      },
+      {
+        "number": 3,
+        "firstVisibleStep": 1,
+        "title": "THE CORRIDOR",
+        "subtitle": "S1 E4 · escape + navigation",
+        "cast": [
+          "J1",
+          "A2"
+        ],
+        "description": "Jason 1 escapes and navigates between worlds with Amanda 2.",
+        "hue": 0
+      },
+      {
+        "number": 4,
+        "firstVisibleStep": 2,
+        "title": "HOSTILE WORLDS",
+        "subtitle": "Frozen + lethal Chicagos",
+        "cast": [
+          "J1",
+          "A2"
+        ],
+        "description": "Frozen and lethal versions of Chicago. Jason 1 and Amanda 2 pass through.",
+        "hue": 200
+      },
+      {
+        "number": 5,
+        "firstVisibleStep": 3,
+        "title": "PANDEMIC WORLD",
+        "subtitle": "S1 E5 · dying Daniela",
+        "cast": [
+          "J1",
+          "A2",
+          "D*"
+        ],
+        "description": "A pandemic world in S1 E5, where a variant of Daniela is dying. Blair 2 appears in an insect world, and other stops are grouped.",
+        "hue": 95
+      },
+      {
+        "number": 6,
+        "firstVisibleStep": 4,
+        "title": "PROGRESSIVE WORLD",
+        "subtitle": "S1 E7 · paths split",
+        "cast": [
+          "J1",
+          "A2"
+        ],
+        "description": "In S1 E7 Jason 1 and Amanda 2 reach the world where their paths split.",
+        "hue": 155
+      },
+      {
+        "number": 7,
+        "firstVisibleStep": 5,
+        "title": "HOME · RETURN",
+        "subtitle": "S1 E7–9 · many Jasons",
+        "cast": [
+          "J1",
+          "D1",
+          "C1",
+          "J2"
+        ],
+        "description": "Jason 1 continues alone and returns home in S1 E7–9, where he, his family and Jason 2 meet. Other Jason 1 branches exist.",
+        "hue": 215
+      },
+      {
+        "number": 8,
+        "firstVisibleStep": 6,
+        "title": "AMANDA STAYS",
+        "subtitle": "Her own chosen home",
+        "cast": [
+          "A2"
+        ],
+        "description": "Amanda 2 stays in a world of her own choosing.",
+        "hue": 40
+      }
+    ],
+    "lanes": [
+      {
+        "colorKey": "j1",
+        "label": "Jason 1",
+        "sublabel": "original protagonist",
+        "stops": [
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "J1"
+            ],
+            "note": "abducted",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 2,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 4,
+            "tokens": [
+              "J1"
+            ],
+            "note": "Blair 2 in insect world; stops grouped",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 6,
+            "tokens": [
+              "J1"
+            ],
+            "note": "continues alone",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "j2",
+        "label": "Jason 2",
+        "sublabel": "abductor",
+        "stops": [
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "J2"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "J2"
+            ],
+            "note": "takes J1’s life",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 6,
+            "tokens": [
+              "J2"
+            ],
+            "note": "",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "a",
+        "label": "Amanda 2",
+        "sublabel": "traveling companion",
+        "stops": [
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "A2"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 2,
+            "tokens": [
+              "A2"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "A2"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 4,
+            "tokens": [
+              "A2"
+            ],
+            "note": "",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "A2"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 7,
+            "tokens": [
+              "A2"
+            ],
+            "note": "stays",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "f",
+        "label": "Daniela 1 & Charlie 1",
+        "sublabel": "original family",
+        "stops": [
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "D1",
+              "C1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 6,
+            "tokens": [
+              "D1",
+              "C1"
+            ],
+            "note": "",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "b",
+        "label": "Other Jason branches",
+        "sublabel": "disconnected",
+        "stops": [
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "J*"
+            ],
+            "note": "other J1 branches",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 6,
+            "tokens": [
+              "J*"
+            ],
+            "note": "",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          }
+        ]
+      }
+    ]
+  },
+  "season2": {
+    "captions": [
+      "The family escapes through Charlie’s door.",
+      "A secluded refuge, where another Jason is killed.",
+      "World X, an analog Chicago. Jason 1 meets the local Amanda.",
+      "The family separates: Charlie leaves and Daniela follows. Jason 2 arrives after his own travels.",
+      "Elsewhere: Daniela with J13, and Charlie finds Max.",
+      "S2 E9: reunion in World X to disable the original Box."
+    ],
+    "worlds": [
+      {
+        "number": 1,
+        "firstVisibleStep": 0,
+        "title": "FAMILY ESCAPES",
+        "subtitle": "From S1 finale · Charlie’s door",
+        "cast": [
+          "J1",
+          "D1",
+          "C1"
+        ],
+        "description": "Jason 1, Daniela 1 and Charlie 1 leave at the end of Season 1 through Charlie’s door.",
+        "hue": 205
+      },
+      {
+        "number": 2,
+        "firstVisibleStep": 1,
+        "title": "SECLUDED REFUGE",
+        "subtitle": "S2 E1 · another Jason killed",
+        "cast": [
+          "J1",
+          "D1",
+          "C1"
+        ],
+        "description": "S2 E1. The family shelters here, and another Jason is killed.",
+        "hue": 150
+      },
+      {
+        "number": 3,
+        "firstVisibleStep": 2,
+        "title": "WORLD X",
+        "subtitle": "S2 E2–9 · analog Chicago",
+        "cast": [
+          "J1",
+          "D1",
+          "C1",
+          "AX"
+        ],
+        "description": "An analog Chicago where the family settles again, from S2 E2 through E9. The local Amanda owns a diner and is Eduardo’s mom. Jason 1 meets her here.",
+        "hue": 38
+      },
+      {
+        "number": 4,
+        "firstVisibleStep": 3,
+        "title": "FAMILY SEPARATES",
+        "subtitle": "Charlie leaves; Daniela follows",
+        "cast": [
+          "D1",
+          "C1",
+          "J2",
+          "J*",
+          "A*"
+        ],
+        "description": "Charlie leaves World X and Daniela follows. Jason 2 arrives after his separate travels. Separate Jason branches, disconnected from the main Jason 1 line: E5 mother / Maria, E8 Laurel.",
+        "hue": 330
+      },
+      {
+        "number": 5,
+        "firstVisibleStep": 4,
+        "title": "ELSEWHERE",
+        "subtitle": "D1 with J13 · C1 finds Max",
+        "cast": [
+          "D1",
+          "J13",
+          "C1",
+          "M*"
+        ],
+        "description": "Daniela 1 ends up with Jason 13. Charlie 1 finds Max.",
+        "hue": 265
+      },
+      {
+        "number": 6,
+        "firstVisibleStep": 5,
+        "title": "WORLD X · REUNION",
+        "subtitle": "S2 E9 · disable the original Box",
+        "cast": [
+          "J1",
+          "A2",
+          "R1",
+          "B2"
+        ],
+        "description": "In S2 E9, Jason 1, Amanda 2, Ryan 1 and Blair 2 come together in World X to disable the original Box.",
+        "hue": 185
+      }
+    ],
+    "lanes": [
+      {
+        "colorKey": "j1",
+        "label": "Jason 1",
+        "sublabel": "original protagonist",
+        "stops": [
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "J1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 2,
+            "tokens": [
+              "J1"
+            ],
+            "note": "meets local Amanda",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "J1"
+            ],
+            "note": "remains in World X",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "f",
+        "label": "Daniela 1",
+        "sublabel": "original family",
+        "stops": [
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "D1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "D1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 2,
+            "tokens": [
+              "D1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "D1"
+            ],
+            "note": "follows Charlie",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 4,
+            "tokens": [
+              "D1"
+            ],
+            "note": "with J13",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "f",
+        "label": "Charlie 1",
+        "sublabel": "original family",
+        "stops": [
+          {
+            "worldIndex": 0,
+            "tokens": [
+              "C1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 1,
+            "tokens": [
+              "C1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 2,
+            "tokens": [
+              "C1"
+            ],
+            "note": "",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "C1"
+            ],
+            "note": "leaves",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 4,
+            "tokens": [
+              "C1"
+            ],
+            "note": "finds Max",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "j2",
+        "label": "Jason 2",
+        "sublabel": "after separate travels",
+        "stops": [
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "J2"
+            ],
+            "note": "arrives",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          },
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "J2"
+            ],
+            "note": "",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": false
+          }
+        ]
+      },
+      {
+        "colorKey": "a",
+        "label": "Amanda 2",
+        "sublabel": "traveling companion",
+        "stops": [
+          {
+            "worldIndex": 5,
+            "tokens": [
+              "A2"
+            ],
+            "note": "A2 + R1 return",
+            "dashedFromPrevious": true,
+            "dashedLeadIn": true
+          }
+        ]
+      },
+      {
+        "colorKey": "b",
+        "label": "Other Jason branches",
+        "sublabel": "disconnected",
+        "stops": [
+          {
+            "worldIndex": 3,
+            "tokens": [
+              "J*"
+            ],
+            "note": "E5 mother / Maria · E8 Laurel",
+            "dashedFromPrevious": false,
+            "dashedLeadIn": false
+          }
+        ]
+      }
+    ]
+  }
+}

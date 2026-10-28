@@ -1,6 +1,6 @@
 # Dark Matter Travel Tracker
 
-IUGR Entry 02. A world map of versions and crossings from *Dark Matter*, running on the JasonOS backend and staying outside JasonOS login.
+IUGR Entry 02. An interactive explainer of travel paths, characters, and worlds in *Dark Matter*, running on the JasonOS backend and staying outside JasonOS login.
 
 ## Where it lives
 
@@ -12,7 +12,9 @@ Family members with the URL never see JasonOS chrome, Tell Claude, or other Jaso
 
 ## What it is
 
-A spoiler-aware map through season 2 episode 9. You can trace Jason 1, Jason 2, Amanda 2, the original family, or the other Jason branches. Arrows follow story order, not geographic distance.
+A spoiler-aware subway map through season 2 episode 9. Worlds are columns in story order. Each character version is a lane. Step through the story, trace one path, or click a world to read it.
+
+Content lives in [`lib/dark-matter-explainer/data.json`](../lib/dark-matter-explainer/data.json).
 
 ## Access model
 
