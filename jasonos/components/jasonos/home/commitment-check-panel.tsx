@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ExternalLink, Handshake } from "lucide-react";
+import { CalendarDays, ChevronDown, ExternalLink, Handshake } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DomainBand, StatusBand, StatusPill } from "@/components/jasonos/brand/status";
+import { CommitmentScheduleDialog } from "@/components/jasonos/home/commitment-schedule-dialog";
 import { formatDue } from "@/lib/commitments/logic";
 import {
   COMMITMENT_SECTIONS,
@@ -47,6 +48,7 @@ export function CommitmentCheckPanel({
   const [collapsed, setCollapsed] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [scheduleItem, setScheduleItem] = useState<CommitmentView | null>(null);
 
   const items = (check?.items ?? []).filter((item) => !hidden.has(item.key));
   const overdue = items.filter((i) => i.section === "overdue").length;
@@ -192,6 +194,16 @@ export function CommitmentCheckPanel({
                                   <Button
                                     type="button"
                                     size="xs"
+                                    variant="outline"
+                                    disabled={busyKey === item.key}
+                                    onClick={() => setScheduleItem(item)}
+                                  >
+                                    <CalendarDays className="h-3 w-3" />
+                                    Calendar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
                                     variant="ok"
                                     disabled={busyKey === item.key}
                                     onClick={() => void run(item.key, () => markCommitmentDone(item.key), "Marked done")}
@@ -232,6 +244,14 @@ export function CommitmentCheckPanel({
           )}
         </div>
       ) : null}
+
+      <CommitmentScheduleDialog
+        item={scheduleItem}
+        open={Boolean(scheduleItem)}
+        onOpenChange={(next) => {
+          if (!next) setScheduleItem(null);
+        }}
+      />
     </section>
   );
 }

@@ -632,6 +632,71 @@ async function writeTentativeHold(
   return last;
 }
 
+/**
+ * Personal work block on the Advisors primary calendar. No guest, no Meet.
+ * Used for Commitment Check "schedule time to do this" blocks.
+ */
+export async function createPrimaryCalendarEvent(input: {
+  token: string;
+  summary: string;
+  description?: string | null;
+  startIso: string;
+  endIso: string;
+}): Promise<
+  | { ok: true; eventId: string; htmlLink: string | null }
+  | { ok: false; error: string; needsReconnect: boolean }
+> {
+  const params = new URLSearchParams({ sendUpdates: "none" });
+  const res = await fetch(`${CAL_BASE}/calendars/primary/events?${params}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      summary: input.summary,
+      description: input.description?.trim() || undefined,
+      start: { dateTime: input.startIso, timeZone: "America/New_York" },
+      end: { dateTime: input.endIso, timeZone: "America/New_York" },
+      transparency: "opaque",
+      reminders: { useDefault: true },
+      extendedProperties: {
+        private: { jasonosCommitment: "1" },
+      },
+    }),
+    cache: "no-store",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    const needsReconnect = res.status === 403 || /insufficient/i.test(text);
+    return {
+      ok: false,
+      needsReconnect,
+      error: needsReconnect
+        ? "Reconnect Advisors Google in Settings and allow adding events. This connection can only read the calendar."
+        : `Google Calendar could not create the event (${res.status}).`,
+    };
+  }
+  let json: { id?: string; htmlLink?: string } = {};
+  try {
+    json = JSON.parse(text) as typeof json;
+  } catch {
+    return {
+      ok: false,
+      needsReconnect: false,
+      error: "Google Calendar returned an unreadable event.",
+    };
+  }
+  if (!json.id) {
+    return {
+      ok: false,
+      needsReconnect: false,
+      error: "Google Calendar did not return the new event.",
+    };
+  }
+  return { ok: true, eventId: json.id, htmlLink: json.htmlLink?.trim() || null };
+}
+
 /** Grey tentative block on the Advisors calendar. No guest is invited. */
 export async function createTentativeHold(input: {
   token: string;
