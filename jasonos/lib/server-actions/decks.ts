@@ -48,7 +48,7 @@ export type DeckReview = {
   committed: string[];
   next_time: string[];
   model: string;
-  transcript_source: "granola" | "wispr" | null;
+  transcript_source: "granola" | "wispr" | "paste" | null;
   rubric: Array<RubricScore & { evidence_unverified?: boolean }>;
   rubric_average: number | null;
   caveat?: string | null;
@@ -107,10 +107,12 @@ export type Slide = {
   bullets: string[];
 };
 
+export type TranscriptSource = "granola" | "wispr" | "paste";
+
 export type DeckDetail = DeckSummary & {
   slides: Slide[];
   transcript: string | null;
-  transcriptSource: "granola" | "wispr" | null;
+  transcriptSource: TranscriptSource | null;
   transcriptChars: number | null;
   transcriptComplete: boolean | null;
   review: DeckReview | null;
@@ -119,6 +121,10 @@ export type DeckDetail = DeckSummary & {
   rubric: string[];
   rubricSource: string | null;
 };
+
+function asTranscriptSource(value: unknown): TranscriptSource | null {
+  return value === "granola" || value === "wispr" || value === "paste" ? value : null;
+}
 
 export type LiveMeetingDisposition = "no_deck" | "hidden";
 
@@ -291,7 +297,9 @@ function parseReview(value: unknown): DeckReview | null {
     next_time: list("next_time"),
     model: typeof raw.model === "string" ? raw.model : "claude-sonnet-4-6",
     transcript_source:
-      raw.transcript_source === "granola" || raw.transcript_source === "wispr"
+      raw.transcript_source === "granola" ||
+      raw.transcript_source === "wispr" ||
+      raw.transcript_source === "paste"
         ? raw.transcript_source
         : null,
     rubric,
@@ -479,10 +487,7 @@ export async function getDeck(deckId: string): Promise<ActionResult<{ deck: Deck
         ...summary,
         slides,
         transcript: row.transcript?.trim() || null,
-        transcriptSource:
-          row.transcript_source === "granola" || row.transcript_source === "wispr"
-            ? row.transcript_source
-            : null,
+        transcriptSource: asTranscriptSource(row.transcript_source),
         transcriptChars:
           typeof row.transcript_chars === "number" ? row.transcript_chars : null,
         transcriptComplete:
@@ -824,21 +829,26 @@ async function loadTranscriptFromNote(
   noteId: string,
   source: "granola" | "wispr"
 ): Promise<{ text: string; complete: boolean } | null> {
+  // Never store AI summary/meeting notes as the transcript. Only spoken lines.
   if (source === "granola") {
     const granola = await import("@/lib/integrations/granola");
     const direct = await granola.getGranolaTranscript(noteId);
     let transcript = direct?.text?.trim() || "";
     let complete = direct?.complete ?? true;
     if (!transcript) {
-      const listed = await granola.listRecentGranolaNotes({ daysBack: 30, limit: 40 });
+      const listed = await granola.listRecentGranolaNotes({
+        daysBack: 30,
+        limit: 40,
+        includeTranscript: true,
+      });
       if (listed.ok) {
         const hit = listed.notes.find((n) => n.id === noteId);
         if (hit) {
           const again = await granola.getGranolaTranscript(noteId);
           transcript =
             again?.text?.trim() ||
+            hit.transcript?.trim() ||
             extractTranscriptSection(hit.summary ?? undefined) ||
-            hit.summary?.trim() ||
             "";
           complete = again?.complete ?? Boolean(transcript);
         }
@@ -870,7 +880,6 @@ async function loadTranscriptFromNote(
   const transcript =
     hit?.transcript?.trim() ||
     extractTranscriptSection(hit?.summary ?? undefined) ||
-    hit?.summary?.trim() ||
     "";
   if (!transcript) return null;
   return {
@@ -915,7 +924,13 @@ export async function attachTranscript(input: {
 
   try {
     const loadedTranscript = await loadTranscriptFromNote(noteId, source);
-    if (!loadedTranscript?.text) return { ok: false, error: "Could not read that transcript." };
+    if (!loadedTranscript?.text) {
+      return {
+        ok: false,
+        error:
+          "Could not read the full spoken transcript from that note (only notes/summary were available). Paste the transcript instead.",
+      };
+    }
     const transcript = loadedTranscript.text;
     const complete = loadedTranscript.complete;
 
@@ -989,6 +1004,125 @@ export async function attachTranscript(input: {
       ...transcriptMeta(transcript, complete),
       transcript_source: source,
       transcript_note_id: noteId,
+      transcript_fetched_at: fetchedAt,
+      updated_at: fetchedAt,
+    };
+    if (Boolean(deckRow.reviewed_at) && input.clearReview === true) {
+      update.review = null;
+      update.reviewed_at = null;
+    }
+
+    const { error: saveError } = await sb.from("decks").update(update).eq("id", deckRow.id);
+    if (saveError) return { ok: false, error: saveError.message };
+
+    revalidateDeck(deckRow.id, "deck", prepIdForRevalidate);
+    return { ok: true, deckId: deckRow.id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+const PASTE_TRANSCRIPT_MIN = 40;
+const PASTE_TRANSCRIPT_MAX = 500_000;
+
+/** Save a user-pasted full transcript when Granola/Wispr pull is empty or wrong. */
+export async function pasteTranscript(input: {
+  meetingPrepId?: string | null;
+  deckId?: string | null;
+  text: string;
+  name?: string | null;
+  clearReview?: boolean;
+}): Promise<ActionResult<{ deckId: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  const transcript = input.text.replace(/\r\n/g, "\n").trim();
+  const prepId = input.meetingPrepId?.trim() || null;
+  const deckIdInput = input.deckId?.trim() || null;
+  const orphanName = input.name?.trim().slice(0, 200) || null;
+
+  if (transcript.length < PASTE_TRANSCRIPT_MIN) {
+    return { ok: false, error: "Paste the full transcript (at least a few lines)." };
+  }
+  if (transcript.length > PASTE_TRANSCRIPT_MAX) {
+    return { ok: false, error: "That paste is too long. Trim it and try again." };
+  }
+  if (prepId && deckIdInput) {
+    return { ok: false, error: "Pass a meeting or a deck, not both." };
+  }
+  if (!prepId && !deckIdInput && !orphanName) {
+    return { ok: false, error: "Write a name for this review." };
+  }
+
+  try {
+    const sb = createServiceRoleClient();
+    let deckRow: DeckRow | null = null;
+    let prepIdForRevalidate: string | null = prepId;
+
+    if (deckIdInput) {
+      const { data, error } = await sb.from("decks").select(DECK_COLUMNS).eq("id", deckIdInput).maybeSingle();
+      if (error) return { ok: false, error: error.message };
+      if (!data || asKind(data.kind as string) !== "deck") {
+        return { ok: false, error: "Deck not found." };
+      }
+      deckRow = data as DeckRow;
+      prepIdForRevalidate = deckRow.meeting_prep_id;
+    } else if (prepId) {
+      const { data: existing } = await sb
+        .from("decks")
+        .select(DECK_COLUMNS)
+        .eq("kind", "deck")
+        .eq("meeting_prep_id", prepId)
+        .maybeSingle();
+      if (existing) {
+        deckRow = existing as DeckRow;
+      } else {
+        const { getMeetingPrep } = await loadMeetingPrep();
+        const prepResult = await getMeetingPrep(prepId);
+        if (!prepResult.ok) return { ok: false, error: prepResult.error };
+        const title = prepResult.prep.title.trim().slice(0, 200) || "Meeting";
+        const rubric = await loadDefaultRubricLines(sb);
+        const { data: created, error: createError } = await sb
+          .from("decks")
+          .insert({
+            kind: "deck",
+            name: title,
+            goal: null,
+            rubric,
+            rubric_source: "default",
+            meeting_prep_id: prepId,
+          })
+          .select(DECK_COLUMNS)
+          .single();
+        if (createError || !created) {
+          return { ok: false, error: createError?.message || "Could not create deck." };
+        }
+        deckRow = created as DeckRow;
+      }
+    } else {
+      const rubric = await loadDefaultRubricLines(sb);
+      const { data: created, error: createError } = await sb
+        .from("decks")
+        .insert({
+          kind: "deck",
+          name: orphanName!,
+          goal: null,
+          rubric,
+          rubric_source: "default",
+          meeting_prep_id: null,
+        })
+        .select(DECK_COLUMNS)
+        .single();
+      if (createError || !created) {
+        return { ok: false, error: createError?.message || "Could not create deck." };
+      }
+      deckRow = created as DeckRow;
+      prepIdForRevalidate = null;
+    }
+
+    const fetchedAt = new Date().toISOString();
+    const update: Record<string, unknown> = {
+      ...transcriptMeta(transcript, true),
+      transcript_source: "paste",
+      transcript_note_id: null,
       transcript_fetched_at: fetchedAt,
       updated_at: fetchedAt,
     };
@@ -1473,6 +1607,7 @@ export async function fetchTranscript(
     if (granola.found && granola.meetings?.[0]?.id) {
       noteId = granola.meetings[0].id;
       const direct = await getGranolaTranscript(noteId);
+      // Only spoken transcript lines — never Granola AI notes/summary alone.
       transcript = direct?.text?.trim() || extractTranscriptSection(granola.summary) || null;
       complete = direct?.complete ?? Boolean(transcript);
       if (transcript) source = "granola";
@@ -1491,8 +1626,10 @@ export async function fetchTranscript(
           complete = paged?.complete ?? false;
         }
         if (!transcript && wispr.summary?.trim()) {
-          transcript = extractTranscriptSection(wispr.summary) || wispr.summary.trim();
-          complete = !transcriptHasPagingMarker(transcript);
+          // extractTranscriptSection only returns text after --- Transcript ---.
+          // Do not fall back to wispr.summary (that is meeting notes).
+          transcript = extractTranscriptSection(wispr.summary);
+          if (transcript) complete = !transcriptHasPagingMarker(transcript);
         }
         if (transcript) source = "wispr";
       }

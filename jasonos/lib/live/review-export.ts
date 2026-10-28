@@ -24,7 +24,7 @@ export type ReviewFinetunePackage = {
   }>;
   transcript: {
     text: string | null;
-    source: "granola" | "wispr" | null;
+    source: "granola" | "wispr" | "paste" | null;
     fetched_at: string | null;
   };
   analysis: {
@@ -50,7 +50,7 @@ export function buildReviewFinetunePackage(input: {
   deck: DeckDetail;
   meetingLabel?: string | null;
   transcript?: string | null;
-  transcriptSource?: "granola" | "wispr" | null;
+  transcriptSource?: "granola" | "wispr" | "paste" | null;
   transcriptFetchedAt?: string | null;
   review?: DeckReview | null;
   reviewedAt?: string | null;

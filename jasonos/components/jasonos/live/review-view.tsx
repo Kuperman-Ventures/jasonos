@@ -763,7 +763,15 @@ export function ReviewView({
                         hour: "numeric",
                         minute: "2-digit",
                       })}
-                      {transcriptSource ? ` · ${transcriptSource === "granola" ? "Granola" : "Wispr"}` : ""}
+                      {transcriptSource
+                        ? ` · ${
+                            transcriptSource === "granola"
+                              ? "Granola"
+                              : transcriptSource === "wispr"
+                                ? "Wispr"
+                                : "pasted"
+                          }`
+                        : ""}
                       {transcriptIncomplete ? " · incomplete" : ""}
                     </p>
                   ) : null}

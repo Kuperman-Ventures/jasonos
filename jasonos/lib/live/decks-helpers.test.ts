@@ -126,6 +126,12 @@ describe("decks pure helpers", () => {
     assert.equal(text, "Jason: hi");
   });
 
+  it("extractTranscriptSection ignores notes-only summary", () => {
+    assert.equal(extractTranscriptSection("## Notes\n- Follow up with Alex"), null);
+    assert.equal(extractTranscriptSection(""), null);
+    assert.equal(extractTranscriptSection(undefined), null);
+  });
+
   it("formatElapsed renders mm:ss", () => {
     assert.equal(formatElapsed(125), "02:05");
   });
