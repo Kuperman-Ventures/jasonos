@@ -188,7 +188,10 @@ export function formatRunSummary(
   return `Run ${date}, ${duration}`;
 }
 
-export function formatReviewedAt(iso: string, source: "granola" | "wispr" | null): string {
+export function formatReviewedAt(
+  iso: string,
+  source: "granola" | "wispr" | "paste" | null
+): string {
   const when = new Date(iso).toLocaleString("en-US", {
     timeZone: TZ,
     month: "short",
@@ -196,7 +199,14 @@ export function formatReviewedAt(iso: string, source: "granola" | "wispr" | null
     hour: "numeric",
     minute: "2-digit",
   });
-  const src = source === "granola" ? "Granola" : source === "wispr" ? "Wispr" : "stored";
+  const src =
+    source === "granola"
+      ? "Granola"
+      : source === "wispr"
+        ? "Wispr"
+        : source === "paste"
+          ? "pasted"
+          : "stored";
   return `Reviewed ${when} from ${src} transcript.`;
 }
 

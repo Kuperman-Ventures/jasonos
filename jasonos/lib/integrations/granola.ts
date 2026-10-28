@@ -144,7 +144,11 @@ function transcriptLines(items: TranscriptItem[] | null | undefined): string {
     .join("\n");
 }
 
-/** Transcript text for a note, or null when Granola has no transcript. */
+/**
+ * Full spoken transcript for a note (speaker lines), never the AI summary/notes.
+ * Prefer the dedicated paginated /transcript endpoint so large notes are not
+ * truncated; use include=transcript only as a fast path when it returns lines.
+ */
 export async function getGranolaTranscript(
   noteId: string
 ): Promise<{ text: string; complete: boolean } | null> {
@@ -154,20 +158,11 @@ export async function getGranolaTranscript(
   if (!key) return null;
 
   try {
-    const inline = await granolaGet(
-      `/v1/notes/${encodeURIComponent(id)}?include=transcript`,
-      key
-    );
-    if (inline.ok) {
-      const text = transcriptLines((inline.json as { transcript?: TranscriptItem[] | null }).transcript);
-      // Inline include often returns the full transcript; treat as complete when present.
-      if (text) return { text, complete: true };
-    }
-
     const lines: string[] = [];
     let cursor: string | null = null;
     let complete = true;
     const maxPages = 30;
+    let pagedOk = false;
     for (let page = 0; page < maxPages; page += 1) {
       const params = new URLSearchParams({ page_size: "100" });
       if (cursor) params.set("cursor", cursor);
@@ -176,8 +171,11 @@ export async function getGranolaTranscript(
         key
       );
       if (!listed.ok) {
+        // 404 / empty note — fall through to inline include.
+        if (page === 0) break;
         return lines.length ? { text: lines.join("\n"), complete: false } : null;
       }
+      pagedOk = true;
       const body = listed.json as {
         transcript?: TranscriptItem[];
         hasMore?: boolean;
@@ -189,8 +187,23 @@ export async function getGranolaTranscript(
       cursor = body.cursor;
       if (page === maxPages - 1 && body.hasMore) complete = false;
     }
-    const text = lines.join("\n").trim();
-    return text ? { text, complete } : null;
+    const pagedText = lines.join("\n").trim();
+    if (pagedText) return { text: pagedText, complete };
+
+    // Paging returned no lines (or first page failed). Try inline include.
+    if (!pagedOk || !pagedText) {
+      const inline = await granolaGet(
+        `/v1/notes/${encodeURIComponent(id)}?include=transcript`,
+        key
+      );
+      if (inline.ok) {
+        const text = transcriptLines(
+          (inline.json as { transcript?: TranscriptItem[] | null }).transcript
+        );
+        if (text) return { text, complete: true };
+      }
+    }
+    return null;
   } catch {
     return null;
   }

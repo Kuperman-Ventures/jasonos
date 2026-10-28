@@ -67,7 +67,7 @@ export type ParsedDeckReview = {
   committed: string[];
   next_time: string[];
   model: string;
-  transcript_source: "granola" | "wispr" | null;
+  transcript_source: "granola" | "wispr" | "paste" | null;
   rubric: ParsedRubricScore[];
   rubric_average: number | null;
 };
@@ -318,7 +318,9 @@ export function parseReviewJson(
       next_time: reviewStringList(root.next_time, 6),
       model: typeof root.model === "string" ? root.model : "claude-sonnet-4-6",
       transcript_source:
-        root.transcript_source === "granola" || root.transcript_source === "wispr"
+        root.transcript_source === "granola" ||
+        root.transcript_source === "wispr" ||
+        root.transcript_source === "paste"
           ? root.transcript_source
           : null,
       rubric,

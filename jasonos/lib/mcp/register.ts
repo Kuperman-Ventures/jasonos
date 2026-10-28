@@ -45,6 +45,7 @@ import {
   listDecksMcp,
   listPlaybooksMcp,
   attachTranscriptMcp,
+  pasteTranscriptMcp,
   listRecentNotesMcp,
   reviewRunMcp,
   getPersonContextMcp,
@@ -68,7 +69,7 @@ You have full read access. Start with list_jasonos_areas or get_status. get_stat
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_project_link, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
 
-Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, get_person_context, run_ai_help (optional preset why|rapport|what_how|tailor), attach_meeting, get_transcript, attach_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
+Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr (full spoken transcript, not notes), paste_transcript as fallback, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, get_person_context, run_ai_help (optional preset why|rapport|what_how|tailor), attach_meeting, get_transcript, attach_transcript, paste_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
@@ -672,7 +673,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Attach a transcript to a Live deck or meeting",
       description:
-        "Attach a Granola or Wispr note transcript. Pass exactly one of meeting_prep_id or deck_id; with neither, pass name to create a deck with no meeting. Creates a slide-less deck when the meeting has none. Clears an existing review when clear_review is true.",
+        "Attach the full spoken Granola or Wispr transcript (not AI meeting notes). Pass exactly one of meeting_prep_id or deck_id; with neither, pass name to create a deck with no meeting. Creates a slide-less deck when the meeting has none. Clears an existing review when clear_review is true. If the API only has notes/summary, use paste_transcript instead.",
       inputSchema: z.object({
         note_id: z.string().min(1),
         source: z.enum(["granola", "wispr"]),
@@ -684,6 +685,24 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: false, openWorldHint: false },
     },
     async (args) => runTool(() => attachTranscriptMcp(args))
+  );
+
+  server.registerTool(
+    "paste_transcript",
+    {
+      title: "Paste a transcript onto a Live deck or meeting",
+      description:
+        "Save a full spoken transcript the user pasted (fallback when Granola/Wispr pull fails or returns notes only). Pass exactly one of meeting_prep_id or deck_id; with neither, pass name to create a deck with no meeting.",
+      inputSchema: z.object({
+        text: z.string().min(40).max(500_000),
+        meeting_prep_id: z.string().uuid().nullable().optional(),
+        deck_id: z.string().uuid().nullable().optional(),
+        name: z.string().min(1).max(200).nullable().optional(),
+        clear_review: z.boolean().optional(),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => pasteTranscriptMcp(args))
   );
 
   server.registerTool(

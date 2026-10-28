@@ -186,6 +186,25 @@ export async function attachTranscriptMcp(input: {
   return { ok: true, deck_id: result.deckId };
 }
 
+export async function pasteTranscriptMcp(input: {
+  text: string;
+  meeting_prep_id?: string | null;
+  deck_id?: string | null;
+  name?: string | null;
+  clear_review?: boolean;
+}) {
+  const { pasteTranscript } = await import("@/lib/server-actions/decks");
+  const result = await pasteTranscript({
+    text: input.text,
+    meetingPrepId: input.meeting_prep_id,
+    deckId: input.deck_id,
+    name: input.name,
+    clearReview: input.clear_review,
+  });
+  if (!result.ok) throw new Error(result.error);
+  return { ok: true, deck_id: result.deckId };
+}
+
 export async function listRecentNotesMcp(input: { days?: number }) {
   const { listRecentNotesForAttach } = await import("@/lib/server-actions/decks");
   const result = await listRecentNotesForAttach(input.days ?? 10);
