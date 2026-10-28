@@ -16,6 +16,7 @@ import {
   listOutlookSentRecipientTouches,
 } from "@/lib/integrations/outlook";
 import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
+import { upsertCandidateSightings } from "@/lib/outreach/candidate-capture";
 import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { recordUserAction } from "@/lib/actions/action-log";
 import { snoozeDetail } from "@/lib/actions/action-log-format";
@@ -31,7 +32,9 @@ import {
   meetingFollowupDaysAgo,
   meetingStartIso,
   MEETING_FOLLOWUP_SCAN_DAYS_BACK,
+  MEETING_FOLLOWUP_UNKNOWN_GUEST_MAX,
   planMeetingFollowup,
+  qualifyMeetingAttendees,
   qualifyPastMeeting,
   snoozeUntilYmd,
   type MeetingAttendee,
@@ -377,11 +380,18 @@ async function captureMeetingFollowupsInner(opts?: {
   );
   const today = etToday();
   const meetings: PastMeetingCandidate[] = [];
-  /** Past meetings that look real but have no JasonOS contact — dismiss if queued. */
-  const noContactEventIds: string[] = [];
+  /** Large no-contact events (webinars) — dismiss if they were queued earlier. */
+  const webinarEventIds: string[] = [];
+  const suggestedSightings: {
+    email: string;
+    name: string | null;
+    dateIso: string;
+    subject: string;
+    direction: "inbound";
+  }[] = [];
   for (const ev of events) {
     const guests = calendarEventGuests(ev);
-    const { matches } = matchCalendarEventToContacts({
+    const { matches, unmatchedGuests } = matchCalendarEventToContacts({
       title: ev.summary,
       guests,
       lookup,
@@ -398,20 +408,41 @@ async function captureMeetingFollowupsInner(opts?: {
       guests,
       now,
     };
-    // Detect webinars / blast invites we may have queued before the contact filter.
+    const qualifiedIgnoringContact = qualifyPastMeeting({
+      ...base,
+      hasKnownContact: true,
+    });
+    const externalCount = qualifyMeetingAttendees(guests).length;
+    // Webinars / blast invites: many guests, nobody in People.
     if (
       ev.id &&
-      qualifyPastMeeting({ ...base, hasKnownContact: true }) &&
-      !hasKnownContact
+      qualifiedIgnoringContact &&
+      !hasKnownContact &&
+      externalCount > MEETING_FOLLOWUP_UNKNOWN_GUEST_MAX
     ) {
-      noContactEventIds.push(ev.id);
+      webinarEventIds.push(ev.id);
     }
     const qualified = qualifyPastMeeting({
       ...base,
-      // Require a JasonOS contact so webinars / blast invites stay out.
+      // Small meetings with unknown invitees still qualify; large no-contact
+      // lists stay out so webinars do not flood Follow Up / Suggested.
       hasKnownContact,
     });
-    if (qualified) meetings.push(qualified);
+    if (!qualified) continue;
+    meetings.push(qualified);
+
+    // Stage invitees who are not in People onto Suggested.
+    const startIso = qualified.startsAt;
+    for (const guest of unmatchedGuests) {
+      if (!guest.email || !guest.email.includes("@")) continue;
+      suggestedSightings.push({
+        email: guest.email,
+        name: guest.name ?? null,
+        dateIso: startIso,
+        subject: qualified.title,
+        direction: "inbound",
+      });
+    }
   }
 
   const sb = createServiceRoleClient();
@@ -482,8 +513,8 @@ async function captureMeetingFollowupsInner(opts?: {
     updated += 1;
   }
 
-  // Drop open rows for webinars / blast invites (no JasonOS contact).
-  if (noContactEventIds.length) {
+  // Drop open rows for webinars / blast invites (many guests, nobody in People).
+  if (webinarEventIds.length) {
     const { data: dropped, error } = await sb
       .from("meeting_followups")
       .update({
@@ -491,11 +522,16 @@ async function captureMeetingFollowupsInner(opts?: {
         decided_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .in("gcal_event_id", noContactEventIds)
+      .in("gcal_event_id", webinarEventIds)
       .in("status", ["open", "snoozed"])
       .select("id");
     if (error) return { ok: false, error: error.message };
     resolved += dropped?.length ?? 0;
+  }
+
+  if (suggestedSightings.length) {
+    await upsertCandidateSightings(suggestedSightings, lookup);
+    revalidatePath("/outreach/suggested");
   }
 
   revalidate();
