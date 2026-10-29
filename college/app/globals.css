@@ -15277,6 +15277,127 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   }
 }
 
+.visit-plan-library {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.visit-plan-library-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.visit-plan-library-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+.visit-plan-library-count {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.visit-plan-library-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.visit-plan-library-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.visit-plan-library-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-raised);
+}
+.visit-plan-library-item.is-active {
+  border-color: var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+.visit-plan-library-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.visit-plan-library-open b {
+  font-size: 15px;
+  font-weight: 650;
+}
+.visit-plan-library-open span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.visit-plan-library-schools {
+  color: var(--text-subtle) !important;
+}
+.visit-plan-library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.visit-plan-save {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+}
+.visit-plan-save label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visit-plan-save input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font: inherit;
+}
+.visit-plan-export {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding-bottom: 4px;
+}
+@media (max-width: 900px) {
+  .visit-plan-library-item {
+    grid-template-columns: 1fr;
+  }
+  .visit-plan-library-actions {
+    justify-content: flex-start;
+  }
+  .visit-plan-save {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Nearby */
 .trip-map-layout {
   display: grid;

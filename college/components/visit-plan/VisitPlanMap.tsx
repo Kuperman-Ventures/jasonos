@@ -219,8 +219,12 @@ export function VisitPlanMap({
       return null;
     };
 
-    const routePts = routeOrder
-      .map(latLngForRouteId)
+    // Keep routeOrder aligned with routeLegs — never filter then re-index, or a
+    // missing campus steals the next leg's drive-time label (e.g. UPenn→UMD
+    // "2 hr 8 min" drawn between UPenn and Drexel).
+    const located = routeOrder.map((id) => ({ id, ll: latLngForRouteId(id) }));
+    const routePts = located
+      .map((row) => row.ll)
       .filter((p): p is [number, number] => Boolean(p));
 
     if (routePts.length >= 2) {
@@ -232,25 +236,23 @@ export function VisitPlanMap({
       }
       routeLineRef.current.bringToFront();
 
-      const markers = routeLegs
-        .map((label, i) => {
-          if (!label) return null;
-          const a = routePts[i];
-          const b = routePts[i + 1];
-          if (!a || !b) return null;
-          return L.marker(
-            [a[0] + (b[0] - a[0]) * 0.5, a[1] + (b[1] - a[1]) * 0.5],
-            {
-              icon: L.divIcon({
-                className: "",
-                html: `<div class="trip-leg">${escapeAttr(label)}</div>`,
-                iconSize: undefined,
-              }),
-              interactive: false,
-            },
-          );
-        })
-        .filter((m): m is L.Marker => Boolean(m));
+      const markers: L.Marker[] = [];
+      for (let i = 0; i < routeLegs.length; i++) {
+        const label = routeLegs[i];
+        const a = located[i]?.ll;
+        const b = located[i + 1]?.ll;
+        if (!label || !a || !b) continue;
+        markers.push(
+          L.marker([a[0] + (b[0] - a[0]) * 0.5, a[1] + (b[1] - a[1]) * 0.5], {
+            icon: L.divIcon({
+              className: "",
+              html: `<div class="trip-leg">${escapeAttr(label)}</div>`,
+              iconSize: undefined,
+            }),
+            interactive: false,
+          }),
+        );
+      }
       legsGroupRef.current?.remove();
       legsGroupRef.current = L.layerGroup(markers).addTo(map);
     } else {

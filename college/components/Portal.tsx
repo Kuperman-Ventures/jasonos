@@ -1761,11 +1761,23 @@ export function Portal({
           <VisitPlanTab
             schools={schools}
             dateline={phaseLabel}
+            memberId={member.id}
+            memberName={member.displayName}
             onOpenSchool={(id) => {
               replaceUrl("colleges", id);
             }}
             onRemoveFromPlan={(id) => {
               void patchSchool(id, { planVisit: false });
+            }}
+            onLoadTripSchools={(schoolIds) => {
+              const want = new Set(schoolIds);
+              for (const school of schools) {
+                if (school.archived) continue;
+                const next = want.has(school.id);
+                if (school.planVisit !== next) {
+                  void patchSchool(school.id, { planVisit: next });
+                }
+              }
             }}
           />
         ) : null}

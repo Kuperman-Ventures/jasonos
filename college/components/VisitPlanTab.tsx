@@ -13,6 +13,7 @@ import {
 import { KYLE_STUDENT } from "@/lib/trip-planning/calendar";
 import { schoolTravelPointId, travelPointById } from "@/lib/drive-matrix";
 import { parseSchoolLocation, schoolMapLocation } from "@/lib/visit-planning";
+import { campusCoordsForSchool } from "@/lib/campus-coords";
 import { geocodeAddress, geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import {
   VISIT_PLAN_END_ID,
@@ -30,6 +31,15 @@ import {
   writeVisitPlanUiState,
   type VisitPlanUiState,
 } from "@/lib/visit-plan-state";
+import {
+  createSavedTripLocal,
+  deleteSavedTripLocal,
+  formatTripSavedWhen,
+  formatTripSchoolSummary,
+  listSavedTripsLocal,
+  tripMapRouteParts,
+  type SavedTrip,
+} from "@/lib/saved-trips";
 import { formatDriveDuration } from "@/lib/drive-matrix";
 import { SchoolMark } from "./SchoolMark";
 
@@ -44,13 +54,20 @@ const VisitPlanMap = dynamic(
 export function VisitPlanTab({
   schools,
   dateline,
+  memberId,
+  memberName,
   onOpenSchool,
   onRemoveFromPlan,
+  onLoadTripSchools,
 }: {
   schools: School[];
   dateline: string;
+  memberId: string;
+  memberName: string;
   onOpenSchool: (id: string) => void;
   onRemoveFromPlan: (id: string) => void;
+  /** Pin exactly these schools for Visit Planning (unpins the rest). */
+  onLoadTripSchools: (schoolIds: string[]) => void;
 }) {
   const planned = useMemo(
     () =>
@@ -75,18 +92,43 @@ export function VisitPlanTab({
   const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [activeSchoolId, setActiveSchoolId] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [library, setLibrary] = useState<SavedTrip[]>([]);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
+  const [tripNameDraft, setTripNameDraft] = useState("");
+  const [libraryStatus, setLibraryStatus] = useState("");
+  const [libraryBusy, setLibraryBusy] = useState(false);
 
   useEffect(() => {
     writeVisitPlanUiState(ui);
   }, [ui]);
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/visit-trips");
+        if (res.ok) {
+          const data = (await res.json()) as { items?: SavedTrip[] };
+          if (!cancelled) setLibrary(Array.isArray(data.items) ? data.items : []);
+          return;
+        }
+      } catch {
+        /* fall through to local */
+      }
+      if (!cancelled) setLibrary(listSavedTripsLocal());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     setStartDraft(ui.startAddress);
     setEndDraft(ui.endAddress);
   }, [ui.startAddress, ui.endAddress]);
 
-  // Geocode schools on the plan — prefer campus visit address so Philly/etc.
-  // campuses land on distinct pins instead of the same city center.
+  // Resolve campus pins: known campus coords first (avoids City Hall stacking),
+  // then visit-address geocode, then city fallback.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -94,6 +136,12 @@ export function VisitPlanTab({
       let changed = false;
       for (const school of planned) {
         if (next.has(school.id)) continue;
+        const known = campusCoordsForSchool(school.id);
+        if (known) {
+          next.set(school.id, known);
+          changed = true;
+          continue;
+        }
         const visit = school.visitAddress?.trim();
         const travel = travelPointById(schoolTravelPointId(school.id))?.address?.trim();
         const query = schoolMapLocation(school);
@@ -267,6 +315,7 @@ export function VisitPlanTab({
     const [row] = next.splice(index, 1);
     next.splice(nextIndex, 0, row!);
     setUi((prev) => ({ ...prev, manualOrder: next }));
+    setActiveTripId(null);
   }
 
   function onDropOn(targetId: string) {
@@ -286,6 +335,104 @@ export function VisitPlanTab({
     next.splice(to, 0, row!);
     setUi((prev) => ({ ...prev, manualOrder: next }));
     setDragId(null);
+    setActiveTripId(null);
+  }
+
+  const schoolsById = useMemo(() => new Map(schools.map((row) => [row.id, row])), [schools]);
+
+  const mapParts = useMemo(() => {
+    if (!orderedSchoolIds.length) return [];
+    return tripMapRouteParts(
+      {
+        schoolIds: orderedSchoolIds,
+        startAddress: ui.startAddress,
+        endAddress: ui.endAddress,
+      },
+      schoolsById,
+    );
+  }, [orderedSchoolIds, ui.startAddress, ui.endAddress, schoolsById]);
+
+  async function saveCurrentTrip() {
+    if (!orderedSchoolIds.length) {
+      setLibraryStatus("Pin at least one school before saving a trip.");
+      return;
+    }
+    const name = tripNameDraft.trim();
+    if (!name) {
+      setLibraryStatus("Name this trip to save it.");
+      return;
+    }
+    setLibraryBusy(true);
+    setLibraryStatus("Saving…");
+    const schoolNames = orderedSchoolIds.map(
+      (id) => planned.find((row) => row.id === id)?.name ?? id,
+    );
+    const payload = {
+      name,
+      schoolIds: orderedSchoolIds,
+      schoolNames,
+      startAddress: ui.startAddress,
+      endAddress: ui.endAddress,
+    };
+    try {
+      const res = await fetch("/api/visit-trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { item?: SavedTrip };
+        if (data.item) {
+          setLibrary((prev) => [data.item!, ...prev.filter((row) => row.id !== data.item!.id)]);
+          setActiveTripId(data.item.id);
+          setTripNameDraft("");
+          setLibraryStatus(`Saved “${data.item.name}”.`);
+          setLibraryBusy(false);
+          return;
+        }
+      }
+    } catch {
+      /* local fallback */
+    }
+    const local = createSavedTripLocal({
+      ...payload,
+      createdById: memberId,
+      createdByName: memberName,
+    });
+    setLibrary((prev) => [local, ...prev.filter((row) => row.id !== local.id)]);
+    setActiveTripId(local.id);
+    setTripNameDraft("");
+    setLibraryStatus(`Saved “${local.name}” on this device.`);
+    setLibraryBusy(false);
+  }
+
+  function loadTrip(trip: SavedTrip) {
+    setActiveTripId(trip.id);
+    setStartDraft(trip.startAddress);
+    setEndDraft(trip.endAddress);
+    setUi({
+      startAddress: trip.startAddress,
+      endAddress: trip.endAddress,
+      manualOrder: trip.schoolIds,
+    });
+    onLoadTripSchools(trip.schoolIds);
+    setLibraryStatus(`Loaded “${trip.name}”.`);
+  }
+
+  async function removeTrip(trip: SavedTrip) {
+    setLibraryBusy(true);
+    try {
+      const res = await fetch(`/api/visit-trips/${encodeURIComponent(trip.id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("delete failed");
+    } catch {
+      deleteSavedTripLocal(trip.id);
+    }
+    setLibrary((prev) => prev.filter((row) => row.id !== trip.id));
+    if (activeTripId === trip.id) setActiveTripId(null);
+    setLibraryStatus(`Deleted “${trip.name}”.`);
+    setLibraryBusy(false);
   }
 
   return (
@@ -296,15 +443,71 @@ export function VisitPlanTab({
           <h2>Visit Planning</h2>
           <p className="page-sub">
             Schools pinned for a visit on the Colleges list. We suggest a drive order; drag the
-            list (or use the arrows) to change it.
+            list (or use the arrows) to change it. Save a named trip to the library, then open it
+            in Google Maps for turn-by-turn directions.
           </p>
         </div>
       </header>
 
+      <div className="visit-plan-library">
+        <div className="visit-plan-library-head">
+          <h3>Trip library</h3>
+          <span className="visit-plan-library-count">
+            {library.length} saved
+          </span>
+        </div>
+        {library.length === 0 ? (
+          <p className="visit-plan-library-empty">
+            No saved trips yet. Build a route below, name it, and save.
+          </p>
+        ) : (
+          <ul className="visit-plan-library-list">
+            {library.map((trip) => (
+              <li
+                key={trip.id}
+                className={`visit-plan-library-item${
+                  trip.id === activeTripId ? " is-active" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className="visit-plan-library-open"
+                  onClick={() => loadTrip(trip)}
+                >
+                  <b>{trip.name}</b>
+                  <span>
+                    {trip.schoolIds.length} stop
+                    {trip.schoolIds.length === 1 ? "" : "s"}
+                    {formatTripSavedWhen(trip.updatedAt)
+                      ? ` · ${formatTripSavedWhen(trip.updatedAt)}`
+                      : ""}
+                  </span>
+                  <span className="visit-plan-library-schools">
+                    {formatTripSchoolSummary(trip)}
+                  </span>
+                </button>
+                <div className="visit-plan-library-actions">
+                  <LibraryMapsLinks trip={trip} schoolsById={schoolsById} />
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={libraryBusy}
+                    onClick={() => void removeTrip(trip)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {libraryStatus ? <p className="visit-plan-status">{libraryStatus}</p> : null}
+      </div>
+
       {!planned.length ? (
         <p className="trip-empty">
           No schools on the visit plan yet. On Colleges, click the pin beside a school name to add
-          it.
+          it — or open a trip from the library above.
         </p>
       ) : (
         <>
@@ -345,7 +548,14 @@ export function VisitPlanTab({
               <button type="button" className="ghost-btn" onClick={applyAddresses}>
                 Update ends
               </button>
-              <button type="button" className="ghost-btn" onClick={optimizeRoute}>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => {
+                  optimizeRoute();
+                  setActiveTripId(null);
+                }}
+              >
                 Optimize route
               </button>
             </div>
@@ -466,12 +676,90 @@ export function VisitPlanTab({
               })}
             </div>
           </div>
+          <div className="visit-plan-save">
+            <label>
+              <span className="trip-label trip-label-sm">Save trip as</span>
+              <input
+                type="text"
+                value={tripNameDraft}
+                onChange={(event) => setTripNameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void saveCurrentTrip();
+                  }
+                }}
+                placeholder="e.g. Mid-Atlantic spring"
+                maxLength={80}
+              />
+            </label>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={libraryBusy || !orderedSchoolIds.length}
+              onClick={() => void saveCurrentTrip()}
+            >
+              Save to library
+            </button>
+            <div className="visit-plan-export">
+              {mapParts.length === 1 ? (
+                <a
+                  className="visit-map-link"
+                  href={mapParts[0]!.googleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open in Google Maps
+                </a>
+              ) : (
+                mapParts.map((part) => (
+                  <a
+                    key={part.label}
+                    className="visit-map-link"
+                    href={part.googleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {part.label} · Google Maps
+                  </a>
+                ))
+              )}
+            </div>
+          </div>
+
           <p className="trip-foot">
             School-to-school times use the saved drive matrix when available; start/end legs are
-            estimated from the map. Lines show visiting order, not turn-by-turn roads.
+            estimated from the map. Lines show visiting order, not turn-by-turn roads — use Google
+            Maps for driving instructions.
           </p>
         </>
       )}
     </section>
+  );
+}
+
+function LibraryMapsLinks({
+  trip,
+  schoolsById,
+}: {
+  trip: SavedTrip;
+  schoolsById: Map<string, School>;
+}) {
+  const parts = tripMapRouteParts(trip, schoolsById);
+  if (!parts.length) return null;
+  return (
+    <>
+      {parts.map((part) => (
+        <a
+          key={`${trip.id}-${part.label}`}
+          className="visit-map-link"
+          href={part.googleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {parts.length > 1 ? `${part.label} · Maps` : "Google Maps"}
+        </a>
+      ))}
+    </>
   );
 }
