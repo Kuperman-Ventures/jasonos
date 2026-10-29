@@ -32,6 +32,17 @@ const nextConfig: NextConfig = {
         destination: "/api/post-master/:path*",
         permanent: true,
       },
+      // Old self-contained HTML tracker → research tool
+      {
+        source: "/projects/marketing-professor-roadmap.html",
+        destination: "/projects/professor-roadmap",
+        permanent: true,
+      },
+      {
+        source: "/projects/marketing-professor-roadmap",
+        destination: "/projects/professor-roadmap",
+        permanent: true,
+      },
     ];
   },
 };
