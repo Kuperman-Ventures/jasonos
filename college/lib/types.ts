@@ -32,7 +32,7 @@ export type TabId =
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
-export type VisitStatus = "" | "visited" | "want" | "planned";
+export type VisitStatus = "" | "visited" | "want";
 export type SchoolControl = "" | "Public" | "Private";
 export type ResidencyDataStatus = "" | "Official" | "Estimated" | "Proxy" | "Not applicable";
 export type KyleResidency = "" | "In-state" | "Out-of-state" | "Not applicable";
@@ -119,6 +119,8 @@ export type School = {
   plan: Plan;
   visited: boolean;
   visitStatus: VisitStatus;
+  /** On the Visit Planning list. Independent of Visited / Want to Visit. */
+  planVisit: boolean;
   visitDate: string | null;
   visitNotes: string;
   /** Optional admissions / visitor-center address for map routes. */
@@ -273,7 +275,6 @@ export const VISIT_STATUSES: { id: VisitStatus; label: string }[] = [
   { id: "", label: "Not set" },
   { id: "visited", label: "Visited" },
   { id: "want", label: "Want to Visit" },
-  { id: "planned", label: "Plan Visit" },
 ];
 
 export const APPLICATION_STATUSES: { id: ApplicationStatus; label: string }[] = [
@@ -650,6 +651,7 @@ export function fromSeed(seed: SchoolSeed): School {
     plan: "",
     visited: false,
     visitStatus: "",
+    planVisit: false,
     visitDate: null,
     visitNotes: "",
     visitAddress: visitAddressForSchool(seed.name),

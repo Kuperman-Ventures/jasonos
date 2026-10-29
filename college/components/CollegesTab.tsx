@@ -25,6 +25,7 @@ import {
 import { SelectivityMixPie } from "./SelectivityMixPie";
 import { CollegeRecord } from "./CollegeRecord";
 import { InterestPicker } from "./InterestPicker";
+import { PlanVisitPin } from "./PlanVisitPin";
 import { SchoolMark } from "./SchoolMark";
 import { adjacentInList, compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
@@ -391,6 +392,11 @@ export function CollegesTab({
           <td key={column} className="school-name">
             <div className="school-id">
               <SchoolMark name={school.name} website={school.website} />
+              <PlanVisitPin
+                schoolName={school.name}
+                active={school.planVisit}
+                onToggle={(next) => onPatch(school.id, { planVisit: next })}
+              />
               <span>
                 {school.name}
                 <SafetyBadge school={school} />
@@ -1020,6 +1026,11 @@ export function CollegesTab({
             <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
               <h3 className="school-id">
                 <SchoolMark name={school.name} website={school.website} />
+                <PlanVisitPin
+                  schoolName={school.name}
+                  active={school.planVisit}
+                  onToggle={(next) => onPatch(school.id, { planVisit: next })}
+                />
                 <span>
                   {school.name}
                   <SafetyBadge school={school} />

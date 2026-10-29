@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { School } from "@/lib/types";
-import { visitLabel } from "@/lib/types";
 import {
   computePinNudges,
   toTripSchoolPoint,
@@ -54,7 +53,7 @@ export function VisitPlanTab({
   const planned = useMemo(
     () =>
       schools
-        .filter((row) => !row.archived && row.visitStatus === "planned")
+        .filter((row) => !row.archived && row.planVisit)
         .sort((a, b) => a.name.localeCompare(b.name)),
     [schools],
   );
@@ -275,16 +274,16 @@ export function VisitPlanTab({
           <div className="dateline">{dateline}</div>
           <h2>Visit Planning</h2>
           <p className="page-sub">
-            Schools marked <strong>Plan Visit</strong> on the Colleges list. We suggest a drive
-            order; drag the list (or use the arrows) to change it.
+            Schools pinned for a visit on the Colleges list. We suggest a drive order; drag the
+            list (or use the arrows) to change it.
           </p>
         </div>
       </header>
 
       {!planned.length ? (
         <p className="trip-empty">
-          No schools on the visit plan yet. On Colleges, set Visit to “
-          {visitLabel("planned")}”.
+          No schools on the visit plan yet. On Colleges, click the pin beside a school name to add
+          it.
         </p>
       ) : (
         <>
@@ -333,8 +332,8 @@ export function VisitPlanTab({
           {geocodeStatus ? <p className="visit-plan-status">{geocodeStatus}</p> : null}
           {tooMany ? (
             <p className="visit-plan-status">
-              Optimized routing supports up to {VISIT_PLAN_MAX_SCHOOLS} schools. Remove some from
-              Plan Visit, or drag a shorter subset after optimizing.
+              Optimized routing supports up to {VISIT_PLAN_MAX_SCHOOLS} schools. Unpin some, or
+              drag a shorter subset after optimizing.
             </p>
           ) : null}
 
