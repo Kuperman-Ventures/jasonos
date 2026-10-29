@@ -27,6 +27,7 @@ import {
 import {
   DEFAULT_VISIT_END_ADDRESS,
   DEFAULT_VISIT_START_ADDRESS,
+  defaultVisitPlanUiState,
   readVisitPlanUiState,
   writeVisitPlanUiState,
   type VisitPlanUiState,
@@ -435,9 +436,48 @@ export function VisitPlanTab({
     setLibraryBusy(false);
   }
 
+  const workingTripDirty =
+    planned.length > 0 ||
+    Boolean(ui.manualOrder?.length) ||
+    Boolean(activeTripId) ||
+    ui.startAddress.trim() !== DEFAULT_VISIT_START_ADDRESS ||
+    ui.endAddress.trim() !== DEFAULT_VISIT_END_ADDRESS;
+
+  function startNewTrip() {
+    if (planned.length > 0) {
+      const pinLabel =
+        planned.length === 1 ? "1 pinned school" : `${planned.length} pinned schools`;
+      const ok = window.confirm(
+        `Clear ${pinLabel} and start a new trip?\n\nSaved library trips stay. Pin schools on Colleges to build the next route.`,
+      );
+      if (!ok) return;
+    } else if (workingTripDirty) {
+      const ok = window.confirm("Reset start/end addresses and clear the working trip?");
+      if (!ok) return;
+    } else {
+      setLibraryStatus("Already clear — pin schools on Colleges to start a trip.");
+      return;
+    }
+
+    const fresh = defaultVisitPlanUiState();
+    onLoadTripSchools([]);
+    setUi(fresh);
+    setStartDraft(fresh.startAddress);
+    setEndDraft(fresh.endAddress);
+    setStartPoint({ lat: KYLE_STUDENT.homeLat, lng: KYLE_STUDENT.homeLng });
+    setEndPoint({ lat: KYLE_STUDENT.homeLat, lng: KYLE_STUDENT.homeLng });
+    setCoordsById(new Map());
+    setActiveSchoolId(null);
+    setDragId(null);
+    setActiveTripId(null);
+    setTripNameDraft("");
+    setGeocodeStatus("");
+    setLibraryStatus("Working trip cleared. Pin schools on Colleges to build a new one.");
+  }
+
   return (
     <section className="visit-plan-page">
-      <header className="page-head">
+      <header className="page-head visit-plan-head">
         <div>
           <div className="dateline">{dateline}</div>
           <h2>Visit Planning</h2>
@@ -447,6 +487,14 @@ export function VisitPlanTab({
             in Google Maps for turn-by-turn directions.
           </p>
         </div>
+        <button
+          type="button"
+          className="ghost-btn visit-plan-new-trip"
+          disabled={libraryBusy}
+          onClick={startNewTrip}
+        >
+          New trip
+        </button>
       </header>
 
       <div className="visit-plan-library">
@@ -700,6 +748,14 @@ export function VisitPlanTab({
               onClick={() => void saveCurrentTrip()}
             >
               Save to library
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              disabled={libraryBusy}
+              onClick={startNewTrip}
+            >
+              New trip
             </button>
             <div className="visit-plan-export">
               {mapParts.length === 1 ? (
