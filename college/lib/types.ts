@@ -23,6 +23,7 @@ export type TabId =
   | "apps"
   | "finances"
   | "consultants"
+  | "visits"
   | "notes"
   | "testing"
   | "log"
@@ -272,7 +273,7 @@ export const VISIT_STATUSES: { id: VisitStatus; label: string }[] = [
   { id: "", label: "Not set" },
   { id: "visited", label: "Visited" },
   { id: "want", label: "Want to Visit" },
-  { id: "planned", label: "Visit Planned" },
+  { id: "planned", label: "Plan Visit" },
 ];
 
 export const APPLICATION_STATUSES: { id: ApplicationStatus; label: string }[] = [
@@ -354,6 +355,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "colleges", label: "Colleges" },
   { id: "projects", label: "Project Management" },
   { id: "ingest", label: "Ingest" },
+  { id: "visits", label: "Visit Planning" },
   { id: "notes", label: "Notes" },
   { id: "apps", label: "Apps & Materials" },
   { id: "finances", label: "Finances" },

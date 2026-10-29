@@ -15167,6 +15167,76 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   border: 1px dashed var(--color-dash);
 }
 
+/* Visit Planning page */
+.visit-plan-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+}
+.visit-plan-page .page-sub {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-subtle);
+  max-width: 52rem;
+}
+.visit-plan-endpoints {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 12px 16px;
+  align-items: end;
+}
+.visit-plan-endpoints label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.visit-plan-endpoints input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font: inherit;
+}
+.visit-plan-endpoint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+.visit-plan-status {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.visit-plan-list .trip-cl.is-dragging {
+  opacity: 0.55;
+}
+.visit-plan-stop-n {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-accent);
+  margin-right: 4px;
+}
+.visit-plan-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.visit-plan-move {
+  min-width: 32px;
+  padding-inline: 8px;
+}
+@media (max-width: 900px) {
+  .visit-plan-endpoints {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Nearby */
 .trip-map-layout {
   display: grid;

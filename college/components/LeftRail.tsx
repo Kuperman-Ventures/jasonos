@@ -13,6 +13,7 @@ import {
   GearSix,
   GraduationCap,
   Kanban,
+  MapTrifold,
   NotePencil,
   PlugsConnected,
   Question,
@@ -73,6 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "dashboard", label: "Dashboard", Icon: SquaresFour },
       { id: "projects", label: "Project Management", Icon: Kanban },
+      { id: "visits", label: "Visit Planning", Icon: MapTrifold },
       { id: "notes", label: "Notes", Icon: NotePencil },
       { id: "log", label: "Log", Icon: ClockCounterClockwise },
     ],
