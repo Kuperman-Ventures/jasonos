@@ -2,7 +2,13 @@ import "server-only";
 
 import { anthropic } from "@ai-sdk/anthropic";
 import { gateway } from "@ai-sdk/gateway";
-import { generateObject, generateText, stepCountIs } from "ai";
+import {
+  generateObject,
+  generateText,
+  stepCountIs,
+  type LanguageModel,
+  type ToolSet,
+} from "ai";
 import { z } from "zod";
 import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
@@ -30,7 +36,11 @@ function cleanErrorMessage(err: unknown): string {
  * Web search needs a tool the active model provider supports.
  * Direct Anthropic: native web_search. Gateway: Perplexity (matches research.ts).
  */
-function searchSetup() {
+function searchSetup(): {
+  model: LanguageModel;
+  tools: ToolSet;
+  toolHint: string;
+} {
   if (hasDirectAnthropicKey()) {
     return {
       model: heavyModel(),
