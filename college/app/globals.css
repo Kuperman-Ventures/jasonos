@@ -15425,9 +15425,6 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   .visit-plan-library-actions {
     justify-content: flex-start;
   }
-  .visit-plan-save {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Nearby */
