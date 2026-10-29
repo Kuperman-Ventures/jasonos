@@ -69,6 +69,16 @@ export function schoolPatchActivityLines(
     });
   }
 
+  if ("planVisit" in patch && typeof patch.planVisit === "boolean" && patch.planVisit !== before.planVisit) {
+    lines.push({
+      action: "update",
+      summary: patch.planVisit
+        ? `Added “${name}” to Visit Planning`
+        : `Removed “${name}” from Visit Planning`,
+      detail: { planVisit: patch.planVisit },
+    });
+  }
+
   if ("visitDate" in patch && patch.visitDate !== before.visitDate) {
     const next =
       typeof patch.visitDate === "string" && patch.visitDate

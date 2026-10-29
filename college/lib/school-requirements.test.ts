@@ -50,6 +50,7 @@ function baseSchool(overrides: Partial<School> = {}): School {
     plan: "",
     visited: false,
     visitStatus: "",
+    planVisit: false,
     visitDate: null,
     visitNotes: "",
     deadline: null,

@@ -1765,7 +1765,7 @@ export function Portal({
               replaceUrl("colleges", id);
             }}
             onRemoveFromPlan={(id) => {
-              void patchSchool(id, { visitStatus: "" });
+              void patchSchool(id, { planVisit: false });
             }}
           />
         ) : null}

@@ -388,6 +388,14 @@ export function SchoolProjectManagement({
 
         {subtab === "visit" ? (
           <div className="school-pm-panel" role="tabpanel">
+            <label className="stack-field plan-visit-check">
+              <input
+                type="checkbox"
+                checked={school.planVisit}
+                onChange={(event) => onPatch({ planVisit: event.target.checked })}
+              />
+              <span>Plan Visit — include on Visit Planning</span>
+            </label>
             <div className="school-pm-two">
               <label className="stack-field">
                 <span className="label">Visit status</span>
