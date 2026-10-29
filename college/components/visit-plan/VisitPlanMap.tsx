@@ -18,6 +18,15 @@ function escapeAttr(value: string): string {
   );
 }
 
+function pinHtml(point: TripSchoolPoint, live: boolean, containerId: string): string {
+  const none = point.interest === "none" ? " none" : "";
+  const liveCls = live ? " live" : "";
+  const nudge = point.nudge ? `margin-left:${point.nudge}px;` : "";
+  return `<div class="trip-pin${none}${liveCls}" data-level="${point.interest}" style="${nudge}" title="${escapeAttr(
+    point.name,
+  )}" id="${containerId}"></div>`;
+}
+
 const MAP_FALLBACK_CENTER: L.LatLngExpression = [39.5, -98.35];
 const MAP_FALLBACK_ZOOM = 4;
 
@@ -44,8 +53,18 @@ function fitBounds(map: L.Map, pts: Array<[number, number]>) {
   map.fitBounds(pts, { padding: [48, 48], maxZoom: 10, animate: false });
 }
 
+function membershipKey(
+  pointsById: Map<string, TripSchoolPoint>,
+  startPoint: GeoPoint | null,
+  endPoint: GeoPoint | null,
+): string {
+  const ids = [...pointsById.keys()].sort().join(",");
+  return `${ids}|s:${startPoint ? "1" : "0"}|e:${endPoint ? "1" : "0"}`;
+}
+
 export function VisitPlanMap({
   pointsById,
+  expectedSchoolIds,
   routeOrder,
   routeLegs,
   startPoint,
@@ -54,6 +73,8 @@ export function VisitPlanMap({
   onActiveSchool,
 }: {
   pointsById: Map<string, TripSchoolPoint>;
+  /** Planned school ids — fit waits until each has coordinates. */
+  expectedSchoolIds: string[];
   /** Full route order including visit-start / visit-end / school: ids. */
   routeOrder: string[];
   routeLegs: (string | null)[];
@@ -72,6 +93,9 @@ export function VisitPlanMap({
   const routeLineRef = useRef<L.Polyline | null>(null);
   const legsGroupRef = useRef<L.LayerGroup | null>(null);
   const pinRootsRef = useRef<Map<string, Root>>(new Map());
+  const fittedMembershipRef = useRef<string>("");
+  const onActiveSchoolRef = useRef(onActiveSchool);
+  onActiveSchoolRef.current = onActiveSchool;
 
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
@@ -96,9 +120,11 @@ export function VisitPlanMap({
       endMarkersRef.current = { start: null, end: null };
       routeLineRef.current = null;
       legsGroupRef.current = null;
+      fittedMembershipRef.current = "";
     };
   }, []);
 
+  // Markers, ends, and route — never changes zoom.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -116,47 +142,51 @@ export function VisitPlanMap({
     for (const [id, point] of pointsById) {
       const containerId = `visit-plan-pin-${id}`;
       let marker = markersRef.current.get(id);
-      const html = `<div class="trip-pin${point.interest === "none" ? " none" : ""}${
-        id === activeSchoolId ? " live" : ""
-      }" data-level="${point.interest}" id="${containerId}" title="${escapeAttr(
-        point.name,
-      )}"></div>`;
+      const isNew = !marker;
       if (!marker) {
         marker = L.marker([point.lat, point.lng], {
-          icon: L.divIcon({ className: "", html, iconSize: undefined }),
+          icon: L.divIcon({
+            className: "",
+            html: pinHtml(point, false, containerId),
+            iconSize: undefined,
+          }),
           riseOnHover: true,
-          zIndexOffset: id === activeSchoolId ? 2000 : 0,
+          zIndexOffset: 0,
         }).addTo(map);
         markersRef.current.set(id, marker);
-        requestAnimationFrame(() => {
-          const el = document.getElementById(containerId);
-          if (!el) return;
-          const root = createRoot(el);
-          pinRootsRef.current.set(id, root);
-          root.render(<SchoolMark name={point.name} website={point.website} />);
-        });
       } else {
         marker.setLatLng([point.lat, point.lng]);
-        const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
-        if (pin) {
-          pin.classList.toggle("live", id === activeSchoolId);
-          pin.dataset.level = point.interest;
-        }
-        marker.setZIndexOffset(id === activeSchoolId ? 2000 : 0);
-        pinRootsRef.current
-          .get(id)
-          ?.render(<SchoolMark name={point.name} website={point.website} />);
       }
 
+      const mountMark = () => {
+        const el = document.getElementById(containerId);
+        if (!el) return;
+        let root = pinRootsRef.current.get(id);
+        if (!root) {
+          root = createRoot(el);
+          pinRootsRef.current.set(id, root);
+        }
+        root.render(<SchoolMark name={point.name} website={point.website} />);
+      };
+      if (isNew) requestAnimationFrame(mountMark);
+      else mountMark();
+
       marker.off("mouseover");
-      marker.on("mouseover", () => onActiveSchool(id));
+      marker.on("mouseover", () => {
+        onActiveSchoolRef.current(id);
+      });
+
+      const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
+      if (pin) {
+        pin.dataset.level = point.interest;
+        pin.classList.toggle("none", point.interest === "none");
+        if (point.nudge) pin.style.marginLeft = `${point.nudge}px`;
+        else pin.style.marginLeft = "";
+        pin.title = point.name;
+      }
     }
 
-    const syncEnd = (
-      kind: "start" | "end",
-      point: GeoPoint | null,
-      label: string,
-    ) => {
+    const syncEnd = (kind: "start" | "end", point: GeoPoint | null, label: string) => {
       if (!point) {
         endMarkersRef.current[kind]?.remove();
         endMarkersRef.current[kind] = null;
@@ -229,22 +259,47 @@ export function VisitPlanMap({
       legsGroupRef.current = null;
     }
 
+    map.invalidateSize();
+  }, [pointsById, routeOrder, routeLegs, startPoint, endPoint]);
+
+  // Fit once per school/end membership. Hover and route redraws do not change zoom.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (expectedSchoolIds.length === 0) {
+      fittedMembershipRef.current = "";
+      return;
+    }
+    const ready =
+      expectedSchoolIds.every((id) => pointsById.has(id)) &&
+      Boolean(startPoint) &&
+      Boolean(endPoint);
+    if (!ready) return;
+
+    const key = membershipKey(pointsById, startPoint, endPoint);
+    if (key === fittedMembershipRef.current) return;
+
     const fitPts: Array<[number, number]> = [
       ...[...pointsById.values()].map((p) => [p.lat, p.lng] as [number, number]),
     ];
     if (startPoint) fitPts.push([startPoint.lat, startPoint.lng]);
     if (endPoint) fitPts.push([endPoint.lat, endPoint.lng]);
+    if (!fitPts.length) return;
+
+    fittedMembershipRef.current = key;
     fitBounds(map, fitPts);
-    map.invalidateSize();
-  }, [
-    pointsById,
-    routeOrder,
-    routeLegs,
-    startPoint,
-    endPoint,
-    activeSchoolId,
-    onActiveSchool,
-  ]);
+  }, [pointsById, expectedSchoolIds, startPoint, endPoint]);
+
+  // Hover highlight without touching zoom / markers recreation path beyond classes.
+  useEffect(() => {
+    for (const [id, marker] of markersRef.current) {
+      const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
+      if (!pin) continue;
+      const live = id === activeSchoolId;
+      pin.classList.toggle("live", live);
+      marker.setZIndexOffset(live ? 2000 : 0);
+    }
+  }, [activeSchoolId]);
 
   return (
     <div ref={mapEl} className="trip-vmap visit-plan-map" aria-label="Visit plan map" />

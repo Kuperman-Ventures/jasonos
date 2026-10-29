@@ -75,6 +75,39 @@ export function computePinNudges(
   return nudges;
 }
 
+/**
+ * When several schools geocode to the same city point, fan them apart by ~0.4 mi
+ * so zooming in shows separate campus pins (not a single stacked marker).
+ */
+export function spreadCoincidentCoords(
+  points: { id: string; lat: number; lng: number }[],
+): Map<string, GeoPoint> {
+  const out = new Map<string, GeoPoint>();
+  const groups = new Map<string, { id: string; lat: number; lng: number }[]>();
+  for (const point of points) {
+    const key = `${point.lat.toFixed(3)}|${point.lng.toFixed(3)}`;
+    const list = groups.get(key) ?? [];
+    list.push(point);
+    groups.set(key, list);
+  }
+  const stepLng = 0.006; // ~0.4 mi at mid-latitudes
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      const only = group[0]!;
+      out.set(only.id, { lat: only.lat, lng: only.lng });
+      continue;
+    }
+    const mid = (group.length - 1) / 2;
+    group.forEach((point, index) => {
+      out.set(point.id, {
+        lat: point.lat,
+        lng: point.lng + (index - mid) * stepLng,
+      });
+    });
+  }
+  return out;
+}
+
 export function toTripSchoolPoint(
   school: School,
   coords: GeoPoint | null | undefined,

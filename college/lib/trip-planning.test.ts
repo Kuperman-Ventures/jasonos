@@ -19,6 +19,7 @@ import {
   preferredTripSeason,
   regionForLocation,
   regionForState,
+  spreadCoincidentCoords,
   toggleSchoolInTrip,
   tripPlanStorageKey,
   weekDate,
@@ -173,4 +174,15 @@ test("defaultTripPlanState can seed fall season", () => {
   assert.equal(fall.season, "fall");
   assert.equal(fall.weekIndex, FALL_TRIP_GRID.defaultWeekIndex);
   assert.deepEqual(fall.schoolIds, ["upenn"]);
+});
+
+test("spreadCoincidentCoords fans stacked city pins apart", () => {
+  const spread = spreadCoincidentCoords([
+    { id: "upenn", lat: 39.952, lng: -75.164 },
+    { id: "drexel", lat: 39.952, lng: -75.164 },
+    { id: "jhu", lat: 39.29, lng: -76.61 },
+  ]);
+  assert.notEqual(spread.get("upenn")!.lng, spread.get("drexel")!.lng);
+  assert.equal(spread.get("jhu")!.lat, 39.29);
+  assert.equal(spread.get("jhu")!.lng, -76.61);
 });
