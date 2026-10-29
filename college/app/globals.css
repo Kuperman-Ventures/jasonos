@@ -15370,11 +15370,32 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   align-items: center;
   justify-content: flex-end;
 }
+.visit-plan-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.visit-plan-rename input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-raised);
+  color: var(--color-text);
+  font: inherit;
+}
 .visit-plan-save {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: end;
+}
+.visit-plan-save > label {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 .visit-plan-save label {
   display: flex;
