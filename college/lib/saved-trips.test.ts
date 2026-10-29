@@ -5,6 +5,7 @@ import {
   normalizeTripName,
   parseSavedTrip,
   tripMapRouteParts,
+  updateSavedTripLocal,
 } from "./saved-trips";
 import { fromSeed } from "./types";
 
@@ -83,4 +84,8 @@ test("formatTripSchoolSummary truncates long lists", () => {
     }),
     "A · B · C · +1",
   );
+});
+
+test("updateSavedTripLocal requires an existing trip", () => {
+  assert.throws(() => updateSavedTripLocal("missing-id", { name: "Renamed" }), /not found/i);
 });

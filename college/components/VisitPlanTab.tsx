@@ -39,6 +39,7 @@ import {
   formatTripSchoolSummary,
   listSavedTripsLocal,
   tripMapRouteParts,
+  updateSavedTripLocal,
   type SavedTrip,
 } from "@/lib/saved-trips";
 import { formatDriveDuration } from "@/lib/drive-matrix";
@@ -98,6 +99,9 @@ export function VisitPlanTab({
   const [tripNameDraft, setTripNameDraft] = useState("");
   const [libraryStatus, setLibraryStatus] = useState("");
   const [libraryBusy, setLibraryBusy] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [libraryShared, setLibraryShared] = useState(true);
 
   useEffect(() => {
     writeVisitPlanUiState(ui);
@@ -110,18 +114,27 @@ export function VisitPlanTab({
         const res = await fetch("/api/visit-trips");
         if (res.ok) {
           const data = (await res.json()) as { items?: SavedTrip[] };
-          if (!cancelled) setLibrary(Array.isArray(data.items) ? data.items : []);
+          if (!cancelled) {
+            setLibrary(Array.isArray(data.items) ? data.items : []);
+            setLibraryShared(true);
+          }
           return;
         }
       } catch {
-        /* fall through to local */
+        /* fall through for local-only members */
       }
-      if (!cancelled) setLibrary(listSavedTripsLocal());
+      if (!cancelled) {
+        setLibrary(listSavedTripsLocal());
+        setLibraryShared(memberId === "local");
+        if (memberId !== "local") {
+          setLibraryStatus("Couldn’t load the shared family library. Try refreshing.");
+        }
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [memberId]);
 
   useEffect(() => {
     setStartDraft(ui.startAddress);
@@ -353,21 +366,40 @@ export function VisitPlanTab({
     );
   }, [orderedSchoolIds, ui.startAddress, ui.endAddress, schoolsById]);
 
-  async function saveCurrentTrip() {
+  function schoolNamesForOrder(ids: string[]): string[] {
+    return ids.map((id) => planned.find((row) => row.id === id)?.name ?? id);
+  }
+
+  async function persistTripToApi(
+    method: "POST" | "PATCH",
+    url: string,
+    payload: Record<string, unknown>,
+  ): Promise<SavedTrip | null> {
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || `Could not ${method === "POST" ? "save" : "update"} trip`);
+    }
+    const data = (await res.json()) as { item?: SavedTrip };
+    return data.item ?? null;
+  }
+
+  async function saveCurrentTrip(asNew = false) {
     if (!orderedSchoolIds.length) {
       setLibraryStatus("Pin at least one school before saving a trip.");
       return;
     }
     const name = tripNameDraft.trim();
     if (!name) {
-      setLibraryStatus("Name this trip to save it.");
+      setLibraryStatus(activeTripId && !asNew ? "Enter a name to update this trip." : "Name this trip to save it.");
       return;
     }
     setLibraryBusy(true);
-    setLibraryStatus("Saving…");
-    const schoolNames = orderedSchoolIds.map(
-      (id) => planned.find((row) => row.id === id)?.name ?? id,
-    );
+    const schoolNames = schoolNamesForOrder(orderedSchoolIds);
     const payload = {
       name,
       schoolIds: orderedSchoolIds,
@@ -375,40 +407,85 @@ export function VisitPlanTab({
       startAddress: ui.startAddress,
       endAddress: ui.endAddress,
     };
+    const updating = Boolean(activeTripId) && !asNew;
+
     try {
-      const res = await fetch("/api/visit-trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { item?: SavedTrip };
-        if (data.item) {
-          setLibrary((prev) => [data.item!, ...prev.filter((row) => row.id !== data.item!.id)]);
-          setActiveTripId(data.item.id);
-          setTripNameDraft("");
-          setLibraryStatus(`Saved “${data.item.name}”.`);
+      if (updating && activeTripId) {
+        setLibraryStatus("Updating…");
+        const item = await persistTripToApi(
+          "PATCH",
+          `/api/visit-trips/${encodeURIComponent(activeTripId)}`,
+          payload,
+        );
+        if (item) {
+          setLibrary((prev) =>
+            [item, ...prev.filter((row) => row.id !== item.id)].sort((a, b) =>
+              b.updatedAt.localeCompare(a.updatedAt),
+            ),
+          );
+          setActiveTripId(item.id);
+          setTripNameDraft(item.name);
+          setLibraryShared(true);
+          setLibraryStatus(`Updated “${item.name}” for the family.`);
+          setLibraryBusy(false);
+          return;
+        }
+      } else {
+        setLibraryStatus("Saving…");
+        const item = await persistTripToApi("POST", "/api/visit-trips", payload);
+        if (item) {
+          setLibrary((prev) => [item, ...prev.filter((row) => row.id !== item.id)]);
+          setActiveTripId(item.id);
+          setTripNameDraft(item.name);
+          setLibraryShared(true);
+          setLibraryStatus(`Saved “${item.name}” — shared with the family.`);
           setLibraryBusy(false);
           return;
         }
       }
-    } catch {
-      /* local fallback */
+    } catch (error) {
+      if (memberId !== "local") {
+        setLibraryStatus(
+          error instanceof Error ? error.message : "Could not save to the family library.",
+        );
+        setLibraryBusy(false);
+        return;
+      }
     }
-    const local = createSavedTripLocal({
-      ...payload,
-      createdById: memberId,
-      createdByName: memberName,
-    });
-    setLibrary((prev) => [local, ...prev.filter((row) => row.id !== local.id)]);
-    setActiveTripId(local.id);
-    setTripNameDraft("");
-    setLibraryStatus(`Saved “${local.name}” on this device.`);
+
+    // Local-only member fallback (no shared DB).
+    try {
+      if (updating && activeTripId) {
+        const local = updateSavedTripLocal(activeTripId, payload);
+        setLibrary((prev) =>
+          [local, ...prev.filter((row) => row.id !== local.id)].sort((a, b) =>
+            b.updatedAt.localeCompare(a.updatedAt),
+          ),
+        );
+        setActiveTripId(local.id);
+        setTripNameDraft(local.name);
+        setLibraryStatus(`Updated “${local.name}” on this device.`);
+      } else {
+        const local = createSavedTripLocal({
+          ...payload,
+          createdById: memberId,
+          createdByName: memberName,
+        });
+        setLibrary((prev) => [local, ...prev.filter((row) => row.id !== local.id)]);
+        setActiveTripId(local.id);
+        setTripNameDraft(local.name);
+        setLibraryStatus(`Saved “${local.name}” on this device.`);
+      }
+    } catch (error) {
+      setLibraryStatus(error instanceof Error ? error.message : "Could not save trip.");
+    }
     setLibraryBusy(false);
   }
 
   function loadTrip(trip: SavedTrip) {
     setActiveTripId(trip.id);
+    setTripNameDraft(trip.name);
+    setRenamingId(null);
     setStartDraft(trip.startAddress);
     setEndDraft(trip.endAddress);
     setUi({
@@ -417,21 +494,88 @@ export function VisitPlanTab({
       manualOrder: trip.schoolIds,
     });
     onLoadTripSchools(trip.schoolIds);
-    setLibraryStatus(`Loaded “${trip.name}”.`);
+    setLibraryStatus(
+      `Loaded “${trip.name}”${trip.createdByName ? ` (saved by ${trip.createdByName})` : ""}. Edit the route or name, then Update trip.`,
+    );
+  }
+
+  async function renameTrip(trip: SavedTrip, nextName: string) {
+    const name = nextName.trim();
+    if (!name) {
+      setLibraryStatus("Trip name can’t be empty.");
+      return;
+    }
+    if (name === trip.name) {
+      setRenamingId(null);
+      return;
+    }
+    setLibraryBusy(true);
+    try {
+      const item = await persistTripToApi(
+        "PATCH",
+        `/api/visit-trips/${encodeURIComponent(trip.id)}`,
+        { name },
+      );
+      if (item) {
+        setLibrary((prev) =>
+          prev
+            .map((row) => (row.id === item.id ? item : row))
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+        );
+        if (activeTripId === item.id) setTripNameDraft(item.name);
+        setRenamingId(null);
+        setLibraryShared(true);
+        setLibraryStatus(`Renamed to “${item.name}”.`);
+        setLibraryBusy(false);
+        return;
+      }
+    } catch (error) {
+      if (memberId !== "local") {
+        setLibraryStatus(error instanceof Error ? error.message : "Could not rename trip.");
+        setLibraryBusy(false);
+        return;
+      }
+    }
+    try {
+      const local = updateSavedTripLocal(trip.id, { name });
+      setLibrary((prev) =>
+        prev
+          .map((row) => (row.id === local.id ? local : row))
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      );
+      if (activeTripId === local.id) setTripNameDraft(local.name);
+      setRenamingId(null);
+      setLibraryStatus(`Renamed to “${local.name}”.`);
+    } catch (error) {
+      setLibraryStatus(error instanceof Error ? error.message : "Could not rename trip.");
+    }
+    setLibraryBusy(false);
   }
 
   async function removeTrip(trip: SavedTrip) {
+    const ok = window.confirm(`Delete “${trip.name}” from the family library?`);
+    if (!ok) return;
     setLibraryBusy(true);
     try {
       const res = await fetch(`/api/visit-trips/${encodeURIComponent(trip.id)}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("delete failed");
+      setLibraryShared(true);
     } catch {
+      if (memberId !== "local") {
+        setLibraryStatus("Could not delete from the family library.");
+        setLibraryBusy(false);
+        return;
+      }
       deleteSavedTripLocal(trip.id);
     }
     setLibrary((prev) => prev.filter((row) => row.id !== trip.id));
-    if (activeTripId === trip.id) setActiveTripId(null);
+    if (activeTripId === trip.id) {
+      setActiveTripId(null);
+      setTripNameDraft("");
+    }
+    if (renamingId === trip.id) setRenamingId(null);
     setLibraryStatus(`Deleted “${trip.name}”.`);
     setLibraryBusy(false);
   }
@@ -482,9 +626,9 @@ export function VisitPlanTab({
           <div className="dateline">{dateline}</div>
           <h2>Visit Planning</h2>
           <p className="page-sub">
-            Schools pinned for a visit on the Colleges list. We suggest a drive order; drag the
-            list (or use the arrows) to change it. Save a named trip to the library, then open it
-            in Google Maps for turn-by-turn directions.
+            Schools pinned for a visit on the Colleges list. Saved trips are shared with the whole
+            family — anyone can open, rename, or update them. Use Google Maps for turn-by-turn
+            directions.
           </p>
         </div>
         <button
@@ -499,14 +643,16 @@ export function VisitPlanTab({
 
       <div className="visit-plan-library">
         <div className="visit-plan-library-head">
-          <h3>Trip library</h3>
+          <h3>Family trip library</h3>
           <span className="visit-plan-library-count">
             {library.length} saved
+            {libraryShared ? " · shared" : ""}
           </span>
         </div>
         {library.length === 0 ? (
           <p className="visit-plan-library-empty">
-            No saved trips yet. Build a route below, name it, and save.
+            No saved trips yet. Build a route below, name it, and save — everyone in the family
+            will see it here.
           </p>
         ) : (
           <ul className="visit-plan-library-list">
@@ -517,25 +663,69 @@ export function VisitPlanTab({
                   trip.id === activeTripId ? " is-active" : ""
                 }`}
               >
-                <button
-                  type="button"
-                  className="visit-plan-library-open"
-                  onClick={() => loadTrip(trip)}
-                >
-                  <b>{trip.name}</b>
-                  <span>
-                    {trip.schoolIds.length} stop
-                    {trip.schoolIds.length === 1 ? "" : "s"}
-                    {formatTripSavedWhen(trip.updatedAt)
-                      ? ` · ${formatTripSavedWhen(trip.updatedAt)}`
-                      : ""}
-                  </span>
-                  <span className="visit-plan-library-schools">
-                    {formatTripSchoolSummary(trip)}
-                  </span>
-                </button>
+                {renamingId === trip.id ? (
+                  <form
+                    className="visit-plan-rename"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void renameTrip(trip, renameDraft);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={renameDraft}
+                      onChange={(event) => setRenameDraft(event.target.value)}
+                      maxLength={80}
+                      aria-label={`Rename ${trip.name}`}
+                      autoFocus
+                    />
+                    <button type="submit" className="ghost-btn" disabled={libraryBusy}>
+                      Save name
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      disabled={libraryBusy}
+                      onClick={() => setRenamingId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    className="visit-plan-library-open"
+                    onClick={() => loadTrip(trip)}
+                  >
+                    <b>{trip.name}</b>
+                    <span>
+                      {trip.schoolIds.length} stop
+                      {trip.schoolIds.length === 1 ? "" : "s"}
+                      {formatTripSavedWhen(trip.updatedAt)
+                        ? ` · ${formatTripSavedWhen(trip.updatedAt)}`
+                        : ""}
+                      {trip.createdByName ? ` · ${trip.createdByName}` : ""}
+                    </span>
+                    <span className="visit-plan-library-schools">
+                      {formatTripSchoolSummary(trip)}
+                    </span>
+                  </button>
+                )}
                 <div className="visit-plan-library-actions">
                   <LibraryMapsLinks trip={trip} schoolsById={schoolsById} />
+                  {renamingId === trip.id ? null : (
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      disabled={libraryBusy}
+                      onClick={() => {
+                        setRenamingId(trip.id);
+                        setRenameDraft(trip.name);
+                      }}
+                    >
+                      Rename
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="ghost-btn"
@@ -726,7 +916,9 @@ export function VisitPlanTab({
           </div>
           <div className="visit-plan-save">
             <label>
-              <span className="trip-label trip-label-sm">Save trip as</span>
+              <span className="trip-label trip-label-sm">
+                {activeTripId ? "Trip name" : "Save trip as"}
+              </span>
               <input
                 type="text"
                 value={tripNameDraft}
@@ -734,21 +926,42 @@ export function VisitPlanTab({
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    void saveCurrentTrip();
+                    void saveCurrentTrip(false);
                   }
                 }}
                 placeholder="e.g. Mid-Atlantic spring"
                 maxLength={80}
               />
             </label>
-            <button
-              type="button"
-              className="ghost-btn"
-              disabled={libraryBusy || !orderedSchoolIds.length}
-              onClick={() => void saveCurrentTrip()}
-            >
-              Save to library
-            </button>
+            {activeTripId ? (
+              <>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={libraryBusy || !orderedSchoolIds.length}
+                  onClick={() => void saveCurrentTrip(false)}
+                >
+                  Update trip
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={libraryBusy || !orderedSchoolIds.length}
+                  onClick={() => void saveCurrentTrip(true)}
+                >
+                  Save as new
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={libraryBusy || !orderedSchoolIds.length}
+                onClick={() => void saveCurrentTrip(false)}
+              >
+                Save to library
+              </button>
+            )}
             <button
               type="button"
               className="ghost-btn"

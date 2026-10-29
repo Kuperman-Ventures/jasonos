@@ -186,6 +186,53 @@ export function deleteSavedTripLocal(id: string): void {
   writeLocalTrips(readLocalTrips().filter((row) => row.id !== id));
 }
 
+export type SavedTripUpdate = {
+  name?: string;
+  schoolIds?: string[];
+  schoolNames?: string[];
+  startAddress?: string;
+  endAddress?: string;
+};
+
+export function updateSavedTripLocal(id: string, patch: SavedTripUpdate): SavedTrip {
+  const trips = readLocalTrips();
+  const index = trips.findIndex((row) => row.id === id);
+  if (index < 0) throw new Error("Trip not found");
+  const before = trips[index]!;
+  const name =
+    patch.name !== undefined ? normalizeTripName(patch.name) : before.name;
+  if (!name) throw new Error("Trip name is required");
+  const schoolIds =
+    patch.schoolIds !== undefined
+      ? normalizeSchoolIdList(patch.schoolIds)
+      : before.schoolIds;
+  if (!schoolIds.length) throw new Error("Add at least one school");
+  const schoolNames =
+    patch.schoolNames !== undefined
+      ? schoolIds.map((schoolId, i) => patch.schoolNames?.[i]?.trim() || schoolId)
+      : before.schoolNames.slice(0, schoolIds.length);
+  while (schoolNames.length < schoolIds.length) schoolNames.push("School");
+  const next: SavedTrip = {
+    ...before,
+    name,
+    schoolIds,
+    schoolNames,
+    startAddress:
+      patch.startAddress !== undefined
+        ? normalizeAddress(patch.startAddress, DEFAULT_VISIT_START_ADDRESS)
+        : before.startAddress,
+    endAddress:
+      patch.endAddress !== undefined
+        ? normalizeAddress(patch.endAddress, DEFAULT_VISIT_END_ADDRESS)
+        : before.endAddress,
+    updatedAt: new Date().toISOString(),
+  };
+  const list = [...trips];
+  list[index] = next;
+  writeLocalTrips(list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+  return next;
+}
+
 export async function listSavedTrips(): Promise<SavedTrip[]> {
   if (!supabaseConfigured()) return [];
   const db = collegeDb();
@@ -236,6 +283,52 @@ export async function deleteSavedTrip(id: string): Promise<void> {
   const db = collegeDb();
   const { error } = await db.from("saved_trips").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+/** Update name and/or route. Any signed-in family member can edit. */
+export async function updateSavedTrip(id: string, patch: SavedTripUpdate): Promise<SavedTrip> {
+  if (!id.trim()) throw new Error("Missing trip id");
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.name !== undefined) {
+    const name = normalizeTripName(patch.name);
+    if (!name) throw new Error("Trip name is required");
+    row.name = name;
+  }
+  if (patch.schoolIds !== undefined) {
+    const schoolIds = normalizeSchoolIdList(patch.schoolIds);
+    if (!schoolIds.length) throw new Error("Add at least one school");
+    row.school_ids = schoolIds;
+    const schoolNames = schoolIds.map(
+      (schoolId, index) => patch.schoolNames?.[index]?.trim() || schoolId,
+    );
+    row.school_names = schoolNames;
+  } else if (patch.schoolNames !== undefined) {
+    row.school_names = patch.schoolNames.map((value) =>
+      typeof value === "string" ? value.trim() : "",
+    );
+  }
+  if (patch.startAddress !== undefined) {
+    row.start_address = normalizeAddress(patch.startAddress, DEFAULT_VISIT_START_ADDRESS);
+  }
+  if (patch.endAddress !== undefined) {
+    row.end_address = normalizeAddress(patch.endAddress, DEFAULT_VISIT_END_ADDRESS);
+  }
+
+  const db = collegeDb();
+  const { data, error } = await db
+    .from("saved_trips")
+    .update(row)
+    .eq("id", id.trim())
+    .select(
+      "id, name, school_ids, school_names, start_address, end_address, created_at, updated_at, created_by_id, created_by_name",
+    )
+    .single();
+  if (error) throw new Error(error.message);
+  const trip = mapDbRow(data as Record<string, unknown>);
+  if (!trip) throw new Error("Could not update trip");
+  return trip;
 }
 
 /** Google (and Apple) Maps links for turn-by-turn driving from a saved/current trip. */
