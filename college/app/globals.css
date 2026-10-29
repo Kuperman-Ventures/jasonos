@@ -15277,6 +15277,17 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   }
 }
 
+.visit-plan-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.visit-plan-new-trip {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
 .visit-plan-library {
   display: flex;
   flex-direction: column;
@@ -15361,7 +15372,7 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
 }
 .visit-plan-save {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 12px;
   align-items: end;
 }
