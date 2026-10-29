@@ -5,12 +5,14 @@ import dynamic from "next/dynamic";
 import type { School } from "@/lib/types";
 import {
   computePinNudges,
+  spreadCoincidentCoords,
   toTripSchoolPoint,
   tripInterestLabel,
   type TripSchoolPoint,
 } from "@/lib/trip-planning";
 import { KYLE_STUDENT } from "@/lib/trip-planning/calendar";
-import { parseSchoolLocation } from "@/lib/visit-planning";
+import { schoolTravelPointId, travelPointById } from "@/lib/drive-matrix";
+import { parseSchoolLocation, schoolMapLocation } from "@/lib/visit-planning";
 import { geocodeAddress, geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import {
   VISIT_PLAN_END_ID,
@@ -83,7 +85,8 @@ export function VisitPlanTab({
     setEndDraft(ui.endAddress);
   }, [ui.startAddress, ui.endAddress]);
 
-  // Geocode schools on the plan.
+  // Geocode schools on the plan — prefer campus visit address so Philly/etc.
+  // campuses land on distinct pins instead of the same city center.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -91,8 +94,17 @@ export function VisitPlanTab({
       let changed = false;
       for (const school of planned) {
         if (next.has(school.id)) continue;
-        const loc = parseSchoolLocation(school.location);
-        const point = await geocodeCityState(loc.city, loc.state);
+        const visit = school.visitAddress?.trim();
+        const travel = travelPointById(schoolTravelPointId(school.id))?.address?.trim();
+        const query = schoolMapLocation(school);
+        let point =
+          (visit ? await geocodeAddress(visit) : null) ??
+          (travel && travel !== visit ? await geocodeAddress(travel) : null) ??
+          (await geocodeAddress(query));
+        if (!point) {
+          const loc = parseSchoolLocation(school.location);
+          point = await geocodeCityState(loc.city, loc.state);
+        }
         if (cancelled) return;
         next.set(school.id, point);
         changed = true;
@@ -134,23 +146,32 @@ export function VisitPlanTab({
     };
   }, [ui.startAddress, ui.endAddress]);
 
-  const nudges = useMemo(() => {
+  const displayCoords = useMemo(() => {
     const pts = [...coordsById.entries()]
       .filter((entry): entry is [string, GeoPoint] => Boolean(entry[1]))
       .map(([id, point]) => ({ id, lat: point.lat, lng: point.lng }));
-    return computePinNudges(pts);
+    return spreadCoincidentCoords(pts);
   }, [coordsById]);
+
+  const nudges = useMemo(() => {
+    const pts = [...displayCoords.entries()].map(([id, point]) => ({
+      id,
+      lat: point.lat,
+      lng: point.lng,
+    }));
+    return computePinNudges(pts);
+  }, [displayCoords]);
 
   const pointsById = useMemo(() => {
     const map = new Map<string, TripSchoolPoint>();
     for (const school of planned) {
-      const coords = coordsById.get(school.id);
+      const coords = displayCoords.get(school.id) ?? coordsById.get(school.id);
       if (!coords) continue;
       const point = toTripSchoolPoint(school, coords, nudges.get(school.id) ?? 0);
       if (point) map.set(school.id, point);
     }
     return map;
-  }, [planned, coordsById, nudges]);
+  }, [planned, coordsById, displayCoords, nudges]);
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -340,6 +361,7 @@ export function VisitPlanTab({
           <div className="trip-map-layout visit-plan-layout">
             <VisitPlanMap
               pointsById={pointsById}
+              expectedSchoolIds={plannedIds}
               routeOrder={route.order}
               routeLegs={routeLegs}
               startPoint={startPoint}
