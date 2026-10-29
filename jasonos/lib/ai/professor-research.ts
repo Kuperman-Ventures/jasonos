@@ -1,10 +1,11 @@
 import "server-only";
 
+import { anthropic } from "@ai-sdk/anthropic";
 import { gateway } from "@ai-sdk/gateway";
 import { generateObject, generateText, stepCountIs } from "ai";
 import { z } from "zod";
 import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
-import { heavyModel } from "@/lib/ai/models";
+import { hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import {
   cleanResearchBrief,
@@ -23,6 +24,37 @@ import {
 function cleanErrorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : "Research failed.";
   return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Web search needs a tool the active model provider supports.
+ * Direct Anthropic: native web_search. Gateway: Perplexity (matches research.ts).
+ */
+function searchSetup() {
+  if (hasDirectAnthropicKey()) {
+    return {
+      model: heavyModel(),
+      tools: {
+        web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
+      },
+      toolHint: "web_search",
+    };
+  }
+  const id = (process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6").replace(
+    /^anthropic\//,
+    ""
+  );
+  return {
+    model: gateway(`anthropic/${id}`),
+    tools: {
+      perplexity_search: gateway.tools.perplexitySearch({
+        maxResults: 8,
+        searchLanguageFilter: ["en"],
+        country: "US",
+      }),
+    },
+    toolHint: "perplexity_search",
+  };
 }
 
 function toolOutputsLookEmpty(result: {
@@ -63,19 +95,15 @@ async function searchBackedBrief(input: {
   prompt: string;
   emptyMessage: string;
 }): Promise<ResearchResult> {
+  const setup = searchSetup();
+  const system = input.system.replaceAll("perplexity_search", setup.toolHint);
   try {
     const result = await generateText({
-      model: heavyModel(),
-      tools: {
-        perplexity_search: gateway.tools.perplexitySearch({
-          maxResults: 8,
-          searchLanguageFilter: ["en"],
-          country: "US",
-        }),
-      },
+      model: setup.model,
+      tools: setup.tools,
       stopWhen: stepCountIs(6),
       maxOutputTokens: 1600,
-      system: input.system,
+      system,
       prompt: input.prompt,
       providerOptions: {
         anthropic: {
@@ -300,18 +328,16 @@ Only include people and postings you can support from the brief or sources. Pref
 }
 
 const nextStepsSchema = z.object({
-  steps: z
-    .array(
-      z.object({
-        text: z.string(),
-        rationale: z.string(),
-        question_id: z.string().uuid().optional().nullable(),
-        decision_id: z.string().uuid().optional().nullable(),
-        school_id: z.string().uuid().optional().nullable(),
-      })
-    )
-    .min(3)
-    .max(5),
+  // Anthropic structured output rejects array minItems other than 0 or 1.
+  steps: z.array(
+    z.object({
+      text: z.string(),
+      rationale: z.string(),
+      question_id: z.string().uuid().optional().nullable(),
+      decision_id: z.string().uuid().optional().nullable(),
+      school_id: z.string().uuid().optional().nullable(),
+    })
+  ),
 });
 
 export async function proposeNextSteps(input: {
@@ -384,13 +410,21 @@ Rules:
     },
   });
 
-  return object.steps.map((step) => ({
-    text: stripEmDashes(step.text.trim()),
-    rationale: stripEmDashes((step.rationale ?? "").trim()),
-    question_id: step.question_id ?? null,
-    decision_id: step.decision_id ?? null,
-    school_id: step.school_id ?? null,
-  }));
+  const steps = object.steps
+    .map((step) => ({
+      text: stripEmDashes(step.text.trim()),
+      rationale: stripEmDashes((step.rationale ?? "").trim()),
+      question_id: step.question_id ?? null,
+      decision_id: step.decision_id ?? null,
+      school_id: step.school_id ?? null,
+    }))
+    .filter((step) => step.text.length > 0)
+    .slice(0, 5);
+
+  if (steps.length < 3) {
+    throw new Error("Model returned fewer than 3 next steps. Try again.");
+  }
+  return steps;
 }
 
 const decisionProposalSchema = z.object({
