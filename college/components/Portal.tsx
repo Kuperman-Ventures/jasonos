@@ -16,6 +16,7 @@ import { AdminTab } from "./AdminTab";
 import { DataSourcesTab } from "./DataSourcesTab";
 import { setClientLinkOverrides } from "@/lib/link-overrides";
 import { NotesTab } from "./NotesTab";
+import { VisitPlanTab } from "./VisitPlanTab";
 import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
 import { consultantFirmsFromState } from "@/lib/consultants";
@@ -1754,6 +1755,18 @@ export function Portal({
             onScore={changeScore}
             onFirms={changeFirms}
             dateline={phaseLabel}
+          />
+        ) : null}
+        {tab === "visits" ? (
+          <VisitPlanTab
+            schools={schools}
+            dateline={phaseLabel}
+            onOpenSchool={(id) => {
+              replaceUrl("colleges", id);
+            }}
+            onRemoveFromPlan={(id) => {
+              void patchSchool(id, { visitStatus: "" });
+            }}
           />
         ) : null}
         {tab === "notes" ? (

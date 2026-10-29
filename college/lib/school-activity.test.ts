@@ -36,7 +36,7 @@ test("schoolPatchActivityLines logs interest and visit", () => {
   assert.match(interest[0]!.summary, /to High/);
 
   const visit = schoolPatchActivityLines(school, { visitStatus: "planned" });
-  assert.match(visit[0]!.summary, /Visit Planned/);
+  assert.match(visit[0]!.summary, /Plan Visit/);
 });
 
 test("schoolPatchActivityLines skips unchanged and quiet patches", () => {

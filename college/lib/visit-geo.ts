@@ -94,56 +94,108 @@ export function estimateDriveByLocation(
   return { label: "4 hr", minutes: 240, miles: 220 };
 }
 
+async function geocodeOpenMeteo(name: string): Promise<GeoPoint | null> {
+  const params = new URLSearchParams({
+    name,
+    count: "1",
+    language: "en",
+    format: "json",
+    countryCode: "US",
+  });
+  const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
+  if (!res.ok) return null;
+  const data = (await res.json()) as {
+    results?: Array<{ latitude: number; longitude: number }>;
+  };
+  const hit = data.results?.[0];
+  if (!hit || !Number.isFinite(hit.latitude) || !Number.isFinite(hit.longitude)) return null;
+  return { lat: hit.latitude, lng: hit.longitude };
+}
+
+function cacheGet(key: string): GeoPoint | null | undefined {
+  if (memoryCache.has(key)) return memoryCache.get(key) ?? null;
+  const disk = readDiskCache();
+  if (Object.prototype.hasOwnProperty.call(disk, key)) {
+    memoryCache.set(key, disk[key] ?? null);
+    return disk[key] ?? null;
+  }
+  return undefined;
+}
+
+function cacheSet(key: string, point: GeoPoint | null): void {
+  memoryCache.set(key, point);
+  const disk = readDiskCache();
+  disk[key] = point;
+  writeDiskCache(disk);
+}
+
 export async function geocodeCityState(
   city: string,
   state: string,
 ): Promise<GeoPoint | null> {
   const key = `${city.trim().toLowerCase()}|${state.trim().toLowerCase()}`;
   if (!city.trim()) return null;
-  if (memoryCache.has(key)) return memoryCache.get(key) ?? null;
-
-  const disk = readDiskCache();
-  if (Object.prototype.hasOwnProperty.call(disk, key)) {
-    memoryCache.set(key, disk[key] ?? null);
-    return disk[key] ?? null;
-  }
+  const cached = cacheGet(key);
+  if (cached !== undefined) return cached;
 
   if (typeof fetch === "undefined") {
-    memoryCache.set(key, null);
+    cacheSet(key, null);
     return null;
   }
 
   try {
-    const params = new URLSearchParams({
-      name: city.trim(),
-      count: "1",
-      language: "en",
-      format: "json",
-    });
-    if (state.trim()) {
-      // Open-Meteo accepts country code; state helps via name suffix.
-      params.set("name", `${city.trim()}, ${state.trim()}`);
-      params.set("countryCode", "US");
-    }
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
-    if (!res.ok) {
-      memoryCache.set(key, null);
-      return null;
-    }
-    const data = (await res.json()) as {
-      results?: Array<{ latitude: number; longitude: number }>;
-    };
-    const hit = data.results?.[0];
-    const point =
-      hit && Number.isFinite(hit.latitude) && Number.isFinite(hit.longitude)
-        ? { lat: hit.latitude, lng: hit.longitude }
-        : null;
-    memoryCache.set(key, point);
-    disk[key] = point;
-    writeDiskCache(disk);
+    const name = state.trim() ? `${city.trim()}, ${state.trim()}` : city.trim();
+    const point = await geocodeOpenMeteo(name);
+    cacheSet(key, point);
     return point;
   } catch {
-    memoryCache.set(key, null);
+    cacheSet(key, null);
+    return null;
+  }
+}
+
+/**
+ * Geocode a free-text address / city / ZIP.
+ * Prefers the app `/api/geocode` route (Google when configured), then Open-Meteo.
+ */
+export async function geocodeAddress(query: string): Promise<GeoPoint | null> {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  const key = `addr|${trimmed.toLowerCase()}`;
+  const cached = cacheGet(key);
+  if (cached !== undefined) return cached;
+
+  if (typeof fetch === "undefined") {
+    cacheSet(key, null);
+    return null;
+  }
+
+  try {
+    const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
+    if (res.ok) {
+      const data = (await res.json()) as { lat?: number; lng?: number; ok?: boolean };
+      if (
+        data.ok !== false &&
+        typeof data.lat === "number" &&
+        typeof data.lng === "number" &&
+        Number.isFinite(data.lat) &&
+        Number.isFinite(data.lng)
+      ) {
+        const point = { lat: data.lat, lng: data.lng };
+        cacheSet(key, point);
+        return point;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+
+  try {
+    const point = await geocodeOpenMeteo(trimmed);
+    cacheSet(key, point);
+    return point;
+  } catch {
+    cacheSet(key, null);
     return null;
   }
 }

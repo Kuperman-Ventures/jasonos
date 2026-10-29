@@ -47,6 +47,7 @@ export function resolveRailDensity(
 export const RAIL_SHORT_LABELS: Partial<Record<string, string>> = {
   dashboard: "Dashboard",
   projects: "Projects",
+  visits: "Visits",
   notes: "Notes",
   log: "Log",
   colleges: "Colleges",
