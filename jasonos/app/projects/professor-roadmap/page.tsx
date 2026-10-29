@@ -1,22 +1,24 @@
+import { ProfessorRoadmap } from "@/components/jasonos/professor-roadmap/professor-roadmap";
+import { ProjectLinks } from "@/components/jasonos/project-links";
+import { getProfessorRoadmap } from "@/lib/professor-roadmap/store";
+
 export const metadata = {
   title: "Professor Roadmap · JasonOS",
   description:
-    "Personal operating system for the path to becoming a college professor of marketing, with Seton Hall as the primary target.",
+    "Research and next steps for the path to teaching marketing, Seton Hall first.",
 };
 
-/**
- * Renders the Professor Roadmap under the JasonOS TopNav shell.
- * The single-file dashboard lives in public/ and is embedded full-height.
- */
-export default function ProfessorRoadmapPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ProfessorRoadmapPage() {
+  const data = await getProfessorRoadmap();
+
   return (
-    <div className="h-[calc(100vh-3rem)] w-full overflow-hidden bg-background">
-      <iframe
-        title="Marketing Professor Roadmap"
-        src="/projects/marketing-professor-roadmap.html"
-        className="h-full w-full border-0 bg-background"
-        allow="clipboard-read; clipboard-write"
-      />
-    </div>
+    <>
+      <ProfessorRoadmap data={data} />
+      <div className="mx-auto max-w-[960px] px-4 pb-8">
+        <ProjectLinks slug="professor-roadmap" />
+      </div>
+    </>
   );
 }

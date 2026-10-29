@@ -68,8 +68,9 @@ export default async function ProjectsPage() {
                   Marketing Professor Roadmap
                 </h2>
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                  Personal OS for the Seton Hall adjunct-first path — decisions,
-                  materials, outreach, gaps, and timeline in one dashboard.
+                  Open questions, a school brief that researches itself, next
+                  steps, and the two decisions that depend on them. Seton Hall
+                  first.
                 </p>
               </div>
             </div>

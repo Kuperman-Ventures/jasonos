@@ -61,6 +61,7 @@ import { registerCommitmentTools } from "./commitments-tools";
 import { registerConnectionsTools } from "./connections-tools";
 import { registerNetworkScreenTools } from "./network-screen-tools";
 import { registerFybTools } from "./fyb-tools";
+import { getProfessorRoadmap } from "@/lib/professor-roadmap/store";
 import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
@@ -84,6 +85,8 @@ The weekday Commitment Check publishes to the Commitments panel on Home with pub
 Network Screen (Custom Comms > Email) reads one person's visible LinkedIn connections and recommends three people Jason should ask that person to introduce him to, based on the job search. Jason starts a screen in JasonOS and gives Claude a capture prompt. Claude pages the connections in Chrome and calls import_network_screen with the rows. JasonOS chooses the three and drops the rest. Never score, rank, or draft in the import step, and never send the intro request. Jason sends from Apple Mail and marks it requested in JasonOS. Each recommended person can carry a forwardable intro blurb written in the connector's voice; Jason copies it or includes it in the email.
 
 Fuck You Batman story state lives in JasonOS. Call get_fyb_state before any story work. Publish weekly decision options with upsert_fyb_decision. Record Jason's pick with record_fyb_decision only when he has stated it; never record a decision he has not made. Publish reference and later bible/drift/scene rows with upsert_fyb_entry. Entries with status changes_requested carry Jason's note in change_request; address it before saving. If these tools are missing from a scheduled run, GET or POST https://jasonos.vercel.app/api/fyb with the JasonOS Bearer password.
+
+Professor Roadmap (Projects) tracks the path to teaching marketing, Seton Hall first. Read it with get_professor_roadmap. list_professor_open_questions returns what still needs research or a person to confirm. Research runs inside JasonOS; when Jason asks Claude to go deeper on a question, give the finding in chat and file the source doc with add_project_link using project_slug professor-roadmap. Never record a decision Jason has not stated.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -802,6 +805,52 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (args) => runTool(() => listProjectLinks(args))
+  );
+
+  server.registerTool(
+    "get_professor_roadmap",
+    {
+      title: "Professor Roadmap",
+      description:
+        "Full Professor Roadmap payload: schools, people, postings, questions with findings and sources, next steps, and decisions.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(getProfessorRoadmap)
+  );
+
+  server.registerTool(
+    "list_professor_open_questions",
+    {
+      title: "Professor open questions",
+      description:
+        "Professor Roadmap questions that are still open, or researched findings that still need a person to confirm.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () =>
+      runTool(async () => {
+        const roadmap = await getProfessorRoadmap();
+        const personLine =
+          /Still needs a person:\s*(.+)/i;
+        return roadmap.questions
+          .filter((q) => {
+            if (q.status === "open") return true;
+            if (q.status === "confirmed") return false;
+            return personLine.test(q.findingMd) && !/No person needed/i.test(q.findingMd);
+          })
+          .map((q) => {
+            const match = q.findingMd.match(personLine);
+            return {
+              id: q.id,
+              sort_order: q.sortOrder,
+              question: q.question,
+              status: q.status,
+              still_needs_a_person: match?.[1]?.trim() || null,
+              finding_md: q.findingMd || null,
+            };
+          });
+      })
   );
 
   server.registerTool(
