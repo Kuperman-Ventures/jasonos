@@ -291,7 +291,7 @@ describe("helpers", () => {
       title: "Catch up",
       summary: note,
     });
-    assert.match(draft.subject, /good talking|catching up/i);
+    assert.match(draft.subject, /follow-up|following up|intros|setsu|next/i);
     assert.match(draft.body, /^Shawn,/);
     assert.equal(/\breconnect\b/i.test(draft.body), false);
     assert.equal(draft.body.includes(note), false);
@@ -442,6 +442,12 @@ describe("isHollowFollowupBody", () => {
     );
     assert.equal(
       isHollowFollowupBody(
+        "Tobias,\n\nGood talking earlier this week. Enjoyed hearing you served as CMO for four years.\n\nAlso noted: co-founded via Gloss Ventures.\n\nJason"
+      ),
+      true
+    );
+    assert.equal(
+      isHollowFollowupBody(
         "Tuomas,\n\nIt was good to catch up last week. I liked hearing how Accenture is approaching the Equity Labs work — especially the implementer angle.\n\nLet's not wait another decade.\n\nJason"
       ),
       false
@@ -531,7 +537,7 @@ describe("meetingFollowupDraft first meeting", () => {
     });
     assert.equal(/\breconnect\b/i.test(empty.body), false);
     assert.match(empty.body, /^Hardik,/);
-    assert.match(empty.subject, /good talking/i);
+    assert.match(empty.subject, /follow-up/i);
 
     const first = meetingFollowupDraft({
       name: "Hardik Patel",
@@ -554,10 +560,11 @@ describe("resolveMeetingFollowupPrompt", () => {
       filled,
       "Open with Tuomas,. Meeting was last week. Hi Tuomas."
     );
-    assert.ok(resolveMeetingFollowupPrompt(null).includes("DATE AWARENESS"));
+    assert.ok(resolveMeetingFollowupPrompt(null).includes("120 words or fewer"));
     assert.ok(
       resolveMeetingFollowupPrompt(null).includes("FIRST MEETING vs RECONNECT")
     );
+    assert.ok(resolveMeetingFollowupPrompt(null).includes("confirmFacts"));
     assert.ok(resolveMeetingFollowupPrompt("  Custom rules  ").startsWith("Custom"));
   });
 });

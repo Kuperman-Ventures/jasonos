@@ -12,6 +12,7 @@ import { stripEmDashes } from "@/lib/email-templates/render";
 import {
   buildMeetingFollowupSourceMaterial,
   fillMeetingFollowupPrompt,
+  hasBannedFollowupPhrases,
   isHollowFollowupBody,
 } from "@/lib/outreach/meeting-followup-prompt";
 import { loadMeetingFollowupPromptGuidance } from "@/lib/outreach/meeting-followup-prompt-store";
@@ -52,6 +53,8 @@ export type MeetingFollowupComposeResult = {
   source: "ai" | "fallback";
   /** True when the draft was written from spoken transcript lines. */
   usedTranscript: boolean;
+  /** Facts Jason should verify before sending. */
+  confirmFacts: string[];
 };
 
 export {
@@ -59,18 +62,30 @@ export {
   MEETING_FOLLOWUP_SOURCE_MAX_CHARS,
 } from "@/lib/outreach/meeting-followup-prompt";
 
-function safeParseDraft(text: string): { subject: string; body: string } | null {
+function safeParseDraft(text: string): {
+  subject: string;
+  body: string;
+  confirmFacts: string[];
+} | null {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[0]) as {
       subject?: unknown;
       body?: unknown;
+      confirmFacts?: unknown;
     };
     const subject = typeof parsed.subject === "string" ? parsed.subject.trim() : "";
     const body = typeof parsed.body === "string" ? parsed.body.trim() : "";
     if (!body) return null;
-    return { subject, body };
+    const confirmFacts = Array.isArray(parsed.confirmFacts)
+      ? parsed.confirmFacts
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 8)
+      : [];
+    return { subject, body, confirmFacts };
   } catch {
     return null;
   }
@@ -98,7 +113,8 @@ function hardFail(
     isUnacceptableFollowupBody(body, summary) ||
     soundsLikePitchFollowup(body) ||
     hasWrongMeetingDayLanguage(body, whenPhrase) ||
-    soundsLikeWrongReconnect(body, summary)
+    soundsLikeWrongReconnect(body, summary) ||
+    hasBannedFollowupPhrases(body)
   );
 }
 
@@ -108,6 +124,14 @@ function draftFailsChecks(
   whenPhrase: string
 ): boolean {
   return hardFail(body, summary, whenPhrase) || isHollowFollowupBody(body);
+}
+
+function wordCount(body: string): number {
+  return body
+    .replace(/\n*Jason\s*$/i, "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 export async function composeMeetingFollowupDraft(
@@ -124,12 +148,11 @@ export async function composeMeetingFollowupDraft(
     summary: input.summary,
     transcript: input.transcript,
   });
-  // Checks + first-meet detection can use notes or a transcript excerpt.
   const checkSource =
     input.summary?.trim() ||
     input.transcript?.trim()?.slice(0, 4_000) ||
     "";
-  const fallback = polish(
+  const fallbackBase = polish(
     meetingFollowupDraft({
       name: resolvedName,
       title: input.title,
@@ -137,8 +160,16 @@ export async function composeMeetingFollowupDraft(
       startsAt: input.startsAt,
     })
   );
+  const fallback: MeetingFollowupComposeResult = {
+    ...fallbackBase,
+    source: "fallback",
+    usedTranscript: false,
+    confirmFacts: pickMeetingFollowupFacts(checkSource, 3).map(
+      (fact) => `Confirm before sending: ${fact}`
+    ),
+  };
   if (!material) {
-    return { ...fallback, source: "fallback", usedTranscript: false };
+    return fallback;
   }
 
   const who = firstName(resolvedName);
@@ -153,9 +184,6 @@ export async function composeMeetingFollowupDraft(
       whenPhrase,
     }
   );
-  // Deliberately NOT JASON_CORE_VOICE outreach rules (metric asks / Architect
-  // framing). Catch-up follow-ups should sound like a person, not a pipeline.
-  // Guidance text is editable in Settings → General.
   const system = `${JASON_IDENTITY}
 
 ${NO_AI_SLOP_WRITING_RULES}
@@ -164,84 +192,72 @@ ${guidance}`;
 
   const meetingKind = firstMeet
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
-    : "RECONNECT / catch-up (notes show prior relationship)";
+    : "RECONNECT only if the source clearly supports prior relationship";
   const sourceLabel = usedTranscript
     ? "the meeting transcript (what people said)"
     : "the meeting notes";
-  const takeawayHint = usedTranscript
-    ? "something said in the transcript"
-    : "the notes";
+  const mustUseFacts = pickMeetingFollowupFacts(checkSource, 4);
+  const factsBlock = mustUseFacts.length
+    ? `\nCandidate facts from the source (paraphrase; do not invent):\n- ${mustUseFacts.join("\n- ")}\n`
+    : "";
+
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
 Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
-WHEN the meeting happened (use this; do not invent a different day): ${whenPhrase}
+WHEN: ${whenPhrase}
 
-Source: ${sourceLabel}. Rewrite into a warm email. Do not paste. Do not pitch.
-
+Source: ${sourceLabel}. Follow the system instructions exactly.
+${factsBlock}
 ${material}
 
-Write the follow-up email JSON now. Include one concrete takeaway from ${takeawayHint}.`;
+Return the JSON now (subject, body, confirmFacts).`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
-  const mustUseFacts = pickMeetingFollowupFacts(checkSource, 4);
-  const factsBlock = mustUseFacts.length
-    ? `\nFacts you MUST ground the takeaway in (paraphrase, do not invent):\n- ${mustUseFacts.join("\n- ")}\n`
-    : "";
-  const hollowBan =
-    'Banned: bodies that are only "good talking / thanks for the conversation" with no concrete detail from the source.';
-  const rewriteHint = firstMeet
-    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. ${hollowBan} Do not paste ${
-        usedTranscript ? "transcript lines" : "meeting notes"
-      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). ${factsBlock}JSON only.`
-    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. ${hollowBan} Do not paste ${
-        usedTranscript ? "transcript lines" : "meeting notes"
-      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). ${factsBlock}JSON only.`;
+  const rewriteHint = `Rewrite against the system rules. Open on a specific thing they said. Include what Jason owes, what they offered, a giving line, and one next step with a time. Max 120 words. No banned fluff. Meeting was ${whenPhrase}. ${factsBlock}JSON only.`;
 
   try {
     const { text } = await generateText({
       model: heavyModel(),
-      maxOutputTokens: 700,
+      maxOutputTokens: 900,
       system,
-      messages: [
-        {
-          role: "user",
-          content: `${user}${factsBlock}\n${hollowBan}`,
-        },
-      ],
+      messages: [{ role: "user", content: user }],
       providerOptions,
     });
     const parsed = safeParseDraft(text);
-    if (!parsed) return { ...fallback, source: "fallback", usedTranscript };
+    if (!parsed) return { ...fallback, usedTranscript };
     let draft = polish({
       subject: parsed.subject || fallback.subject,
       body: parsed.body,
     });
-    if (!draftFailsChecks(draft.body, checkSource, whenPhrase)) {
-      return { ...draft, source: "ai", usedTranscript };
+    let confirmFacts = parsed.confirmFacts;
+    if (
+      !draftFailsChecks(draft.body, checkSource, whenPhrase) &&
+      wordCount(draft.body) <= 140
+    ) {
+      return { ...draft, source: "ai", usedTranscript, confirmFacts };
     }
 
-    // Up to three rewrites when notes/transcript exist. Never accept hollow.
     let lastParsed = parsed;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const hollowNudge = isHollowFollowupBody(draft.body)
-        ? `\nYour last draft was hollow fluff. Add a specific takeaway from the source (e.g. ${
-            mustUseFacts[0] ?? "a project, brand, or next step they mentioned"
-          }).`
-        : "";
+      const nudge = [
+        isHollowFollowupBody(draft.body) || hasBannedFollowupPhrases(draft.body)
+          ? "Last draft was fluff or used banned phrases. Open on a specific thing they said."
+          : "",
+        wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
       const { text: retryText } = await generateText({
         model: heavyModel(),
-        maxOutputTokens: 700,
+        maxOutputTokens: 900,
         system,
         messages: [
-          { role: "user", content: `${user}${factsBlock}\n${hollowBan}` },
-          {
-            role: "assistant",
-            content: JSON.stringify(lastParsed),
-          },
-          { role: "user", content: `${rewriteHint}${hollowNudge}` },
+          { role: "user", content: user },
+          { role: "assistant", content: JSON.stringify(lastParsed) },
+          { role: "user", content: `${rewriteHint}\n${nudge}` },
         ],
         providerOptions,
       });
@@ -252,22 +268,25 @@ Write the follow-up email JSON now. Include one concrete takeaway from ${takeawa
         subject: retry.subject || fallback.subject,
         body: retry.body,
       });
-      if (!draftFailsChecks(draft.body, checkSource, whenPhrase)) {
-        return { ...draft, source: "ai", usedTranscript };
+      confirmFacts = retry.confirmFacts;
+      if (
+        !draftFailsChecks(draft.body, checkSource, whenPhrase) &&
+        wordCount(draft.body) <= 140
+      ) {
+        return { ...draft, source: "ai", usedTranscript, confirmFacts };
       }
     }
 
-    // With real meeting material, never ship the empty thanks-only template.
-    // Prefer a non-hollow AI body; otherwise the notes-based fallback.
     if (
       !hardFail(draft.body, checkSource, whenPhrase) &&
-      !isHollowFollowupBody(draft.body)
+      !isHollowFollowupBody(draft.body) &&
+      wordCount(draft.body) <= 160
     ) {
-      return { ...draft, source: "ai", usedTranscript };
+      return { ...draft, source: "ai", usedTranscript, confirmFacts };
     }
-    return { ...fallback, source: "fallback", usedTranscript };
+    return { ...fallback, usedTranscript };
   } catch (err) {
     console.error("[meeting-followup-compose]", err);
-    return { ...fallback, source: "fallback", usedTranscript };
+    return { ...fallback, usedTranscript };
   }
 }

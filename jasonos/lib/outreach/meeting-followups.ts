@@ -459,11 +459,9 @@ export function pickMeetingFollowupFacts(
 }
 
 /**
- * Safe local draft when Claude is unavailable. Never pastes Granola note
- * fragments into the body — those read like action items, not email.
- * Never says "reconnect" on a first meeting (or when notes are missing).
- * When notes/transcript have substance, include one concrete takeaway so we
- * never ship hollow "thanks for the conversation" fluff.
+ * Safe local draft when Claude is unavailable. Opens on a specific thing from
+ * the notes (never "good talking" / "thanks for the conversation" fluff).
+ * Never says "reconnect" on a first meeting.
  */
 export function meetingFollowupDraft(input: {
   name: string | null;
@@ -475,59 +473,65 @@ export function meetingFollowupDraft(input: {
   const hello = who === "there" ? "Hi," : `${who},`;
   const when = meetingWhenPhrase(input.startsAt);
   const firstMeet = notesLookLikeFirstMeeting(input.summary);
-  const whenBit =
-    when === "today" || when === "yesterday" ? ` ${when}` : when === "recently" ? "" : ` ${when}`;
-  const lead = firstMeet
-    ? `Good talking${whenBit}.`
-    : when === "today"
-      ? "It was good to catch up today."
-      : when === "yesterday"
-        ? "It was good to catch up yesterday."
-        : `It was good to catch up${whenBit}.`;
   const facts = pickMeetingFollowupFacts(input.summary, 2);
-  const takeaway = facts[0] ? ` ${factToTakeawaySentence(facts[0])}` : "";
-  const next = facts[1] ? `\n\n${factToNextStepSentence(facts[1])}` : "";
-  const closer = takeaway
-    ? `${lead}${takeaway}${next}`
-    : `${lead} Thanks again for the conversation.`;
+  const open = facts[0]
+    ? factToOpeningLine(facts[0])
+    : firstMeet
+      ? "Your point from our conversation stuck with me."
+      : "One thing from our conversation stuck with me.";
+  const owe = facts[1]
+    ? `\n\n${factToOweLine(facts[1], when)}`
+    : `\n\nI'll send the follow-up I owe you by end of week.`;
   return {
-    subject: firstMeet ? "Good talking" : "Good catching up",
+    subject: facts[0] ? subjectFromFact(facts[0], firstMeet) : firstMeet ? "Quick follow-up" : "Following up",
     body: `${hello}
 
-${closer}
+${open}${owe}
 
 Jason`,
   };
 }
 
-function factToTakeawaySentence(fact: string): string {
+function factToOpeningLine(fact: string): string {
   const cleaned = fact.replace(/\.*$/, "").trim();
-  if (/^(i |we |you |he |she |they )/i.test(cleaned)) {
+  if (/^(your|you |the )\b/i.test(cleaned)) {
     return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
   }
+  const short =
+    cleaned.length > 110 ? `${cleaned.slice(0, 107).trim()}…` : cleaned;
+  const lower = `${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+  // "served as CMO…" / "co-founded…" need "you" after "said".
   if (
-    /^(co-)?founded|started|built|launched|hired|raised|shared|served|moved|took\b/i.test(
-      cleaned
+    /^(co-)?founded|started|built|launched|hired|raised|shared|served|moved|took|ran\b/i.test(
+      short
     )
   ) {
-    return `Enjoyed hearing you ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+    return `You said you ${lower}.`;
   }
-  return `Enjoyed hearing about ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+  // "Hero product: a neckliner…" → keep as a specific thing they said.
+  if (/[:;—-]/.test(short)) {
+    return `You said ${lower}.`;
+  }
+  return `You mentioned ${lower}.`;
 }
 
-function factToNextStepSentence(fact: string): string {
+function factToOweLine(fact: string, whenPhrase: string): string {
   const cleaned = fact.replace(/\.*$/, "").trim();
-  if (/^(i'?ll|i will|we'|let'?s)\b/i.test(cleaned)) {
+  if (/linkedin|introductions?/i.test(cleaned)) {
+    return "I'll send LinkedIn intro suggestions by Friday.";
+  }
+  if (/^(i'?ll|i will)\b/i.test(cleaned)) {
     return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
   }
-  if (/linkedin|introductions?/i.test(cleaned)) {
-    return "I'll look through LinkedIn for warm introductions on my side.";
-  }
-  // Avoid "follow up on on track…" / similar grammar glitches.
-  if (/^(on track|also|now|then)\b/i.test(cleaned)) {
-    return `Also noted: ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
-  }
-  return `Also noted: ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+  const when =
+    whenPhrase === "today" || whenPhrase === "yesterday" ? "tomorrow" : "by Friday";
+  return `I'll follow through on what we discussed ${when}.`;
+}
+
+function subjectFromFact(fact: string, firstMeet: boolean): string {
+  if (/\blinkedin|intro/i.test(fact)) return "LinkedIn intros";
+  if (/\bsetsu|cosmetics|neckliner|gloss\b/i.test(fact)) return "Setsu / next steps";
+  return firstMeet ? "Quick follow-up" : "Following up";
 }
 
 /** True when text looks like meeting notes / action items, not sendable prose. */
@@ -580,6 +584,7 @@ export function isUnacceptableFollowupBody(
 export {
   DEFAULT_MEETING_FOLLOWUP_PROMPT,
   fillMeetingFollowupPrompt,
+  hasBannedFollowupPhrases,
   isHollowFollowupBody,
   normalizeMeetingFollowupPrompt,
   resolveMeetingFollowupPrompt,

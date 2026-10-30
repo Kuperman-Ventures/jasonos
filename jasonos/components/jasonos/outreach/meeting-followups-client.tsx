@@ -62,12 +62,16 @@ export function MeetingFollowupsClient({
       return;
     }
     window.location.href = result.mailtoUrl;
+    const confirm =
+      result.confirmFacts.length > 0
+        ? ` Confirm before send: ${result.confirmFacts.slice(0, 2).join(" · ")}`
+        : "";
     toast.success(
-      result.fromTranscript
-        ? "Draft ready from the meeting transcript — review in Apple Mail"
+      (result.fromTranscript
+        ? "Draft ready from the meeting transcript — review in Apple Mail."
         : result.granola
-          ? "Draft ready from the Granola note — review in Apple Mail"
-          : "Draft ready — review in Apple Mail before you send"
+          ? "Draft ready from the Granola note — review in Apple Mail."
+          : "Draft ready — review in Apple Mail before you send.") + confirm
     );
     router.refresh();
   };
