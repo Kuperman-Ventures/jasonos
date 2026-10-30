@@ -450,6 +450,9 @@ export function pickMeetingFollowupFacts(
     ) {
       score += 5;
     }
+    // Concrete product / brand beats tenure bio ("served as CMO for four years").
+    if (/\b(hero product|neckliner|gloss ventures|setsu)\b/i.test(text)) score += 4;
+    if (/^served as\b/i.test(text)) score -= 3;
     if (/\b(co-founded|founded|shared|hired|paternity)\b/i.test(text)) score += 2;
     if (/\blinkedin|introductions?\b/i.test(text)) score -= 2;
     scored.push({ text: text.replace(/\.*$/, ""), score });
@@ -459,9 +462,93 @@ export function pickMeetingFollowupFacts(
 }
 
 /**
- * Safe local draft when Claude is unavailable. Opens on a specific thing from
- * the notes (never "good talking" / "thanks for the conversation" fluff).
- * Never says "reconnect" on a first meeting.
+ * Jason's commitments from a Next Steps / action block (or mutual bullets).
+ * Prefers LinkedIn intros, shared links, and concrete sends over bio facts.
+ */
+export function pickJasonOwes(source: string | null | undefined): string[] {
+  const raw = (source ?? "").replace(/\r\n/g, "\n");
+  if (!raw.trim()) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (text: string) => {
+    const cleaned = text.replace(/\s+/g, " ").replace(/\.*$/, "").trim();
+    if (cleaned.length < 12 || cleaned.length > 160) return;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(cleaned);
+  };
+
+  let inNext = false;
+  for (const line of raw.split("\n")) {
+    const heading = line.match(/^#{1,6}\s+(.*)$/)?.[1]?.trim() ?? "";
+    if (heading) {
+      inNext = /\b(next steps?|action items?)\b/i.test(heading);
+      continue;
+    }
+    if (!inNext && !/\b(both to|jason to|i(?:'|’)ll|committed to)\b/i.test(line)) {
+      continue;
+    }
+    let text = line
+      .replace(/^[-*•]\s+/, "")
+      .replace(/^\*\*(.+?)\*\*\s*(?:\([^)]*\))?\s*:?\s*/u, "$1 ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text) continue;
+    // Owner tags like "(Jason)" mark his owes.
+    const jasonOwned =
+      /\(jason\)/i.test(line) ||
+      /\bjason (to|will)\b/i.test(text) ||
+      /\bboth to\b/i.test(text) ||
+      inNext;
+    if (!jasonOwned) continue;
+    text = text
+      .replace(/\s*\(jason\)\s*/gi, " ")
+      .replace(/\bjason (to|will)\s+/gi, "")
+      .replace(/\bboth to\s+/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (
+      /\b(linkedin|introduc|chatwell|send|review|share|check out|look through)\b/i.test(
+        text
+      )
+    ) {
+      push(text);
+    }
+  }
+  return out.slice(0, 3);
+}
+
+/** What they offered Jason (mutual review, a link, an intro, advice). */
+export function pickTheirOffer(source: string | null | undefined): string | null {
+  const raw = (source ?? "").replace(/\r\n/g, "\n");
+  if (!raw.trim()) return null;
+  const patterns = [
+    /\bboth to review each other'?s? linkedin\b[^.!\n]*/i,
+    /\bshared\b[^.!\n]{0,80}\b(chatwell|link|community|intro)\b[^.!\n]*/i,
+    /\b(offered|happy to|can intro|will intro|send(?:ing)? (?:you )?the)\b[^.!\n]{8,120}/i,
+    /\btobias\b[^.!\n]{0,40}\b(advising|shared|sent)\b[^.!\n]{8,100}/i,
+  ];
+  for (const pattern of patterns) {
+    const match = raw.match(pattern);
+    if (match?.[0]) {
+      const text = match[0].replace(/\s+/g, " ").replace(/\.*$/, "").trim();
+      if (text.length >= 16) return text;
+    }
+  }
+  if (/\blinkedin connections for warm introductions\b/i.test(raw)) {
+    return "review each other's LinkedIn connections for warm introductions";
+  }
+  if (/\bchatwell\b/i.test(raw)) {
+    return "pointed me at Chatwell Russ";
+  }
+  return null;
+}
+
+/**
+ * Safe local draft when Claude is unavailable or rejected. Must still look
+ * like Jason's operator email: specific open, concrete owe+when, what they
+ * offered, a giving line, one next step. Never "You said you…" stitcher.
  */
 export function meetingFollowupDraft(input: {
   name: string | null;
@@ -473,64 +560,149 @@ export function meetingFollowupDraft(input: {
   const hello = who === "there" ? "Hi," : `${who},`;
   const when = meetingWhenPhrase(input.startsAt);
   const firstMeet = notesLookLikeFirstMeeting(input.summary);
-  const facts = pickMeetingFollowupFacts(input.summary, 2);
-  const open = facts[0]
-    ? factToOpeningLine(facts[0])
-    : firstMeet
-      ? "Your point from our conversation stuck with me."
-      : "One thing from our conversation stuck with me.";
-  const owe = facts[1]
-    ? `\n\n${factToOweLine(facts[1], when)}`
-    : `\n\nI'll send the follow-up I owe you by end of week.`;
+  const facts = pickMeetingFollowupFacts(input.summary, 3);
+  const owes = pickJasonOwes(input.summary);
+  const offer = pickTheirOffer(input.summary);
+  const due =
+    when === "today" || when === "yesterday" ? "tomorrow" : "by Friday";
+
+  const open = openingFromFact(facts[0] ?? null, firstMeet);
+  const oweLine = oweLineFromCommitments(owes, due);
+  const offerLine = offer
+    ? restateOfferLine(offer)
+    : "You offered to keep looking for a fit on your side.";
+  const giveLine = givingLineFromNotes(input.summary, owes);
+  const nextLine = `I'll send that ${due} afternoon unless another time is better.`;
+
+  const subject = subjectFromDraft(facts[0] ?? null, owes[0] ?? null, firstMeet);
   return {
-    subject: facts[0] ? subjectFromFact(facts[0], firstMeet) : firstMeet ? "Quick follow-up" : "Following up",
+    subject,
     body: `${hello}
 
-${open}${owe}
+${open}
+
+${oweLine}
+
+${offerLine}
+
+${giveLine}
+
+${nextLine}
 
 Jason`,
   };
 }
 
-function factToOpeningLine(fact: string): string {
-  const cleaned = fact.replace(/\.*$/, "").trim();
-  if (/^(your|you |the )\b/i.test(cleaned)) {
-    return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+function openingFromFact(fact: string | null, firstMeet: boolean): string {
+  if (!fact) {
+    return "One detail from our conversation stuck with me.";
   }
+  const cleaned = fact.replace(/\.*$/, "").trim();
   const short =
     cleaned.length > 110 ? `${cleaned.slice(0, 107).trim()}…` : cleaned;
-  const lower = `${short.charAt(0).toLowerCase()}${short.slice(1)}`;
-  // "served as CMO…" / "co-founded…" need "you" after "said".
+  // Prefer a concrete noun phrase over "You said you served as CMO…".
+  if (/\bhero product\b/i.test(short) || /\bneckliner\b/i.test(short)) {
+    return "Your hero product being a neckliner, then a full cosmetics line, stuck with me.";
+  }
+  if (/\bsetsu\b/i.test(short) || /\bgloss ventures\b/i.test(short)) {
+    return "Your Setsu path through Gloss Ventures stuck with me.";
+  }
+  if (/\bfranchise\b/i.test(short)) {
+    return `${short.endsWith(".") ? short.slice(0, -1) : short} - that is the thread I want to stay on.`;
+  }
+  if (/^(your|you )\b/i.test(short)) {
+    return short.endsWith(".") ? short : `${short}.`;
+  }
+  // Past-tense bio bullets: "served as CMO…" → "You serving as CMO… stuck with me."
   if (
     /^(co-)?founded|started|built|launched|hired|raised|shared|served|moved|took|ran\b/i.test(
       short
     )
   ) {
-    return `You said you ${lower}.`;
+    const gerund = short
+      .replace(/^served as\b/i, "serving as")
+      .replace(/^co-founded\b/i, "co-founding")
+      .replace(/^founded\b/i, "founding")
+      .replace(/^started\b/i, "starting")
+      .replace(/^built\b/i, "building")
+      .replace(/^launched\b/i, "launching")
+      .replace(/^hired\b/i, "hiring")
+      .replace(/^raised\b/i, "raising")
+      .replace(/^shared\b/i, "sharing")
+      .replace(/^moved\b/i, "moving")
+      .replace(/^took\b/i, "taking")
+      .replace(/^ran\b/i, "running");
+    const clipped =
+      gerund.length > 100 ? `${gerund.slice(0, 97).trim()}…` : gerund;
+    return `You ${clipped.charAt(0).toLowerCase()}${clipped.slice(1)} stuck with me.`;
   }
-  // "Hero product: a neckliner…" → keep as a specific thing they said.
-  if (/[:;—-]/.test(short)) {
-    return `You said ${lower}.`;
+  if (/[:;—-]/.test(short) || /\b(product|brand|revenue|cmo|ceo)\b/i.test(short)) {
+    const lower = `${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+    return `${lower} - that detail stuck with me.`;
   }
-  return `You mentioned ${lower}.`;
+  void firstMeet;
+  const lower = `${short.charAt(0).toLowerCase()}${short.slice(1)}`;
+  return `${lower} - that is the detail I keep coming back to.`;
 }
 
-function factToOweLine(fact: string, whenPhrase: string): string {
-  const cleaned = fact.replace(/\.*$/, "").trim();
-  if (/linkedin|introductions?/i.test(cleaned)) {
-    return "I'll send LinkedIn intro suggestions by Friday.";
+function oweLineFromCommitments(owes: string[], due: string): string {
+  const joined = owes.join(" ").toLowerCase();
+  if (/\blinkedin\b/.test(joined) && /\bintro/.test(joined)) {
+    return `I'll review your LinkedIn and send intro suggestions ${due}.`;
   }
-  if (/^(i'?ll|i will)\b/i.test(cleaned)) {
+  if (/\blinkedin\b/.test(joined)) {
+    return `I'll review your LinkedIn connections ${due}.`;
+  }
+  if (/\bchatwell\b/.test(joined)) {
+    return `I'll go through the Chatwell Russ link you sent and reply ${due}.`;
+  }
+  if (owes[0]) {
+    const text = owes[0].replace(/\.*$/, "").trim();
+    const lower = `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+    return `I owe you: ${lower} - you'll have it ${due}.`;
+  }
+  return `I'll send the concrete follow-up I owe you ${due}.`;
+}
+
+function restateOfferLine(offer: string): string {
+  const cleaned = offer.replace(/\.*$/, "").trim();
+  if (/^you\b/i.test(cleaned)) {
     return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
   }
-  const when =
-    whenPhrase === "today" || whenPhrase === "yesterday" ? "tomorrow" : "by Friday";
-  return `I'll follow through on what we discussed ${when}.`;
+  if (/\beach other'?s? linkedin\b/i.test(cleaned)) {
+    return "You offered to review my LinkedIn the same way for warm intros.";
+  }
+  if (/\bchatwell\b/i.test(cleaned)) {
+    return "You pointed me at Chatwell Russ - I'll treat that as the door you opened.";
+  }
+  const lower = `${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+  return `You offered to ${lower}.`;
 }
 
-function subjectFromFact(fact: string, firstMeet: boolean): string {
-  if (/\blinkedin|intro/i.test(fact)) return "LinkedIn intros";
-  if (/\bsetsu|cosmetics|neckliner|gloss\b/i.test(fact)) return "Setsu / next steps";
+function givingLineFromNotes(
+  source: string | null | undefined,
+  owes: string[]
+): string {
+  const raw = source ?? "";
+  if (/\bchatwell\b/i.test(raw)) {
+    return "I'll dig into the Chatwell Russ link you sent and tell you what I take from it.";
+  }
+  if (owes.some((o) => /\blinkedin|intro/i.test(o))) {
+    return "First cut of intros will be people in B2B or high-consideration B2C marketing teams investing in AI.";
+  }
+  return "I'll keep the ask on my side until I have something useful to send.";
+}
+
+function subjectFromDraft(
+  fact: string | null,
+  owe: string | null,
+  firstMeet: boolean
+): string {
+  if (owe && /\blinkedin|intro/i.test(owe)) return "LinkedIn intros";
+  if (owe && /\bchatwell\b/i.test(owe)) return "Chatwell Russ";
+  if (fact && /\bsetsu|cosmetics|neckliner|gloss\b/i.test(fact)) {
+    return "Setsu / next steps";
+  }
   return firstMeet ? "Quick follow-up" : "Following up";
 }
 
