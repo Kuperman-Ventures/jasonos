@@ -24,6 +24,7 @@ import {
   wwwAuthenticate,
 } from "./oauth.ts";
 import { FYB_TOOL_NAMES } from "./fyb-tools.ts";
+import { WEBINAR_TOOL_NAMES } from "./webinars-tools.ts";
 import { NETWORK_SCREEN_TOOL_NAMES } from "./network-screen-tools.ts";
 import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
@@ -275,6 +276,10 @@ describe("registerJasonosTools", () => {
     for (const name of FYB_TOOL_NAMES) {
       assert.ok(registered.includes(name), `missing ${name}`);
     }
+    for (const name of WEBINAR_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /list_webinar_candidates/);
     assert.ok(registered.includes("list_upcoming_meeting_preps"));
     assert.ok(registered.includes("list_playbooks"));
     assert.ok(registered.includes("list_decks"));
@@ -321,6 +326,8 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("get_morning_brief"));
     assert.ok(tools.includes("publish_morning_brief"));
     assert.ok(tools.includes("publish_inbox_dispatch"));
+    assert.ok(tools.includes("list_webinar_candidates"));
+    assert.ok(tools.includes("publish_webinar_session"));
     assert.ok(tools.includes("get_alerts"));
     assert.ok(tools.includes("list_alerts"));
     assert.ok(tools.includes("publish_commitment_check"));

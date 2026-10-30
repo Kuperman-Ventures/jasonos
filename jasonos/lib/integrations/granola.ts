@@ -36,9 +36,12 @@ type NoteDetail = NoteSummary & {
   summary_text?: string | null;
   summary_markdown?: string | null;
   attendees?: Array<{ name?: string | null; email?: string }>;
+  /** Folder labels when the Granola API returns them (name or {name}). */
+  folders?: Array<string | { id?: string; name?: string | null }> | null;
   calendar_event?: {
     calendar_event_id?: string | null;
     scheduled_start_time?: string | null;
+    scheduled_end_time?: string | null;
     invitees?: Array<{ email?: string }>;
   } | null;
 };
@@ -371,6 +374,9 @@ export async function listRecentGranolaNotes(opts?: {
         attendeeNames: string[];
         calendarEventId: string | null;
         scheduledStart: string | null;
+        folders: string[];
+        durationMinutes: number | null;
+        participantCount: number;
       }>;
     }
   | { ok: false; error: string }
@@ -396,6 +402,9 @@ export async function listRecentGranolaNotes(opts?: {
       attendeeNames: string[];
       calendarEventId: string | null;
       scheduledStart: string | null;
+      folders: string[];
+      durationMinutes: number | null;
+      participantCount: number;
     }> = [];
     for (const note of shortlist) {
       const detail = await granolaGet(`/v1/notes/${encodeURIComponent(note.id as string)}`, key);
@@ -403,7 +412,8 @@ export async function listRecentGranolaNotes(opts?: {
         if (detail.status === 401 || detail.status === 403) return { ok: false, error: keyError(detail.status) };
         continue;
       }
-      const candidate = toCandidate(detail.json as NoteDetail, note);
+      const body = detail.json as NoteDetail;
+      const candidate = toCandidate(body, note);
       let transcript: string | null = null;
       if (opts?.includeTranscript) {
         const t = await getGranolaTranscript(candidate.id);
@@ -420,6 +430,9 @@ export async function listRecentGranolaNotes(opts?: {
         attendeeNames: candidate.attendeeNames ?? [],
         calendarEventId: candidate.calendarEventId ?? null,
         scheduledStart: candidate.scheduledStart ?? null,
+        folders: folderNamesFromGranola(body),
+        durationMinutes: durationMinutesFromGranola(body),
+        participantCount: participantCountFromGranola(body),
       });
     }
     return { ok: true, notes };
@@ -450,6 +463,38 @@ async function listNotes(
     cursor = body.cursor;
   }
   return { ok: true, notes };
+}
+
+function folderNamesFromGranola(detail: NoteDetail): string[] {
+  const out: string[] = [];
+  for (const row of detail.folders ?? []) {
+    if (typeof row === "string" && row.trim()) out.push(row.trim());
+    else if (row && typeof row === "object" && typeof row.name === "string" && row.name.trim()) {
+      out.push(row.name.trim());
+    }
+  }
+  return out;
+}
+
+function durationMinutesFromGranola(detail: NoteDetail): number | null {
+  const start = detail.calendar_event?.scheduled_start_time;
+  const end = detail.calendar_event?.scheduled_end_time;
+  if (!start || !end) return null;
+  const ms = Date.parse(end) - Date.parse(start);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.round(ms / 60_000);
+}
+
+function participantCountFromGranola(detail: NoteDetail): number {
+  const emails = new Set<string>();
+  for (const person of detail.attendees ?? []) {
+    if (person.email) emails.add(person.email.toLowerCase());
+  }
+  for (const invitee of detail.calendar_event?.invitees ?? []) {
+    if (invitee.email) emails.add(invitee.email.toLowerCase());
+  }
+  if (emails.size) return emails.size;
+  return (detail.attendees ?? []).length;
 }
 
 function toCandidate(detail: NoteDetail, fallback: NoteSummary): GranolaNoteCandidate {

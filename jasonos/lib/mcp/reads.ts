@@ -48,6 +48,16 @@ export function listJasonosAreas() {
         tools: ["get_commitment_check", "publish_commitment_check", "set_commitment_item_state"],
       },
       {
+        area: "webinars",
+        tools: [
+          "list_webinar_candidates",
+          "publish_webinar_session",
+          "set_webinar_session_status",
+          "publish_webinar_digest",
+          "get_webinar_digest",
+        ],
+      },
+      {
         area: "fuck_you_batman",
         tools: [
           "get_fyb_state",

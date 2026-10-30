@@ -58,6 +58,7 @@ import {
 } from "./decks-tools";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
+import { registerWebinarTools } from "./webinars-tools";
 import { registerConnectionsTools } from "./connections-tools";
 import { registerNetworkScreenTools } from "./network-screen-tools";
 import { registerFybTools } from "./fyb-tools";
@@ -81,6 +82,8 @@ If these tools are missing from a scheduled run, search for "jasonos" or "publis
 Connections Register (Settings -> Connections) tracks every access grant across Jason's accounts, automation tools and apps. Read it with get_connections_register and list_connection_changes. Keep it current with upsert_connection_grant, update_connection_grant, upsert_connection_node and upsert_connection_coverage; use import_connections_register for bulk loads. When access is removed, set status to revoked rather than deleting the row.
 
 The weekday Commitment Check publishes to the Commitments panel on Home with publish_commitment_check. Call get_commitment_check first and leave out items Jason marked done or dismissed. Read it later with get_commitment_check; mark items with set_commitment_item_state.
+
+Webinars: the weekday webinar run calls list_webinar_candidates, summarizes each session that has a transcript, and publishes with publish_webinar_session. Fridays it also calls publish_webinar_digest for the week. note_solo_long candidates wait for Jason to confirm on the Webinars page. If these tools are missing from a scheduled run, POST to https://jasonos.vercel.app/api/webinars/publish with the JasonOS Bearer password.
 
 Network Screen (Custom Comms > Email) reads one person's visible LinkedIn connections and recommends three people Jason should ask that person to introduce him to, based on the job search. Jason starts a screen in JasonOS and gives Claude a capture prompt. Claude pages the connections in Chrome and calls import_network_screen with the rows. JasonOS chooses the three and drops the rest. Never score, rank, or draft in the import step, and never send the intro request. Jason sends from Apple Mail and marks it requested in JasonOS. Each recommended person can carry a forwardable intro blurb written in the connector's voice; Jason copies it or includes it in the email.
 
@@ -901,5 +904,6 @@ export function registerJasonosTools(server: McpServer) {
   registerConnectionsTools(server);
   registerNetworkScreenTools(server);
   registerCommitmentTools(server);
+  registerWebinarTools(server);
   registerFybTools(server);
 }

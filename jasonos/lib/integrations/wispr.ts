@@ -39,6 +39,9 @@ export type WisprNote = {
   attendeeNames: string[];
   calendarEventId: string | null;
   scheduledStart: string | null;
+  folders: string[];
+  durationMinutes: number | null;
+  participantCount: number;
 };
 
 type ToolContent = { type?: string; text?: string };
@@ -173,6 +176,61 @@ function startOf(row: Record<string, unknown>): string | null {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return null;
+}
+
+function endOf(row: Record<string, unknown>): string | null {
+  for (const key of ["end", "ends_at", "ended_at", "scheduled_end"]) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function foldersOf(row: Record<string, unknown>): string[] {
+  const raw = row.folders;
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item === "string" && item.trim()) out.push(item.trim());
+    else if (item && typeof item === "object") {
+      const name = (item as { name?: unknown }).name;
+      if (typeof name === "string" && name.trim()) out.push(name.trim());
+    }
+  }
+  return out;
+}
+
+function attendeesOf(row: Record<string, unknown>): {
+  emails: string[];
+  names: string[];
+} {
+  const raw = row.attendees ?? row.participants ?? row.people;
+  if (!Array.isArray(raw)) return { emails: [], names: [] };
+  const emails: string[] = [];
+  const names: string[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    if (typeof rec.email === "string" && rec.email.includes("@")) {
+      emails.push(rec.email.trim().toLowerCase());
+    }
+    if (typeof rec.name === "string" && rec.name.trim()) names.push(rec.name.trim());
+  }
+  return { emails, names };
+}
+
+function durationMinutesOf(row: Record<string, unknown>): number | null {
+  const explicit =
+    row.duration_minutes ?? row.durationMinutes ?? row.duration;
+  if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
+    return Math.round(explicit);
+  }
+  const start = startOf(row);
+  const end = endOf(row);
+  if (!start || !end) return null;
+  const ms = Date.parse(end) - Date.parse(start);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.round(ms / 60_000);
 }
 
 /** Health check for Settings — calls get_account_info. */
@@ -442,12 +500,14 @@ export async function listRecentWisprNotes(opts?: {
       let url = urlOf(row);
       let title = titleOf(row);
       let scheduledStart = startOf(row);
+      let merged: Record<string, unknown> = { ...row };
       if (id) {
         try {
           const detailCall = await callTool(client, "get_meeting", {
             meeting_id: id,
           });
           const detail = asRecord(detailCall.json) ?? {};
+          merged = { ...row, ...detail };
           summary =
             (typeof detail.summary === "string" && detail.summary.trim()) ||
             (typeof detail.content === "string" && detail.content.trim()) ||
@@ -459,13 +519,14 @@ export async function listRecentWisprNotes(opts?: {
             transcript = paged.text || null;
           }
           url = urlOf(detail) ?? url;
-          title = titleOf({ ...row, ...detail });
+          title = titleOf(merged);
           scheduledStart = startOf(detail) ?? scheduledStart;
         } catch {
           // keep search stub
         }
       }
       if (!summary && !transcript) continue;
+      const people = attendeesOf(merged);
       notes.push({
         id: id ?? `wispr:${title}:${scheduledStart ?? ""}`,
         title,
@@ -473,10 +534,13 @@ export async function listRecentWisprNotes(opts?: {
         summary,
         transcript,
         url,
-        attendeeEmails: [],
-        attendeeNames: [],
+        attendeeEmails: people.emails,
+        attendeeNames: people.names,
         calendarEventId: null,
         scheduledStart,
+        folders: foldersOf(merged),
+        durationMinutes: durationMinutesOf(merged),
+        participantCount: people.emails.length || people.names.length,
       });
     }
     return notes;

@@ -60,6 +60,8 @@ export interface CalendarApiEvent {
   attendeesOmitted?: boolean;
   htmlLink?: string;
   status?: string;
+  /** Google Calendar: default | outOfOffice | focusTime | workingLocation | fromGmail */
+  eventType?: string;
   hangoutLink?: string;
   conferenceData?: { entryPoints?: { uri?: string; entryPointType?: string }[] };
   location?: string;

@@ -38,6 +38,7 @@ const NAV: NavItem[] = [
       { href: "/today", label: "Today" },
       { href: "/tasks", label: "Task Library" },
       { href: "/calendar", label: "Calendar" },
+      { href: "/webinars", label: "Webinars" },
       { href: "/weekly-review", label: "Weekly Review" },
       { href: "/nyui", label: "NYUI" },
     ],
