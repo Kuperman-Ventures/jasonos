@@ -83,7 +83,7 @@ Hard rules:
 - 3-5 short sentences across 2-3 short paragraphs.
 - DATE AWARENESS (critical): the meeting was {{whenPhrase}}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good talking" with no day word).
 - Lead with warmth that matches first-meet vs reconnect above. If the notes mention shared history, reference that lightly.
-- Then one human takeaway THEY said or that came out of the conversation — their work, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business. When the notes have any substance, this takeaway is required. Do not send a hollow "good to reconnect / thanks for the conversation" note.
+- Then one human takeaway THEY said or that came out of the conversation — their work, a brand, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business. When the notes or transcript have any substance, this takeaway is REQUIRED. A body that is only "good talking / thanks for the conversation" is a hard failure — rewrite with a concrete detail.
 - Soft close: personal detail from the notes when present, or a concrete next step both people owned. Only invent a next step if the notes clearly support one.
 - Do NOT pivot into Jason's clients, products, Equity Labs, Refactor Sprint, or "I'll keep X in mind given your role…" unless the notes show they asked for that or agreed a specific follow-up.
 - Sign off with "Jason" on its own line. No exclamation points. No em dashes.
@@ -138,17 +138,23 @@ export function isHollowFollowupBody(body: string): boolean {
 
   const withoutBoilerplate = stripped
     .replace(
-      /\bit was (so )?good to (reconnect|catch up|talk|speak|meet( you)?)( (to you|with you))?( (today|yesterday|last week|earlier this week|recently|a few weeks ago|a while back|the other day))?\b\.?/g,
+      /\bit was (so )?good to (reconnect|catch up|talk|speak|meet( you)?)( (to you|with you))?( (today|yesterday|last week|earlier this week|this week|recently|a few weeks ago|a while back|the other day))?\b\.?/g,
+      " "
+    )
+    .replace(
+      /\bgood talking( through)?( (today|yesterday|last week|earlier this week|this week|recently|a few weeks ago|a while back|the other day))?\b\.?/g,
       " "
     )
     .replace(/\bthanks again for the conversation\b\.?/g, " ")
+    .replace(/\bthanks for the conversation\b\.?/g, " ")
+    .replace(/\bthanks for (your )?time\b\.?/g, " ")
     .replace(/\bgood (catching|to catch) up\b\.?/g, " ")
     .replace(/\bgreat to (reconnect|meet you)\b\.?/g, " ")
-    .replace(/\bgood talking( through)?\b\.?/g, " ")
     .replace(/\bi always enjoy our conversations\b\.?/g, " ")
     .replace(/\blooking forward to staying in touch\b\.?/g, " ")
+    .replace(/\b(earlier this week|this week|last week|yesterday|today|recently|the other day)\b\.?/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  return withoutBoilerplate.length < 24;
+  return withoutBoilerplate.length < 28;
 }

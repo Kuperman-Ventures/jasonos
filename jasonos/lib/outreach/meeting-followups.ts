@@ -383,9 +383,87 @@ export function soundsLikeWrongReconnect(
 }
 
 /**
+ * Pull a few short facts from Granola notes / transcript for drafts when the
+ * model fails. Skips Jason's own bio / next-steps sections. Prefers brand and
+ * product lines over generic career chronology.
+ */
+export function pickMeetingFollowupFacts(
+  source: string | null | undefined,
+  limit = 3
+): string[] {
+  const raw = (source ?? "").replace(/\r\n/g, "\n").trim();
+  if (!raw) return [];
+  const skipSection =
+    /^(jason'?s?\s+background|jason'?s?\s+current|target role|mutual interests|next steps|private notes|attendees|summary)\b/i;
+  const skipLine =
+    /^(engineered by|known participants|folders?|meeting title|looking for leads)\b/i;
+  const jasonBio =
+    /\b(kuperman advisors|architecture degree|tbwa|outfront|agencytoolbox|vibe coding|cursor \(ide\)|claude \(strategy|joined a hardware)\b/i;
+  const actionItem =
+    /^(review|check out|send|follow up|suggest|look through)\b/i;
+  type Scored = { text: string; score: number };
+  const scored: Scored[] = [];
+  const seen = new Set<string>();
+  let skipBlock = false;
+  for (const line of raw.split("\n")) {
+    const markdownHeading = line.match(/^#{1,6}\s+(.*)$/)?.[1]?.trim();
+    const plainHeading =
+      !markdownHeading &&
+      !/^[-*•]/.test(line) &&
+      /^[A-Z][\w'’&()/ -]{2,60}$/u.test(line.trim())
+        ? line.trim()
+        : null;
+    const heading = markdownHeading || plainHeading;
+    if (heading) {
+      skipBlock = skipSection.test(heading);
+      continue;
+    }
+    if (skipBlock) continue;
+    let text = line
+      .replace(/^[-*•]\s+/, "")
+      .replace(/^\*\*[^*]+\*\*:?\s*/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!text || text.length < 28 || text.length > 180) continue;
+    if (skipSection.test(text) || skipLine.test(text) || actionItem.test(text)) {
+      continue;
+    }
+    // Drop speaker labels from transcript lines but keep the content.
+    text = text.replace(/^(Jason|Them|Speaker|[A-Z][a-z]+):\s+/, "");
+    if (text.length < 28) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    if (jasonBio.test(text)) continue;
+    // Keep local fallback free of action-item / parenthetical note paste.
+    if (looksLikeGranolaNoteFragment(text)) continue;
+    if (/\([A-Z][a-z]+\)/.test(text)) continue;
+    if (/\b[A-Z][a-z]+ to [a-z]/.test(text) && /\b(committed|reciprocate|intros?)\b/i.test(text)) {
+      continue;
+    }
+    seen.add(key);
+    let score = 0;
+    if (/[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*/.test(text)) score += 2;
+    if (
+      /\b(setsu|cosmetics|neevee|chatwell|franchise|brand|cmo|neckliner|gloss|raised|revenue|incubator)\b/i.test(
+        text
+      )
+    ) {
+      score += 5;
+    }
+    if (/\b(co-founded|founded|shared|hired|paternity)\b/i.test(text)) score += 2;
+    if (/\blinkedin|introductions?\b/i.test(text)) score -= 2;
+    scored.push({ text: text.replace(/\.*$/, ""), score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.text.length - b.text.length);
+  return scored.slice(0, limit).map((row) => row.text);
+}
+
+/**
  * Safe local draft when Claude is unavailable. Never pastes Granola note
  * fragments into the body — those read like action items, not email.
  * Never says "reconnect" on a first meeting (or when notes are missing).
+ * When notes/transcript have substance, include one concrete takeaway so we
+ * never ship hollow "thanks for the conversation" fluff.
  */
 export function meetingFollowupDraft(input: {
   name: string | null;
@@ -406,14 +484,50 @@ export function meetingFollowupDraft(input: {
       : when === "yesterday"
         ? "It was good to catch up yesterday."
         : `It was good to catch up${whenBit}.`;
+  const facts = pickMeetingFollowupFacts(input.summary, 2);
+  const takeaway = facts[0] ? ` ${factToTakeawaySentence(facts[0])}` : "";
+  const next = facts[1] ? `\n\n${factToNextStepSentence(facts[1])}` : "";
+  const closer = takeaway
+    ? `${lead}${takeaway}${next}`
+    : `${lead} Thanks again for the conversation.`;
   return {
     subject: firstMeet ? "Good talking" : "Good catching up",
     body: `${hello}
 
-${lead} Thanks again for the conversation.
+${closer}
 
 Jason`,
   };
+}
+
+function factToTakeawaySentence(fact: string): string {
+  const cleaned = fact.replace(/\.*$/, "").trim();
+  if (/^(i |we |you |he |she |they )/i.test(cleaned)) {
+    return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+  }
+  if (
+    /^(co-)?founded|started|built|launched|hired|raised|shared|served|moved|took\b/i.test(
+      cleaned
+    )
+  ) {
+    return `Enjoyed hearing you ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+  }
+  return `Enjoyed hearing about ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+}
+
+function factToNextStepSentence(fact: string): string {
+  const cleaned = fact.replace(/\.*$/, "").trim();
+  if (/^(i'?ll|i will|we'|let'?s)\b/i.test(cleaned)) {
+    return cleaned.endsWith(".") ? cleaned : `${cleaned}.`;
+  }
+  if (/linkedin|introductions?/i.test(cleaned)) {
+    return "I'll look through LinkedIn for warm introductions on my side.";
+  }
+  // Avoid "follow up on on track…" / similar grammar glitches.
+  if (/^(on track|also|now|then)\b/i.test(cleaned)) {
+    return `Also noted: ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
+  }
+  return `Also noted: ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}.`;
 }
 
 /** True when text looks like meeting notes / action items, not sendable prose. */

@@ -19,6 +19,7 @@ import {
   meetingWhenPhrase,
   notesLookLikeFirstMeeting,
   pendingAttendeesForMeeting,
+  pickMeetingFollowupFacts,
   planMeetingFollowup,
   qualifyMeetingAttendees,
   qualifyPastMeeting,
@@ -435,10 +436,49 @@ describe("isHollowFollowupBody", () => {
     );
     assert.equal(
       isHollowFollowupBody(
+        "Tobias,\n\nGood talking earlier this week. Thanks again for the conversation.\n\nJason"
+      ),
+      true
+    );
+    assert.equal(
+      isHollowFollowupBody(
         "Tuomas,\n\nIt was good to catch up last week. I liked hearing how Accenture is approaching the Equity Labs work — especially the implementer angle.\n\nLet's not wait another decade.\n\nJason"
       ),
       false
     );
+  });
+});
+
+describe("pickMeetingFollowupFacts", () => {
+  it("prefers their brand/work over Jason bio lines", () => {
+    const facts = pickMeetingFollowupFacts(
+      `# Tobias Background
+- Engineer by training, career in marketing
+# Setsu (Cosmetics Brand)
+- Co-founded via Gloss Ventures; hero product is a neckliner
+# Jason's Background and Current Focus
+- Architecture degree, moved into digital after AutoCAD
+- Launched Kuperman Advisors
+# Next Steps
+- Review Tobias's LinkedIn connections and suggest introductions`
+    );
+    assert.ok(facts.some((f) => /setsu|neckliner|gloss/i.test(f)));
+    assert.ok(!facts.some((f) => /kuperman advisors|architecture degree/i.test(f)));
+  });
+});
+
+describe("meetingFollowupDraft with notes", () => {
+  it("includes a concrete takeaway when notes have substance", () => {
+    const draft = meetingFollowupDraft({
+      name: "Tobias Topel",
+      title: "Intro - Tobias X Jason",
+      summary:
+        "Setsu cosmetics brand. Co-founded via Gloss Ventures; hero product is a neckliner. On track past $100M revenue.",
+      startsAt: "2026-10-28T21:00:00.000Z",
+    });
+    assert.equal(isHollowFollowupBody(draft.body), false);
+    assert.match(draft.body, /setsu|neckliner|gloss|100m/i);
+    assert.doesNotMatch(draft.body, /thanks again for the conversation/i);
   });
 });
 

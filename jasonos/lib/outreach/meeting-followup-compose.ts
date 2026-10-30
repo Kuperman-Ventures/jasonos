@@ -23,6 +23,7 @@ import {
   meetingFollowupDraft,
   meetingWhenPhrase,
   notesLookLikeFirstMeeting,
+  pickMeetingFollowupFacts,
   soundsLikePitchFollowup,
   soundsLikeWrongReconnect,
 } from "@/lib/outreach/meeting-followups";
@@ -185,20 +186,31 @@ Write the follow-up email JSON now. Include one concrete takeaway from ${takeawa
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
+  const mustUseFacts = pickMeetingFollowupFacts(checkSource, 4);
+  const factsBlock = mustUseFacts.length
+    ? `\nFacts you MUST ground the takeaway in (paraphrase, do not invent):\n- ${mustUseFacts.join("\n- ")}\n`
+    : "";
+  const hollowBan =
+    'Banned: bodies that are only "good talking / thanks for the conversation" with no concrete detail from the source.';
   const rewriteHint = firstMeet
-    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. Do not send hollow fluff. Do not paste ${
+    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. ${hollowBan} Do not paste ${
         usedTranscript ? "transcript lines" : "meeting notes"
-      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`
-    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste ${
+      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). ${factsBlock}JSON only.`
+    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. ${hollowBan} Do not paste ${
         usedTranscript ? "transcript lines" : "meeting notes"
-      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
+      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). ${factsBlock}JSON only.`;
 
   try {
     const { text } = await generateText({
       model: heavyModel(),
       maxOutputTokens: 700,
       system,
-      messages: [{ role: "user", content: user }],
+      messages: [
+        {
+          role: "user",
+          content: `${user}${factsBlock}\n${hollowBan}`,
+        },
+      ],
       providerOptions,
     });
     const parsed = safeParseDraft(text);
@@ -211,21 +223,25 @@ Write the follow-up email JSON now. Include one concrete takeaway from ${takeawa
       return { ...draft, source: "ai", usedTranscript };
     }
 
-    // Up to two rewrites when notes/transcript exist — never hand back the
-    // empty template just because the first pass was hollow.
+    // Up to three rewrites when notes/transcript exist. Never accept hollow.
     let lastParsed = parsed;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const hollowNudge = isHollowFollowupBody(draft.body)
+        ? `\nYour last draft was hollow fluff. Add a specific takeaway from the source (e.g. ${
+            mustUseFacts[0] ?? "a project, brand, or next step they mentioned"
+          }).`
+        : "";
       const { text: retryText } = await generateText({
         model: heavyModel(),
         maxOutputTokens: 700,
         system,
         messages: [
-          { role: "user", content: user },
+          { role: "user", content: `${user}${factsBlock}\n${hollowBan}` },
           {
             role: "assistant",
             content: JSON.stringify(lastParsed),
           },
-          { role: "user", content: rewriteHint },
+          { role: "user", content: `${rewriteHint}${hollowNudge}` },
         ],
         providerOptions,
       });
@@ -239,23 +255,13 @@ Write the follow-up email JSON now. Include one concrete takeaway from ${takeawa
       if (!draftFailsChecks(draft.body, checkSource, whenPhrase)) {
         return { ...draft, source: "ai", usedTranscript };
       }
-      // Hard failures (paste / pitch / wrong day) keep rewriting.
-      // Hollow-only: accept if the body has more substance than the template.
-      if (
-        !hardFail(draft.body, checkSource, whenPhrase) &&
-        draft.body.trim().length > fallback.body.trim().length + 40
-      ) {
-        return { ...draft, source: "ai", usedTranscript };
-      }
     }
 
-    // Last resort with notes: still prefer a non-hard-fail AI body over fluff.
-    if (!hardFail(draft.body, checkSource, whenPhrase) && !isHollowFollowupBody(draft.body)) {
-      return { ...draft, source: "ai", usedTranscript };
-    }
+    // With real meeting material, never ship the empty thanks-only template.
+    // Prefer a non-hollow AI body; otherwise the notes-based fallback.
     if (
       !hardFail(draft.body, checkSource, whenPhrase) &&
-      draft.body.trim().length > fallback.body.trim().length
+      !isHollowFollowupBody(draft.body)
     ) {
       return { ...draft, source: "ai", usedTranscript };
     }
