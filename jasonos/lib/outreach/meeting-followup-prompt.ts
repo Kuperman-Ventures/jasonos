@@ -9,6 +9,42 @@
  *   {{whenPhrase}}  — "today" / "yesterday" / "last week" / …
  */
 
+/** Max chars of meeting material sent to the draft model. */
+export const MEETING_FOLLOWUP_SOURCE_MAX_CHARS = 12_000;
+
+/**
+ * Prefer transcript; keep a short notes preface when both exist so the model
+ * still sees Granola's structured takeaways without crowding out the talk.
+ */
+export function buildMeetingFollowupSourceMaterial(input: {
+  summary?: string | null;
+  transcript?: string | null;
+  maxChars?: number;
+}): { material: string; usedTranscript: boolean } {
+  const maxChars = Math.max(2_000, input.maxChars ?? MEETING_FOLLOWUP_SOURCE_MAX_CHARS);
+  const transcript = input.transcript?.trim() || "";
+  const summary = input.summary?.trim() || "";
+  if (transcript) {
+    const notesBudget = summary ? Math.min(1_500, Math.floor(maxChars * 0.12)) : 0;
+    const notesPart = summary
+      ? `MEETING NOTES (short):\n${summary.slice(0, notesBudget)}\n\n`
+      : "";
+    const label = "MEETING TRANSCRIPT (primary source — base the email on this):\n";
+    const remaining = Math.max(500, maxChars - notesPart.length - label.length);
+    return {
+      material: `${notesPart}${label}${transcript.slice(0, remaining)}`,
+      usedTranscript: true,
+    };
+  }
+  if (summary) {
+    return {
+      material: `MEETING NOTES:\n${summary.slice(0, maxChars)}`,
+      usedTranscript: false,
+    };
+  }
+  return { material: "", usedTranscript: false };
+}
+
 export const MEETING_FOLLOWUP_PROMPT_PLACEHOLDERS = [
   "{{firstName}}",
   "{{greeting}}",
@@ -41,7 +77,7 @@ I really enjoyed hearing about what you are building. Let's not wait another ten
 Jason"
 
 Hard rules:
-- Use ONLY facts present in MEETING NOTES. Do not invent intros, firms, roles, asks, beers, cities, or commitments.
+- Use ONLY facts present in the MEETING TRANSCRIPT or MEETING NOTES provided. Prefer what people said in the transcript when it is present. Do not invent intros, firms, roles, asks, beers, cities, or commitments.
 - Use the person's first name. Never greet with a last name alone.
 - Open with "{{greeting}}" on its own line (comma is fine; no em dash).
 - 3-5 short sentences across 2-3 short paragraphs.

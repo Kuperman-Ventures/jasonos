@@ -9,8 +9,15 @@ import {
   mergeCalendarEvents,
 } from "@/lib/integrations/google-calendar";
 import { listSentRecipientTouches } from "@/lib/integrations/gmail";
-import { searchGranolaForContact } from "@/lib/integrations/granola";
-import { searchWisprForContact } from "@/lib/integrations/wispr";
+import {
+  getGranolaTranscript,
+  searchGranolaForContact,
+} from "@/lib/integrations/granola";
+import {
+  getWisprTranscript,
+  searchWisprForContact,
+} from "@/lib/integrations/wispr";
+import { extractTranscriptSection } from "@/lib/live/decks-helpers";
 import {
   listOutlookCalendarEvents,
   listOutlookSentRecipientTouches,
@@ -684,13 +691,20 @@ export async function completeMeetingFollowup(id: string): Promise<ActionResult>
 }
 
 /**
- * Pull Granola for the meeting, seed a draft, return a mailto: URL.
- * Nothing is sent — Apple Mail opens with To / subject / body filled in.
+ * Pull the Granola (or Wispr) transcript for this meeting, draft from it, and
+ * return a mailto: URL. Nothing is sent — Apple Mail opens with fields filled.
  */
 export async function draftMeetingFollowupMailto(
   id: string
 ): Promise<
-  | { ok: true; mailtoUrl: string; subject: string; body: string; granola: boolean }
+  | {
+      ok: true;
+      mailtoUrl: string;
+      subject: string;
+      body: string;
+      granola: boolean;
+      fromTranscript: boolean;
+    }
   | { ok: false; error: string }
 > {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
@@ -722,8 +736,9 @@ export async function draftMeetingFollowupMailto(
     }) ?? primary.name;
   const contactName =
     displayName || primary.email.split("@")[0] || row.title;
-  // Always re-fetch Granola for this calendar event. A cached summary from a
-  // bad match must not keep powering the wrong draft.
+  // Always re-fetch the note for this calendar event, then load the spoken
+  // transcript separately. A cached summary must not power the wrong draft,
+  // and AI notes alone must not crowd the transcript out of the prompt.
   const calendarEventIds = [
     row.gcal_event_id,
     typeof row.ical_uid === "string" ? row.ical_uid : null,
@@ -739,24 +754,60 @@ export async function draftMeetingFollowupMailto(
     calendarEventId: row.gcal_event_id,
     calendarEventIds,
     meetingTitle: row.title,
-    includeTranscript: true as const,
   };
-  let note = await searchGranolaForContact(search);
-  if (!note.found || !note.summary) {
-    const wispr = await searchWisprForContact(search);
-    if (wispr.found && wispr.summary) {
-      note = { found: true, summary: wispr.summary, url: wispr.url };
+
+  let summary: string | null = null;
+  let transcript: string | null = null;
+  let noteUrl: string | null = null;
+
+  const granola = await searchGranolaForContact(search);
+  if (granola.found) {
+    noteUrl = granola.url ?? null;
+    const rawSummary = granola.summary?.trim() || "";
+    // Notes only — strip any appended transcript block from older helpers.
+    const marker = "--- Transcript ---";
+    const markerAt = rawSummary.indexOf(marker);
+    summary =
+      markerAt >= 0 ? rawSummary.slice(0, markerAt).trim() || null : rawSummary || null;
+    const noteId = granola.meetings?.[0]?.id ?? null;
+    if (noteId) {
+      const paged = await getGranolaTranscript(noteId);
+      transcript = paged?.text?.trim() || extractTranscriptSection(granola.summary) || null;
+    } else {
+      transcript = extractTranscriptSection(granola.summary);
     }
   }
-  const summary = note.found && note.summary ? note.summary : null;
-  const granolaUrl = note.found ? note.url ?? null : null;
-  const fromGranola = Boolean(summary);
+
+  if (!transcript) {
+    const wispr = await searchWisprForContact({
+      ...search,
+      includeTranscript: true,
+    });
+    if (wispr.found) {
+      if (!noteUrl) noteUrl = wispr.url ?? null;
+      if (!summary) {
+        const raw = wispr.summary?.trim() || "";
+        const marker = "--- Transcript ---";
+        const markerAt = raw.indexOf(marker);
+        summary =
+          markerAt >= 0 ? raw.slice(0, markerAt).trim() || null : raw || null;
+      }
+      if (wispr.meetingId) {
+        const paged = await getWisprTranscript(wispr.meetingId);
+        transcript =
+          paged?.text?.trim() || extractTranscriptSection(wispr.summary) || null;
+      } else {
+        transcript = extractTranscriptSection(wispr.summary);
+      }
+    }
+  }
 
   const draft = await composeMeetingFollowupDraft({
     name: displayName,
     email: primary.email,
     title: row.title?.trim() || "Meeting",
     summary,
+    transcript,
     startsAt: row.starts_at,
   });
   const to = pending.map((a) => a.email).join(", ");
@@ -766,11 +817,18 @@ export async function draftMeetingFollowupMailto(
     body: draft.body,
   });
 
+  // Persist notes for the Home card; keep transcript out of the column so the
+  // row preview stays short. Draft body already used the transcript.
+  const storedSummary = (summary ?? transcript?.slice(0, 4_000) ?? null)?.slice(
+    0,
+    20_000
+  );
+
   const { error: updateError } = await sb
     .from("meeting_followups")
     .update({
-      granola_summary: summary,
-      granola_url: granolaUrl,
+      granola_summary: storedSummary,
+      granola_url: noteUrl,
       draft_subject: draft.subject,
       draft_body: draft.body,
       updated_at: new Date().toISOString(),
@@ -784,7 +842,8 @@ export async function draftMeetingFollowupMailto(
     mailtoUrl,
     subject: draft.subject,
     body: draft.body,
-    granola: fromGranola && draft.source === "ai",
+    granola: Boolean(summary || transcript) && draft.source === "ai",
+    fromTranscript: draft.usedTranscript && draft.source === "ai",
   };
 }
 
