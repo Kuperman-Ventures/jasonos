@@ -1,6 +1,6 @@
-// Turn a Granola meeting note into a short follow-up email Jason can send.
-// Facts come only from the note. Nothing here is sent — the server action
-// opens Apple Mail via mailto.
+// Turn a Granola / Wispr meeting transcript (preferred) or note into a short
+// follow-up email Jason can send. Facts come only from that source. Nothing
+// here is sent — the server action opens Apple Mail via mailto.
 
 import "server-only";
 
@@ -10,6 +10,7 @@ import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { stripEmDashes } from "@/lib/email-templates/render";
 import {
+  buildMeetingFollowupSourceMaterial,
   fillMeetingFollowupPrompt,
   isHollowFollowupBody,
 } from "@/lib/outreach/meeting-followup-prompt";
@@ -31,7 +32,13 @@ export { isUnacceptableFollowupBody, soundsLikePitchFollowup };
 export type MeetingFollowupComposeInput = {
   name: string | null;
   title: string;
+  /** Granola / Wispr AI notes. Used when no transcript is available. */
   summary: string | null;
+  /**
+   * Spoken transcript (speaker lines). Preferred over summary — Home Draft
+   * follow-up should read the conversation, not only the AI note.
+   */
+  transcript?: string | null;
   /** Meeting start ISO — used so drafts do not say "today" for older calls. */
   startsAt?: string | null;
   /** Fallback when guest display name is missing (e.g. simon@…). */
@@ -42,7 +49,14 @@ export type MeetingFollowupComposeResult = {
   subject: string;
   body: string;
   source: "ai" | "fallback";
+  /** True when the draft was written from spoken transcript lines. */
+  usedTranscript: boolean;
 };
+
+export {
+  buildMeetingFollowupSourceMaterial,
+  MEETING_FOLLOWUP_SOURCE_MAX_CHARS,
+} from "@/lib/outreach/meeting-followup-prompt";
 
 function safeParseDraft(text: string): { subject: string; body: string } | null {
   const match = text.match(/\{[\s\S]*\}/);
@@ -105,23 +119,31 @@ export async function composeMeetingFollowupDraft(
       email: input.email,
       title: input.title,
     }) ?? input.name;
+  const { material, usedTranscript } = buildMeetingFollowupSourceMaterial({
+    summary: input.summary,
+    transcript: input.transcript,
+  });
+  // Checks + first-meet detection can use notes or a transcript excerpt.
+  const checkSource =
+    input.summary?.trim() ||
+    input.transcript?.trim()?.slice(0, 4_000) ||
+    "";
   const fallback = polish(
     meetingFollowupDraft({
       name: resolvedName,
       title: input.title,
-      summary: input.summary,
+      summary: checkSource || input.summary,
       startsAt: input.startsAt,
     })
   );
-  const summary = input.summary?.trim() || "";
-  if (!summary) {
-    return { ...fallback, source: "fallback" };
+  if (!material) {
+    return { ...fallback, source: "fallback", usedTranscript: false };
   }
 
   const who = firstName(resolvedName);
   const greeting = who === "there" ? "Hi," : `${who},`;
   const displayName = who === "there" ? "Name" : who;
-  const firstMeet = notesLookLikeFirstMeeting(summary);
+  const firstMeet = notesLookLikeFirstMeeting(checkSource);
   const guidance = fillMeetingFollowupPrompt(
     await loadMeetingFollowupPromptGuidance(),
     {
@@ -142,49 +164,60 @@ ${guidance}`;
   const meetingKind = firstMeet
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
     : "RECONNECT / catch-up (notes show prior relationship)";
+  const sourceLabel = usedTranscript
+    ? "the meeting transcript (what people said)"
+    : "the meeting notes";
+  const takeawayHint = usedTranscript
+    ? "something said in the transcript"
+    : "the notes";
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
 Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
 WHEN the meeting happened (use this; do not invent a different day): ${whenPhrase}
 
-MEETING NOTES (Granola — rewrite into a warm email, do not paste, do not pitch):
-${summary.slice(0, 6000)}
+Source: ${sourceLabel}. Rewrite into a warm email. Do not paste. Do not pitch.
 
-Write the follow-up email JSON now. Include one concrete takeaway from the notes.`;
+${material}
+
+Write the follow-up email JSON now. Include one concrete takeaway from ${takeawayHint}.`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
   const rewriteHint = firstMeet
-    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`
-    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
+    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. Do not send hollow fluff. Do not paste ${
+        usedTranscript ? "transcript lines" : "meeting notes"
+      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`
+    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from ${takeawayHint}. Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste ${
+        usedTranscript ? "transcript lines" : "meeting notes"
+      }. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
 
   try {
     const { text } = await generateText({
       model: heavyModel(),
-      maxOutputTokens: 600,
+      maxOutputTokens: 700,
       system,
       messages: [{ role: "user", content: user }],
       providerOptions,
     });
     const parsed = safeParseDraft(text);
-    if (!parsed) return { ...fallback, source: "fallback" };
+    if (!parsed) return { ...fallback, source: "fallback", usedTranscript };
     let draft = polish({
       subject: parsed.subject || fallback.subject,
       body: parsed.body,
     });
-    if (!draftFailsChecks(draft.body, summary, whenPhrase)) {
-      return { ...draft, source: "ai" };
+    if (!draftFailsChecks(draft.body, checkSource, whenPhrase)) {
+      return { ...draft, source: "ai", usedTranscript };
     }
 
-    // Up to two rewrites when notes exist — never hand back the empty template
-    // just because the first pass was hollow.
+    // Up to two rewrites when notes/transcript exist — never hand back the
+    // empty template just because the first pass was hollow.
     let lastParsed = parsed;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const { text: retryText } = await generateText({
         model: heavyModel(),
-        maxOutputTokens: 600,
+        maxOutputTokens: 700,
         system,
         messages: [
           { role: "user", content: user },
@@ -203,32 +236,32 @@ Write the follow-up email JSON now. Include one concrete takeaway from the notes
         subject: retry.subject || fallback.subject,
         body: retry.body,
       });
-      if (!draftFailsChecks(draft.body, summary, whenPhrase)) {
-        return { ...draft, source: "ai" };
+      if (!draftFailsChecks(draft.body, checkSource, whenPhrase)) {
+        return { ...draft, source: "ai", usedTranscript };
       }
       // Hard failures (paste / pitch / wrong day) keep rewriting.
       // Hollow-only: accept if the body has more substance than the template.
       if (
-        !hardFail(draft.body, summary, whenPhrase) &&
+        !hardFail(draft.body, checkSource, whenPhrase) &&
         draft.body.trim().length > fallback.body.trim().length + 40
       ) {
-        return { ...draft, source: "ai" };
+        return { ...draft, source: "ai", usedTranscript };
       }
     }
 
     // Last resort with notes: still prefer a non-hard-fail AI body over fluff.
-    if (!hardFail(draft.body, summary, whenPhrase) && !isHollowFollowupBody(draft.body)) {
-      return { ...draft, source: "ai" };
+    if (!hardFail(draft.body, checkSource, whenPhrase) && !isHollowFollowupBody(draft.body)) {
+      return { ...draft, source: "ai", usedTranscript };
     }
     if (
-      !hardFail(draft.body, summary, whenPhrase) &&
+      !hardFail(draft.body, checkSource, whenPhrase) &&
       draft.body.trim().length > fallback.body.trim().length
     ) {
-      return { ...draft, source: "ai" };
+      return { ...draft, source: "ai", usedTranscript };
     }
-    return { ...fallback, source: "fallback" };
+    return { ...fallback, source: "fallback", usedTranscript };
   } catch (err) {
     console.error("[meeting-followup-compose]", err);
-    return { ...fallback, source: "fallback" };
+    return { ...fallback, source: "fallback", usedTranscript };
   }
 }
