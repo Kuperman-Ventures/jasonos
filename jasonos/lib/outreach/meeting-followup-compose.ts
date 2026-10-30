@@ -24,6 +24,7 @@ import {
   meetingFollowupDraft,
   meetingWhenPhrase,
   notesLookLikeFirstMeeting,
+  pickJasonOwes,
   pickMeetingFollowupFacts,
   soundsLikePitchFollowup,
   soundsLikeWrongReconnect,
@@ -160,13 +161,17 @@ export async function composeMeetingFollowupDraft(
       startsAt: input.startsAt,
     })
   );
+  const confirmFacts = [
+    ...pickJasonOwes(checkSource).map((fact) => `Confirm you still owe: ${fact}`),
+    ...pickMeetingFollowupFacts(checkSource, 3).map(
+      (fact) => `Confirm before sending: ${fact}`
+    ),
+  ].slice(0, 5);
   const fallback: MeetingFollowupComposeResult = {
     ...fallbackBase,
     source: "fallback",
     usedTranscript: false,
-    confirmFacts: pickMeetingFollowupFacts(checkSource, 3).map(
-      (fact) => `Confirm before sending: ${fact}`
-    ),
+    confirmFacts,
   };
   if (!material) {
     return fallback;
@@ -216,7 +221,7 @@ Return the JSON now (subject, body, confirmFacts).`;
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
-  const rewriteHint = `Rewrite against the system rules. Open on a specific thing they said. Include what Jason owes, what they offered, a giving line, and one next step with a time. Max 120 words. No banned fluff. Meeting was ${whenPhrase}. ${factsBlock}JSON only.`;
+  const rewriteHint = `Rewrite against the system rules. Open on a specific thing they said - never "You said you…" and never "I'll follow through on what we discussed". Include what Jason owes + when, what they offered, a giving line, and one next step with a time. Max 120 words. No banned fluff. Meeting was ${whenPhrase}. ${factsBlock}JSON only.`;
 
   try {
     const { text } = await generateText({

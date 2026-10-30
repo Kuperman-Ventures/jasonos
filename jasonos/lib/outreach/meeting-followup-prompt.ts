@@ -67,8 +67,8 @@ Before writing, decide:
 - What is the one line where I give them something instead of asking?
 
 Write the email:
-- Open with one line about a specific thing they said. No "great to meet you", no "good talking", no "I hope this finds you", no "I'd love to", no "thanks for the conversation", no "Enjoyed hearing you…", no "Also noted:".
-- Confirm what I owe them and when they will have it. If it is a link or an intro, put it in this email rather than promising it.
+- Open with one line about a specific thing they said. No "great to meet you", no "good talking", no "I hope this finds you", no "I'd love to", no "thanks for the conversation", no "Enjoyed hearing you…", no "Also noted:", no "You said you…", no "I'll follow through on what we discussed".
+- Confirm what I owe them and when they will have it. Name the deliverable (LinkedIn intros, a link, a doc). If it is a link or an intro, put it in this email rather than promising it.
 - Restate what they offered in one line so it is easy for them to act on.
 - Include the giving line.
 - End with one next step and a specific time. Not "let's stay in touch".
@@ -140,6 +140,16 @@ export function isHollowFollowupBody(body: string): boolean {
   // Mechanical notes-stitcher leftovers.
   if (/\benjoyed hearing you\b/.test(stripped)) return true;
   if (/\balso noted:\b/.test(stripped)) return true;
+  // Local fallback that only pastes a bio bullet + a vague owe.
+  if (/\byou said you\b/.test(stripped)) return true;
+  if (/\bi'?ll follow through on what we discussed\b/.test(stripped)) return true;
+  if (/\bi'?ll send the follow-up i owe you\b/.test(stripped)) return true;
+  if (
+    /\byou (said|mentioned)\b/.test(stripped) &&
+    /\bfollow through on what we discussed\b/.test(stripped)
+  ) {
+    return true;
+  }
 
   const withoutBoilerplate = stripped
     .replace(
@@ -177,6 +187,8 @@ export function hasBannedFollowupPhrases(body: string): boolean {
     /\bthanks again for the conversation\b/i.test(body) ||
     /\benjoyed hearing you\b/i.test(body) ||
     /\balso noted:\b/i.test(body) ||
+    /\byou said you\b/i.test(body) ||
+    /\bi'?ll follow through on what we discussed\b/i.test(body) ||
     /^[^\n]*\bgood talking\b/im.test(body)
   );
 }

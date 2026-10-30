@@ -704,6 +704,8 @@ export async function draftMeetingFollowupMailto(
       body: string;
       granola: boolean;
       fromTranscript: boolean;
+      /** True when Claude failed checks and the local operator draft was used. */
+      localFallback: boolean;
       confirmFacts: string[];
     }
   | { ok: false; error: string }
@@ -845,6 +847,7 @@ export async function draftMeetingFollowupMailto(
     body: draft.body,
     granola: Boolean(summary || transcript) && draft.source === "ai",
     fromTranscript: draft.usedTranscript && draft.source === "ai",
+    localFallback: draft.source === "fallback",
     confirmFacts: draft.confirmFacts,
   };
 }
