@@ -9,6 +9,7 @@ import {
   type ContactLookup,
   type ContactLookupRow,
 } from "./contact-lookup";
+import { isNoiseEmail } from "./mail-noise";
 
 export type CalendarGuest = { email: string; name?: string };
 
@@ -122,6 +123,7 @@ export function matchCalendarEventToContacts(opts: {
   };
 
   for (const guest of opts.guests) {
+    if (guest.email && isNoiseEmail(guest.email)) continue;
     const contact = resolveCalendarGuest(opts.lookup, guest);
     if (!contact) {
       unmatchedGuests.push(guest);

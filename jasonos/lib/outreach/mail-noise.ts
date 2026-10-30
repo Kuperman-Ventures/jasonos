@@ -25,6 +25,18 @@ export function isCalendarProxyAddress(email: string): boolean {
   return false;
 }
 
+const EVENT_PLATFORM_DOMAIN_RE =
+  /(^|\.)(lu\.ma|luma\.com|zoom\.us|sequel\.io|livestorm-events\.com|livestorm\.co|eventbrite\.com|hopin\.com|on24\.com|bigmarker\.com|goldcast\.io|webex\.com|gotowebinar\.com|airmeet\.com|hubilo\.com)$/i;
+
+/** Organizer addresses from webinar and event platforms. These are never a person's address. */
+export function isEventPlatformAddress(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  const [local, domain] = e.split("@");
+  if (!local || !domain) return false;
+  if (local === "calendar-invite") return true;
+  return EVENT_PLATFORM_DOMAIN_RE.test(domain);
+}
+
 export function isCalendarInviteSubject(subject?: string | null): boolean {
   return /^\s*(invitation|updated invitation|canceled event|cancelled event)\b/i.test(
     subject ?? ""
@@ -35,6 +47,7 @@ export function isNoiseEmail(email: string): boolean {
   const [local, domain] = email.toLowerCase().split("@");
   if (!local || !domain) return true;
   if (isCalendarProxyAddress(email)) return true;
+  if (isEventPlatformAddress(email)) return true;
   if (AUTOMATED_LOCAL_RE.test(local)) return true;
   if (AUTOMATED_DOMAIN_RE.test(domain)) return true;
   return false;

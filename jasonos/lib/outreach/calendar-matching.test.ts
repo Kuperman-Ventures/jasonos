@@ -168,4 +168,22 @@ describe("matchCalendarEventToContacts", () => {
     assert.equal(result.matches.length, 0);
     assert.equal(result.unmatchedGuests[0]?.email, "pat@new.co");
   });
+
+  it("ignores event-platform invites even when stored on a contact", () => {
+    const ved = contact({
+      id: "ved",
+      name: "Ved Rasic",
+      emails: ["ved@leaddelta.com", "calendar-invite@lu.ma"],
+    });
+    const vedLookup = createContactLookup([ved]);
+    const result = matchCalendarEventToContacts({
+      title: "Maryland Product Symposium 2026",
+      guests: [{ email: "calendar-invite@lu.ma", name: "Lu.ma" }],
+      lookup: vedLookup,
+    });
+    assert.equal(result.matches.length, 0);
+    assert.equal(result.unmatchedGuests.length, 0);
+    assert.equal(vedLookup.resolveEmail("calendar-invite@lu.ma"), undefined);
+    assert.equal(vedLookup.resolveEmail("ved@leaddelta.com")?.id, "ved");
+  });
 });

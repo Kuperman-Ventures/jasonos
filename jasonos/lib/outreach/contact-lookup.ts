@@ -1,6 +1,8 @@
 // Pure contact matching — no DB. Used by Gmail/Calendar sync and Suggested
 // Contacts. Keep this file free of `server-only` so unit tests can import it.
 
+import { isNoiseEmail } from "./mail-noise";
+
 /** Keep in sync with OUTLOOK_WRAP_EMAIL in unwrap-forwarded-mail.ts. */
 const OUTLOOK_WRAP_EMAIL = "jason.kuperman@outlook.com";
 
@@ -239,10 +241,12 @@ export function createContactLookup(rows: ContactLookupRow[]): ContactLookup {
 
   for (const row of normalized) {
     for (const email of row.emails) {
+      // Platform / robot addresses on a contact row must never resolve events.
+      if (isNoiseEmail(email)) continue;
       byEmail.set(canonicalEmail(email), row);
     }
     // Rescue emails that were pasted into the phone field (Don McKinney).
-    if (looksLikeEmail(row.phone)) {
+    if (looksLikeEmail(row.phone) && !isNoiseEmail(row.phone!)) {
       byEmail.set(canonicalEmail(row.phone!), row);
     }
     byName.set(normalizeName(row.name), row);

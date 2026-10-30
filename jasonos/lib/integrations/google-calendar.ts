@@ -12,7 +12,10 @@ import {
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
 import { isMyOwnAddress, normalizeName } from "@/lib/outreach/email-matching";
-import { isCalendarProxyAddress } from "@/lib/outreach/mail-noise";
+import {
+  isCalendarProxyAddress,
+  isEventPlatformAddress,
+} from "@/lib/outreach/mail-noise";
 
 export { type GCalEvent };
 
@@ -97,7 +100,14 @@ export function calendarEventGuests(
     if (opts?.self || opts?.declined) return;
     const trimmedName = name?.trim() || undefined;
     const lower = email?.trim().toLowerCase() ?? "";
-    if (lower && (isMyOwnAddress(email!) || isCalendarProxyAddress(email!))) return;
+    if (
+      lower &&
+      (isMyOwnAddress(email!) ||
+        isCalendarProxyAddress(email!) ||
+        isEventPlatformAddress(email!))
+    ) {
+      return;
+    }
     if (!lower && !trimmedName) return;
     const key = lower || `name:${normalizeName(trimmedName!)}`;
     if (seen.has(key)) return;
