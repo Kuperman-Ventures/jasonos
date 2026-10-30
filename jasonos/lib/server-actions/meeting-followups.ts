@@ -704,6 +704,7 @@ export async function draftMeetingFollowupMailto(
       body: string;
       granola: boolean;
       fromTranscript: boolean;
+      confirmFacts: string[];
     }
   | { ok: false; error: string }
 > {
@@ -844,6 +845,7 @@ export async function draftMeetingFollowupMailto(
     body: draft.body,
     granola: Boolean(summary || transcript) && draft.source === "ai",
     fromTranscript: draft.usedTranscript && draft.source === "ai",
+    confirmFacts: draft.confirmFacts,
   };
 }
 

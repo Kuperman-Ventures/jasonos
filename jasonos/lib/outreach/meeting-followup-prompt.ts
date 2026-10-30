@@ -51,44 +51,45 @@ export const MEETING_FOLLOWUP_PROMPT_PLACEHOLDERS = [
   "{{whenPhrase}}",
 ] as const;
 
-export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `You write a short post-meeting follow-up email for Jason to send in Apple Mail.
+/**
+ * Jason's operator prompt for post-meeting follow-ups. Settings can override.
+ * Output shape is fixed so compose can open Apple Mail and surface confirmFacts.
+ */
+export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `Turn the transcript / meeting notes into a follow-up email Jason will send in Apple Mail.
 
-This is a thank-you / follow-up after a real conversation — not a sales email.
+Recipient first name for the greeting line: {{firstName}}
+Open the body with "{{greeting}}" on its own line (comma is fine).
+The meeting was {{whenPhrase}} — never say today / this morning / this afternoon / this evening unless WHEN is exactly "today".
 
-FIRST MEETING vs RECONNECT (critical — read the notes before you write):
-- FIRST MEETING when the notes show an intro, first conversation, "great to meet you", no prior working history, or no language about catching up after years. Open with glad we met / good talking {{whenPhrase}}. NEVER say reconnect, catch up after years, or "after all this time".
-- RECONNECT only when the notes clearly show prior relationship (old firm, years apart, "catching up", last connected at X). Then reconnect / catch-up language is fine.
-- When unsure, treat it as a first meeting. Wrong "reconnect" is worse than wrong "good to meet you".
+Before writing, decide:
+- What does this person know about me? Only what the meeting and our history in the source support. Nothing else may appear unexplained.
+- What words do they use for their work? Write in those words.
+- What is the one line where I give them something instead of asking?
 
-Tone targets (match energy, do not copy wording):
+Write the email:
+- Open with one line about a specific thing they said. No "great to meet you", no "good talking", no "I hope this finds you", no "I'd love to", no "thanks for the conversation", no "Enjoyed hearing you…", no "Also noted:".
+- Confirm what I owe them and when they will have it. If it is a link or an intro, put it in this email rather than promising it.
+- Restate what they offered in one line so it is easy for them to act on.
+- Include the giving line.
+- End with one next step and a specific time. Not "let's stay in touch".
+- 120 words or fewer. Plain sentences. Hyphens, not em dashes.
+- No insider shorthand. No product or project names unless I explained them in the meeting (or they did).
+- State goals as goals. Never describe what I am trying to do as something I have done.
+- Nothing personal and no asks for third parties in this email.
+- Sign off with "Jason" on its own line. No exclamation points.
 
-First meeting:
-"{{firstName}}, good talking {{whenPhrase}}. Thanks for walking me through what you're building on the franchise side.
+Before delivering, read it line by line as the recipient: do I understand this word, is it true based on what was said, why is this person writing now, what does this ask cost me. Fix anything that fails.
 
-I'll send over those company contacts we discussed.
+FIRST MEETING vs RECONNECT:
+- FIRST MEETING when the source shows an intro / first conversation / no prior working history. NEVER say reconnect, catch up after years, or "after all this time".
+- RECONNECT only when the source clearly shows prior relationship.
+- When unsure, treat it as a first meeting.
 
-Jason"
+Return JSON only:
+{"subject":"...","body":"...","confirmFacts":["fact I should verify before sending", "..."]}
 
-Reconnect (only when notes support it):
-"{{firstName}}, it was so good to catch up after all these years. Hard to believe it has been a decade since we last worked together.
-
-I really enjoyed hearing about what you are building. Let's not wait another ten years to do this again.
-
-Jason"
-
-Hard rules:
-- Use ONLY facts present in the MEETING TRANSCRIPT or MEETING NOTES provided. Prefer what people said in the transcript when it is present. Do not invent intros, firms, roles, asks, beers, cities, or commitments.
-- Use the person's first name. Never greet with a last name alone.
-- Open with "{{greeting}}" on its own line (comma is fine; no em dash).
-- 3-5 short sentences across 2-3 short paragraphs.
-- DATE AWARENESS (critical): the meeting was {{whenPhrase}}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good talking" with no day word).
-- Lead with warmth that matches first-meet vs reconnect above. If the notes mention shared history, reference that lightly.
-- Then one human takeaway THEY said or that came out of the conversation — their work, a brand, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business. When the notes or transcript have any substance, this takeaway is REQUIRED. A body that is only "good talking / thanks for the conversation" is a hard failure — rewrite with a concrete detail.
-- Soft close: personal detail from the notes when present, or a concrete next step both people owned. Only invent a next step if the notes clearly support one.
-- Do NOT pivot into Jason's clients, products, Equity Labs, Refactor Sprint, or "I'll keep X in mind given your role…" unless the notes show they asked for that or agreed a specific follow-up.
-- Sign off with "Jason" on its own line. No exclamation points. No em dashes.
-- Return JSON only: {"subject":"...","body":"..."}
-- Subject: warm and short. First meeting → "Good to meet you" / "Good talking". Reconnect → "Good catching up". Avoid "Following up:" plus the calendar title.`;
+Subject: short and specific to what they said or what you owe them. Avoid "Following up:" plus the calendar title. Avoid generic "Good talking" / "Good to meet you" unless nothing else is supported.
+confirmFacts may be an empty array when nothing needs checking.`;
 
 export type MeetingFollowupPromptVars = {
   firstName: string;
@@ -121,8 +122,8 @@ export function fillMeetingFollowupPrompt(
 }
 
 /**
- * True when the body is empty reconnect fluff with no real takeaway —
- * the failure mode after tone/date prompts got too cautious.
+ * True when the body is empty fluff / stitched-note fallback with no real
+ * operator follow-up (the failure mode Jason keeps hitting).
  */
 export function isHollowFollowupBody(body: string): boolean {
   const stripped = body
@@ -135,6 +136,10 @@ export function isHollowFollowupBody(body: string): boolean {
     .toLowerCase();
   if (!stripped) return true;
   if (stripped.length < 48) return true;
+
+  // Mechanical notes-stitcher leftovers.
+  if (/\benjoyed hearing you\b/.test(stripped)) return true;
+  if (/\balso noted:\b/.test(stripped)) return true;
 
   const withoutBoilerplate = stripped
     .replace(
@@ -152,9 +157,26 @@ export function isHollowFollowupBody(body: string): boolean {
     .replace(/\bgreat to (reconnect|meet you)\b\.?/g, " ")
     .replace(/\bi always enjoy our conversations\b\.?/g, " ")
     .replace(/\blooking forward to staying in touch\b\.?/g, " ")
+    .replace(/\blet'?s stay in touch\b\.?/g, " ")
+    .replace(/\bi'?d love to\b\.?/g, " ")
+    .replace(/\bi hope this finds you\b\.?/g, " ")
     .replace(/\b(earlier this week|this week|last week|yesterday|today|recently|the other day)\b\.?/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   return withoutBoilerplate.length < 28;
+}
+
+/** Phrases Jason's prompt bans in openings / filler. */
+export function hasBannedFollowupPhrases(body: string): boolean {
+  return (
+    /\bgreat to meet you\b/i.test(body) ||
+    /\bi hope this finds you\b/i.test(body) ||
+    /\bi'?d love to\b/i.test(body) ||
+    /\blet'?s stay in touch\b/i.test(body) ||
+    /\bthanks again for the conversation\b/i.test(body) ||
+    /\benjoyed hearing you\b/i.test(body) ||
+    /\balso noted:\b/i.test(body) ||
+    /^[^\n]*\bgood talking\b/im.test(body)
+  );
 }
