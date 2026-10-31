@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  applyCommitmentOverrides,
   buildViews,
   deriveItemKey,
   formatDue,
@@ -98,6 +99,32 @@ describe("buildViews", () => {
     const hit = visible.find((v) => v.key === items[0].key);
     assert.equal(hit?.state, "scheduled");
     assert.equal(hit?.section, "scheduled");
+  });
+});
+
+describe("applyCommitmentOverrides", () => {
+  it("replaces promise, to, and due date without changing the key", () => {
+    const items = parseCommitmentPayload(sample).items;
+    const edited = applyCommitmentOverrides(items, [
+      {
+        item_key: items[0].key,
+        promise: "I'll send the agenda by Friday",
+        to: "Will",
+        due_date: "2026-10-10",
+      },
+      {
+        item_key: items[1].key,
+        promise: "Share the latest deck",
+        to: "Richard",
+        due_date: null,
+      },
+    ]);
+    assert.equal(edited[0].key, items[0].key);
+    assert.equal(edited[0].promise, "I'll send the agenda by Friday");
+    assert.equal(edited[0].to, "Will");
+    assert.equal(edited[0].due_date, "2026-10-10");
+    assert.equal(edited[1].due_date, null);
+    assert.equal(edited[2].promise, items[2].promise);
   });
 });
 

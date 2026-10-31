@@ -10,7 +10,11 @@ import {
   type CommitmentTitleInput,
 } from "@/lib/commitments/calendar-title";
 import { etDate, nextDay } from "@/lib/commitments/logic";
-import { getCommitmentCheckForHome, setCommitmentItemState } from "@/lib/commitments/store";
+import {
+  getCommitmentCheckForHome,
+  setCommitmentItemState,
+  updateCommitmentItem,
+} from "@/lib/commitments/store";
 import type { CommitmentCheckForHome } from "@/lib/commitments/types";
 import { createPrimaryCalendarEvent } from "@/lib/integrations/google-calendar";
 import {
@@ -62,6 +66,24 @@ export async function snoozeCommitmentToTomorrow(itemKey: string): Promise<Actio
       item_key: itemKey,
       state: "snoozed",
       snoozed_until: nextDay(etDate()),
+      actor: "jasonos",
+    })
+  );
+}
+
+/** Save an inline edit of the quoted promise (and to / due date) from Home. */
+export async function saveCommitmentEdit(input: {
+  itemKey: string;
+  promise: string;
+  to: string;
+  dueDate: string | null;
+}): Promise<ActionResult> {
+  return run(() =>
+    updateCommitmentItem({
+      item_key: input.itemKey,
+      promise: input.promise,
+      to: input.to,
+      due_date: input.dueDate,
       actor: "jasonos",
     })
   );

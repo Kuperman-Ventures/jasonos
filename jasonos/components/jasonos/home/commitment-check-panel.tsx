@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, ExternalLink, Handshake } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DomainBand, StatusBand, StatusPill } from "@/components/jasonos/brand/status";
 import { CommitmentScheduleDialog } from "@/components/jasonos/home/commitment-schedule-dialog";
 import { formatDue } from "@/lib/commitments/logic";
@@ -18,6 +19,7 @@ import {
 import {
   dismissCommitment,
   markCommitmentDone,
+  saveCommitmentEdit,
   snoozeCommitmentToTomorrow,
 } from "@/lib/server-actions/commitments";
 
@@ -288,46 +290,179 @@ function CommitmentRow({
   onTomorrow: () => void;
   onDismiss: () => void;
 }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [promise, setPromise] = useState(item.promise);
+  const [to, setTo] = useState(item.to);
+  const [dueDate, setDueDate] = useState(item.due_date ?? "");
+  const [saving, setSaving] = useState(false);
+  const promiseRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!editing) {
+      setPromise(item.promise);
+      setTo(item.to);
+      setDueDate(item.due_date ?? "");
+    }
+  }, [item.promise, item.to, item.due_date, editing]);
+
+  useEffect(() => {
+    if (editing) promiseRef.current?.focus();
+  }, [editing]);
+
+  const cancelEdit = () => {
+    setPromise(item.promise);
+    setTo(item.to);
+    setDueDate(item.due_date ?? "");
+    setEditing(false);
+  };
+
+  const saveEdit = async () => {
+    const nextPromise = promise.replace(/\s+/g, " ").trim();
+    const nextTo = to.replace(/\s+/g, " ").trim();
+    const nextDue = dueDate.trim() || null;
+    if (!nextPromise || !nextTo) {
+      toast.error("Promise and recipient are required.");
+      return;
+    }
+    if (
+      nextPromise === item.promise &&
+      nextTo === item.to &&
+      nextDue === (item.due_date ?? null)
+    ) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const result = await saveCommitmentEdit({
+      itemKey: item.key,
+      promise: nextPromise,
+      to: nextTo,
+      dueDate: nextDue,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setEditing(false);
+    toast.success("Commitment updated");
+    router.refresh();
+  };
+
+  const locked = busy || saving;
+
   return (
     <li className="px-4 py-3">
-      <p className="text-sm font-medium">&ldquo;{item.promise}&rdquo;</p>
-      <p className="mt-0.5 text-[11px] text-muted-foreground">
-        To {item.to} · {item.due_date ? `Due ${formatDue(item.due_date)}` : "No date set"}
-        {item.context ? ` · ${item.context}` : ""}
-      </p>
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            ref={promiseRef}
+            value={promise}
+            onChange={(e) => setPromise(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                cancelEdit();
+              }
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void saveEdit();
+              }
+            }}
+            rows={3}
+            disabled={locked}
+            aria-label="Commitment text"
+            className="w-full resize-y rounded-md border border-border bg-background px-3 py-2 text-sm font-medium leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-[8rem] flex-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              To
+              <Input
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                disabled={locked}
+                className="mt-1 h-8"
+              />
+            </label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Due
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                disabled={locked}
+                className="mt-1 h-8 w-[10.5rem]"
+              />
+            </label>
+            <span className="ml-auto flex gap-1.5 pb-0.5">
+              <Button type="button" size="xs" variant="ghost" disabled={locked} onClick={cancelEdit}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="ok"
+                disabled={locked}
+                onClick={() => void saveEdit()}
+              >
+                Save
+              </Button>
+            </span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            disabled={locked}
+            title="Click to edit"
+            className="block w-full rounded-sm text-left text-sm font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            &ldquo;{item.promise}&rdquo;
+          </button>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            To {item.to} · {item.due_date ? `Due ${formatDue(item.due_date)}` : "No date set"}
+            {item.context ? ` · ${item.context}` : ""}
+          </p>
+        </>
+      )}
       {item.delivery === "possibly_delivered" ? (
         <p className="mt-1 flex items-start gap-2 text-xs">
           <StatusPill rung={2}>Possibly delivered</StatusPill>
           {item.evidence ? <span className="text-muted-foreground">{item.evidence}</span> : null}
         </p>
       ) : null}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {item.source_url ? (
-          <a
-            href={item.source_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--jos-action)] underline underline-offset-2"
-          >
-            {SOURCE_LABEL[item.source]} <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : null}
-        <span className="ml-auto flex flex-wrap gap-1.5">
-          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={onSchedule}>
-            <CalendarDays className="h-3 w-3" />
-            Calendar
-          </Button>
-          <Button type="button" size="xs" variant="ok" disabled={busy} onClick={onDone}>
-            Done
-          </Button>
-          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={onTomorrow}>
-            Tomorrow
-          </Button>
-          <Button type="button" size="xs" variant="ghost" disabled={busy} onClick={onDismiss}>
-            Not a commitment
-          </Button>
-        </span>
-      </div>
+      {!editing ? (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {item.source_url ? (
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--jos-action)] underline underline-offset-2"
+            >
+              {SOURCE_LABEL[item.source]} <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : null}
+          <span className="ml-auto flex flex-wrap gap-1.5">
+            <Button type="button" size="xs" variant="outline" disabled={locked} onClick={onSchedule}>
+              <CalendarDays className="h-3 w-3" />
+              Calendar
+            </Button>
+            <Button type="button" size="xs" variant="ok" disabled={locked} onClick={onDone}>
+              Done
+            </Button>
+            <Button type="button" size="xs" variant="outline" disabled={locked} onClick={onTomorrow}>
+              Tomorrow
+            </Button>
+            <Button type="button" size="xs" variant="ghost" disabled={locked} onClick={onDismiss}>
+              Not a commitment
+            </Button>
+          </span>
+        </div>
+      ) : null}
     </li>
   );
 }
