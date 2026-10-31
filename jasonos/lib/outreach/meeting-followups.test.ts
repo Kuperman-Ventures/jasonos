@@ -456,6 +456,24 @@ describe("isHollowFollowupBody", () => {
     );
     assert.equal(
       isHollowFollowupBody(
+        `Jeff,
+
+You sharing anecdotes: Jeff’s passport-control camera demo in Saudi Arabia; Jason’s CFO tracked to a… stuck with me.
+
+I'll send the concrete follow-up I owe you tomorrow.
+
+You offered to offered to refer or introduce anyone relevant in his network, especially for B2B or considered B2C marketing clients.
+
+I'll keep the ask on my side until I have something useful to send.
+
+I'll send that tomorrow afternoon unless another time is better.
+
+Jason`
+      ),
+      true
+    );
+    assert.equal(
+      isHollowFollowupBody(
         "Tuomas,\n\nIt was good to catch up last week. I liked hearing how Accenture is approaching the Equity Labs work — especially the implementer angle.\n\nLet's not wait another decade.\n\nJason"
       ),
       false
@@ -495,44 +513,32 @@ describe("pickJasonOwes / pickTheirOffer", () => {
   });
 });
 
-describe("meetingFollowupDraft with notes", () => {
-  it("includes a concrete takeaway when notes have substance", () => {
-    const draft = meetingFollowupDraft({
-      name: "Tobias Topel",
-      title: "Intro - Tobias X Jason",
-      summary:
-        "Setsu cosmetics brand. Co-founded via Gloss Ventures; hero product is a neckliner. On track past $100M revenue.",
-      startsAt: "2026-10-28T21:00:00.000Z",
-    });
-    assert.equal(isHollowFollowupBody(draft.body), false);
-    assert.match(draft.body, /setsu|neckliner|gloss|100m/i);
-    assert.doesNotMatch(draft.body, /thanks again for the conversation/i);
-    assert.doesNotMatch(draft.body, /you said you/i);
-    assert.doesNotMatch(draft.body, /follow through on what we discussed/i);
+describe("pickJasonOwes for Jeff notes", () => {
+  it("pulls LinkedIn, Advertima intro, and consequentialed from Next Steps", () => {
+    const summary = `# Next Steps
+- **Review Jeff's LinkedIn connections for warm introductions** (Jason)
+  Jeff offered to refer or introduce anyone relevant in his network.
+- **Introduce Jeff to the ex-Emphasis contact and share Advertima details** (Jason)
+- **Check out consequentialed.com** (Jason)`;
+    const owes = pickJasonOwes(summary);
+    assert.ok(owes.some((o) => /linkedin/i.test(o)));
+    assert.ok(owes.some((o) => /advertima|introduce/i.test(o)));
+    const offer = pickTheirOffer(summary);
+    assert.ok(offer && /offered to (refer|introduce)/i.test(offer));
   });
+});
 
-  it("uses Tobias next steps instead of a CMO bio stitch", () => {
-    const summary = `# Setsu (Cosmetics Brand)
-- Hero product: a neckliner; now a full cosmetics line
-- Served as CMO for four years; hired a VP of Marketing after raising $15M in 2024
-# Target Role and Mutual Interests
-- Both to review each other's LinkedIn connections for warm introductions
-- Tobias shared Chatwell Russ
-# Next Steps
-- **Review Tobias's LinkedIn connections and suggest introductions** (Jason)
-- **Check out Chatwell Russ community** (Jason)`;
+describe("meetingFollowupDraft stub", () => {
+  it("never invents a sendable stitcher email", () => {
     const draft = meetingFollowupDraft({
-      name: "Tobias Topel",
-      title: "Intro - Tobias X Jason",
-      summary,
-      startsAt: "2026-10-28T21:00:00.000Z",
+      name: "Jeff",
+      title: "Jeff/Jason",
+      summary:
+        "Shared anecdotes: Jeff’s passport-control camera demo. Next Steps: Review LinkedIn.",
+      startsAt: "2026-10-30T15:00:00.000Z",
     });
-    assert.equal(isHollowFollowupBody(draft.body), false);
-    assert.doesNotMatch(draft.body, /you said you/i);
-    assert.doesNotMatch(draft.body, /follow through on what we discussed/i);
-    assert.match(draft.body, /linkedin/i);
-    assert.match(draft.body, /chatwell|neckliner|setsu/i);
-    assert.match(draft.body, /friday|tomorrow/i);
+    assert.doesNotMatch(draft.body, /you said you|concrete follow-up i owe you|offered to offered/i);
+    assert.match(draft.body, /^Jeff,/);
   });
 });
 

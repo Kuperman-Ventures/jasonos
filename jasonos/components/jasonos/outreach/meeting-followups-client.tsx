@@ -71,9 +71,7 @@ export function MeetingFollowupsClient({
         ? "Draft ready from the meeting transcript — review in Apple Mail."
         : result.granola
           ? "Draft ready from the Granola note — review in Apple Mail."
-          : result.localFallback
-            ? "Local draft (AI missed the bar) — rewrite in Apple Mail before you send."
-            : "Draft ready — review in Apple Mail before you send.") + confirm
+          : "Draft ready — review in Apple Mail before you send.") + confirm
     );
     router.refresh();
   };
