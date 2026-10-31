@@ -344,6 +344,7 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("import_network_screen"));
     assert.ok(tools.includes("get_network_screen"));
     assert.ok(tools.includes("list_pending_intros"));
+    assert.ok(tools.includes("list_network_bench"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
     assert.ok(tools.includes("list_upcoming_meeting_preps"));

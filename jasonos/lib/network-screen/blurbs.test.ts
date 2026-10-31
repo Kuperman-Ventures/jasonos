@@ -21,6 +21,7 @@ function person(
     tier: "tier1",
     why: "Hires the marketing seat",
     ask: "Ask for an intro",
+    lane: "job_search",
     introBlurb: null,
     introBlurbGeneratedAt: null,
     nextAction: null,

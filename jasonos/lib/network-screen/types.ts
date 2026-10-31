@@ -4,9 +4,15 @@ export const BUCKETS = [
   "recruiter",
   "peer_referral",
   "speaking_content",
+  "prospect",
+  "operating_partner",
+  "industry_peer",
   "not_relevant",
 ] as const;
 export type Bucket = (typeof BUCKETS)[number];
+
+export const LANES = ["unassigned", "job_search", "advisors", "industry", "none"] as const;
+export type Lane = (typeof LANES)[number];
 
 export const TIERS = ["none", "tier1", "tier2"] as const;
 export type Tier = (typeof TIERS)[number];
@@ -40,7 +46,18 @@ export const BUCKET_LABELS: Record<Bucket, string> = {
   recruiter: "Recruiter",
   peer_referral: "Peer referral",
   speaking_content: "Speaking / content",
+  prospect: "Prospect",
+  operating_partner: "Operating partner",
+  industry_peer: "Industry peer",
   not_relevant: "Not relevant",
+};
+
+export const LANE_LABELS: Record<Lane, string> = {
+  unassigned: "Unassigned",
+  job_search: "Job search",
+  advisors: "Kuperman Advisors",
+  industry: "Industry",
+  none: "None",
 };
 
 export const TIER_LABELS: Record<Tier, string> = {
@@ -110,6 +127,7 @@ export type NetworkScreenCandidate = {
   linkedinDegree: string | null;
   mutualConnections: string | null;
   bucket: Bucket;
+  lane: Lane;
   tier: Tier;
   why: string | null;
   ask: string | null;
@@ -148,8 +166,28 @@ export type PendingIntro = {
   introRequestedAt: string | null;
 };
 
+export type NetworkBenchPerson = {
+  id: string;
+  screenId: string;
+  name: string;
+  title: string | null;
+  company: string | null;
+  headline: string | null;
+  linkedinUrl: string | null;
+  lane: Lane;
+  bucket: Bucket;
+  why: string | null;
+  nextAction: string | null;
+  queueStatus: QueueStatus;
+  connectors: string[];
+};
+
 export function isBucket(value: string): value is Bucket {
   return (BUCKETS as readonly string[]).includes(value);
+}
+
+export function isLane(value: string): value is Lane {
+  return (LANES as readonly string[]).includes(value);
 }
 
 export function isTier(value: string): value is Tier {

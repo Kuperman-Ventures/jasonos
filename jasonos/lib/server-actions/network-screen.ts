@@ -15,15 +15,22 @@ import {
   importedSiblingId,
   type ScreenSnapshot,
 } from "@/lib/network-screen/follow-import";
-import { selectIntroRecommendations, type IntroPick } from "@/lib/network-screen/score";
-import { BLURB_RULES, DRAFT_RULES, NETWORK_SCREEN_STRATEGY } from "@/lib/network-screen/strategy";
+import { classifyCandidates, type ClassifiedPick } from "@/lib/network-screen/score";
+import {
+  BLURB_RULES,
+  DRAFT_RULES,
+  NETWORK_SCREEN_LANE_DEFINITIONS,
+  NETWORK_SCREEN_STRATEGY,
+} from "@/lib/network-screen/strategy";
 import {
   isBucket,
+  isLane,
   isQueueStatus,
   isScreenStatus,
   isTier,
   isWarmth,
   type Bucket,
+  type NetworkBenchPerson,
   type NetworkScreen,
   type NetworkScreenCandidate,
   type NetworkScreenDetail,
@@ -43,9 +50,12 @@ const BUCKET_RANK: Record<Bucket, number> = {
   hiring_path: 0,
   recruiter: 1,
   peer_referral: 2,
-  speaking_content: 3,
-  not_relevant: 4,
-  unscored: 5,
+  prospect: 3,
+  operating_partner: 4,
+  speaking_content: 5,
+  industry_peer: 6,
+  not_relevant: 7,
+  unscored: 8,
 };
 
 function ensureConfigured(): boolean {
@@ -162,6 +172,7 @@ type CandidateRow = {
   linkedin_degree: string | null;
   mutual_connections: string | null;
   bucket: string;
+  lane?: string | null;
   tier: string;
   why: string | null;
   ask: string | null;
@@ -215,6 +226,10 @@ function mapCandidate(row: CandidateRow): NetworkScreenCandidate {
     linkedinDegree: row.linkedin_degree,
     mutualConnections: row.mutual_connections,
     bucket: isBucket(row.bucket) ? row.bucket : "unscored",
+    lane: (() => {
+      const value = row.lane ?? "";
+      return isLane(value) ? value : "unassigned";
+    })(),
     tier: isTier(row.tier) ? row.tier : "none",
     why: row.why,
     ask: row.ask,
@@ -544,8 +559,10 @@ export async function deleteNetworkScreen(
   return { ok: true };
 }
 
-type RecommendationEntry = {
+type ClassificationEntry = {
   id?: unknown;
+  lane?: unknown;
+  tier?: unknown;
   bucket?: unknown;
   title?: unknown;
   company?: unknown;
@@ -553,15 +570,14 @@ type RecommendationEntry = {
   ask?: unknown;
 };
 
-async function jobSearchBrief(_sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
-  // live_settings / narratives retired with Live restart; keep a fixed brief.
-  return "Full-time CMO or SVP Marketing at a B2B tech company.";
+async function screenBrief(_sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
+  return `Classify every connection into one of these lanes:\n${NETWORK_SCREEN_LANE_DEFINITIONS}`;
 }
 
-async function chooseIntros(
+async function classifyConnections(
   screen: NetworkScreenDetail,
   brief: string
-): Promise<ReturnType<typeof selectIntroRecommendations>> {
+): Promise<ReturnType<typeof classifyCandidates>> {
   const payload = screen.candidates.map((person) => ({
     id: person.id,
     name: person.name,
@@ -572,7 +588,7 @@ async function chooseIntros(
   }));
   const { text } = await generateText({
     model: heavyModel(),
-    maxOutputTokens: 4000,
+    maxOutputTokens: 16000,
     system: NETWORK_SCREEN_STRATEGY,
     messages: [
       {
@@ -583,9 +599,9 @@ ${brief}
 Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.connectorHeadline}` : ""}${screen.connectorCompany ? ` at ${screen.connectorCompany}` : ""}.
 
 Return STRICT JSON only:
-{"recommendations":[{"id":"","bucket":"hiring_path|recruiter|peer_referral|speaking_content|not_relevant","title":"","company":"","why":"","ask":""}]}
+{"people":[{"id":"","lane":"job_search|advisors|industry|none","tier":"tier1|tier2|none","bucket":"","title":"","company":"","why":"","ask":""}]}
 
-At most three recommendations. Use ids from the list. Skip linkedin_degree 1st.
+One entry per person. Use ids from the list. Mark linkedin_degree 1st as tier2 with lane by the same rules.
 
 Connections:
 ${JSON.stringify(payload)}`,
@@ -594,26 +610,28 @@ ${JSON.stringify(payload)}`,
     providerOptions: anthropicOptions(),
   });
   const parsed = parseJsonObject(text);
-  const entries = parsed?.recommendations;
+  const entries = parsed?.people;
   if (!Array.isArray(entries)) {
-    throw new Error("The recommendation did not come back in a usable form.");
+    throw new Error("The classification did not come back in a usable form.");
   }
-  const picks: IntroPick[] = (entries as RecommendationEntry[]).map((entry) => ({
+  const picks: ClassifiedPick[] = (entries as ClassificationEntry[]).map((entry) => ({
     id: blank(entry.id) ?? "",
+    lane: blank(entry.lane) ?? "none",
+    tier: blank(entry.tier) ?? "none",
     bucket: blank(entry.bucket) ?? "not_relevant",
     title: blank(entry.title),
     company: blank(entry.company),
     why: blank(entry.why),
     ask: blank(entry.ask),
   }));
-  return selectIntroRecommendations(screen.candidates, picks);
+  return classifyCandidates(screen.candidates, picks);
 }
 
 export async function scoreNetworkScreen({
   screenId,
 }: {
   screenId: string;
-}): Promise<{ ok: true; screen: NetworkScreenDetail } | ActionError> {
+}): Promise<{ ok: true; screen: NetworkScreenDetail; message?: string } | ActionError> {
   if (!ensureConfigured()) return notConfigured();
   const loaded = await getNetworkScreen(screenId);
   if (!loaded.ok) return loaded;
@@ -633,26 +651,28 @@ export async function scoreNetworkScreen({
   if (claimError) return { ok: false, error: claimError.message };
   if (!claimed?.length) return getNetworkScreen(screenId);
 
-  let chosen: ReturnType<typeof selectIntroRecommendations>;
+  let classified: ReturnType<typeof classifyCandidates>;
   try {
-    const brief = await jobSearchBrief(sb);
-    chosen = await chooseIntros(loaded.screen, brief);
+    const brief = await screenBrief(sb);
+    classified = await classifyConnections(loaded.screen, brief);
   } catch (err) {
     console.error("[network-screen.recommend]", err);
     await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
     const message = err instanceof Error ? err.message : "";
     if (message.includes("usable form")) return { ok: false, error: message };
-    return { ok: false, error: "Couldn't choose the three intros. Try again." };
-  }
-  if (!chosen.length) {
-    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
-    return { ok: false, error: "None of the visible connections were worth an intro ask. Try again." };
+    return { ok: false, error: "Couldn't classify the connections. Try again." };
   }
 
-  const writes = chosen.map((person, index) =>
+  const tier1 = classified.filter((person) => person.tier === "tier1");
+  const tier2 = classified.filter((person) => person.tier === "tier2");
+  const none = classified.filter((person) => person.tier === "none");
+  const ordered = [...tier1, ...tier2, ...none];
+
+  const writes = ordered.map((person, index) =>
     sb
       .from("network_screen_candidates")
       .update({
+        lane: person.lane,
         bucket: person.bucket,
         tier: person.tier,
         title: person.title,
@@ -673,25 +693,16 @@ export async function scoreNetworkScreen({
     return { ok: false, error: failed.error.message };
   }
 
-  const keep = new Set(chosen.map((person) => person.id));
-  const { data: remaining, error: remainingError } = await sb
-    .from("network_screen_candidates")
-    .select("id")
-    .eq("screen_id", screenId);
-  if (remainingError) {
-    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
-    return { ok: false, error: remainingError.message };
+  const saved = await getNetworkScreen(screenId);
+  if (!saved.ok) return saved;
+  if (!tier1.length) {
+    return {
+      ok: true,
+      screen: saved.screen,
+      message: "Classified the list. None of the visible connections were strong enough for the intro ask.",
+    };
   }
-  const drop = (remaining ?? []).map((row) => row.id as string).filter((id) => !keep.has(id));
-  if (drop.length) {
-    const { error: deleteError } = await sb.from("network_screen_candidates").delete().in("id", drop);
-    if (deleteError) {
-      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
-      return { ok: false, error: deleteError.message };
-    }
-  }
-
-  return getNetworkScreen(screenId);
+  return saved;
 }
 
 export type CandidatePatch = {
@@ -1134,6 +1145,81 @@ export async function listPendingIntros(): Promise<
     };
   });
   return { ok: true, intros };
+}
+
+export async function listNetworkBench(): Promise<
+  | {
+      ok: true;
+      bench: {
+        job_search: NetworkBenchPerson[];
+        advisors: NetworkBenchPerson[];
+        industry: NetworkBenchPerson[];
+      };
+    }
+  | ActionError
+> {
+  if (!ensureConfigured()) return notConfigured();
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("network_screen_candidates")
+    .select(
+      "id, screen_id, name, title, company, headline, linkedin_url, lane, bucket, why, next_action, queue_status, network_screens(connector_name)"
+    )
+    .eq("tier", "tier2")
+    .in("lane", ["job_search", "advisors", "industry"])
+    .order("created_at", { ascending: false });
+  if (error) return { ok: false, error: error.message };
+
+  type Acc = NetworkBenchPerson & { key: string };
+  const byKey = new Map<string, Acc>();
+  for (const row of data ?? []) {
+    const joined = row.network_screens as { connector_name?: string } | { connector_name?: string }[] | null;
+    const connectorName =
+      (Array.isArray(joined) ? joined[0]?.connector_name : joined?.connector_name) || "Unknown";
+    const lane = isLane(row.lane as string) ? (row.lane as Acc["lane"]) : "none";
+    if (lane !== "job_search" && lane !== "advisors" && lane !== "industry") continue;
+    const linkedinUrl = blank(row.linkedin_url);
+    const key = linkedinUrl
+      ? `url:${linkedinUrl.toLowerCase().replace(/\/$/, "")}`
+      : `name:${String(row.name ?? "").trim().toLowerCase()}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      if (!existing.connectors.includes(connectorName)) existing.connectors.push(connectorName);
+      continue;
+    }
+    byKey.set(key, {
+      key,
+      id: row.id as string,
+      screenId: row.screen_id as string,
+      name: row.name as string,
+      title: blank(row.title),
+      company: blank(row.company),
+      headline: blank(row.headline),
+      linkedinUrl,
+      lane,
+      bucket: isBucket(row.bucket as string) ? (row.bucket as Bucket) : "not_relevant",
+      why: blank(row.why),
+      nextAction: blank(row.next_action),
+      queueStatus: isQueueStatus(row.queue_status as string)
+        ? (row.queue_status as QueueStatus)
+        : "queued",
+      connectors: [connectorName],
+    });
+  }
+
+  const people = [...byKey.values()].map((entry) => {
+    const { key, ...person } = entry;
+    void key;
+    return person;
+  });
+  return {
+    ok: true,
+    bench: {
+      job_search: people.filter((person) => person.lane === "job_search"),
+      advisors: people.filter((person) => person.lane === "advisors"),
+      industry: people.filter((person) => person.lane === "industry"),
+    },
+  };
 }
 
 const importCandidate = z.object({

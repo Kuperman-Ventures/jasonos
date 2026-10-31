@@ -6,6 +6,7 @@ export const NETWORK_SCREEN_TOOL_NAMES = [
   "import_network_screen",
   "get_network_screen",
   "list_pending_intros",
+  "list_network_bench",
 ] as const;
 
 const degree = z.enum(["1st", "2nd", "3rd"]).nullable().optional();
@@ -16,7 +17,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Import a Network Screen",
       description:
-        "Send a connector's visible LinkedIn connections so JasonOS can choose three people Jason should ask to be introduced to. The list is not added to contacts. Do not score, rank, or draft. Max 200 people.",
+        "Send a connector's visible LinkedIn connections so JasonOS can classify them into lanes and choose three people Jason should ask to be introduced to. The list is not added to contacts. Do not score, rank, or draft. Max 200 people.",
       inputSchema: z.object({
         screen_id: z.string().uuid(),
         connector_degree: degree.describe("Degree shown on the connector's profile."),
@@ -55,7 +56,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Read a Network Screen",
       description:
-        "Read one Network Screen: the connector and the three intro recommendations, plus the draft if one exists. Does not change anything.",
+        "Read one Network Screen: the connector, the three intro recommendations, the bench grouped by lane, and the draft if one exists. Does not change anything.",
       inputSchema: z.object({
         screen_id: z.string().uuid(),
       }),
@@ -69,9 +70,11 @@ export function registerNetworkScreenTools(server: McpServer) {
         const screen = loaded.screen;
         const bucket: Record<string, number> = {};
         const tier: Record<string, number> = {};
+        const lane: Record<string, number> = {};
         for (const person of screen.candidates) {
           bucket[person.bucket] = (bucket[person.bucket] ?? 0) + 1;
           tier[person.tier] = (tier[person.tier] ?? 0) + 1;
+          lane[person.lane] = (lane[person.lane] ?? 0) + 1;
         }
         const slim = (person: (typeof screen.candidates)[number]) => ({
           id: person.id,
@@ -79,10 +82,24 @@ export function registerNetworkScreenTools(server: McpServer) {
           headline: person.headline,
           title: person.title,
           company: person.company,
+          lane: person.lane,
           bucket: person.bucket,
           tier: person.tier,
           why: person.why,
           ask: person.ask,
+          next_action: person.nextAction,
+          queue_status: person.queueStatus,
+        });
+        const benchPeople = screen.candidates.filter((person) => person.tier === "tier2");
+        const benchSlim = (person: (typeof screen.candidates)[number]) => ({
+          id: person.id,
+          name: person.name,
+          headline: person.headline,
+          title: person.title,
+          company: person.company,
+          lane: person.lane,
+          bucket: person.bucket,
+          why: person.why,
           next_action: person.nextAction,
           queue_status: person.queueStatus,
         });
@@ -99,11 +116,16 @@ export function registerNetworkScreenTools(server: McpServer) {
             relationship_warmth: screen.relationshipWarmth,
             partner_note: screen.partnerNote,
           },
-          counts: { bucket, tier },
+          counts: { bucket, tier, lane },
           tier1: screen.candidates
             .filter((person) => person.tier === "tier1")
             .map((person) => ({ ...slim(person), intro_blurb: person.introBlurb })),
-          tier2: screen.candidates.filter((person) => person.tier === "tier2").map(slim),
+          bench: {
+            job_search: benchPeople.filter((person) => person.lane === "job_search").map(benchSlim),
+            advisors: benchPeople.filter((person) => person.lane === "advisors").map(benchSlim),
+            industry: benchPeople.filter((person) => person.lane === "industry").map(benchSlim),
+          },
+          skipped_count: screen.candidates.filter((person) => person.lane === "none").length,
           draft:
             screen.draftSubject || screen.draftBody
               ? { subject: screen.draftSubject, body: screen.draftBody }
@@ -127,6 +149,24 @@ export function registerNetworkScreenTools(server: McpServer) {
         const result = await listPendingIntros();
         if (!result.ok) throw new Error(result.error);
         return { ok: true, intros: result.intros };
+      })
+  );
+
+  server.registerTool(
+    "list_network_bench",
+    {
+      title: "Network Screen bench",
+      description:
+        "Tier 2 people across every Network Screen, grouped by lane (job_search, advisors, industry). Deduped by LinkedIn URL or name. Read-only.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () =>
+      runTool(async () => {
+        const { listNetworkBench } = await import("../server-actions/network-screen");
+        const result = await listNetworkBench();
+        if (!result.ok) throw new Error(result.error);
+        return { ok: true, bench: result.bench };
       })
   );
 }

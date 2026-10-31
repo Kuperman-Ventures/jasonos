@@ -4,9 +4,12 @@ const BUCKET_RANK: Record<Bucket, number> = {
   hiring_path: 0,
   recruiter: 1,
   peer_referral: 2,
-  speaking_content: 3,
-  not_relevant: 4,
-  unscored: 5,
+  prospect: 3,
+  operating_partner: 4,
+  speaking_content: 5,
+  industry_peer: 6,
+  not_relevant: 7,
+  unscored: 8,
 };
 
 export function blurbWordCount(text: string): number {

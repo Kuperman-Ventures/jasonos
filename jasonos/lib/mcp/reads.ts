@@ -97,7 +97,12 @@ export function listJasonosAreas() {
       { area: "post_master", tools: ["list_post_master_projects", "list_weekly_provocations"] },
       {
         area: "network_screen",
-        tools: ["import_network_screen", "get_network_screen", "list_pending_intros"],
+        tools: [
+          "import_network_screen",
+          "get_network_screen",
+          "list_pending_intros",
+          "list_network_bench",
+        ],
       },
       { area: "connections", tools: ["get_connection_status"] },
       {

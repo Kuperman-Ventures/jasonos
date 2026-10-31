@@ -14,12 +14,17 @@ import { buildMailtoUrl } from "@/lib/email-templates/render";
 import { blurbWordCount, buildEmailBodyWithBlurbs, peopleInTheAsk } from "@/lib/network-screen/blurbs";
 import { buildCapturePrompt } from "@/lib/network-screen/capture-prompt";
 import {
+  BUCKET_LABELS,
+  LANE_LABELS,
+  QUEUE_STATUSES,
+  QUEUE_STATUS_LABELS,
   SCREEN_STATUS_LABELS,
   WARMTHS,
   WARMTH_LABELS,
   type NetworkScreenCandidate,
   type NetworkScreenDetail,
   type NetworkScreenListItem,
+  type QueueStatus,
   type RelationshipWarmth,
 } from "@/lib/network-screen/types";
 import {
@@ -219,8 +224,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         setRecommendError(result.error);
         return;
       }
-      if (!result.screen.candidates.some((person) => person.tier === "tier1")) return;
       setScreen(result.screen);
+      if (result.message) toast(result.message);
       refreshList();
     });
   }, [recommendTick, screen]);
@@ -346,6 +351,39 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const askedIds = new Set(asked.map((person) => person.id));
   const outsideAsk = recommendations.filter((person) => !askedIds.has(person.id));
   const checked = new Set(picked ?? recommendations.map((person) => person.id));
+  const benchGroups = (
+    [
+      ["job_search", "Job search"],
+      ["advisors", "Kuperman Advisors"],
+      ["industry", "Industry"],
+    ] as const
+  ).map(([lane, label]) => ({
+    lane,
+    label,
+    people: (screen?.candidates ?? []).filter(
+      (person) => person.tier === "tier2" && person.lane === lane
+    ),
+  }));
+  const skippedCount = (screen?.candidates ?? []).filter((person) => person.lane === "none").length;
+
+  function saveQueueStatus(person: NetworkScreenCandidate, queueStatus: QueueStatus) {
+    if (person.queueStatus === queueStatus) return;
+    startTransition(async () => {
+      const result = await updateCandidate({ id: person.id, patch: { queueStatus } });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScreen((current) =>
+        current
+          ? {
+              ...current,
+              candidates: current.candidates.map((row) => (row.id === person.id ? result.candidate : row)),
+            }
+          : current
+      );
+    });
+  }
 
   function blurbCard(person: NetworkScreenCandidate) {
     const text = blurbs[person.id] ?? "";
@@ -662,8 +700,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
             <>
               <p className="text-sm">
                 {screen.totalCountLabel
-                  ? `Read ${screen.visibleCount} of ${screen.totalCountLabel} connections. These are the people to ask ${screen.connectorName} to introduce you to. The rest of the list was not saved.`
-                  : `Read ${screen.visibleCount} connections. These are the people to ask ${screen.connectorName} to introduce you to. The rest of the list was not saved.`}
+                  ? `Read ${screen.visibleCount} of ${screen.totalCountLabel} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`
+                  : `Read ${screen.visibleCount} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`}
               </p>
 
               <ol className="space-y-4">
@@ -676,6 +714,9 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                       <p className="text-sm text-muted-foreground">
                         {[person.title, person.company, person.headline].filter(Boolean).join(" · ") || "No headline captured"}
                       </p>
+                      {person.lane !== "unassigned" && person.lane !== "none" ? (
+                        <p className="text-xs text-muted-foreground">{LANE_LABELS[person.lane]}</p>
+                      ) : null}
                     </div>
                     <label className="block space-y-1 text-sm">
                       <span className="font-medium">Why this intro</span>
@@ -713,6 +754,60 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
               {recommendations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No intro recommendations yet.</p>
               ) : null}
+
+              <div className="space-y-3">
+                <h3 className="font-semibold">Bench</h3>
+                {benchGroups.map((group) => (
+                  <details key={group.lane} className="rounded-lg border">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                      {group.label} ({group.people.length})
+                    </summary>
+                    <ul className="divide-y border-t">
+                      {group.people.length === 0 ? (
+                        <li className="px-3 py-2 text-sm text-muted-foreground">No one in this lane.</li>
+                      ) : (
+                        group.people.map((person) => (
+                          <li key={person.id} className="space-y-2 px-3 py-3">
+                            <div>
+                              <p className="font-medium">{person.name}</p>
+                              <p className="truncate text-sm text-muted-foreground">
+                                {[person.title, person.company, person.headline]
+                                  .filter(Boolean)
+                                  .join(" · ") || "No headline captured"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {BUCKET_LABELS[person.bucket]}
+                              </p>
+                            </div>
+                            {person.why ? (
+                              <p className="text-sm">{person.why}</p>
+                            ) : null}
+                            <label className="block space-y-1 text-sm">
+                              <span className="font-medium">Status</span>
+                              <select
+                                className={selectClass}
+                                value={person.queueStatus}
+                                onChange={(event) =>
+                                  saveQueueStatus(person, event.target.value as QueueStatus)
+                                }
+                              >
+                                {QUEUE_STATUSES.map((status) => (
+                                  <option key={status} value={status}>
+                                    {QUEUE_STATUS_LABELS[status]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </details>
+                ))}
+                <p className="text-sm text-muted-foreground">
+                  {skippedCount} {skippedCount === 1 ? "person" : "people"} skipped
+                </p>
+              </div>
 
               <div className="space-y-3">
                 <Button
