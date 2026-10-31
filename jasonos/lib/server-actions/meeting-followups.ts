@@ -704,8 +704,6 @@ export async function draftMeetingFollowupMailto(
       body: string;
       granola: boolean;
       fromTranscript: boolean;
-      /** True when Claude failed checks and the local operator draft was used. */
-      localFallback: boolean;
       confirmFacts: string[];
     }
   | { ok: false; error: string }
@@ -813,6 +811,27 @@ export async function draftMeetingFollowupMailto(
     transcript,
     startsAt: row.starts_at,
   });
+
+  // Persist notes even when draft fails so the Home card still has context.
+  const storedSummary = (summary ?? transcript?.slice(0, 4_000) ?? null)?.slice(
+    0,
+    20_000
+  );
+  const { error: noteUpdateError } = await sb
+    .from("meeting_followups")
+    .update({
+      granola_summary: storedSummary,
+      granola_url: noteUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (noteUpdateError) return { ok: false, error: noteUpdateError.message };
+
+  if (!draft.ok) {
+    revalidate();
+    return { ok: false, error: draft.error };
+  }
+
   const to = pending.map((a) => a.email).join(", ");
   const mailtoUrl = buildMailtoUrl({
     to,
@@ -820,18 +839,9 @@ export async function draftMeetingFollowupMailto(
     body: draft.body,
   });
 
-  // Persist notes for the Home card; keep transcript out of the column so the
-  // row preview stays short. Draft body already used the transcript.
-  const storedSummary = (summary ?? transcript?.slice(0, 4_000) ?? null)?.slice(
-    0,
-    20_000
-  );
-
   const { error: updateError } = await sb
     .from("meeting_followups")
     .update({
-      granola_summary: storedSummary,
-      granola_url: noteUrl,
       draft_subject: draft.subject,
       draft_body: draft.body,
       updated_at: new Date().toISOString(),
@@ -845,9 +855,8 @@ export async function draftMeetingFollowupMailto(
     mailtoUrl,
     subject: draft.subject,
     body: draft.body,
-    granola: Boolean(summary || transcript) && draft.source === "ai",
-    fromTranscript: draft.usedTranscript && draft.source === "ai",
-    localFallback: draft.source === "fallback",
+    granola: Boolean(summary || transcript),
+    fromTranscript: draft.usedTranscript,
     confirmFacts: draft.confirmFacts,
   };
 }

@@ -1,6 +1,7 @@
-// Turn a Granola / Wispr meeting transcript (preferred) or note into a short
-// follow-up email Jason can send. Facts come only from that source. Nothing
-// here is sent — the server action opens Apple Mail via mailto.
+// Turn a Granola / Wispr transcript (preferred) or note into a short follow-up
+// email Jason can send. Facts come only from that source. Nothing is sent —
+// the server action opens Apple Mail via mailto only when Claude returns a
+// real draft. There is no local template email path.
 
 import "server-only";
 
@@ -21,11 +22,10 @@ import {
   guessFollowupDisplayName,
   hasWrongMeetingDayLanguage,
   isUnacceptableFollowupBody,
-  meetingFollowupDraft,
   meetingWhenPhrase,
   notesLookLikeFirstMeeting,
   pickJasonOwes,
-  pickMeetingFollowupFacts,
+  pickTheirOffer,
   soundsLikePitchFollowup,
   soundsLikeWrongReconnect,
 } from "@/lib/outreach/meeting-followups";
@@ -35,28 +35,31 @@ export { isUnacceptableFollowupBody, soundsLikePitchFollowup };
 export type MeetingFollowupComposeInput = {
   name: string | null;
   title: string;
-  /** Granola / Wispr AI notes. Used when no transcript is available. */
   summary: string | null;
-  /**
-   * Spoken transcript (speaker lines). Preferred over summary — Home Draft
-   * follow-up should read the conversation, not only the AI note.
-   */
   transcript?: string | null;
-  /** Meeting start ISO — used so drafts do not say "today" for older calls. */
   startsAt?: string | null;
-  /** Fallback when guest display name is missing (e.g. simon@…). */
   email?: string | null;
 };
 
-export type MeetingFollowupComposeResult = {
+export type MeetingFollowupComposeSuccess = {
+  ok: true;
   subject: string;
   body: string;
-  source: "ai" | "fallback";
-  /** True when the draft was written from spoken transcript lines. */
+  source: "ai";
   usedTranscript: boolean;
-  /** Facts Jason should verify before sending. */
   confirmFacts: string[];
 };
+
+export type MeetingFollowupComposeFailure = {
+  ok: false;
+  error: string;
+  usedTranscript: boolean;
+  confirmFacts: string[];
+};
+
+export type MeetingFollowupComposeResult =
+  | MeetingFollowupComposeSuccess
+  | MeetingFollowupComposeFailure;
 
 export {
   buildMeetingFollowupSourceMaterial,
@@ -105,7 +108,7 @@ function polish(draft: { subject: string; body: string }): {
   };
 }
 
-function hardFail(
+function draftFailsChecks(
   body: string,
   summary: string,
   whenPhrase: string
@@ -115,16 +118,9 @@ function hardFail(
     soundsLikePitchFollowup(body) ||
     hasWrongMeetingDayLanguage(body, whenPhrase) ||
     soundsLikeWrongReconnect(body, summary) ||
-    hasBannedFollowupPhrases(body)
+    hasBannedFollowupPhrases(body) ||
+    isHollowFollowupBody(body)
   );
-}
-
-function draftFailsChecks(
-  body: string,
-  summary: string,
-  whenPhrase: string
-): boolean {
-  return hardFail(body, summary, whenPhrase) || isHollowFollowupBody(body);
 }
 
 function wordCount(body: string): number {
@@ -135,6 +131,20 @@ function wordCount(body: string): number {
     .filter(Boolean).length;
 }
 
+function looksLikeOperatorDraft(body: string): boolean {
+  // Must have a greeting line + sign-off and more than one short paragraph.
+  const lines = body.replace(/\r\n/g, "\n").trim().split("\n");
+  if (lines.length < 4) return false;
+  if (!/\bJason\s*$/i.test(body)) return false;
+  if (wordCount(body) < 40) return false;
+  if (wordCount(body) > 140) return false;
+  return true;
+}
+
+/**
+ * Draft a follow-up from the meeting material via Claude.
+ * Never returns a local template email — callers must not open mailto on failure.
+ */
 export async function composeMeetingFollowupDraft(
   input: MeetingFollowupComposeInput
 ): Promise<MeetingFollowupComposeResult> {
@@ -153,28 +163,21 @@ export async function composeMeetingFollowupDraft(
     input.summary?.trim() ||
     input.transcript?.trim()?.slice(0, 4_000) ||
     "";
-  const fallbackBase = polish(
-    meetingFollowupDraft({
-      name: resolvedName,
-      title: input.title,
-      summary: checkSource || input.summary,
-      startsAt: input.startsAt,
-    })
-  );
+  const owes = pickJasonOwes(checkSource);
+  const offer = pickTheirOffer(checkSource);
   const confirmFacts = [
-    ...pickJasonOwes(checkSource).map((fact) => `Confirm you still owe: ${fact}`),
-    ...pickMeetingFollowupFacts(checkSource, 3).map(
-      (fact) => `Confirm before sending: ${fact}`
-    ),
+    ...owes.map((fact) => `Confirm you still owe: ${fact}`),
+    ...(offer ? [`Confirm their offer: ${offer}`] : []),
   ].slice(0, 5);
-  const fallback: MeetingFollowupComposeResult = {
-    ...fallbackBase,
-    source: "fallback",
-    usedTranscript: false,
-    confirmFacts,
-  };
+
   if (!material) {
-    return fallback;
+    return {
+      ok: false,
+      error:
+        "No Granola or Wispr notes for this meeting. Open the note first, then Draft again.",
+      usedTranscript: false,
+      confirmFacts,
+    };
   }
 
   const who = firstName(resolvedName);
@@ -199,11 +202,14 @@ ${guidance}`;
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
     : "RECONNECT only if the source clearly supports prior relationship";
   const sourceLabel = usedTranscript
-    ? "the meeting transcript (what people said)"
+    ? "the meeting transcript (primary) plus short notes"
     : "the meeting notes";
-  const mustUseFacts = pickMeetingFollowupFacts(checkSource, 4);
-  const factsBlock = mustUseFacts.length
-    ? `\nCandidate facts from the source (paraphrase; do not invent):\n- ${mustUseFacts.join("\n- ")}\n`
+
+  const owesBlock = owes.length
+    ? `\nJason's commitments from Next Steps (name these in the email; do not invent others):\n- ${owes.join("\n- ")}\n`
+    : "\nNo explicit Next Steps found - only commit to what the source clearly supports.\n";
+  const offerBlock = offer
+    ? `\nWhat they offered (restate in one plain line):\n- ${offer}\n`
     : "";
 
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
@@ -211,17 +217,24 @@ Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
 WHEN: ${whenPhrase}
 
-Source: ${sourceLabel}. Follow the system instructions exactly.
-${factsBlock}
+Write the follow-up from ${sourceLabel}. Follow the system instructions exactly.
+${owesBlock}${offerBlock}
 ${material}
 
-Return the JSON now (subject, body, confirmFacts).`;
+Return JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
-  const rewriteHint = `Rewrite against the system rules. Open on a specific thing they said - never "You said you…" and never "I'll follow through on what we discussed". Include what Jason owes + when, what they offered, a giving line, and one next step with a time. Max 120 words. No banned fluff. Meeting was ${whenPhrase}. ${factsBlock}JSON only.`;
+  const fail = (error: string): MeetingFollowupComposeFailure => ({
+    ok: false,
+    error,
+    usedTranscript,
+    confirmFacts,
+  });
+
+  const rewriteHint = `Rewrite. Open on one specific thing they said (a real detail, not a pasted note heading). Name what Jason owes and when - use "I'll…" for unfinished Next Steps, never "I reviewed…". Restate what they offered in one clean line. Include a giving line. End with one next step and a time. Max 120 words. No fluff, no bracket placeholders like [link] or [name], no "You said you", no "I'll follow through on what we discussed", no "I'll send the concrete follow-up I owe you". Meeting was ${whenPhrase}. JSON only.`;
 
   try {
     const { text } = await generateText({
@@ -232,26 +245,40 @@ Return the JSON now (subject, body, confirmFacts).`;
       providerOptions,
     });
     const parsed = safeParseDraft(text);
-    if (!parsed) return { ...fallback, usedTranscript };
-    let draft = polish({
-      subject: parsed.subject || fallback.subject,
-      body: parsed.body,
-    });
-    let confirmFacts = parsed.confirmFacts;
-    if (
-      !draftFailsChecks(draft.body, checkSource, whenPhrase) &&
-      wordCount(draft.body) <= 140
-    ) {
-      return { ...draft, source: "ai", usedTranscript, confirmFacts };
+    if (!parsed) {
+      return fail("Draft came back unreadable. Try Draft again.");
     }
 
+    let draft = polish({
+      subject: parsed.subject || "Quick follow-up",
+      body: parsed.body,
+    });
+    let facts = parsed.confirmFacts.length ? parsed.confirmFacts : confirmFacts;
+
+    const accept = (body: string, subject: string, cf: string[]) => {
+      if (draftFailsChecks(body, checkSource, whenPhrase)) return null;
+      if (!looksLikeOperatorDraft(body)) return null;
+      return {
+        ok: true as const,
+        subject,
+        body,
+        source: "ai" as const,
+        usedTranscript,
+        confirmFacts: cf,
+      };
+    };
+
+    const first = accept(draft.body, draft.subject, facts);
+    if (first) return first;
+
     let lastParsed = parsed;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const nudge = [
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const why = [
         isHollowFollowupBody(draft.body) || hasBannedFollowupPhrases(draft.body)
-          ? "Last draft was fluff or used banned phrases. Open on a specific thing they said."
-          : "",
+          ? "Last draft was fluff or used banned phrases."
+          : "Last draft failed quality checks.",
         wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
+        !/\bJason\s*$/i.test(draft.body) ? 'Sign off with "Jason" on its own line.' : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -262,7 +289,7 @@ Return the JSON now (subject, body, confirmFacts).`;
         messages: [
           { role: "user", content: user },
           { role: "assistant", content: JSON.stringify(lastParsed) },
-          { role: "user", content: `${rewriteHint}\n${nudge}` },
+          { role: "user", content: `${rewriteHint}\n${why}` },
         ],
         providerOptions,
       });
@@ -270,28 +297,23 @@ Return the JSON now (subject, body, confirmFacts).`;
       if (!retry) continue;
       lastParsed = retry;
       draft = polish({
-        subject: retry.subject || fallback.subject,
+        subject: retry.subject || draft.subject,
         body: retry.body,
       });
-      confirmFacts = retry.confirmFacts;
-      if (
-        !draftFailsChecks(draft.body, checkSource, whenPhrase) &&
-        wordCount(draft.body) <= 140
-      ) {
-        return { ...draft, source: "ai", usedTranscript, confirmFacts };
-      }
+      facts = retry.confirmFacts.length ? retry.confirmFacts : facts;
+      const ok = accept(draft.body, draft.subject, facts);
+      if (ok) return ok;
     }
 
-    if (
-      !hardFail(draft.body, checkSource, whenPhrase) &&
-      !isHollowFollowupBody(draft.body) &&
-      wordCount(draft.body) <= 160
-    ) {
-      return { ...draft, source: "ai", usedTranscript, confirmFacts };
-    }
-    return { ...fallback, usedTranscript };
+    return fail(
+      "Couldn't get a usable follow-up from the notes. Try Draft again, or write it in Apple Mail."
+    );
   } catch (err) {
     console.error("[meeting-followup-compose]", err);
-    return { ...fallback, usedTranscript };
+    const message = err instanceof Error ? err.message : String(err);
+    if (/credit balance|top-up|insufficient funds/i.test(message)) {
+      return fail("AI credits are empty. Add balance or set ANTHROPIC_API_KEY, then try Draft again.");
+    }
+    return fail("Draft failed. Try again in a moment.");
   }
 }

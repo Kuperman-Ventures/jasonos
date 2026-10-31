@@ -68,13 +68,14 @@ Before writing, decide:
 
 Write the email:
 - Open with one line about a specific thing they said. No "great to meet you", no "good talking", no "I hope this finds you", no "I'd love to", no "thanks for the conversation", no "Enjoyed hearing you…", no "Also noted:", no "You said you…", no "I'll follow through on what we discussed".
-- Confirm what I owe them and when they will have it. Name the deliverable (LinkedIn intros, a link, a doc). If it is a link or an intro, put it in this email rather than promising it.
+- Confirm what I owe them and when they will have it. Name the deliverable (LinkedIn intros, a link, a doc). If the source already has the link or intro, put it in this email. If it does not, say when you will send it - never invent a link, name, or date, and never leave bracket placeholders like [link] or [name].
 - Restate what they offered in one line so it is easy for them to act on.
 - Include the giving line.
-- End with one next step and a specific time. Not "let's stay in touch".
+- End with one next step and a specific time (a weekday or "by Friday"). Not "let's stay in touch".
 - 120 words or fewer. Plain sentences. Hyphens, not em dashes.
 - No insider shorthand. No product or project names unless I explained them in the meeting (or they did).
-- State goals as goals. Never describe what I am trying to do as something I have done.
+- State goals as goals. Never describe what I am trying to do as something I have done. If Next Steps say "Review LinkedIn", write "I'll review…" - never "I reviewed…".
+- If Next Steps say I should check out their site or a link they shared, that is my owe - do not pitch their own site back to them as "worth your time".
 - Nothing personal and no asks for third parties in this email.
 - Sign off with "Jason" on its own line. No exclamation points.
 
@@ -140,10 +141,18 @@ export function isHollowFollowupBody(body: string): boolean {
   // Mechanical notes-stitcher leftovers.
   if (/\benjoyed hearing you\b/.test(stripped)) return true;
   if (/\balso noted:\b/.test(stripped)) return true;
-  // Local fallback that only pastes a bio bullet + a vague owe.
+  // Local template / stitcher leftovers — never ship these.
   if (/\byou said you\b/.test(stripped)) return true;
   if (/\bi'?ll follow through on what we discussed\b/.test(stripped)) return true;
-  if (/\bi'?ll send the follow-up i owe you\b/.test(stripped)) return true;
+  if (/\bi'?ll send the (concrete )?follow-up i owe you\b/.test(stripped)) return true;
+  if (/\bi'?ll keep the ask on my side until i have something useful\b/.test(stripped)) {
+    return true;
+  }
+  if (/\byou offered to offered\b/.test(stripped)) return true;
+  if (/\bstuck with me\b/.test(stripped) && /:/.test(stripped) && stripped.length < 220) {
+    // "You sharing anecdotes: Jeff's passport… stuck with me."
+    return true;
+  }
   if (
     /\byou (said|mentioned)\b/.test(stripped) &&
     /\bfollow through on what we discussed\b/.test(stripped)
@@ -189,6 +198,10 @@ export function hasBannedFollowupPhrases(body: string): boolean {
     /\balso noted:\b/i.test(body) ||
     /\byou said you\b/i.test(body) ||
     /\bi'?ll follow through on what we discussed\b/i.test(body) ||
+    /\bi'?ll send the (concrete )?follow-up i owe you\b/i.test(body) ||
+    /\byou offered to offered\b/i.test(body) ||
+    /\[[^\]]{1,80}\]/.test(body) ||
+    /\bi reviewed (your|the) linkedin\b/i.test(body) ||
     /^[^\n]*\bgood talking\b/im.test(body)
   );
 }
