@@ -414,7 +414,7 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
               <tr key={row.id} className="border-b last:border-0">
                 <td className="px-3 py-2 font-medium">
                   <Link
-                    href={`/email-templates?section=network-screen&screen=${row.screenId}`}
+                    href={`/network-screen?screen=${row.screenId}`}
                     className="underline"
                   >
                     {row.name}

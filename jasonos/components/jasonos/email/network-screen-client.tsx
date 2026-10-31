@@ -169,15 +169,14 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
   const screenStatus = screen?.status ?? null;
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    params.set("section", "network-screen");
+    const params = new URLSearchParams();
     if (screenId) params.set("screen", screenId);
-    else if (!initialScreenId) params.delete("screen");
-    const next = `/email-templates?${params.toString()}`;
+    const query = params.toString();
+    const next = query ? `/network-screen?${query}` : "/network-screen";
     if (`${window.location.pathname}${window.location.search}` !== next) {
       router.replace(next, { scroll: false });
     }
-  }, [initialScreenId, router, screenId]);
+  }, [router, screenId]);
 
   useEffect(() => {
     if (!screenId || screenStatus !== "awaiting_capture") return;
@@ -236,6 +235,20 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     });
   }
 
+  function rerunScreen() {
+    if (!screen) return;
+    startTransition(async () => {
+      const result = await scoreNetworkScreen({ screenId: screen.id, rerun: true });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScreen(result.screen);
+      if (result.message) toast.success(result.message);
+      refreshList();
+    });
+  }
+
   function removeScreen(id: string) {
     startTransition(async () => {
       const result = await deleteNetworkScreen(id);
@@ -249,10 +262,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         setCreating(false);
       }
       if (initialScreenId === id) {
-        const params = new URLSearchParams(window.location.search);
-        params.set("section", "network-screen");
-        params.delete("screen");
-        router.replace(`/email-templates?${params.toString()}`, { scroll: false });
+        router.replace("/network-screen", { scroll: false });
       }
       refreshList();
       toast.success("Screen deleted.");
@@ -510,6 +520,12 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
     );
   }
 
+  const canRerun =
+    !!screen &&
+    screen.candidates.length > 0 &&
+    screen.status !== "awaiting_capture" &&
+    screen.status !== "captured";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -525,7 +541,14 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
         >
           All screens
         </button>
-        {pending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+        <div className="flex items-center gap-2">
+          {canRerun ? (
+            <Button type="button" variant="outline" disabled={pending} onClick={rerunScreen}>
+              Re-run
+            </Button>
+          ) : null}
+          {pending ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+        </div>
       </div>
 
       <ol className="grid gap-2 sm:grid-cols-3">

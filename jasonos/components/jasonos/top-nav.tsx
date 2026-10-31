@@ -75,6 +75,7 @@ const NAV: NavItem[] = [
     label: "Custom Comms",
     children: [
       { href: "/email-templates", label: "Email" },
+      { href: "/network-screen", label: "Network Screen" },
       { href: "/resume-customizer", label: "Resume & Cover Letter" },
       { href: "/post-master", label: "Post Master" },
       { href: "/library", label: "Library" },

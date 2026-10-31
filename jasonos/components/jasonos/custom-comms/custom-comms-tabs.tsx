@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Library, Mail, Megaphone, Radio } from "lucide-react";
+import { FileText, Library, Mail, Megaphone, Radio, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/email-templates", label: "Email", icon: Mail },
+  { href: "/network-screen", label: "Network Screen", icon: Users },
   { href: "/resume-customizer", label: "Resume", icon: FileText },
   { href: "/post-master", label: "Post Master", icon: Megaphone },
   { href: "/library", label: "Library", icon: Library },

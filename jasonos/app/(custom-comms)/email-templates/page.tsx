@@ -1,12 +1,24 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Mail } from "lucide-react";
 import { EmailClient } from "@/components/jasonos/email/email-client";
 
 export const metadata: Metadata = { title: "Email · JasonOS" };
 export const dynamic = "force-dynamic";
 
-export default function EmailPage() {
+export default async function EmailPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ section?: string | string[]; screen?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const section = Array.isArray(params.section) ? params.section[0] : params.section;
+  if (section === "network-screen") {
+    const screen = Array.isArray(params.screen) ? params.screen[0] : params.screen;
+    redirect(screen ? `/network-screen?screen=${encodeURIComponent(screen)}` : "/network-screen");
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
       <header>
