@@ -45,7 +45,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 
 type ActionError = { ok: false; error: string };
 
-const SCREEN_URL = "https://jasonos.vercel.app/email-templates";
+const SCREEN_URL = "https://jasonos.vercel.app/network-screen";
 const BUCKET_RANK: Record<Bucket, number> = {
   hiring_path: 0,
   recruiter: 1,
@@ -629,8 +629,10 @@ ${JSON.stringify(payload)}`,
 
 export async function scoreNetworkScreen({
   screenId,
+  rerun = false,
 }: {
   screenId: string;
+  rerun?: boolean;
 }): Promise<{ ok: true; screen: NetworkScreenDetail; message?: string } | ActionError> {
   if (!ensureConfigured()) return notConfigured();
   const loaded = await getNetworkScreen(screenId);
@@ -638,18 +640,25 @@ export async function scoreNetworkScreen({
   if (!loaded.screen.candidates.length) {
     return { ok: false, error: "No connections to read." };
   }
-  if (loaded.screen.status !== "captured") {
+  const previousStatus = loaded.screen.status;
+  if (!rerun && previousStatus !== "captured") {
     return loaded;
   }
+  if (rerun && previousStatus === "awaiting_capture") {
+    return { ok: false, error: "Capture connections before re-running." };
+  }
+
   const sb = createServiceRoleClient();
-  const { data: claimed, error: claimError } = await sb
-    .from("network_screens")
-    .update({ status: "scored" satisfies ScreenStatus })
-    .eq("id", screenId)
-    .eq("status", "captured")
-    .select("id");
-  if (claimError) return { ok: false, error: claimError.message };
-  if (!claimed?.length) return getNetworkScreen(screenId);
+  if (!rerun) {
+    const { data: claimed, error: claimError } = await sb
+      .from("network_screens")
+      .update({ status: "scored" satisfies ScreenStatus })
+      .eq("id", screenId)
+      .eq("status", "captured")
+      .select("id");
+    if (claimError) return { ok: false, error: claimError.message };
+    if (!claimed?.length) return getNetworkScreen(screenId);
+  }
 
   let classified: ReturnType<typeof classifyCandidates>;
   try {
@@ -657,7 +666,9 @@ export async function scoreNetworkScreen({
     classified = await classifyConnections(loaded.screen, brief);
   } catch (err) {
     console.error("[network-screen.recommend]", err);
-    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    if (!rerun) {
+      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    }
     const message = err instanceof Error ? err.message : "";
     if (message.includes("usable form")) return { ok: false, error: message };
     return { ok: false, error: "Couldn't classify the connections. Try again." };
@@ -689,8 +700,18 @@ export async function scoreNetworkScreen({
   const results = await Promise.all(writes);
   const failed = results.find((result) => result.error);
   if (failed?.error) {
-    await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    if (!rerun) {
+      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
+    }
     return { ok: false, error: failed.error.message };
+  }
+
+  if (rerun && previousStatus !== "drafted" && previousStatus !== "requested") {
+    const { error: statusError } = await sb
+      .from("network_screens")
+      .update({ status: "scored" satisfies ScreenStatus })
+      .eq("id", screenId);
+    if (statusError) return { ok: false, error: statusError.message };
   }
 
   const saved = await getNetworkScreen(screenId);
@@ -702,7 +723,11 @@ export async function scoreNetworkScreen({
       message: "Classified the list. None of the visible connections were strong enough for the intro ask.",
     };
   }
-  return saved;
+  return {
+    ok: true,
+    screen: saved.screen,
+    message: rerun ? "Re-ran the screen and refreshed the three intros and bench." : undefined,
+  };
 }
 
 export type CandidatePatch = {
@@ -1296,6 +1321,6 @@ export async function importNetworkScreen(input: {
   return {
     ok: true,
     stored_count: rows.length,
-    screen_url: `${SCREEN_URL}?section=network-screen&screen=${input.screen_id}`,
+    screen_url: `${SCREEN_URL}?screen=${input.screen_id}`,
   };
 }
