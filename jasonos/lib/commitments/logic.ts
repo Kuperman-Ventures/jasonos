@@ -157,6 +157,29 @@ export function isHidden(state: CommitmentItemStateRow | undefined, today: strin
   return !!state.snoozed_until && today < state.snoozed_until;
 }
 
+/** Apply Home edits on top of published items. Key stays stable. */
+export function applyCommitmentOverrides(
+  items: readonly CommitmentItem[],
+  overrides: readonly {
+    item_key: string;
+    promise: string;
+    to: string;
+    due_date: string | null;
+  }[]
+): CommitmentItem[] {
+  if (!overrides.length) return [...items];
+  const byKey = new Map(overrides.map((row) => [row.item_key, row]));
+  return items.map((item) => {
+    const edit = byKey.get(item.key);
+    if (!edit) return item;
+    const promise = edit.promise.trim() || item.promise;
+    const to = edit.to.trim() || item.to;
+    const due_date =
+      edit.due_date && YMD.test(edit.due_date) ? edit.due_date : edit.due_date === null ? null : item.due_date;
+    return { ...item, promise, to, due_date };
+  });
+}
+
 /** Merge items with Home states, drop hidden ones, and sort by section then due date. */
 export function buildViews(
   items: readonly CommitmentItem[],

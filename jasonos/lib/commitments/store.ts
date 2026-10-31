@@ -5,17 +5,19 @@
 import { recordUserAction } from "../actions/action-log";
 import { untilDetail } from "../actions/action-log-format";
 import { jasonosDb } from "../mcp/db";
-import { buildViews, etDate, parseCommitmentPayload } from "./logic";
+import { applyCommitmentOverrides, buildViews, etDate, parseCommitmentPayload } from "./logic";
 import {
   ITEM_STATES,
   type CommitmentCheckForHome,
   type CommitmentCheckPayload,
+  type CommitmentItemOverride,
   type CommitmentItemStateRow,
   type ItemState,
 } from "./types";
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const STATE_COLS = "item_key,state,snoozed_until,note,updated_at,updated_by";
+const OVERRIDE_COLS = "item_key,promise,to,due_date,updated_at,updated_by";
 
 function fail(error: { message: string }): never {
   throw new Error(error.message);
@@ -62,6 +64,30 @@ async function listStates(keys: string[]): Promise<CommitmentItemStateRow[]> {
   return (data ?? []) as CommitmentItemStateRow[];
 }
 
+async function listOverrides(keys: string[]): Promise<CommitmentItemOverride[]> {
+  if (!keys.length) return [];
+  const { data, error } = await jasonosDb()
+    .from("commitment_item_overrides")
+    .select(OVERRIDE_COLS)
+    .in("item_key", keys.slice(0, 500));
+  if (error) fail(error);
+  return ((data ?? []) as Array<{
+    item_key: string;
+    promise: string;
+    to: string;
+    due_date: string | null;
+    updated_at: string;
+    updated_by: string;
+  }>).map((row) => ({
+    item_key: row.item_key,
+    promise: row.promise,
+    to: row.to,
+    due_date: row.due_date,
+    updated_at: row.updated_at,
+    updated_by: row.updated_by,
+  }));
+}
+
 /** Latest published check, merged with Home actions, sections recalculated for today. */
 export async function getCommitmentCheckForHome(): Promise<CommitmentCheckForHome> {
   const today = etDate();
@@ -86,8 +112,10 @@ export async function getCommitmentCheckForHome(): Promise<CommitmentCheckForHom
     };
   }
   const payload = data.payload as CommitmentCheckPayload;
-  const items = Array.isArray(payload.items) ? payload.items : [];
-  const states = await listStates(items.map((i) => i.key));
+  const published = Array.isArray(payload.items) ? payload.items : [];
+  const keys = published.map((i) => i.key);
+  const [states, overrides] = await Promise.all([listStates(keys), listOverrides(keys)]);
+  const items = applyCommitmentOverrides(published, overrides);
   const { visible, hidden } = buildViews(items, states, today);
   return {
     check_date: data.check_date as string,
@@ -100,6 +128,78 @@ export async function getCommitmentCheckForHome(): Promise<CommitmentCheckForHom
     items: visible,
     hidden_count: hidden,
   };
+}
+
+/**
+ * Save a Home edit to the quoted promise (and to / due date). Key stays the same
+ * so Done / Scheduled state still matches after the next publish.
+ */
+export async function updateCommitmentItem(input: {
+  item_key: string;
+  promise: string;
+  to: string;
+  due_date: string | null;
+  actor?: "jasonos" | "claude";
+}): Promise<{ ok: true; item_key: string }> {
+  const key = input.item_key.trim();
+  if (!key || key.length > 160) throw new Error("item_key is required.");
+  const promise = input.promise.replace(/\s+/g, " ").trim();
+  const to = input.to.replace(/\s+/g, " ").trim();
+  if (!promise) throw new Error("Enter the commitment text.");
+  if (promise.length > 600) throw new Error("Commitment text is too long.");
+  if (!to) throw new Error("Enter who it was promised to.");
+  if (to.length > 300) throw new Error("Recipient name is too long.");
+  const due_date = input.due_date?.trim() || null;
+  if (due_date && !YMD.test(due_date)) throw new Error("Due date must be YYYY-MM-DD.");
+
+  const actor = input.actor ?? "jasonos";
+  const db = jasonosDb();
+  const { error: overrideError } = await db.from("commitment_item_overrides").upsert(
+    {
+      item_key: key,
+      promise,
+      to,
+      due_date,
+      updated_by: actor,
+    },
+    { onConflict: "item_key" }
+  );
+  if (overrideError) fail(overrideError);
+
+  // Keep the latest published payload in sync so action-log lookups see the edit.
+  const { data: latest, error: latestError } = await db
+    .from("commitment_checks")
+    .select("check_date,payload")
+    .order("check_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestError) fail(latestError);
+  if (latest) {
+    const payload = latest.payload as CommitmentCheckPayload;
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const nextItems = items.map((item) =>
+      item.key === key ? { ...item, promise, to, due_date } : item
+    );
+    if (nextItems.some((item, i) => item !== items[i])) {
+      const { error: patchError } = await db
+        .from("commitment_checks")
+        .update({ payload: { ...payload, items: nextItems } })
+        .eq("check_date", latest.check_date as string);
+      if (patchError) fail(patchError);
+    }
+  }
+
+  await recordUserAction({
+    verb: "Edited",
+    area: "Commitment",
+    subject: promise,
+    detail: [to ? `To ${to}` : null, due_date ? `Due ${due_date}` : "No date"].filter(Boolean).join(" · "),
+    actor: actor === "claude" ? "claude" : "jason",
+    targetTable: "commitment_item_overrides",
+    targetId: key,
+  });
+
+  return { ok: true, item_key: key };
 }
 
 /** Every item key Jason has marked done or dismissed, plus active snoozes, for the publisher to skip. */

@@ -60,6 +60,16 @@ export interface CommitmentItemStateRow {
   updated_by: string;
 }
 
+/** Home edit layered on the published item (same key). Replaces promise / to / due_date. */
+export interface CommitmentItemOverride {
+  item_key: string;
+  promise: string;
+  to: string;
+  due_date: string | null;
+  updated_at: string;
+  updated_by: string;
+}
+
 /** An item as shown on Home: section is recalculated from today's date at view time. */
 export interface CommitmentView extends CommitmentItem {
   section: CommitmentSection;
