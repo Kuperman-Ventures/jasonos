@@ -3,8 +3,12 @@
  * Stored on user_preferences.meeting_followup_prompt when Jason overrides
  * the default in Settings → General.
  *
+ * This is a thank-you / close-the-loop email after a meeting — not an intro
+ * ask (that lives on Network Screen → Draft the Ask). Same drafting shape
+ * (short rules + labeled notes/transcript); different purpose.
+ *
  * Placeholders filled at compose time:
- *   {{firstName}}   — recipient first name, or "there"
+ *   {{firstName}}   — recipient first name, or "Name"
  *   {{greeting}}    — "First," or "Hi,"
  *   {{whenPhrase}}  — "today" / "yesterday" / "last week" / …
  */
@@ -15,6 +19,7 @@ export const MEETING_FOLLOWUP_SOURCE_MAX_CHARS = 12_000;
 /**
  * Prefer transcript; keep a short notes preface when both exist so the model
  * still sees Granola's structured takeaways without crowding out the talk.
+ * Labels match the Network Screen style (plain section headers).
  */
 export function buildMeetingFollowupSourceMaterial(input: {
   summary?: string | null;
@@ -27,9 +32,9 @@ export function buildMeetingFollowupSourceMaterial(input: {
   if (transcript) {
     const notesBudget = summary ? Math.min(1_500, Math.floor(maxChars * 0.12)) : 0;
     const notesPart = summary
-      ? `MEETING NOTES (short):\n${summary.slice(0, notesBudget)}\n\n`
+      ? `Meeting notes:\n${summary.slice(0, notesBudget)}\n\n`
       : "";
-    const label = "MEETING TRANSCRIPT (primary source — base the email on this):\n";
+    const label = "Meeting transcript:\n";
     const remaining = Math.max(500, maxChars - notesPart.length - label.length);
     return {
       material: `${notesPart}${label}${transcript.slice(0, remaining)}`,
@@ -38,7 +43,7 @@ export function buildMeetingFollowupSourceMaterial(input: {
   }
   if (summary) {
     return {
-      material: `MEETING NOTES:\n${summary.slice(0, maxChars)}`,
+      material: `Meeting notes:\n${summary.slice(0, maxChars)}`,
       usedTranscript: false,
     };
   }
@@ -52,45 +57,33 @@ export const MEETING_FOLLOWUP_PROMPT_PLACEHOLDERS = [
 ] as const;
 
 /**
- * Jason's operator prompt for post-meeting follow-ups. Settings can override.
- * Output shape is fixed so compose can open Apple Mail and surface confirmFacts.
+ * Short DRAFT_RULES for a post-meeting thank-you / close-the-loop email.
+ * Mirror Network Screen's brevity — long operator essays make the model
+ * wander. Settings can override this whole block.
  */
-export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `Turn the transcript / meeting notes into a follow-up email Jason will send in Apple Mail.
+export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `This is a post-meeting thank-you / close-the-loop email Jason will send in Apple Mail. It is NOT an intro-request ask.
 
-Recipient first name for the greeting line: {{firstName}}
-Open the body with "{{greeting}}" on its own line (comma is fine).
+Recipient first name: {{firstName}}
+Open the body with "{{greeting}}" on its own line.
 The meeting was {{whenPhrase}} — never say today / this morning / this afternoon / this evening unless WHEN is exactly "today".
 
-Before writing, decide:
-- What does this person know about me? Only what the meeting and our history in the source support. Nothing else may appear unexplained.
-- What words do they use for their work? Write in those words.
-- What is the one line where I give them something instead of asking?
-
-Write the email:
-- Open with one line about a specific thing they said. No "great to meet you", no "good talking", no "I hope this finds you", no "I'd love to", no "thanks for the conversation", no "Enjoyed hearing you…", no "Also noted:", no "You said you…", no "I'll follow through on what we discussed".
-- Confirm what I owe them and when they will have it. Name the deliverable (LinkedIn intros, a link, a doc). If the source already has the link or intro, put it in this email. If it does not, say when you will send it - never invent a link, name, or date, and never leave bracket placeholders like [link] or [name].
-- Restate what they offered in one line so it is easy for them to act on.
-- Include the giving line.
+- Open on one specific thing they said or shared (a real detail from the notes or transcript). No "great to meet you", "good talking", "thanks for the conversation", "I hope this finds you", "I'd love to", "Enjoyed hearing you", "Also noted:", "You said you".
+- Confirm what Jason owes them and when they will have it. Name the deliverable. If the source already has the link or intro, put it in this email. If not, say when you will send it. Never invent a link, name, or date. Never leave bracket placeholders like [link] or [name].
+- Restate what they offered in one plain line so it is easy for them to act on. If they offered nothing, skip this.
+- Include one giving line tied to something useful for them from the meeting. If the notes have nothing to give, leave it out — do not invent reciprocity.
 - End with one next step and a specific time (a weekday or "by Friday"). Not "let's stay in touch".
-- 120 words or fewer. Plain sentences. Hyphens, not em dashes.
-- No insider shorthand. No product or project names unless I explained them in the meeting (or they did).
-- State goals as goals. Never describe what I am trying to do as something I have done. If Next Steps say "Review LinkedIn", write "I'll review…" - never "I reviewed…".
-- If Next Steps say I should check out their site or a link they shared, that is my owe - do not pitch their own site back to them as "worth your time".
+- 120 words or fewer. Plain sentences. Hyphens, not em dashes. No exclamation points.
+- Never use a product or project name the recipient would not know. Describe the work in the terms used in the meeting notes.
+- State goals as goals. If Next Steps say "Review LinkedIn", write "I'll review…" — never "I reviewed…".
+- If Next Steps say check out their site or a link they shared, that is Jason's owe — do not pitch their own site back to them.
 - Nothing personal and no asks for third parties in this email.
-- Sign off with "Jason" on its own line. No exclamation points.
+- FIRST MEETING vs RECONNECT: treat as first meeting unless the source clearly shows prior relationship. Never say reconnect / catch up after years on a first meeting.
+- Sign off with "Jason" on its own line.
 
-Before delivering, read it line by line as the recipient: do I understand this word, is it true based on what was said, why is this person writing now, what does this ask cost me. Fix anything that fails.
+Return STRICT JSON only:
+{"subject":"...","body":"...","confirmFacts":["fact to verify before sending", "..."]}
 
-FIRST MEETING vs RECONNECT:
-- FIRST MEETING when the source shows an intro / first conversation / no prior working history. NEVER say reconnect, catch up after years, or "after all this time".
-- RECONNECT only when the source clearly shows prior relationship.
-- When unsure, treat it as a first meeting.
-
-Return JSON only:
-{"subject":"...","body":"...","confirmFacts":["fact I should verify before sending", "..."]}
-
-Subject: short and specific to what they said or what you owe them. Avoid "Following up:" plus the calendar title. Avoid generic "Good talking" / "Good to meet you" unless nothing else is supported.
-confirmFacts may be an empty array when nothing needs checking.`;
+Subject: short and specific to what they said or what you owe. Avoid "Following up:" plus the calendar title. confirmFacts may be [].`;
 
 export type MeetingFollowupPromptVars = {
   firstName: string;
@@ -124,7 +117,7 @@ export function fillMeetingFollowupPrompt(
 
 /**
  * True when the body is empty fluff / stitched-note fallback with no real
- * operator follow-up (the failure mode Jason keeps hitting).
+ * thank-you follow-up (the failure mode Jason keeps hitting).
  */
 export function isHollowFollowupBody(body: string): boolean {
   const stripped = body

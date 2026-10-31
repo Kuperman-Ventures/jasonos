@@ -1,13 +1,15 @@
-// Turn a Granola / Wispr transcript (preferred) or note into a short follow-up
-// email Jason can send. Facts come only from that source. Nothing is sent —
-// the server action opens Apple Mail via mailto only when Claude returns a
-// real draft. There is no local template email path.
+// Turn a Granola / Wispr transcript (preferred) or note into a short
+// thank-you / close-the-loop follow-up email. Same drafting shape as Network
+// Screen "Draft the Ask" (JASON_CORE_VOICE + short rules + labeled sections +
+// one generateText) — different purpose: post-meeting follow-up, not an intro ask.
+// Facts come only from the meeting source. Nothing is sent — the server action
+// opens Apple Mail via mailto only when Claude returns a real draft.
 
 import "server-only";
 
 import { generateText } from "ai";
 import { hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
-import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
+import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { stripEmDashes } from "@/lib/email-templates/render";
 import {
@@ -131,8 +133,8 @@ function wordCount(body: string): number {
     .filter(Boolean).length;
 }
 
-function looksLikeOperatorDraft(body: string): boolean {
-  // Must have a greeting line + sign-off and more than one short paragraph.
+function looksLikeThankYouFollowup(body: string): boolean {
+  // Greeting + sign-off + real paragraphs; not a one-liner or a novel.
   const lines = body.replace(/\r\n/g, "\n").trim().split("\n");
   if (lines.length < 4) return false;
   if (!/\bJason\s*$/i.test(body)) return false;
@@ -142,7 +144,7 @@ function looksLikeOperatorDraft(body: string): boolean {
 }
 
 /**
- * Draft a follow-up from the meeting material via Claude.
+ * Draft a post-meeting thank-you / close-the-loop email via Claude.
  * Never returns a local template email — callers must not open mailto on failure.
  */
 export async function composeMeetingFollowupDraft(
@@ -155,14 +157,13 @@ export async function composeMeetingFollowupDraft(
       email: input.email,
       title: input.title,
     }) ?? input.name;
+  const notes = input.summary?.trim() || "";
+  const transcript = input.transcript?.trim() || "";
   const { material, usedTranscript } = buildMeetingFollowupSourceMaterial({
-    summary: input.summary,
-    transcript: input.transcript,
+    summary: notes,
+    transcript,
   });
-  const checkSource =
-    input.summary?.trim() ||
-    input.transcript?.trim()?.slice(0, 4_000) ||
-    "";
+  const checkSource = notes || transcript.slice(0, 4_000) || "";
   const owes = pickJasonOwes(checkSource);
   const offer = pickTheirOffer(checkSource);
   const confirmFacts = [
@@ -192,36 +193,44 @@ export async function composeMeetingFollowupDraft(
       whenPhrase,
     }
   );
-  const system = `${JASON_IDENTITY}
+
+  // Same shape as draftIntroRequest: core voice + no-slop + short rules.
+  const system = `${JASON_CORE_VOICE}
 
 ${NO_AI_SLOP_WRITING_RULES}
 
-${guidance}`;
+${guidance}
+
+Greet by first name. Sign off "Jason" on its own line. Hyphens, not em dashes.
+Return STRICT JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
 
   const meetingKind = firstMeet
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
     : "RECONNECT only if the source clearly supports prior relationship";
-  const sourceLabel = usedTranscript
-    ? "the meeting transcript (primary) plus short notes"
-    : "the meeting notes";
 
   const owesBlock = owes.length
-    ? `\nJason's commitments from Next Steps (name these in the email; do not invent others):\n- ${owes.join("\n- ")}\n`
-    : "\nNo explicit Next Steps found - only commit to what the source clearly supports.\n";
-  const offerBlock = offer
-    ? `\nWhat they offered (restate in one plain line):\n- ${offer}\n`
-    : "";
+    ? owes.map((item) => `- ${item}`).join("\n")
+    : "(none found — only commit to what the notes/transcript clearly support)";
+  const offerBlock = offer ? `- ${offer}` : "(none)";
 
-  const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
+  // Labeled sections like Network Screen Draft the Ask — but for a thank-you
+  // follow-up, not an intro request.
+  const user = `Write the post-meeting thank-you / close-the-loop email FROM Jason TO ${who === "there" ? "the recipient" : who}.
 Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
 WHEN: ${whenPhrase}
 
-Write the follow-up from ${sourceLabel}. Follow the system instructions exactly.
-${owesBlock}${offerBlock}
-${material}
+Meeting notes:
+${notes ? notes.slice(0, 1_500) : "(none)"}
 
-Return JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
+Meeting transcript:
+${transcript ? transcript.slice(0, 10_000) : "(none)"}
+
+Jason's open commitments from Next Steps:
+${owesBlock}
+
+What they offered:
+${offerBlock}`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
@@ -233,8 +242,6 @@ Return JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
     usedTranscript,
     confirmFacts,
   });
-
-  const rewriteHint = `Rewrite. Open on one specific thing they said (a real detail, not a pasted note heading). Name what Jason owes and when - use "I'll…" for unfinished Next Steps, never "I reviewed…". Restate what they offered in one clean line. Include a giving line. End with one next step and a time. Max 120 words. No fluff, no bracket placeholders like [link] or [name], no "You said you", no "I'll follow through on what we discussed", no "I'll send the concrete follow-up I owe you". Meeting was ${whenPhrase}. JSON only.`;
 
   try {
     const { text } = await generateText({
@@ -257,7 +264,7 @@ Return JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
 
     const accept = (body: string, subject: string, cf: string[]) => {
       if (draftFailsChecks(body, checkSource, whenPhrase)) return null;
-      if (!looksLikeOperatorDraft(body)) return null;
+      if (!looksLikeThankYouFollowup(body)) return null;
       return {
         ok: true as const,
         subject,
@@ -271,31 +278,31 @@ Return JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
     const first = accept(draft.body, draft.subject, facts);
     if (first) return first;
 
-    let lastParsed = parsed;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const why = [
-        isHollowFollowupBody(draft.body) || hasBannedFollowupPhrases(draft.body)
-          ? "Last draft was fluff or used banned phrases."
-          : "Last draft failed quality checks.",
-        wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
-        !/\bJason\s*$/i.test(draft.body) ? 'Sign off with "Jason" on its own line.' : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      const { text: retryText } = await generateText({
-        model: heavyModel(),
-        maxOutputTokens: 900,
-        system,
-        messages: [
-          { role: "user", content: user },
-          { role: "assistant", content: JSON.stringify(lastParsed) },
-          { role: "user", content: `${rewriteHint}\n${why}` },
-        ],
-        providerOptions,
-      });
-      const retry = safeParseDraft(retryText);
-      if (!retry) continue;
-      lastParsed = retry;
+    // One rewrite only (Network Screen does zero; keep a single safety pass).
+    const why = [
+      isHollowFollowupBody(draft.body) || hasBannedFollowupPhrases(draft.body)
+        ? "Last draft was fluff or used banned phrases."
+        : "Last draft failed quality checks.",
+      wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
+      !/\bJason\s*$/i.test(draft.body) ? 'Sign off with "Jason" on its own line.' : "",
+      "Rewrite as a thank-you / close-the-loop follow-up, not an intro ask. Open on one specific thing they said. Name what Jason owes and when. Restate what they offered in one clean line. One next step with a time. Max 120 words. No bracket placeholders.",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const { text: retryText } = await generateText({
+      model: heavyModel(),
+      maxOutputTokens: 900,
+      system,
+      messages: [
+        { role: "user", content: user },
+        { role: "assistant", content: JSON.stringify(parsed) },
+        { role: "user", content: why },
+      ],
+      providerOptions,
+    });
+    const retry = safeParseDraft(retryText);
+    if (retry) {
       draft = polish({
         subject: retry.subject || draft.subject,
         body: retry.body,

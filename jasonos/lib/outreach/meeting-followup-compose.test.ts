@@ -12,9 +12,9 @@ describe("buildMeetingFollowupSourceMaterial", () => {
       transcript: "Jason: How is the franchise work going?\nHardik: We are hiring two operators.",
     });
     assert.equal(usedTranscript, true);
-    assert.match(material, /MEETING TRANSCRIPT \(primary source/);
+    assert.match(material, /Meeting transcript:/);
     assert.match(material, /Hardik: We are hiring two operators/);
-    assert.match(material, /MEETING NOTES \(short\)/);
+    assert.match(material, /Meeting notes:/);
     assert.match(material, /franchise ops/);
   });
 
@@ -24,7 +24,7 @@ describe("buildMeetingFollowupSourceMaterial", () => {
       transcript: null,
     });
     assert.equal(usedTranscript, false);
-    assert.match(material, /^MEETING NOTES:/);
+    assert.match(material, /^Meeting notes:/);
     assert.match(material, /Equity Labs/);
   });
 
@@ -40,8 +40,8 @@ describe("buildMeetingFollowupSourceMaterial", () => {
     assert.ok(material.includes("Them:"));
     assert.ok(material.length <= MEETING_FOLLOWUP_SOURCE_MAX_CHARS + 80);
     // Transcript label must appear; notes preface must stay short.
-    const transcriptAt = material.indexOf("MEETING TRANSCRIPT");
-    const notesAt = material.indexOf("MEETING NOTES (short)");
+    const transcriptAt = material.indexOf("Meeting transcript:");
+    const notesAt = material.indexOf("Meeting notes:");
     assert.ok(notesAt >= 0 && transcriptAt > notesAt);
     assert.ok(transcriptAt < 2_000);
   });
