@@ -60,9 +60,92 @@ export function normalizePromise(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-export function deriveItemKey(item: { source?: string; source_url?: string | null; promise: string }): string {
+/**
+ * Stabilize source links so key hashes don't churn when Claude truncates a
+ * Granola / Gmail URL or adds tracking params.
+ */
+export function normalizeCommitmentSourceUrl(
+  value: string | null | undefined
+): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (!/^https?:$/i.test(url.protocol)) return null;
+    const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host === "notes.granola.ai") {
+      const match = url.pathname.match(/\/d\/([0-9a-f-]{36})/i);
+      if (match) return `https://notes.granola.ai/d/${match[1].toLowerCase()}`;
+    }
+    if (host === "mail.google.com") {
+      // Keep authuser when present (query or hash junk); drop other noise.
+      const hashAuth = url.hash.match(/[?&]authuser=([^&]+)/i)?.[1];
+      const authuser = url.searchParams.get("authuser") || hashAuth;
+      url.search = "";
+      if (authuser) url.searchParams.set("authuser", authuser);
+      url.hash = (url.hash.split("?")[0] || url.hash).replace(/&authuser=[^&]*/i, "");
+      return url.toString();
+    }
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** Word overlap 0..1 for catching paraphrase duplicates of the same promise. */
+export function promiseSimilarity(a: string, b: string): number {
+  const left = new Set(normalizePromise(a).split(" ").filter((w) => w.length > 2));
+  const right = new Set(normalizePromise(b).split(" ").filter((w) => w.length > 2));
+  if (!left.size || !right.size) return 0;
+  let shared = 0;
+  for (const word of left) {
+    if (right.has(word)) shared += 1;
+  }
+  return shared / Math.max(left.size, right.size);
+}
+
+/**
+ * True when a newly extracted item is the same commitment Jason already
+ * handled (done / dismissed / scheduled), even if Claude rephrased the promise
+ * and minted a new key.
+ */
+export function isHandledCommitmentDuplicate(
+  candidate: Pick<CommitmentItem, "key" | "promise" | "to" | "source_url">,
+  handled: readonly Pick<CommitmentItem, "key" | "promise" | "to" | "source_url">[]
+): boolean {
+  const candidateUrl = normalizeCommitmentSourceUrl(candidate.source_url);
+  const candidateTo = normalizePromise(candidate.to);
+  for (const prior of handled) {
+    // Same key is the caller's job (scan skips closed keys; publish keeps
+    // scheduled rows). This helper only catches reminted-key paraphrases.
+    if (prior.key === candidate.key) continue;
+    const priorUrl = normalizeCommitmentSourceUrl(prior.source_url);
+    if (candidateUrl && priorUrl && candidateUrl === priorUrl) {
+      if (candidateTo && candidateTo === normalizePromise(prior.to)) {
+        if (promiseSimilarity(candidate.promise, prior.promise) >= 0.45) return true;
+      }
+    }
+    // Same person + nearly identical wording even if the link was truncated away.
+    if (
+      candidateTo &&
+      candidateTo === normalizePromise(prior.to) &&
+      promiseSimilarity(candidate.promise, prior.promise) >= 0.72
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function deriveItemKey(item: {
+  source?: string;
+  source_url?: string | null;
+  promise: string;
+}): string {
   const source = item.source ?? "other";
-  return `${source}:${stableHash(`${item.source_url ?? ""}|${normalizePromise(item.promise)}`)}`;
+  const url = normalizeCommitmentSourceUrl(item.source_url) ?? item.source_url ?? "";
+  return `${source}:${stableHash(`${url}|${normalizePromise(item.promise)}`)}`;
 }
 
 export function isHttpUrl(value: string | null | undefined): value is string {
@@ -101,6 +184,7 @@ export function parseCommitmentPayload(raw: unknown): CommitmentCheckPayload {
     const key = item.key ?? deriveItemKey(item);
     if (seen.has(key)) continue;
     seen.add(key);
+    const source_url = normalizeCommitmentSourceUrl(item.source_url);
     items.push({
       key,
       promise: item.promise,
@@ -109,7 +193,7 @@ export function parseCommitmentPayload(raw: unknown): CommitmentCheckPayload {
       delivery: item.delivery ?? "not_delivered",
       evidence: item.evidence ?? null,
       source: item.source ?? "other",
-      source_url: isHttpUrl(item.source_url) ? item.source_url : null,
+      source_url: source_url ?? (isHttpUrl(item.source_url) ? item.source_url : null),
       context: item.context ?? null,
     });
   }

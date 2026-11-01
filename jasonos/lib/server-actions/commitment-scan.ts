@@ -15,6 +15,8 @@ import {
 import {
   deriveItemKey,
   etDate,
+  isHandledCommitmentDuplicate,
+  normalizeCommitmentSourceUrl,
   parseCommitmentPayload,
 } from "@/lib/commitments/logic";
 import type {
@@ -160,12 +162,25 @@ async function scanCommitmentsInner(opts?: {
       .filter((s) => s.state === "done" || s.state === "dismissed")
       .map((s) => s.item_key)
   );
+  // Done / dismissed / scheduled — used so Claude rephrases don't mint a new
+  // open row for a promise Jason already handled.
+  const handledKeys = new Set(
+    states
+      .filter(
+        (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
+      )
+      .map((s) => s.item_key)
+  );
+  const handledPriors = (priorPayload?.items ?? []).filter((item) =>
+    handledKeys.has(item.key)
+  );
 
   const keptPrior = (priorPayload?.items ?? []).filter((item) => !closed.has(item.key));
   const byKey = new Map<string, CommitmentItem>();
   for (const item of keptPrior) byKey.set(item.key, item);
   for (const item of extracted) {
     if (closed.has(item.key)) continue;
+    if (isHandledCommitmentDuplicate(item, handledPriors)) continue;
     if (!byKey.has(item.key)) byKey.set(item.key, item);
   }
 
@@ -352,10 +367,18 @@ Rules:
         typeof o.evidence === "string" && o.evidence.trim()
           ? o.evidence.trim().slice(0, 600)
           : null;
-      const source_url =
+      const rawUrl =
         typeof o.source_url === "string" && o.source_url.startsWith("http")
           ? o.source_url
           : null;
+      // Claude often truncates Granola links; map back to the full note URL.
+      const matchedDocUrl =
+        rawUrl &&
+        docs.find((doc) => doc.url && (doc.url === rawUrl || doc.url.startsWith(rawUrl) || rawUrl.startsWith(doc.url.slice(0, 40))))
+          ?.url;
+      const source_url =
+        normalizeCommitmentSourceUrl(matchedDocUrl || rawUrl) ??
+        (matchedDocUrl || rawUrl);
       const context =
         typeof o.context === "string" && o.context.trim()
           ? o.context.trim().slice(0, 300)

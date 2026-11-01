@@ -5,11 +5,18 @@
 import { recordUserAction } from "../actions/action-log";
 import { untilDetail } from "../actions/action-log-format";
 import { jasonosDb } from "../mcp/db";
-import { applyCommitmentOverrides, buildViews, etDate, parseCommitmentPayload } from "./logic";
+import {
+  applyCommitmentOverrides,
+  buildViews,
+  etDate,
+  isHandledCommitmentDuplicate,
+  parseCommitmentPayload,
+} from "./logic";
 import {
   ITEM_STATES,
   type CommitmentCheckForHome,
   type CommitmentCheckPayload,
+  type CommitmentItem,
   type CommitmentItemOverride,
   type CommitmentItemStateRow,
   type ItemState,
@@ -37,7 +44,28 @@ export function resolveCheckDate(raw?: string | null): string {
 
 export async function publishCommitmentCheck(input: { date?: string; payload_json: string }) {
   const check_date = resolveCheckDate(input.date);
-  const payload = parseCommitmentPayload(input.payload_json);
+  let payload = parseCommitmentPayload(input.payload_json);
+
+  // Drop rephrased copies of promises Jason already handled (done / dismissed /
+  // scheduled). Claude often remints keys when the wording or Granola URL shifts.
+  // Exact-key done/dismissed rows are also stripped; scheduled same-key rows stay.
+  const { handledPriors, closedKeys } = await loadHandledCommitmentPriors();
+  if (handledPriors.length || closedKeys.size) {
+    const kept = payload.items.filter((item) => {
+      if (closedKeys.has(item.key)) return false;
+      return !isHandledCommitmentDuplicate(item, handledPriors);
+    });
+    if (kept.length !== payload.items.length) {
+      payload = { ...payload, items: kept };
+    }
+  }
+
+  // Keep prior scheduled rows the publisher left out so they stay under Scheduled.
+  const preservedScheduled = await loadMissingScheduledItems(payload.items);
+  if (preservedScheduled.length) {
+    payload = { ...payload, items: [...payload.items, ...preservedScheduled] };
+  }
+
   const { data, error } = await jasonosDb()
     .from("commitment_checks")
     .upsert({ check_date, payload }, { onConflict: "check_date" })
@@ -52,6 +80,67 @@ export async function publishCommitmentCheck(input: { date?: string; payload_jso
     delivered_count: payload.delivered_count,
     home: "https://jasonos.vercel.app/",
   };
+}
+
+/** Prior payload items Jason marked done, dismissed, or scheduled. */
+async function loadHandledCommitmentPriors(): Promise<{
+  handledPriors: CommitmentItem[];
+  closedKeys: Set<string>;
+}> {
+  const states = await listActiveItemStates();
+  const closedKeys = new Set(
+    states
+      .filter((s) => s.state === "done" || s.state === "dismissed")
+      .map((s) => s.item_key)
+  );
+  const handledKeys = new Set(
+    states
+      .filter(
+        (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
+      )
+      .map((s) => s.item_key)
+  );
+  if (!handledKeys.size) return { handledPriors: [], closedKeys };
+  const { data, error } = await jasonosDb()
+    .from("commitment_checks")
+    .select("payload")
+    .order("check_date", { ascending: false })
+    .limit(8);
+  if (error) fail(error);
+  const byKey = new Map<string, CommitmentItem>();
+  for (const row of data ?? []) {
+    const items = (row.payload as CommitmentCheckPayload | null)?.items ?? [];
+    for (const item of items) {
+      if (handledKeys.has(item.key) && !byKey.has(item.key)) byKey.set(item.key, item);
+    }
+  }
+  return { handledPriors: [...byKey.values()], closedKeys };
+}
+
+/** Scheduled items from the latest check that the new publish omitted. */
+async function loadMissingScheduledItems(
+  incoming: readonly CommitmentItem[]
+): Promise<CommitmentItem[]> {
+  const states = await listActiveItemStates();
+  const scheduledKeys = new Set(
+    states.filter((s) => s.state === "scheduled").map((s) => s.item_key)
+  );
+  if (!scheduledKeys.size) return [];
+  const incomingKeys = new Set(incoming.map((item) => item.key));
+  const { data, error } = await jasonosDb()
+    .from("commitment_checks")
+    .select("payload")
+    .order("check_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) fail(error);
+  const prior = (data?.payload as CommitmentCheckPayload | null)?.items ?? [];
+  return prior.filter(
+    (item) =>
+      scheduledKeys.has(item.key) &&
+      !incomingKeys.has(item.key) &&
+      !isHandledCommitmentDuplicate(item, incoming)
+  );
 }
 
 async function listStates(keys: string[]): Promise<CommitmentItemStateRow[]> {
