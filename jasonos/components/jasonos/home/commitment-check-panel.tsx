@@ -237,17 +237,20 @@ export function CommitmentCheckPanel({
                                 onExportPrioritize={() => {
                                   void (async () => {
                                     setBusyKey(item.key);
+                                    setHidden((prev) => new Set(prev).add(item.key));
                                     const result = await exportCommitmentToPrioritize(item.key);
                                     setBusyKey(null);
                                     if (!result.ok) {
+                                      setHidden((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(item.key);
+                                        return next;
+                                      });
                                       toast.error(result.error);
                                       return;
                                     }
-                                    toast.success(
-                                      result.created
-                                        ? "Exported to Prioritize"
-                                        : "Updated in Prioritize"
-                                    );
+                                    toast.success("Sent to Prioritize · moved to Scheduled");
+                                    router.refresh();
                                   })();
                                 }}
                                 onDone={() =>
