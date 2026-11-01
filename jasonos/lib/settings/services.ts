@@ -280,6 +280,34 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     ],
   },
   {
+    name: "prioritize",
+    label: "Prioritize",
+    connectionType: "api_key",
+    setup: "Same import secret as Prioritize Vercel (PRIORITIZE_IMPORT_SECRET)",
+    logoDomain: "vercel.app",
+    description:
+      "Export Home commitments into your Prioritize todo cards. Paste the same PRIORITIZE_IMPORT_SECRET you set on the Prioritize Vercel project. Optional base URL if you are not using the production app.",
+    features: ["Export commitments", "JasonOS track", "Idempotent by key"],
+    configurable: true,
+    disconnectable: true,
+    envVars: ["PRIORITIZE_IMPORT_SECRET", "PRIORITIZE_BASE_URL"],
+    fields: [
+      {
+        name: "api_key",
+        label: "Import secret",
+        type: "password",
+        required: true,
+        placeholder: "Same value as PRIORITIZE_IMPORT_SECRET",
+      },
+      {
+        name: "base_url",
+        label: "Prioritize base URL",
+        placeholder: "https://v0-prioritization-sorting-tool.vercel.app",
+        required: false,
+      },
+    ],
+  },
+  {
     name: "jasonos_mcp",
     label: "Cursor & Claude",
     connectionType: "api_key",

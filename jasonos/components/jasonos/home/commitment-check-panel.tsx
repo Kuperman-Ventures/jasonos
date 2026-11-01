@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ChevronDown, ExternalLink, Handshake } from "lucide-react";
+import { CalendarDays, ChevronDown, ExternalLink, Handshake, ListTodo } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/commitments/types";
 import {
   dismissCommitment,
+  exportCommitmentToPrioritize,
   markCommitmentDone,
   saveCommitmentEdit,
   snoozeCommitmentToTomorrow,
@@ -233,6 +234,22 @@ export function CommitmentCheckPanel({
                                 item={item}
                                 busy={busyKey === item.key}
                                 onSchedule={() => setScheduleItem(item)}
+                                onExportPrioritize={() => {
+                                  void (async () => {
+                                    setBusyKey(item.key);
+                                    const result = await exportCommitmentToPrioritize(item.key);
+                                    setBusyKey(null);
+                                    if (!result.ok) {
+                                      toast.error(result.error);
+                                      return;
+                                    }
+                                    toast.success(
+                                      result.created
+                                        ? "Exported to Prioritize"
+                                        : "Updated in Prioritize"
+                                    );
+                                  })();
+                                }}
                                 onDone={() =>
                                   void run(item.key, () => markCommitmentDone(item.key), "Marked done")
                                 }
@@ -279,6 +296,7 @@ function CommitmentRow({
   item,
   busy,
   onSchedule,
+  onExportPrioritize,
   onDone,
   onTomorrow,
   onDismiss,
@@ -286,6 +304,7 @@ function CommitmentRow({
   item: CommitmentView;
   busy: boolean;
   onSchedule: () => void;
+  onExportPrioritize: () => void;
   onDone: () => void;
   onTomorrow: () => void;
   onDismiss: () => void;
@@ -450,6 +469,17 @@ function CommitmentRow({
             <Button type="button" size="xs" variant="outline" disabled={locked} onClick={onSchedule}>
               <CalendarDays className="h-3 w-3" />
               Calendar
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              disabled={locked}
+              onClick={onExportPrioritize}
+              title="Export to Prioritize"
+            >
+              <ListTodo className="h-3 w-3" />
+              Prioritize
             </Button>
             <Button type="button" size="xs" variant="ok" disabled={locked} onClick={onDone}>
               Done

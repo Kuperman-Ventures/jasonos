@@ -822,7 +822,7 @@ function ServiceCard({
         polling_interval_minutes: String(connection.config.polling_interval_minutes ?? 2),
       };
     }
-    if (connection.service_name === "beeper") {
+    if (connection.service_name === "beeper" || connection.service_name === "prioritize") {
       const base =
         typeof connection.config?.base_url === "string"
           ? connection.config.base_url.trim()

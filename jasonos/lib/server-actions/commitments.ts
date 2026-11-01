@@ -15,6 +15,7 @@ import {
   setCommitmentItemState,
   updateCommitmentItem,
 } from "@/lib/commitments/store";
+import { importCommitmentToPrioritize } from "@/lib/integrations/prioritize";
 import type { CommitmentCheckForHome } from "@/lib/commitments/types";
 import { createPrimaryCalendarEvent } from "@/lib/integrations/google-calendar";
 import {
@@ -87,6 +88,38 @@ export async function saveCommitmentEdit(input: {
       actor: "jasonos",
     })
   );
+}
+
+/**
+ * Push one Home commitment into Prioritize as a card (JasonOS track).
+ * Idempotent by item key — re-export updates instead of duplicating.
+ */
+export async function exportCommitmentToPrioritize(
+  itemKey: string
+): Promise<
+  | { ok: true; created: boolean; cardId: string; url: string | null }
+  | { ok: false; error: string }
+> {
+  const key = itemKey.trim();
+  if (!key) return { ok: false, error: "Missing commitment." };
+  try {
+    const check = await getCommitmentCheckForHome();
+    const item = check.items.find((row) => row.key === key);
+    if (!item) {
+      return { ok: false, error: "That commitment is not on today's Home list." };
+    }
+    const result = await importCommitmentToPrioritize(item);
+    if (!result.ok) return { ok: false, error: result.error };
+    revalidatePath("/");
+    return {
+      ok: true,
+      created: result.created,
+      cardId: result.card_id,
+      url: result.url,
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 /** Busy blocks for the Commitment schedule calendar (same source as Browning). */
