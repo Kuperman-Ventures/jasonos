@@ -287,7 +287,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     logoDomain: "vercel.app",
     description:
       "Export Home commitments into your Prioritize todo cards. Paste the same PRIORITIZE_IMPORT_SECRET you set on the Prioritize Vercel project. Optional base URL if you are not using the production app.",
-    features: ["Export commitments", "JasonOS track", "Idempotent by key"],
+    features: ["Export commitments", "Due today · Track 0", "Idempotent by key"],
     configurable: true,
     disconnectable: true,
     envVars: ["PRIORITIZE_IMPORT_SECRET", "PRIORITIZE_BASE_URL"],

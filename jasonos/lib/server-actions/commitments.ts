@@ -91,7 +91,7 @@ export async function saveCommitmentEdit(input: {
 }
 
 /**
- * Push one Home commitment into Prioritize as a card (JasonOS track), then
+ * Push one Home commitment into Prioritize as a card (due today, Track 0), then
  * mark it scheduled on Home — same lane as Calendar. Idempotent by item key.
  */
 export async function exportCommitmentToPrioritize(
