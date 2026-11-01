@@ -8,9 +8,15 @@
 import "server-only";
 
 import type { CommitmentView } from "@/lib/commitments/types";
+import { buildPrioritizeImportBody } from "@/lib/integrations/prioritize-payload";
 
 export const DEFAULT_PRIORITIZE_BASE_URL =
   "https://v0-prioritization-sorting-tool.vercel.app";
+
+export {
+  PRIORITIZE_DEFAULT_TRACK_NAME,
+  buildPrioritizeImportBody,
+} from "@/lib/integrations/prioritize-payload";
 
 type PrioritizeConnectionConfig = {
   access_token?: string;
@@ -120,39 +126,6 @@ export async function testPrioritizeConnection(input?: {
   }
 }
 
-function metricsForSection(section: CommitmentView["section"]): {
-  importance: number;
-  urgency: number;
-  effort: number;
-  enjoyment: number;
-} {
-  const effort = 4;
-  const enjoyment = 3;
-  switch (section) {
-    case "overdue":
-      return { importance: 8, urgency: 9, effort, enjoyment };
-    case "due_today":
-      return { importance: 7, urgency: 8, effort, enjoyment };
-    case "coming_up":
-      return { importance: 6, urgency: 5, effort, enjoyment };
-    case "scheduled":
-      return { importance: 6, urgency: 5, effort, enjoyment };
-    default:
-      return { importance: 5, urgency: 4, effort, enjoyment };
-  }
-}
-
-function buildDescription(item: CommitmentView): string {
-  const lines = [
-    `To ${item.to}`,
-    item.due_date ? `Due ${item.due_date}` : "No due date",
-    item.context ? item.context : null,
-    item.source_url ? item.source_url : null,
-    `JasonOS key: ${item.key}`,
-  ].filter(Boolean);
-  return lines.join("\n");
-}
-
 /** Create or update a Prioritize card for a Home commitment (idempotent by key). */
 export async function importCommitmentToPrioritize(
   item: CommitmentView
@@ -166,16 +139,7 @@ export async function importCommitmentToPrioritize(
     };
   }
 
-  const body = {
-    external_key: item.key,
-    title: item.promise.trim(),
-    description: buildDescription(item),
-    due_date: item.due_date,
-    track_name: "JasonOS",
-    project_name: null,
-    tag_names: ["Work"],
-    metrics: metricsForSection(item.section),
-  };
+  const body = buildPrioritizeImportBody(item);
 
   try {
     const res = await fetch(`${baseUrl}/api/import/jasonos-commitment`, {
