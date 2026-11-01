@@ -91,8 +91,8 @@ export async function saveCommitmentEdit(input: {
 }
 
 /**
- * Push one Home commitment into Prioritize as a card (JasonOS track).
- * Idempotent by item key — re-export updates instead of duplicating.
+ * Push one Home commitment into Prioritize as a card (JasonOS track), then
+ * mark it scheduled on Home — same lane as Calendar. Idempotent by item key.
  */
 export async function exportCommitmentToPrioritize(
   itemKey: string
@@ -110,6 +110,22 @@ export async function exportCommitmentToPrioritize(
     }
     const result = await importCommitmentToPrioritize(item);
     if (!result.ok) return { ok: false, error: result.error };
+
+    try {
+      await setCommitmentItemState({
+        item_key: key,
+        state: "scheduled",
+        actor: "jasonos",
+      });
+    } catch (error) {
+      console.error("[commitments.prioritize-schedule-state]", error);
+      return {
+        ok: false,
+        error:
+          "Exported to Prioritize, but it could not be moved to Scheduled. Refresh and try marking it again.",
+      };
+    }
+
     revalidatePath("/");
     return {
       ok: true,
