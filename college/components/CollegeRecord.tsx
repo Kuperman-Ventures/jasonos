@@ -50,7 +50,7 @@ const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "financials", label: "Financials" },
   { id: "projects", label: "Project Management" },
   { id: "photos", label: "Photos" },
-  { id: "visit", label: "Trip planning" },
+  { id: "visit", label: "Visiting" },
   { id: "settings", label: "Settings" },
 ];
 

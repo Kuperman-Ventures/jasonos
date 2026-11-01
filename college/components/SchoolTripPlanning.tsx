@@ -334,7 +334,7 @@ export function SchoolTripPlanning({
 
   return (
     <section className="school-trip">
-      <div className="school-pm-subtabs" role="tablist" aria-label="Trip planning sections">
+      <div className="school-pm-subtabs" role="tablist" aria-label="Visiting sections">
         {subtabs.map((tab) => (
           <button
             key={tab.id}
