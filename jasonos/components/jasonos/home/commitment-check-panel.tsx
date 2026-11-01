@@ -249,6 +249,24 @@ export function CommitmentCheckPanel({
                                       toast.error(result.error);
                                       return;
                                     }
+                                    // Scheduled is collapsed by default — open it so the move is visible.
+                                    setSectionCollapsed((prev) => {
+                                      const next = { ...prev, scheduled: false };
+                                      try {
+                                        window.localStorage.setItem(
+                                          SECTION_STORAGE_KEY,
+                                          JSON.stringify(next)
+                                        );
+                                      } catch {
+                                        // ignore
+                                      }
+                                      return next;
+                                    });
+                                    setHidden((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(item.key);
+                                      return next;
+                                    });
                                     toast.success("Sent to Prioritize · moved to Scheduled");
                                     router.refresh();
                                   })();
@@ -288,6 +306,15 @@ export function CommitmentCheckPanel({
         }}
         onScheduled={() => {
           setScheduleItem(null);
+          setSectionCollapsed((prev) => {
+            const next = { ...prev, scheduled: false };
+            try {
+              window.localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify(next));
+            } catch {
+              // ignore
+            }
+            return next;
+          });
           router.refresh();
         }}
       />

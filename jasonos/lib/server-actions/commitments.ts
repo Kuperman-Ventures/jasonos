@@ -111,10 +111,13 @@ export async function exportCommitmentToPrioritize(
     const result = await importCommitmentToPrioritize(item);
     if (!result.ok) return { ok: false, error: result.error };
 
+    // Mark scheduled after Prioritize accepts — same Home lane as Calendar.
+    // Write the state before revalidate so refresh lands in Scheduled.
     try {
       await setCommitmentItemState({
         item_key: key,
         state: "scheduled",
+        note: "prioritize",
         actor: "jasonos",
       });
     } catch (error) {

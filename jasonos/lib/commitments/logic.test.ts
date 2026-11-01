@@ -5,8 +5,11 @@ import {
   buildViews,
   deriveItemKey,
   formatDue,
+  isHandledCommitmentDuplicate,
   nextDay,
+  normalizeCommitmentSourceUrl,
   parseCommitmentPayload,
+  promiseSimilarity,
   sectionFor,
 } from "./logic.ts";
 import type { CommitmentItemStateRow } from "./types.ts";
@@ -139,6 +142,118 @@ describe("dates", () => {
     assert.equal(
       deriveItemKey({ source: "gmail", source_url: "u", promise: "Send the deck!" }),
       deriveItemKey({ source: "gmail", source_url: "u", promise: "send the deck" })
+    );
+  });
+});
+
+describe("normalizeCommitmentSourceUrl", () => {
+  it("canonicalizes Granola note links", () => {
+    assert.equal(
+      normalizeCommitmentSourceUrl(
+        "https://www.notes.granola.ai/d/091C254B-1234-4abc-9def-abcdef012345/extra?x=1"
+      ),
+      "https://notes.granola.ai/d/091c254b-1234-4abc-9def-abcdef012345"
+    );
+  });
+
+  it("keeps gmail authuser and drops other query noise", () => {
+    assert.equal(
+      normalizeCommitmentSourceUrl(
+        "https://mail.google.com/mail/u/0/?authuser=1&ui=2#all/abc"
+      ),
+      "https://mail.google.com/mail/u/0/?authuser=1#all/abc"
+    );
+    assert.equal(
+      normalizeCommitmentSourceUrl(
+        "https://mail.google.com/mail/u/0/#all/abc?authuser=1&ui=2"
+      ),
+      "https://mail.google.com/mail/u/0/?authuser=1#all/abc"
+    );
+  });
+
+  it("returns null for non-http links", () => {
+    assert.equal(normalizeCommitmentSourceUrl("javascript:alert(1)"), null);
+  });
+});
+
+describe("handled commitment duplicates", () => {
+  const granola =
+    "https://notes.granola.ai/d/091c254b-1234-4abc-9def-abcdef012345";
+  const handled = [
+    {
+      key: "granola:aaaa1111",
+      promise: "Send Jeff the pricing follow-up after the call",
+      to: "Jeff",
+      source_url: granola,
+    },
+  ];
+
+  it("scores paraphrase overlap", () => {
+    assert.ok(
+      promiseSimilarity(
+        "Send Jeff the pricing follow-up after the call",
+        "I'll send Jeff a pricing follow-up from our call"
+      ) >= 0.45
+    );
+  });
+
+  it("matches same meeting + person when Claude rephrases", () => {
+    assert.equal(
+      isHandledCommitmentDuplicate(
+        {
+          key: "granola:bbbb2222",
+          promise: "I'll send Jeff a pricing follow-up from our call",
+          to: "Jeff",
+          source_url: `${granola}?utm=1`,
+        },
+        handled
+      ),
+      true
+    );
+  });
+
+  it("matches strong wording overlap even without a usable URL", () => {
+    assert.equal(
+      isHandledCommitmentDuplicate(
+        {
+          key: "granola:cccc3333",
+          promise: "Send Jeff the pricing follow-up after the call",
+          to: "Jeff",
+          source_url: null,
+        },
+        handled
+      ),
+      true
+    );
+  });
+
+  it("does not match a different person or unrelated promise", () => {
+    assert.equal(
+      isHandledCommitmentDuplicate(
+        {
+          key: "granola:dddd4444",
+          promise: "Book dinner reservations for Friday",
+          to: "Lori",
+          source_url: granola,
+        },
+        handled
+      ),
+      false
+    );
+  });
+
+  it("keeps Granola key stable when the URL is canonicalized", () => {
+    assert.equal(
+      deriveItemKey({
+        source: "granola",
+        source_url: "https://www.notes.granola.ai/d/091C254B-1234-4abc-9def-abcdef012345?x=1",
+        promise: "Send the deck",
+      }),
+      deriveItemKey({
+        source: "granola",
+        source_url: "https://notes.granola.ai/d/091c254b-1234-4abc-9def-abcdef012345",
+        promise: "Send the deck",
+      })
     );
   });
 });

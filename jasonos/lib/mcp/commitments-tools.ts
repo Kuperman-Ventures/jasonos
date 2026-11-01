@@ -35,7 +35,7 @@ export function registerCommitmentTools(server: McpServer) {
     {
       title: "Commitment check",
       description:
-        "The latest published Commitment Check as Home shows it (sections recalculated for today, items Jason marked done or dismissed removed), plus every item state Jason has set. The publisher should call this first and leave out items whose key is done or dismissed.",
+        "The latest published Commitment Check as Home shows it (sections recalculated for today, items Jason marked done or dismissed removed; scheduled items stay under Scheduled), plus every item state Jason has set. The publisher should call this first and leave out items whose key is done or dismissed. Do not re-add a rephrased copy of a done, dismissed, or scheduled promise from the same meeting.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
