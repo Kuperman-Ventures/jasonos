@@ -13,12 +13,14 @@ import {
   wisprIsConnected,
 } from "@/lib/integrations/wispr-oauth";
 import { fetchWisprTranscriptPages } from "@/lib/integrations/wispr-transcript";
+import { pickWisprHealthTool } from "@/lib/integrations/wispr-health";
 
 export {
   transcriptHasPagingMarker,
   stripPagingMarker,
   WISPR_TRUNCATION_MARKER_RE,
 } from "@/lib/integrations/wispr-transcript";
+export { pickWisprHealthTool } from "@/lib/integrations/wispr-health";
 
 export interface WisprSearchResult {
   found: boolean;
@@ -233,7 +235,20 @@ function durationMinutesOf(row: Record<string, unknown>): number | null {
   return Math.round(ms / 60_000);
 }
 
-/** Health check for Settings — calls get_account_info. */
+function accountNameFromPayload(json: Record<string, unknown> | null): {
+  name?: string;
+  email: string | null;
+} {
+  const name =
+    (typeof json?.name === "string" && json.name) ||
+    (typeof json?.display_name === "string" && json.display_name) ||
+    (typeof json?.email === "string" && json.email) ||
+    undefined;
+  const email = typeof json?.email === "string" ? json.email : null;
+  return { name, email };
+}
+
+/** Health check for Settings — probes a tool Wispr actually exposes. */
 export async function testWisprConnection(): Promise<{
   ok: boolean;
   message: string;
@@ -245,27 +260,71 @@ export async function testWisprConnection(): Promise<{
       message: "Wispr Notetaker is not connected. Click Connect Wispr to sign in.",
     };
   }
-  const result = await withWisprClient(async (client) => {
-    const account = await callTool(client, "get_account_info", {});
-    return account;
-  });
-  if (!result.ok) return { ok: false, message: result.error };
-  if (result.value.isError) {
-    return { ok: false, message: result.value.text || "Wispr returned an error." };
-  }
-  const json = asRecord(result.value.json);
-  const name =
-    (typeof json?.name === "string" && json.name) ||
-    (typeof json?.display_name === "string" && json.display_name) ||
-    (typeof json?.email === "string" && json.email) ||
-    undefined;
-  const email = typeof json?.email === "string" ? json.email : null;
   const row = await loadWisprConnectionRow();
+  const savedName =
+    typeof row?.config?.account_name === "string" && row.config.account_name.trim()
+      ? row.config.account_name.trim()
+      : undefined;
+
+  const result = await withWisprClient(async (client) => {
+    const listed = await client.listTools();
+    const toolNames = (listed.tools ?? [])
+      .map((tool) => tool.name)
+      .filter((name): name is string => Boolean(name));
+    const probe = pickWisprHealthTool(toolNames);
+    if (!probe) {
+      return {
+        ok: false as const,
+        message:
+          "Wispr MCP connected, but no meeting tools are available on this account. Confirm Notetaker / MCP is enabled in Wispr Flow.",
+      };
+    }
+    if (probe === "get_account_info") {
+      const account = await callTool(client, "get_account_info", {});
+      if (account.isError) {
+        return {
+          ok: false as const,
+          message: account.text || "Wispr returned an error.",
+        };
+      }
+      return {
+        ok: true as const,
+        probe,
+        account: accountNameFromPayload(asRecord(account.json)),
+      };
+    }
+    const search = await callTool(client, "search_meetings", { limit: 1 });
+    if (search.isError) {
+      return {
+        ok: false as const,
+        message: search.text || "Wispr search_meetings failed.",
+      };
+    }
+    return {
+      ok: true as const,
+      probe,
+      account: { name: savedName, email: null as string | null },
+    };
+  });
+
+  if (!result.ok) return { ok: false, message: result.error };
+  if (!result.value.ok) {
+    return { ok: false, message: result.value.message };
+  }
+
+  const name = result.value.account.name || savedName;
+  const email = result.value.account.email;
   if (row?.user_id) {
     await saveWisprConfig(
       row.user_id,
-      { account_name: name ?? null, account_email: email },
-      { status: "connected", message: name ? `Signed in as ${name}.` : "Wispr Notetaker connected." }
+      {
+        ...(name ? { account_name: name } : {}),
+        ...(email ? { account_email: email } : {}),
+      },
+      {
+        status: "connected",
+        message: name ? `Signed in as ${name}.` : "Wispr Notetaker connected.",
+      }
     );
   }
   return {
