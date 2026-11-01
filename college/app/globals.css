@@ -15487,7 +15487,11 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   border: 1.5px dashed var(--color-dash);
 }
 .trip-pin.here {
+  transform: translate(-50%, -50%) scale(1.18);
   box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-text), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.trip-pin.here.live {
+  transform: translate(-50%, -50%) scale(1.32);
 }
 .trip-pin.air {
   background: var(--color-text);
@@ -15571,6 +15575,104 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   line-height: 1.4;
   color: var(--text-subtle);
 }
+.trip-near-rings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 10px;
+}
+.trip-near-ring {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--text-subtle);
+  font: 500 12px/1.2 var(--font-body);
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.trip-near-ring:hover {
+  color: var(--color-text);
+  border-color: var(--color-text);
+}
+.trip-near-ring.on {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+.trip-near-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+}
+.trip-near-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.trip-near-offlist-note {
+  margin: 0;
+  padding: 0 14px 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-subtle);
+}
+.trip-cl-hub {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+.trip-cl-off {
+  cursor: default;
+  opacity: 0.92;
+}
+.trip-cl-pair {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-accent);
+}
+.trip-inc-quiet {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+.trip-inc-quiet:hover {
+  color: var(--color-text);
+  border-color: var(--color-text);
+}
+.trip-inc-quiet[aria-pressed="true"] {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+.trip-near-airports {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
+.trip-near-airport {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trip-near-airport b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.trip-near-airport span {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-subtle);
+}
 .trip-cl {
   display: flex;
   flex-direction: column;
@@ -15619,6 +15721,8 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   line-height: 1.45;
   color: var(--text-muted);
 }
+
+/* Nearby no longer uses the home→fly blurb; keep class for other trip panels. */
 
 /* When to go */
 .trip-wx {

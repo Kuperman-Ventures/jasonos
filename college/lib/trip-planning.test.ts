@@ -12,8 +12,12 @@ import {
   chsVisitBreaks,
   buildNearbyDriveSchools,
   defaultTripPlanState,
+  filterNearbyByMaxMinutes,
+  groupNearbyByBand,
   isoDate,
   kyleBreakCellLabel,
+  nearbyAirportsForPoint,
+  nearbyDriveBand,
   normalizeStateCode,
   parseTripPlanState,
   preferredTripSeason,
@@ -102,8 +106,47 @@ test("buildNearbyDriveSchools lists base plus peers within 3 hours", () => {
   ]);
   assert.equal(rows[0]?.schoolId, "upenn");
   assert.equal(rows[0]?.driveLabel, "Here");
+  assert.equal(rows[0]?.band, "here");
   assert.ok(rows.some((row) => row.schoolId === "drexel-university"));
   assert.ok(!rows.some((row) => row.schoolId === "stanford-university"));
+  const drexel = rows.find((row) => row.schoolId === "drexel-university");
+  assert.equal(drexel?.band, "under1h");
+  assert.ok(drexel?.sameDayHint?.includes("same day"));
+});
+
+test("nearbyDriveBand and ring filter group peers by drive time", () => {
+  assert.equal(nearbyDriveBand(null, true), "here");
+  assert.equal(nearbyDriveBand(45, false), "under1h");
+  assert.equal(nearbyDriveBand(90, false), "1to2h");
+  assert.equal(nearbyDriveBand(150, false), "2to3h");
+
+  const stub = (id: string, name: string, location: string): School =>
+    ({
+      id,
+      name,
+      location,
+      interestLevel: "High interest",
+      archived: false,
+    }) as School;
+  const upenn = stub("upenn", "University of Pennsylvania", "Philadelphia, PA");
+  const rows = buildNearbyDriveSchools(upenn, [
+    upenn,
+    stub("drexel-university", "Drexel University", "Philadelphia, PA"),
+    stub("johns-hopkins-university", "Johns Hopkins University", "Baltimore, MD"),
+  ]);
+  const under1 = filterNearbyByMaxMinutes(rows, 60);
+  assert.ok(under1.every((row) => row.isBase || (row.minutes != null && row.minutes <= 60)));
+  const sections = groupNearbyByBand(rows);
+  assert.ok(sections.some((section) => section.id === "under1h"));
+});
+
+test("nearbyAirportsForPoint returns campus-local airports, not home flight", () => {
+  const philly = { lat: 39.9522, lng: -75.1932 };
+  const airports = nearbyAirportsForPoint(philly);
+  assert.ok(airports.length >= 1);
+  assert.equal(airports[0]?.iata, "PHL");
+  assert.ok((airports[0]?.miles ?? 99) < 20);
+  assert.equal(nearbyAirportsForPoint(null).length, 0);
 });
 
 test("CHS schedule keeps full year data with red visit breaks", () => {

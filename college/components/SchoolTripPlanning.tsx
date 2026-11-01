@@ -18,12 +18,14 @@ import {
   KYLE_STUDENT,
   TRIP_INTEREST_LABEL,
   TRIP_INTEREST_ORDER,
+  NEARBY_DRIVE_MAX_MINUTES,
   buildNearbyDriveSchools,
   climateForCityState,
   computePinNudges,
   defaultTripPlanState,
-  flightBlurb,
+  filterNearbyByMaxMinutes,
   isoDate,
+  nearbyAirportsForPoint,
   preferredTripSeason,
   readTripPlanState,
   resolveCompareClimate,
@@ -39,6 +41,7 @@ import {
   type TripSchoolPoint,
   type TripSeasonId,
 } from "@/lib/trip-planning";
+import { campusCoordsForSchool } from "@/lib/campus-coords";
 import { travelModeForSchool } from "@/lib/drive-matrix";
 import { TripWhenPanel } from "./trip/TripWhenPanel";
 import { TripItineraryPanel } from "./trip/TripItineraryPanel";
@@ -90,6 +93,7 @@ export function SchoolTripPlanning({
     defaultTripPlanState([school.id], "fall"),
   );
   const [activeSchoolId, setActiveSchoolId] = useState<string>(school.id);
+  const [nearbyMaxMinutes, setNearbyMaxMinutes] = useState(NEARBY_DRIVE_MAX_MINUTES);
   const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [cmpId, setCmpId] = useState("home");
   const [toast, setToast] = useState<string | null>(null);
@@ -110,6 +114,7 @@ export function SchoolTripPlanning({
       setPlan(defaultTripPlanState([school.id], "fall"));
     }
     setActiveSchoolId(school.id);
+    setNearbyMaxMinutes(NEARBY_DRIVE_MAX_MINUTES);
     setSubtab("nearby");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- school/member switch only
   }, [memberId, school.id]);
@@ -179,8 +184,9 @@ export function SchoolTripPlanning({
         if (next.has(id)) continue;
         const row = byId.get(id) ?? (id === school.id ? school : null);
         if (!row) continue;
+        const known = campusCoordsForSchool(id);
         const loc = parseSchoolLocation(row.location);
-        const point = await geocodeCityState(loc.city, loc.state);
+        const point = known ?? (await geocodeCityState(loc.city, loc.state));
         if (cancelled) return;
         next.set(id, point);
         changed = true;
@@ -200,9 +206,20 @@ export function SchoolTripPlanning({
     return computePinNudges(pts);
   }, [coordsById]);
 
+  const visibleNearbyRows = useMemo(
+    () => filterNearbyByMaxMinutes(nearbyRows, nearbyMaxMinutes),
+    [nearbyRows, nearbyMaxMinutes],
+  );
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleNearbyRows.map((row) => row.schoolId));
+    setActiveSchoolId((prev) => (visibleIds.has(prev) ? prev : school.id));
+  }, [visibleNearbyRows, school.id]);
+
   const nearbyPointsById = useMemo(() => {
     const map = new Map<string, TripSchoolPoint>();
-    for (const row of nearbyRows) {
+    for (const row of visibleNearbyRows) {
+      if (row.offList) continue;
       const coords = coordsById.get(row.schoolId);
       const schoolRow = byId.get(row.schoolId);
       if (!schoolRow || !coords) continue;
@@ -210,7 +227,7 @@ export function SchoolTripPlanning({
       if (point) map.set(row.schoolId, point);
     }
     return map;
-  }, [nearbyRows, coordsById, byId, nudges]);
+  }, [visibleNearbyRows, coordsById, byId, nudges]);
 
   const allCoordsById = coordsById;
 
@@ -225,7 +242,10 @@ export function SchoolTripPlanning({
   }, [tripSchoolIds, byId, weekGrid]);
 
   const schoolPoint = coordsById.get(school.id) ?? null;
-  const flight = useMemo(() => flightBlurb(schoolPoint), [schoolPoint]);
+  const nearbyAirports = useMemo(
+    () => nearbyAirportsForPoint(schoolPoint),
+    [schoolPoint],
+  );
 
   const campusClimate = useMemo(() => {
     const loc = parseSchoolLocation(school.location);
@@ -360,21 +380,20 @@ export function SchoolTripPlanning({
               routeOrder={tripPlan.orderedIds}
               routeLegs={routeLegs}
               activeSchoolId={activeSchoolId}
-              airport={{
-                iata: flight.airport,
-                lat: flight.lat,
-                lng: flight.lng,
-              }}
+              airports={nearbyAirports}
               onActiveSchool={setActiveSchoolId}
               onToggleSchool={toggleSchool}
             />
             <TripNearbyList
               schoolId={school.id}
+              schoolName={school.name}
               rows={nearbyRows}
               pointsById={nearbyPointsById}
               schoolIds={plan.schoolIds}
               activeSchoolId={activeSchoolId}
-              flight={flight.flight}
+              maxMinutes={nearbyMaxMinutes}
+              onMaxMinutes={setNearbyMaxMinutes}
+              airports={nearbyAirports}
               areaLabel={parseSchoolLocation(school.location).label}
               onActiveSchool={setActiveSchoolId}
               onToggleSchool={toggleSchool}
@@ -382,8 +401,8 @@ export function SchoolTripPlanning({
           </div>
           <InterestLegend here />
           <p className="trip-foot">
-            Select schools within 3 hours to build a drive route. The map stays zoomed to every
-            school in that radius; lines show visiting order, not turn-by-turn roads.
+            Nearby is campus radar from {shortSchoolName(school.name)}. Rings filter drive time
+            from here. “Add to loop” is optional — Itinerary and Visit Planning own the full trip.
           </p>
         </div>
       ) : null}

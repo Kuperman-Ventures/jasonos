@@ -79,7 +79,7 @@ export function TripNearbyMap({
   routeOrder,
   routeLegs,
   activeSchoolId,
-  airport,
+  airports,
   onActiveSchool,
   onToggleSchool,
 }: {
@@ -91,7 +91,8 @@ export function TripNearbyMap({
   /** Drive labels between consecutive route stops (same length as routeOrder − 1). */
   routeLegs: (string | null)[];
   activeSchoolId: string;
-  airport: { iata: string; lat: number; lng: number };
+  /** Local airports near this campus (not home → fly). */
+  airports: Array<{ iata: string; lat: number; lng: number }>;
   onActiveSchool: (id: string) => void;
   onToggleSchool: (id: string) => void;
 }) {
@@ -100,7 +101,7 @@ export function TripNearbyMap({
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const routeLineRef = useRef<L.Polyline | null>(null);
   const legsGroupRef = useRef<L.LayerGroup | null>(null);
-  const airRef = useRef<L.Marker | null>(null);
+  const airGroupRef = useRef<L.LayerGroup | null>(null);
   const pinRootsRef = useRef<Map<string, Root>>(new Map());
   const propsRef = useRef({
     schoolId,
@@ -109,7 +110,7 @@ export function TripNearbyMap({
     routeOrder,
     routeLegs,
     activeSchoolId,
-    airport,
+    airports,
     onActiveSchool,
     onToggleSchool,
   });
@@ -120,7 +121,7 @@ export function TripNearbyMap({
     routeOrder,
     routeLegs,
     activeSchoolId,
-    airport,
+    airports,
     onActiveSchool,
     onToggleSchool,
   };
@@ -140,13 +141,6 @@ export function TripNearbyMap({
     }).addTo(map);
     mapRef.current = map;
 
-    map.on("zoomend", () => {
-      const air = airRef.current;
-      if (!air || !mapIsReady(map)) return;
-      if (map.getZoom() >= 10.5) air.addTo(map);
-      else air.remove();
-    });
-
     return () => {
       for (const root of pinRootsRef.current.values()) root.unmount();
       pinRootsRef.current.clear();
@@ -155,7 +149,7 @@ export function TripNearbyMap({
       markersRef.current.clear();
       routeLineRef.current = null;
       legsGroupRef.current = null;
-      airRef.current = null;
+      airGroupRef.current = null;
     };
   }, []);
 
@@ -213,7 +207,7 @@ export function TripNearbyMap({
       const pressed = inTrip.has(id);
       const driveHint =
         id === schoolId
-          ? "Viewing"
+          ? "Campus hub"
           : tripInterestLabel(point.interest === "none" ? "" : point.interest);
       marker.bindPopup(
         () => {
@@ -221,12 +215,12 @@ export function TripNearbyMap({
           wrap.className = "trip-pop";
           wrap.innerHTML = `<b>${escapeAttr(point.name)}</b><span>${escapeAttr(
             driveHint,
-          )}${id === schoolId ? " · this school" : ""}</span>`;
+          )}${id === schoolId ? " · you’re here" : ""}</span>`;
           const btn = document.createElement("button");
           btn.type = "button";
-          btn.className = "trip-inc";
+          btn.className = "trip-inc trip-inc-quiet";
           btn.setAttribute("aria-pressed", pressed ? "true" : "false");
-          btn.textContent = pressed ? "In trip ✓" : "Add to trip";
+          btn.textContent = pressed ? "In loop ✓" : "Add to loop";
           btn.addEventListener("click", () => {
             propsRef.current.onToggleSchool(id);
             map.closePopup();
@@ -259,28 +253,23 @@ export function TripNearbyMap({
       }
     }
 
-    if (airport.iata !== "—" && airport.lat && airport.lng) {
-      if (!airRef.current) {
-        airRef.current = L.marker([airport.lat, airport.lng], {
+    airGroupRef.current?.remove();
+    const airMarkers = airports
+      .filter((airport) => airport.iata && airport.lat && airport.lng)
+      .map((airport) =>
+        L.marker([airport.lat, airport.lng], {
           icon: L.divIcon({
             className: "",
             html: `<div class="trip-pin air">${escapeAttr(airport.iata)}</div>`,
             iconSize: undefined,
           }),
           interactive: false,
-        });
-      } else {
-        airRef.current.setLatLng([airport.lat, airport.lng]);
-        airRef.current.setIcon(
-          L.divIcon({
-            className: "",
-            html: `<div class="trip-pin air">${escapeAttr(airport.iata)}</div>`,
-            iconSize: undefined,
-          }),
-        );
-      }
-      if (mapIsReady(map) && map.getZoom() >= 10.5) airRef.current.addTo(map);
-    }
+          zIndexOffset: -200,
+        }),
+      );
+    airGroupRef.current = airMarkers.length
+      ? L.layerGroup(airMarkers).addTo(map)
+      : null;
 
     const routePts = routeOrder
       .map((id) => pointsById.get(id))
@@ -325,15 +314,26 @@ export function TripNearbyMap({
     }
 
     map.invalidateSize();
-  }, [schoolId, pointsById, schoolIds, routeOrder, routeLegs, airport]);
+  }, [schoolId, pointsById, schoolIds, routeOrder, routeLegs, airports]);
 
-  // Fit once to every school in the 3-hour ring — no zoom on hover/select/toggle.
+  // Fit once around the hub + nearby pins — no zoom on hover/select/toggle.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const hub = pointsById.get(schoolId);
     const nearbyPts = [...pointsById.values()].map(
       (p) => [p.lat, p.lng] as [number, number],
     );
+    if (hub && nearbyPts.length > 1) {
+      // Bias the frame toward the campus hub so Nearby reads as "from here".
+      ensureMapView(map, [hub.lat, hub.lng], MAP_FALLBACK_ZOOM);
+      map.fitBounds(nearbyPts, {
+        padding: [56, 56],
+        maxZoom: 11,
+        animate: false,
+      });
+      return;
+    }
     fitNearbyBounds(map, nearbyPts);
   }, [schoolId, pointsById]);
 
