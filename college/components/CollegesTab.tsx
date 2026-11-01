@@ -107,6 +107,7 @@ export function CollegesTab({
   onAddRequirementTodo,
   processPhaseLabel,
   onSendVisitPlan,
+  onOpenVisitPlanning,
   initialModalTab = "snapshot",
   householdFinances,
   onHouseholdFinancesChange,
@@ -154,6 +155,7 @@ export function CollegesTab({
     events: import("@/lib/calendar-events").CalendarEvent[];
     todos: PersistedProjectStep[];
   }) => void;
+  onOpenVisitPlanning: (schoolIds: string[]) => void;
   initialModalTab?: import("./CollegeRecord").SchoolModalTab;
   householdFinances?: import("@/lib/finances").HouseholdFinances;
   onHouseholdFinancesChange?: (next: import("@/lib/finances").HouseholdFinances) => void;
@@ -1195,6 +1197,7 @@ export function CollegesTab({
           listPhaseId={phaseId}
           processPhaseLabel={processPhaseLabel}
           onSendVisitPlan={onSendVisitPlan}
+          onOpenVisitPlanning={onOpenVisitPlanning}
           initialTab={initialModalTab}
           householdFinances={householdFinances}
           onHouseholdFinancesChange={onHouseholdFinancesChange}

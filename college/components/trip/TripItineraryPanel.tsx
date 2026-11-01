@@ -8,6 +8,7 @@ import {
   formatWeekDate,
   weekDate,
   type CampusWeekInfo,
+  type NearbySchoolRow,
   type TripWeekGrid,
 } from "@/lib/trip-planning";
 import { SchoolMark } from "../SchoolMark";
@@ -19,10 +20,12 @@ export function TripItineraryPanel({
   schoolId,
   tripSchoolIds,
   tripDays,
+  nearbyPeers,
   byId,
   calendars,
   weekGrid,
   onGoWhen,
+  onToggleSchool,
   onSend,
 }: {
   title: string;
@@ -31,15 +34,20 @@ export function TripItineraryPanel({
   schoolId: string;
   tripSchoolIds: string[];
   tripDays: VisitSlot[][];
+  /** List peers within the 3-hour ring (for day-script membership). */
+  nearbyPeers: NearbySchoolRow[];
   byId: Map<string, School>;
   calendars: Map<string, Record<number, CampusWeekInfo>>;
   weekGrid: TripWeekGrid;
   onGoWhen: () => void;
+  onToggleSchool: (id: string) => void;
   onSend: () => void;
 }) {
+  const inTrip = new Set(tripSchoolIds);
   const bad = tripSchoolIds.filter(
     (id) => campusWeekState(calendars.get(id) ?? {}, weekIndex) !== "session",
   );
+  const peerChoices = nearbyPeers.filter((row) => !row.isBase && !row.offList);
 
   return (
     <div className="trip-panel" role="tabpanel">
@@ -59,6 +67,41 @@ export function TripItineraryPanel({
         >
           Send to Calendar
         </button>
+      </div>
+
+      <div className="trip-itin-schools">
+        <span className="trip-label trip-label-sm">Schools on this day script</span>
+        <div className="trip-itin-chips">
+          <span className="trip-itin-chip on locked">
+            {shortSchoolName(byId.get(schoolId)?.name ?? "This school")}
+          </span>
+          {peerChoices.map((peer) => {
+            const selected = inTrip.has(peer.schoolId);
+            return (
+              <button
+                key={peer.schoolId}
+                type="button"
+                className={`trip-itin-chip${selected ? " on" : ""}`}
+                aria-pressed={selected}
+                onClick={() => onToggleSchool(peer.schoolId)}
+              >
+                {shortSchoolName(peer.name)}
+                <small>{peer.driveLabel}</small>
+              </button>
+            );
+          })}
+        </div>
+        {!peerChoices.length ? (
+          <p className="trip-itin-empty">
+            No other list schools within 3 hours — this script is just the campus you’re
+            viewing.
+          </p>
+        ) : (
+          <p className="trip-itin-empty">
+            Toggle nearby list schools to build the day script. For a multi-day family
+            route map, use Visit Planning.
+          </p>
+        )}
       </div>
 
       {bad.length ? (
@@ -125,7 +168,7 @@ export function TripItineraryPanel({
           ))}
         </div>
       ) : (
-        <p className="trip-empty">Add schools in Nearby to start a trip.</p>
+        <p className="trip-empty">Add a nearby school above to expand the day script.</p>
       )}
       <p className="trip-foot">Tour and info session times are placeholders until booked.</p>
     </div>

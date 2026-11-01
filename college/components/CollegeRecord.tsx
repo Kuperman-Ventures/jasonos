@@ -118,6 +118,7 @@ export function CollegeRecord({
   listPhaseId,
   processPhaseLabel,
   onSendVisitPlan,
+  onOpenVisitPlanning,
   initialTab = "snapshot",
   householdFinances,
   onHouseholdFinancesChange,
@@ -169,6 +170,7 @@ export function CollegeRecord({
     events: CalendarEvent[];
     todos: PersistedProjectStep[];
   }) => void;
+  onOpenVisitPlanning: (schoolIds: string[]) => void;
   initialTab?: SchoolModalTab;
   householdFinances?: HouseholdFinances;
   onHouseholdFinancesChange?: (next: HouseholdFinances) => void;
@@ -837,6 +839,7 @@ export function CollegeRecord({
               listSchools={listSchools}
               memberId={memberId}
               onSendVisitPlan={onSendVisitPlan}
+              onOpenVisitPlanning={onOpenVisitPlanning}
             />
           ) : null}
         </div>

@@ -65,6 +65,7 @@ export function SchoolTripPlanning({
   listSchools,
   memberId,
   onSendVisitPlan,
+  onOpenVisitPlanning,
 }: {
   school: School;
   listSchools: School[];
@@ -73,6 +74,8 @@ export function SchoolTripPlanning({
     events: CalendarEvent[];
     todos: PersistedProjectStep[];
   }) => void;
+  /** Pin these schools and jump to the Visit Planning tab. */
+  onOpenVisitPlanning: (schoolIds: string[]) => void;
 }) {
   const byId = useMemo(() => schoolMapById(listSchools), [listSchools]);
   const peerRows = useMemo(
@@ -94,6 +97,7 @@ export function SchoolTripPlanning({
   );
   const [activeSchoolId, setActiveSchoolId] = useState<string>(school.id);
   const [nearbyMaxMinutes, setNearbyMaxMinutes] = useState(NEARBY_DRIVE_MAX_MINUTES);
+  const [handoffIds, setHandoffIds] = useState<string[]>([school.id]);
   const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [cmpId, setCmpId] = useState("home");
   const [toast, setToast] = useState<string | null>(null);
@@ -115,6 +119,12 @@ export function SchoolTripPlanning({
     }
     setActiveSchoolId(school.id);
     setNearbyMaxMinutes(NEARBY_DRIVE_MAX_MINUTES);
+    setHandoffIds([
+      school.id,
+      ...nearbyRows
+        .filter((row) => !row.isBase && !row.offList && row.band === "under1h")
+        .map((row) => row.schoolId),
+    ]);
     setSubtab("nearby");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- school/member switch only
   }, [memberId, school.id]);
@@ -214,6 +224,17 @@ export function SchoolTripPlanning({
   useEffect(() => {
     const visibleIds = new Set(visibleNearbyRows.map((row) => row.schoolId));
     setActiveSchoolId((prev) => (visibleIds.has(prev) ? prev : school.id));
+    setHandoffIds((prev) => {
+      const next = prev.filter((id) => id === school.id || visibleIds.has(id));
+      if (!next.includes(school.id)) next.unshift(school.id);
+      if (
+        next.length === prev.length &&
+        next.every((id, i) => id === prev[i])
+      ) {
+        return prev;
+      }
+      return next;
+    });
   }, [visibleNearbyRows, school.id]);
 
   const nearbyPointsById = useMemo(() => {
@@ -257,24 +278,27 @@ export function SchoolTripPlanning({
     return climateForCityState(school.id, display, loc.city, loc.state);
   }, [school]);
 
-  const routeLegs = useMemo(() => {
-    const ordered = tripPlan.orderedIds;
-    const labels: (string | null)[] = [];
-    for (let i = 1; i < ordered.length; i += 1) {
-      const stop = tripPlan.stops.find((row) => row.schoolId === ordered[i]);
-      labels.push(stop?.driveFromPrev ?? null);
-    }
-    return labels;
-  }, [tripPlan]);
-
-  const inTripCount = plan.schoolIds.length;
-
   function setWeekIndex(weekIndex: number) {
     setPlan((prev) => ({ ...prev, weekIndex }));
   }
 
   function toggleSchool(id: string) {
     setPlan((prev) => toggleSchoolInTrip(prev, id, school.id));
+  }
+
+  function toggleHandoff(id: string) {
+    if (id === school.id) return;
+    setHandoffIds((prev) => {
+      if (prev.includes(id)) return prev.filter((row) => row !== id);
+      return [...prev, id];
+    });
+  }
+
+  function openVisitPlanning() {
+    const ids = handoffIds.includes(school.id)
+      ? handoffIds
+      : [school.id, ...handoffIds];
+    onOpenVisitPlanning(ids);
   }
 
   function sendToCalendar() {
@@ -334,7 +358,10 @@ export function SchoolTripPlanning({
     {
       id: "nearby",
       label: "Nearby",
-      count: inTripCount ? `${inTripCount} in trip` : undefined,
+      count: (() => {
+        const n = nearbyRows.filter((row) => !row.isBase && !row.offList).length;
+        return n ? String(n) : undefined;
+      })(),
     },
     { id: "when", label: "When to go" },
     {
@@ -376,33 +403,30 @@ export function SchoolTripPlanning({
             <TripNearbyMap
               schoolId={school.id}
               pointsById={nearbyPointsById}
-              schoolIds={plan.schoolIds}
-              routeOrder={tripPlan.orderedIds}
-              routeLegs={routeLegs}
               activeSchoolId={activeSchoolId}
               airports={nearbyAirports}
               onActiveSchool={setActiveSchoolId}
-              onToggleSchool={toggleSchool}
             />
             <TripNearbyList
               schoolId={school.id}
               schoolName={school.name}
               rows={nearbyRows}
               pointsById={nearbyPointsById}
-              schoolIds={plan.schoolIds}
               activeSchoolId={activeSchoolId}
               maxMinutes={nearbyMaxMinutes}
               onMaxMinutes={setNearbyMaxMinutes}
+              handoffIds={handoffIds}
+              onToggleHandoff={toggleHandoff}
+              onOpenVisitPlanning={openVisitPlanning}
               airports={nearbyAirports}
               areaLabel={parseSchoolLocation(school.location).label}
               onActiveSchool={setActiveSchoolId}
-              onToggleSchool={toggleSchool}
             />
           </div>
           <InterestLegend here />
           <p className="trip-foot">
-            Nearby is campus radar from {shortSchoolName(school.name)}. Rings filter drive time
-            from here. “Add to loop” is optional — Itinerary and Visit Planning own the full trip.
+            Nearby is campus radar from {shortSchoolName(school.name)}. Check peers to include,
+            then open Visit Planning for the family route map. Day scripts live on Itinerary.
           </p>
         </div>
       ) : null}
@@ -429,10 +453,12 @@ export function SchoolTripPlanning({
           schoolId={school.id}
           tripSchoolIds={tripSchoolIds}
           tripDays={tripDays}
+          nearbyPeers={nearbyRows}
           byId={byId}
           calendars={calendars}
           weekGrid={weekGrid}
           onGoWhen={() => setSubtab("when")}
+          onToggleSchool={toggleSchool}
           onSend={sendToCalendar}
         />
       ) : null}

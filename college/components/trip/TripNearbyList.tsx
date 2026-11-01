@@ -19,29 +19,31 @@ export function TripNearbyList({
   schoolName,
   rows,
   pointsById,
-  schoolIds,
   activeSchoolId,
   maxMinutes,
   onMaxMinutes,
+  handoffIds,
+  onToggleHandoff,
+  onOpenVisitPlanning,
   airports,
   areaLabel,
   onActiveSchool,
-  onToggleSchool,
 }: {
   schoolId: string;
   schoolName: string;
   rows: NearbySchoolRow[];
   pointsById: Map<string, TripSchoolPoint>;
-  schoolIds: string[];
   activeSchoolId: string;
   maxMinutes: number;
   onMaxMinutes: (minutes: number) => void;
+  handoffIds: string[];
+  onToggleHandoff: (id: string) => void;
+  onOpenVisitPlanning: () => void;
   airports: NearbyAirportRow[];
   areaLabel: string;
   onActiveSchool: (id: string) => void;
-  onToggleSchool: (id: string) => void;
 }) {
-  const inTrip = new Set(schoolIds);
+  const handoff = new Set(handoffIds);
   const hubName = shortSchoolName(schoolName);
   const visible = useMemo(
     () => filterNearbyByMaxMinutes(rows, maxMinutes),
@@ -58,6 +60,7 @@ export function TripNearbyList({
       : maxMinutes >= 120
         ? "2 hours"
         : "1 hour";
+  const handoffCount = handoffIds.length;
 
   return (
     <div className="trip-clist">
@@ -96,10 +99,11 @@ export function TripNearbyList({
           row={base}
           point={pointsById.get(base.schoolId)}
           schoolId={schoolId}
-          selected={inTrip.has(base.schoolId)}
           active={base.schoolId === activeSchoolId}
+          included={handoff.has(base.schoolId)}
+          includeLocked
           onActiveSchool={onActiveSchool}
-          onToggleSchool={onToggleSchool}
+          onToggleHandoff={onToggleHandoff}
         />
       ) : null}
 
@@ -118,10 +122,10 @@ export function TripNearbyList({
                 row={row}
                 point={pointsById.get(row.schoolId)}
                 schoolId={schoolId}
-                selected={inTrip.has(row.schoolId)}
                 active={row.schoolId === activeSchoolId}
+                included={handoff.has(row.schoolId)}
                 onActiveSchool={onActiveSchool}
-                onToggleSchool={onToggleSchool}
+                onToggleHandoff={onToggleHandoff}
               />
             ))}
           </div>
@@ -155,6 +159,22 @@ export function TripNearbyList({
         </div>
       ) : null}
 
+      <div className="trip-near-handoff">
+        <button
+          type="button"
+          className="trip-btn-primary"
+          onClick={onOpenVisitPlanning}
+        >
+          Open in Visit Planning
+          {handoffCount > 1 ? ` · ${handoffCount}` : ""}
+        </button>
+        <span>
+          Pins {hubName}
+          {handoffCount > 1 ? ` and ${handoffCount - 1} nearby` : ""} for the family trip
+          map. Day scripts stay on Itinerary.
+        </span>
+      </div>
+
       {airports.length ? (
         <div className="trip-near-airports">
           <span className="trip-label trip-label-sm">Airports near campus</span>
@@ -178,18 +198,20 @@ function NearbyRow({
   row,
   point,
   schoolId,
-  selected,
   active,
+  included,
+  includeLocked,
   onActiveSchool,
-  onToggleSchool,
+  onToggleHandoff,
 }: {
   row: NearbySchoolRow;
   point: TripSchoolPoint | undefined;
   schoolId: string;
-  selected: boolean;
   active: boolean;
+  included: boolean;
+  includeLocked?: boolean;
   onActiveSchool: (id: string) => void;
-  onToggleSchool: (id: string) => void;
+  onToggleHandoff: (id: string) => void;
 }) {
   const level = point?.interest ?? "none";
   return (
@@ -240,17 +262,18 @@ function NearbyRow({
             )}
           </span>
         </div>
-        <button
-          type="button"
-          className="trip-inc trip-inc-quiet"
-          aria-pressed={selected}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleSchool(row.schoolId);
-          }}
+        <label
+          className={`trip-near-include${includeLocked ? " locked" : ""}`}
+          onClick={(event) => event.stopPropagation()}
         >
-          {selected ? "In loop ✓" : "Add to loop"}
-        </button>
+          <input
+            type="checkbox"
+            checked={included}
+            disabled={includeLocked}
+            onChange={() => onToggleHandoff(row.schoolId)}
+          />
+          <span>{includeLocked ? "Always included" : "Include"}</span>
+        </label>
       </div>
     </div>
   );

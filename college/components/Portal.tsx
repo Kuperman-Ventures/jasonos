@@ -1649,6 +1649,18 @@ export function Portal({
             onAddRequirementTodo={addRequirementTodo}
             processPhaseLabel={listPhaseById(currentListPhaseId()).season}
             onSendVisitPlan={sendVisitPlan}
+            onOpenVisitPlanning={(schoolIds) => {
+              const want = new Set(schoolIds);
+              for (const row of schools) {
+                if (row.archived) continue;
+                if (want.has(row.id) && !row.planVisit) {
+                  void patchSchool(row.id, { planVisit: true });
+                }
+              }
+              setSchoolModalTab("snapshot");
+              setTab("visits");
+              replaceUrl("visits", null);
+            }}
             initialModalTab={schoolModalTab}
             householdFinances={householdFinances}
             onHouseholdFinancesChange={changeHouseholdFinances}

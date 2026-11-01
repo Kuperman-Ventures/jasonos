@@ -10,17 +10,6 @@ import {
 import { createRoot, type Root } from "react-dom/client";
 import { SchoolMark } from "../SchoolMark";
 
-function lineStyle(on: boolean): L.PolylineOptions {
-  const ink =
-    typeof document !== "undefined"
-      ? getComputedStyle(document.documentElement).getPropertyValue("--color-text").trim() ||
-        "#201e1d"
-      : "#201e1d";
-  return on
-    ? { color: "#e85504", weight: 4, opacity: 1, dashArray: undefined }
-    : { color: ink, weight: 2, opacity: 0.35, dashArray: "4 6" };
-}
-
 function pinHtml(
   point: TripSchoolPoint,
   here: boolean,
@@ -75,55 +64,35 @@ function fitNearbyBounds(map: L.Map, pts: Array<[number, number]>) {
 export function TripNearbyMap({
   schoolId,
   pointsById,
-  schoolIds,
-  routeOrder,
-  routeLegs,
   activeSchoolId,
   airports,
   onActiveSchool,
-  onToggleSchool,
 }: {
   schoolId: string;
   pointsById: Map<string, TripSchoolPoint>;
-  schoolIds: string[];
-  /** Visiting order for the orange route line (school ids). */
-  routeOrder: string[];
-  /** Drive labels between consecutive route stops (same length as routeOrder − 1). */
-  routeLegs: (string | null)[];
   activeSchoolId: string;
   /** Local airports near this campus (not home → fly). */
   airports: Array<{ iata: string; lat: number; lng: number }>;
   onActiveSchool: (id: string) => void;
-  onToggleSchool: (id: string) => void;
 }) {
   const mapEl = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const routeLineRef = useRef<L.Polyline | null>(null);
-  const legsGroupRef = useRef<L.LayerGroup | null>(null);
   const airGroupRef = useRef<L.LayerGroup | null>(null);
   const pinRootsRef = useRef<Map<string, Root>>(new Map());
   const propsRef = useRef({
     schoolId,
     pointsById,
-    schoolIds,
-    routeOrder,
-    routeLegs,
     activeSchoolId,
     airports,
     onActiveSchool,
-    onToggleSchool,
   });
   propsRef.current = {
     schoolId,
     pointsById,
-    schoolIds,
-    routeOrder,
-    routeLegs,
     activeSchoolId,
     airports,
     onActiveSchool,
-    onToggleSchool,
   };
 
   useEffect(() => {
@@ -147,17 +116,14 @@ export function TripNearbyMap({
       map.remove();
       mapRef.current = null;
       markersRef.current.clear();
-      routeLineRef.current = null;
-      legsGroupRef.current = null;
       airGroupRef.current = null;
     };
   }, []);
 
-  // Sync markers, route, airport when data changes
+  // Sync markers + airports when data changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const inTrip = new Set(schoolIds);
 
     const keep = new Set(pointsById.keys());
     for (const [id, marker] of markersRef.current) {
@@ -175,8 +141,6 @@ export function TripNearbyMap({
       const containerId = `trip-pin-${id}`;
       const isNew = !marker;
       if (!marker) {
-        // Create the icon DOM once. Recreating it tears down the React root and
-        // drops favicons every time trip membership / route redraws.
         marker = L.marker([point.lat, point.lng], {
           icon: L.divIcon({
             className: "",
@@ -204,7 +168,6 @@ export function TripNearbyMap({
       if (isNew) requestAnimationFrame(mountMark);
       else mountMark();
 
-      const pressed = inTrip.has(id);
       const driveHint =
         id === schoolId
           ? "Campus hub"
@@ -216,16 +179,6 @@ export function TripNearbyMap({
           wrap.innerHTML = `<b>${escapeAttr(point.name)}</b><span>${escapeAttr(
             driveHint,
           )}${id === schoolId ? " · you’re here" : ""}</span>`;
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "trip-inc trip-inc-quiet";
-          btn.setAttribute("aria-pressed", pressed ? "true" : "false");
-          btn.textContent = pressed ? "In loop ✓" : "Add to loop";
-          btn.addEventListener("click", () => {
-            propsRef.current.onToggleSchool(id);
-            map.closePopup();
-          });
-          wrap.appendChild(btn);
           return wrap;
         },
         { closeButton: false, offset: [0, -8] },
@@ -240,12 +193,11 @@ export function TripNearbyMap({
 
       const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
       if (pin) {
-        const dimmed = schoolIds.length > 0 && !inTrip.has(id);
         const live = id === propsRef.current.activeSchoolId;
         pin.dataset.level = point.interest;
         pin.classList.toggle("none", point.interest === "none");
         pin.classList.toggle("here", id === schoolId);
-        pin.classList.toggle("dim", dimmed && !live);
+        pin.classList.toggle("dim", false);
         pin.classList.toggle("live", live);
         if (point.nudge) pin.style.marginLeft = `${point.nudge}px`;
         else pin.style.marginLeft = "";
@@ -271,52 +223,10 @@ export function TripNearbyMap({
       ? L.layerGroup(airMarkers).addTo(map)
       : null;
 
-    const routePts = routeOrder
-      .map((id) => pointsById.get(id))
-      .filter((p): p is TripSchoolPoint => Boolean(p))
-      .map((p) => [p.lat, p.lng] as [number, number]);
-
-    if (routePts.length >= 2) {
-      if (!routeLineRef.current) {
-        routeLineRef.current = L.polyline(routePts, lineStyle(true)).addTo(map);
-      } else {
-        routeLineRef.current.setLatLngs(routePts);
-        routeLineRef.current.setStyle(lineStyle(true));
-        if (!map.hasLayer(routeLineRef.current)) routeLineRef.current.addTo(map);
-      }
-      routeLineRef.current.bringToFront();
-
-      const markers = routeLegs
-        .map((label, i) => {
-          if (!label) return null;
-          const a = routePts[i];
-          const b = routePts[i + 1];
-          if (!a || !b) return null;
-          return L.marker(
-            [a[0] + (b[0] - a[0]) * 0.5, a[1] + (b[1] - a[1]) * 0.5],
-            {
-              icon: L.divIcon({
-                className: "",
-                html: `<div class="trip-leg">${escapeAttr(label)}</div>`,
-                iconSize: undefined,
-              }),
-              interactive: false,
-            },
-          );
-        })
-        .filter((m): m is L.Marker => Boolean(m));
-      legsGroupRef.current?.remove();
-      legsGroupRef.current = L.layerGroup(markers).addTo(map);
-    } else {
-      routeLineRef.current?.remove();
-      legsGroupRef.current?.remove();
-      legsGroupRef.current = null;
-    }
-
     map.invalidateSize();
-  }, [schoolId, pointsById, schoolIds, routeOrder, routeLegs, airports]);
+  }, [schoolId, pointsById, airports]);
 
-  // Fit once around the hub + nearby pins — no zoom on hover/select/toggle.
+  // Fit once around the hub + nearby pins — no zoom on hover/select.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -325,7 +235,6 @@ export function TripNearbyMap({
       (p) => [p.lat, p.lng] as [number, number],
     );
     if (hub && nearbyPts.length > 1) {
-      // Bias the frame toward the campus hub so Nearby reads as "from here".
       ensureMapView(map, [hub.lat, hub.lng], MAP_FALLBACK_ZOOM);
       map.fitBounds(nearbyPts, {
         padding: [56, 56],
@@ -337,19 +246,16 @@ export function TripNearbyMap({
     fitNearbyBounds(map, nearbyPts);
   }, [schoolId, pointsById]);
 
-  // Hover / list focus: wake the pin (scale + school mark) without changing zoom.
+  // Hover / list focus: wake the pin without changing zoom.
   useEffect(() => {
-    const inTrip = new Set(schoolIds);
     for (const [id, marker] of markersRef.current) {
       const pin = marker.getElement()?.firstElementChild as HTMLElement | null;
       if (!pin) continue;
       const live = id === activeSchoolId;
-      const dimmed = schoolIds.length > 0 && !inTrip.has(id);
       pin.classList.toggle("live", live);
-      pin.classList.toggle("dim", dimmed && !live);
       marker.setZIndexOffset(live ? 2000 : id === schoolId ? 1000 : 0);
     }
-  }, [activeSchoolId, schoolIds, schoolId]);
+  }, [activeSchoolId, schoolId]);
 
   return (
     <div
