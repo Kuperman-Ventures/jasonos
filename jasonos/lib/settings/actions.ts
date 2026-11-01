@@ -263,9 +263,63 @@ export async function testServiceConnection(
     serviceName !== "jasonos_mcp" &&
     serviceName !== "firecrawl" &&
     serviceName !== "granola" &&
-    serviceName !== "leaddelta"
+    serviceName !== "leaddelta" &&
+    serviceName !== "prioritize"
   ) {
     return { success: false, message: "API key is required.", health_status: "down" };
+  }
+
+  if (serviceName === "prioritize") {
+    let secret = stringCredential(credentials.api_key);
+    let baseUrl = stringCredential(credentials.base_url);
+    if (!secret || !baseUrl) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "prioritize")
+          .order("updated_at", { ascending: false })
+          .limit(5);
+        for (const row of data ?? []) {
+          const cfg = (row.config ?? {}) as { access_token?: string; base_url?: string };
+          if (!secret) secret = cfg.access_token?.trim() || undefined;
+          if (!baseUrl) baseUrl = cfg.base_url?.trim() || undefined;
+        }
+      } catch {
+        // fall through to env
+      }
+    }
+    secret = secret || process.env.PRIORITIZE_IMPORT_SECRET?.trim() || undefined;
+    if (!secret) {
+      return {
+        success: false,
+        message:
+          "Paste the same PRIORITIZE_IMPORT_SECRET you set on the Prioritize Vercel project.",
+        health_status: "down",
+        status: "not_configured",
+      };
+    }
+    try {
+      const { testPrioritizeConnection } = await import("@/lib/integrations/prioritize");
+      const probe = await testPrioritizeConnection({ secret, baseUrl });
+      if (!probe.ok) {
+        return {
+          success: false,
+          message: probe.message,
+          health_status: "down",
+          status: "error",
+        };
+      }
+      return {
+        success: true,
+        message: probe.message,
+        health_status: "healthy",
+        status: "connected",
+      };
+    } catch (error) {
+      return failed(error, "Prioritize check failed.");
+    }
   }
 
   if (serviceName === "stripe") {
@@ -666,7 +720,8 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
     service.name === "firecrawl" ||
     service.name === "granola" ||
     service.name === "leaddelta" ||
-    service.name === "icloud_calendar"
+    service.name === "icloud_calendar" ||
+    service.name === "prioritize"
   ) {
     const { data: existing } = await supabase
       .from("service_connections")
@@ -1034,12 +1089,13 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
       polling_interval_minutes: Number(credentials.polling_interval_minutes ?? 2),
     };
   }
-  if (serviceName === "beeper") {
+  if (serviceName === "beeper" || serviceName === "prioritize") {
     const out: Record<string, string> = {};
     const base = stringCredential(credentials.base_url)?.replace(/\/$/, "");
     if (base) out.base_url = base;
     // Persist the Desktop API token so Sync uses what Settings saved
     // (not only BEEPER_ACCESS_TOKEN on Vercel).
+    // Prioritize: same pattern for import secret + optional base URL.
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;
     return out;
