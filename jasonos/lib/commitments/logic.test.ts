@@ -9,6 +9,7 @@ import {
   nextDay,
   normalizeCommitmentSourceUrl,
   parseCommitmentPayload,
+  promiseMostlyContained,
   promiseSimilarity,
   sectionFor,
 } from "./logic.ts";
@@ -73,6 +74,9 @@ describe("buildViews", () => {
     state: s,
     snoozed_until: until,
     note: null,
+    promise: null,
+    recipient: null,
+    source_url: null,
     updated_at: "",
     updated_by: "jasonos",
   });
@@ -239,6 +243,35 @@ describe("handled commitment duplicates", () => {
         handled
       ),
       false
+    );
+  });
+
+  it("matches a short Done snapshot against a longer Claude remint", () => {
+    const url = "https://notes.granola.ai/d/54bfae9f-606b-44b8-8f77-6e204ed635f9";
+    assert.ok(
+      promiseMostlyContained(
+        "Introduce Debbie to Lori",
+        "Introduce Debbie to Lori to connect on elder-care planning consulting"
+      )
+    );
+    assert.equal(
+      isHandledCommitmentDuplicate(
+        {
+          key: "granola:7ce2d59d",
+          promise: "Introduce Debbie to Lori to connect on elder-care planning consulting",
+          to: "Lori Selsberg",
+          source_url: url,
+        },
+        [
+          {
+            key: "granola:98262baf",
+            promise: "Introduce Debbie to Lori",
+            to: "Lori Selsberg",
+            source_url: url,
+          },
+        ]
+      ),
+      true
     );
   });
 

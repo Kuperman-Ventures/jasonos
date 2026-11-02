@@ -56,6 +56,12 @@ export interface CommitmentItemStateRow {
   state: ItemState;
   snoozed_until: string | null;
   note: string | null;
+  /** Snapshot of the promise when Jason marked it (survives payload remints). */
+  promise: string | null;
+  /** Snapshot of who it was promised to. */
+  recipient: string | null;
+  /** Snapshot of the source link. */
+  source_url: string | null;
   updated_at: string;
   updated_by: string;
 }
