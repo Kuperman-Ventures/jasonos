@@ -15,6 +15,7 @@ import {
 import {
   deriveItemKey,
   etDate,
+  handledPriorFromState,
   isHandledCommitmentDuplicate,
   normalizeCommitmentSourceUrl,
   parseCommitmentPayload,
@@ -162,18 +163,15 @@ async function scanCommitmentsInner(opts?: {
       .filter((s) => s.state === "done" || s.state === "dismissed")
       .map((s) => s.item_key)
   );
-  // Done / dismissed / scheduled — used so Claude rephrases don't mint a new
-  // open row for a promise Jason already handled.
-  const handledKeys = new Set(
-    states
-      .filter(
-        (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
-      )
-      .map((s) => s.item_key)
-  );
-  const handledPriors = (priorPayload?.items ?? []).filter((item) =>
-    handledKeys.has(item.key)
-  );
+  // Done / dismissed / scheduled — prefer state snapshots so remints still
+  // match after the old wording was stripped from the published payload.
+  const priorByKey = new Map((priorPayload?.items ?? []).map((item) => [item.key, item]));
+  const handledPriors = states
+    .filter(
+      (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
+    )
+    .map((s) => handledPriorFromState(s, priorByKey.get(s.item_key) ?? null))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const keptPrior = (priorPayload?.items ?? []).filter((item) => !closed.has(item.key));
   const byKey = new Map<string, CommitmentItem>();

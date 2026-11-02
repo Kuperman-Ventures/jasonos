@@ -9,6 +9,7 @@ import {
   applyCommitmentOverrides,
   buildViews,
   etDate,
+  handledPriorFromState,
   isHandledCommitmentDuplicate,
   parseCommitmentPayload,
 } from "./logic";
@@ -23,7 +24,8 @@ import {
 } from "./types";
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const STATE_COLS = "item_key,state,snoozed_until,note,updated_at,updated_by";
+const STATE_COLS =
+  "item_key,state,snoozed_until,note,promise,recipient,source_url,updated_at,updated_by";
 const OVERRIDE_COLS = "item_key,promise,to,due_date,updated_at,updated_by";
 
 function fail(error: { message: string }): never {
@@ -82,9 +84,9 @@ export async function publishCommitmentCheck(input: { date?: string; payload_jso
   };
 }
 
-/** Prior payload items Jason marked done, dismissed, or scheduled. */
+/** Handled items for remint suppression — prefer state snapshots, then payloads. */
 async function loadHandledCommitmentPriors(): Promise<{
-  handledPriors: CommitmentItem[];
+  handledPriors: Pick<CommitmentItem, "key" | "promise" | "to" | "source_url">[];
   closedKeys: Set<string>;
 }> {
   const states = await listActiveItemStates();
@@ -93,26 +95,36 @@ async function loadHandledCommitmentPriors(): Promise<{
       .filter((s) => s.state === "done" || s.state === "dismissed")
       .map((s) => s.item_key)
   );
-  const handledKeys = new Set(
-    states
-      .filter(
-        (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
-      )
-      .map((s) => s.item_key)
+  const handledStates = states.filter(
+    (s) => s.state === "done" || s.state === "dismissed" || s.state === "scheduled"
   );
-  if (!handledKeys.size) return { handledPriors: [], closedKeys };
+  if (!handledStates.length) return { handledPriors: [], closedKeys };
+
+  const handledKeys = new Set(handledStates.map((s) => s.item_key));
   const { data, error } = await jasonosDb()
     .from("commitment_checks")
     .select("payload")
     .order("check_date", { ascending: false })
     .limit(8);
   if (error) fail(error);
-  const byKey = new Map<string, CommitmentItem>();
+  const payloadByKey = new Map<string, CommitmentItem>();
   for (const row of data ?? []) {
     const items = (row.payload as CommitmentCheckPayload | null)?.items ?? [];
     for (const item of items) {
-      if (handledKeys.has(item.key) && !byKey.has(item.key)) byKey.set(item.key, item);
+      if (handledKeys.has(item.key) && !payloadByKey.has(item.key)) {
+        payloadByKey.set(item.key, item);
+      }
     }
+  }
+
+  const byKey = new Map<string, Pick<CommitmentItem, "key" | "promise" | "to" | "source_url">>();
+  for (const state of handledStates) {
+    const prior = handledPriorFromState(state, payloadByKey.get(state.item_key) ?? null);
+    if (prior) byKey.set(prior.key, prior);
+  }
+  // Payload-only fallthrough for older states without a snapshot yet.
+  for (const [key, item] of payloadByKey) {
+    if (!byKey.has(key)) byKey.set(key, item);
   }
   return { handledPriors: [...byKey.values()], closedKeys };
 }
@@ -302,6 +314,43 @@ export async function listActiveItemStates(): Promise<CommitmentItemStateRow[]> 
   return (data ?? []) as CommitmentItemStateRow[];
 }
 
+async function lookupCommitmentItem(key: string): Promise<{
+  promise: string | null;
+  to: string | null;
+  source_url: string | null;
+}> {
+  try {
+    const { data } = await jasonosDb()
+      .from("commitment_checks")
+      .select("payload")
+      .order("check_date", { ascending: false })
+      .limit(8);
+    for (const row of data ?? []) {
+      const items = (
+        row.payload as {
+          items?: {
+            key?: string;
+            promise?: string;
+            to?: string;
+            source_url?: string | null;
+          }[];
+        } | null
+      )?.items;
+      const hit = items?.find((item) => item.key === key);
+      if (hit?.promise?.trim()) {
+        return {
+          promise: hit.promise.trim(),
+          to: hit.to?.trim() || null,
+          source_url: hit.source_url?.trim() || null,
+        };
+      }
+    }
+  } catch {
+    // Fall through.
+  }
+  return { promise: null, to: null, source_url: null };
+}
+
 export async function setCommitmentItemState(input: {
   item_key: string;
   state: ItemState | "open";
@@ -315,19 +364,23 @@ export async function setCommitmentItemState(input: {
   if (input.state === "open") {
     const { error } = await db.from("commitment_item_states").delete().eq("item_key", key);
     if (error) fail(error);
-    await logCommitmentDecision(key, "open", null, input.actor);
+    await logCommitmentDecision(key, "open", null, input.actor, null);
     return { ok: true, item_key: key, state: "open" };
   }
   if (!(ITEM_STATES as readonly string[]).includes(input.state)) throw new Error("Unknown state.");
   if (input.state === "snoozed" && !(input.snoozed_until && YMD.test(input.snoozed_until))) {
     throw new Error("snoozed_until (YYYY-MM-DD) is required when snoozing.");
   }
+  const snapshot = await lookupCommitmentItem(key);
   const { error } = await db.from("commitment_item_states").upsert(
     {
       item_key: key,
       state: input.state,
       snoozed_until: input.state === "snoozed" ? input.snoozed_until : null,
       note: input.note ?? null,
+      promise: snapshot.promise,
+      recipient: snapshot.to,
+      source_url: snapshot.source_url,
       updated_by: input.actor,
     },
     { onConflict: "item_key" }
@@ -337,7 +390,8 @@ export async function setCommitmentItemState(input: {
     key,
     input.state,
     input.state === "snoozed" ? input.snoozed_until ?? null : null,
-    input.actor
+    input.actor,
+    snapshot
   );
   return { ok: true, item_key: key, state: input.state };
 }
@@ -346,30 +400,11 @@ async function logCommitmentDecision(
   key: string,
   state: ItemState | "open",
   snoozedUntil: string | null,
-  actor: "jasonos" | "claude"
+  actor: "jasonos" | "claude",
+  snapshot: { promise: string | null; to: string | null } | null
 ) {
-  let subject = key;
-  let to: string | null = null;
-  try {
-    const { data } = await jasonosDb()
-      .from("commitment_checks")
-      .select("payload")
-      .order("check_date", { ascending: false })
-      .limit(8);
-    for (const row of data ?? []) {
-      const items = (
-        row.payload as { items?: { key?: string; promise?: string; to?: string }[] } | null
-      )?.items;
-      const hit = items?.find((item) => item.key === key);
-      if (hit?.promise?.trim()) {
-        subject = hit.promise.trim();
-        to = hit.to?.trim() || null;
-        break;
-      }
-    }
-  } catch {
-    // The key is enough if the published check cannot be read.
-  }
+  const subject = snapshot?.promise?.trim() || key;
+  const to = snapshot?.to?.trim() || null;
   const verb =
     state === "done"
       ? "Done"

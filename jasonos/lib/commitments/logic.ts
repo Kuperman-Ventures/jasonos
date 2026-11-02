@@ -93,16 +93,37 @@ export function normalizeCommitmentSourceUrl(
   }
 }
 
+function promiseWords(value: string): Set<string> {
+  return new Set(normalizePromise(value).split(" ").filter((w) => w.length > 2));
+}
+
 /** Word overlap 0..1 for catching paraphrase duplicates of the same promise. */
 export function promiseSimilarity(a: string, b: string): number {
-  const left = new Set(normalizePromise(a).split(" ").filter((w) => w.length > 2));
-  const right = new Set(normalizePromise(b).split(" ").filter((w) => w.length > 2));
+  const left = promiseWords(a);
+  const right = promiseWords(b);
   if (!left.size || !right.size) return 0;
   let shared = 0;
   for (const word of left) {
     if (right.has(word)) shared += 1;
   }
   return shared / Math.max(left.size, right.size);
+}
+
+/**
+ * True when the shorter promise's words are mostly inside the longer one —
+ * catches "Introduce Debbie to Lori" vs a longer Claude rephrase of the same ask.
+ */
+export function promiseMostlyContained(a: string, b: string): boolean {
+  const left = promiseWords(a);
+  const right = promiseWords(b);
+  if (left.size < 3 && right.size < 3) return false;
+  const [smaller, larger] = left.size <= right.size ? [left, right] : [right, left];
+  if (smaller.size < 3) return false;
+  let shared = 0;
+  for (const word of smaller) {
+    if (larger.has(word)) shared += 1;
+  }
+  return shared / smaller.size >= 0.85;
 }
 
 /**
@@ -121,21 +142,39 @@ export function isHandledCommitmentDuplicate(
     // scheduled rows). This helper only catches reminted-key paraphrases.
     if (prior.key === candidate.key) continue;
     const priorUrl = normalizeCommitmentSourceUrl(prior.source_url);
-    if (candidateUrl && priorUrl && candidateUrl === priorUrl) {
-      if (candidateTo && candidateTo === normalizePromise(prior.to)) {
-        if (promiseSimilarity(candidate.promise, prior.promise) >= 0.45) return true;
-      }
-    }
+    const sameTo = Boolean(candidateTo && candidateTo === normalizePromise(prior.to));
+    const sameUrl = Boolean(candidateUrl && priorUrl && candidateUrl === priorUrl);
+    const similar = promiseSimilarity(candidate.promise, prior.promise);
+    const contained = promiseMostlyContained(candidate.promise, prior.promise);
+
+    // Same meeting + person: short "Introduce Debbie to Lori" must still match
+    // a longer remint after the rich Done snapshot was stripped from the payload.
+    if (sameUrl && sameTo && (similar >= 0.35 || contained)) return true;
+
     // Same person + nearly identical wording even if the link was truncated away.
-    if (
-      candidateTo &&
-      candidateTo === normalizePromise(prior.to) &&
-      promiseSimilarity(candidate.promise, prior.promise) >= 0.72
-    ) {
-      return true;
-    }
+    if (sameTo && (similar >= 0.72 || (contained && similar >= 0.45))) return true;
   }
   return false;
+}
+
+/** Build a prior-shaped item from a state row snapshot (and optional payload fill). */
+export function handledPriorFromState(
+  state: {
+    item_key: string;
+    promise?: string | null;
+    recipient?: string | null;
+    source_url?: string | null;
+  },
+  fill?: Pick<CommitmentItem, "promise" | "to" | "source_url"> | null
+): Pick<CommitmentItem, "key" | "promise" | "to" | "source_url"> | null {
+  const promise = (state.promise ?? fill?.promise ?? "").trim();
+  if (!promise) return null;
+  return {
+    key: state.item_key,
+    promise,
+    to: (state.recipient ?? fill?.to ?? "").trim(),
+    source_url: state.source_url ?? fill?.source_url ?? null,
+  };
 }
 
 export function deriveItemKey(item: {
