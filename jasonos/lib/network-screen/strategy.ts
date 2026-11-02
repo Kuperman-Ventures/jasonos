@@ -39,6 +39,8 @@ export const DRAFT_RULES = `- Never use a product name the recipient would not k
 - Close the loop on any open commitment from the meeting notes before making the ask.
 - Include one reciprocity line tied to the connector's own goals from the meeting notes. If the notes have nothing, leave reciprocity out. Do not invent it.
 - Do not pitch a partnership the notes show was already discussed.
+- Name each of the three people. Give one short why for each, drawn from the why lines provided. Then ask for an introduction to each of them. Do not collapse the other names into a single throwaway line.
+- Match tone to the warmth setting. Cold or new contacts stay shorter and more direct; warm contacts can close the loop on commitments first.
 - Hyphens, not em dashes. Plain language. No clever phrasing.`;
 
 export const BLURB_RULES = `FORWARDABLE INTRO BLURB RULES:

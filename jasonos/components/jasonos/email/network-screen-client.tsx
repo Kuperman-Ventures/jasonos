@@ -853,9 +853,8 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   Draft the ask
                 </Button>
                 <p className="text-sm text-muted-foreground">
-                  {screen.relationshipWarmth === "new"
-                    ? "The note asks for the strongest introduction and mentions the other two."
-                    : "The note asks for an introduction to each of these people."}
+                  One email to {screen.connectorName} with the three intros and why each one matters.
+                  Forwardable blurbs are generated alongside it.
                 </p>
                 <label className="block space-y-1 text-sm">
                   <span className="font-medium">Subject</span>

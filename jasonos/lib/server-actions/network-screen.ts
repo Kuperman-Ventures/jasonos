@@ -46,17 +46,6 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 type ActionError = { ok: false; error: string };
 
 const SCREEN_URL = "https://jasonos.vercel.app/network-screen";
-const BUCKET_RANK: Record<Bucket, number> = {
-  hiring_path: 0,
-  recruiter: 1,
-  peer_referral: 2,
-  prospect: 3,
-  operating_partner: 4,
-  speaking_content: 5,
-  industry_peer: 6,
-  not_relevant: 7,
-  unscored: 8,
-};
 
 function ensureConfigured(): boolean {
   return !!(
@@ -903,12 +892,7 @@ export async function saveNetworkScreenAnalysis({
 }
 
 function tier1ForDraft(screen: NetworkScreenDetail): NetworkScreenCandidate[] {
-  return screen.candidates
-    .filter((person) => person.tier === "tier1")
-    .sort(
-      (a, b) =>
-        BUCKET_RANK[a.bucket] - BUCKET_RANK[b.bucket] || a.sortOrder - b.sortOrder
-    );
+  return peopleInTheAsk(screen);
 }
 
 export async function generateIntroBlurbs({
@@ -1027,11 +1011,6 @@ export async function draftIntroRequest({
   const tier1 = tier1ForDraft(loaded.screen);
   if (!tier1.length) return { ok: false, error: "No intro recommendations to ask about." };
   const screen = loaded.screen;
-  const asked = peopleInTheAsk(screen);
-  const sizing =
-    asked.length === tier1.length
-      ? "Ask for an introduction to each of these people."
-      : "Ask for an introduction to the first person only. Mention the other names in one line as the other people worth an introduction. Do not ask for all of them at once.";
   const people = tier1
     .map(
       (person, index) =>
@@ -1048,7 +1027,7 @@ Return STRICT JSON only: {"subject":"...","body":"..."}
 Greet by first name. Sign off "- Jason". Hyphens, not em dashes.`;
   const prompt = `Write the intro-request email FROM Jason TO ${screen.connectorName}.
 Warmth: ${screen.relationshipWarmth}.
-${sizing}
+Ask for an introduction to each of these people. Name all of them. Include one short why for each person, using the why lines below. Do not bury the second and third names in a single aside.
 
 Meeting notes:
 ${screen.meetingNotesSummary || "(none)"}
