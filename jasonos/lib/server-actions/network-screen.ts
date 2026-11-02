@@ -5,7 +5,7 @@ import { z } from "zod";
 import { JASON_CORE_VOICE, JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { fastModel, hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
-import { stripEmDashes } from "@/lib/email-templates/render";
+import { buildMailtoUrl, stripEmDashes } from "@/lib/email-templates/render";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { getConnectionByLinkedInUrl } from "@/lib/integrations/leaddelta";
 import { normalizeLinkedInUrl } from "@/lib/integrations/leaddelta-parse";
@@ -19,6 +19,7 @@ import { classifyCandidates, type ClassifiedPick } from "@/lib/network-screen/sc
 import {
   BLURB_RULES,
   DRAFT_RULES,
+  INTRO_FOLLOWUP_RULES,
   NETWORK_SCREEN_LANE_DEFINITIONS,
   NETWORK_SCREEN_STRATEGY,
 } from "@/lib/network-screen/strategy";
@@ -1157,26 +1158,135 @@ export async function listPendingIntros(): Promise<
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("network_screen_candidates")
-    .select("id, screen_id, name, title, company, queue_status, intro_requested_at, network_screens(connector_name)")
+    .select(
+      "id, screen_id, name, title, company, headline, linkedin_url, why, ask, lane, bucket, queue_status, intro_requested_at, network_screens(connector_name)"
+    )
     .eq("tier", "tier1")
-    .in("queue_status", ["queued", "intro_requested"])
+    .in("queue_status", ["queued", "intro_requested", "intro_made"])
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
   const intros: PendingIntro[] = (data ?? []).map((row) => {
     const joined = row.network_screens as { connector_name?: string } | { connector_name?: string }[] | null;
     const connectorName = Array.isArray(joined) ? joined[0]?.connector_name : joined?.connector_name;
+    const laneValue = blank(row.lane) ?? "";
+    const bucketValue = blank(row.bucket) ?? "";
     return {
       id: row.id as string,
       screenId: row.screen_id as string,
       name: row.name as string,
       title: blank(row.title),
       company: blank(row.company),
+      headline: blank(row.headline),
+      linkedinUrl: blank(row.linkedin_url),
+      why: blank(row.why),
+      ask: blank(row.ask),
+      lane: isLane(laneValue) ? laneValue : "unassigned",
+      bucket: isBucket(bucketValue) ? bucketValue : "unscored",
       connectorName: connectorName || "Unknown",
       queueStatus: isQueueStatus(row.queue_status as string) ? (row.queue_status as QueueStatus) : "queued",
       introRequestedAt: (row.intro_requested_at as string | null) ?? null,
     };
   });
   return { ok: true, intros };
+}
+
+export async function draftPendingIntroFollowup({
+  candidateId,
+}: {
+  candidateId: string;
+}): Promise<
+  | { ok: true; subject: string; body: string; to: string | null; mailtoUrl: string }
+  | ActionError
+> {
+  if (!ensureConfigured()) return notConfigured();
+  if (!z.string().uuid().safeParse(candidateId).success) {
+    return { ok: false, error: "Pick a person first." };
+  }
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("network_screen_candidates")
+    .select(
+      "id, name, title, company, headline, linkedin_url, why, ask, lane, bucket, contact_id, network_screens(connector_name, meeting_notes_summary, partner_note, relationship_warmth)"
+    )
+    .eq("id", candidateId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "That intro row was not found." };
+
+  const joined = data.network_screens as
+    | {
+        connector_name?: string;
+        meeting_notes_summary?: string | null;
+        partner_note?: string | null;
+        relationship_warmth?: string | null;
+      }
+    | {
+        connector_name?: string;
+        meeting_notes_summary?: string | null;
+        partner_note?: string | null;
+        relationship_warmth?: string | null;
+      }[]
+    | null;
+  const screen = Array.isArray(joined) ? joined[0] : joined;
+  const connectorName = blank(screen?.connector_name) || "a mutual connection";
+  const name = blank(data.name) || "there";
+  const first = name.split(/\s+/)[0] || name;
+  let to: string | null = null;
+  if (typeof data.contact_id === "string" && data.contact_id) {
+    to = await connectorEmail(sb, data.contact_id);
+  }
+
+  const system = `${JASON_CORE_VOICE}
+
+${NO_AI_SLOP_WRITING_RULES}
+
+${INTRO_FOLLOWUP_RULES}
+
+Return STRICT JSON only: {"subject":"...","body":"..."}
+Greet by first name (${first}). Sign off "- Jason". Hyphens, not em dashes.`;
+  const prompt = `Write the follow-up email FROM Jason TO ${name} after ${connectorName} introduced them.
+
+Connector who made the intro: ${connectorName}
+Person: ${name}
+Title: ${blank(data.title) || "(none)"}
+Company: ${blank(data.company) || "(none)"}
+Headline: ${blank(data.headline) || "(none)"}
+Lane: ${blank(data.lane) || "(none)"}
+Bucket: ${blank(data.bucket) || "(none)"}
+Why this intro: ${blank(data.why) || "(none)"}
+Original ask to the connector: ${blank(data.ask) || "(none)"}
+LinkedIn: ${blank(data.linkedin_url) || "(none)"}
+
+Meeting notes about the connector (context only; do not invent facts about ${first}):
+${blank(screen?.meeting_notes_summary) || "(none)"}
+
+Partner note:
+${blank(screen?.partner_note) || "(none)"}`;
+
+  try {
+    const { text } = await generateText({
+      model: heavyModel(),
+      maxOutputTokens: 900,
+      system,
+      messages: [{ role: "user", content: prompt }],
+      providerOptions: anthropicOptions(),
+    });
+    const parsed = parseJsonObject(text);
+    const subject = stripEmDashes(blank(parsed?.subject) ?? `Thanks for connecting — ${connectorName}`);
+    const body = stripEmDashes(blank(parsed?.body) ?? "");
+    if (!body) {
+      return { ok: false, error: "The draft did not come back in a usable form. Try again." };
+    }
+    const mailtoUrl = buildMailtoUrl({
+      to: to ?? "",
+      subject,
+      body,
+    });
+    return { ok: true, subject, body, to, mailtoUrl };
+  } catch (err) {
+    console.error("[network-screen.intro-followup]", err);
+    return { ok: false, error: "Couldn't reach the drafting model. Try again." };
+  }
 }
 
 export async function listNetworkBench(): Promise<

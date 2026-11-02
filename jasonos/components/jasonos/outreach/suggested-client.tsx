@@ -32,7 +32,10 @@ import {
   type PendingIntro,
   type QueueStatus,
 } from "@/lib/network-screen/types";
-import { updateCandidate } from "@/lib/server-actions/network-screen";
+import {
+  draftPendingIntroFollowup,
+  updateCandidate,
+} from "@/lib/server-actions/network-screen";
 
 export function SuggestedClient({
   candidates,
@@ -384,9 +387,17 @@ function formatRequested(iso: string | null): string {
   });
 }
 
+function stillPendingIntro(status: QueueStatus, tier: string): boolean {
+  return (
+    tier === "tier1" &&
+    (status === "queued" || status === "intro_requested" || status === "intro_made")
+  );
+}
+
 function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
   const [rows, setRows] = useState(intros);
   const [seen, setSeen] = useState(intros);
+  const [draftingId, setDraftingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   if (seen !== intros) {
     setSeen(intros);
@@ -394,11 +405,39 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
   }
   if (!rows.length) return null;
 
+  function draftFollowup(row: PendingIntro) {
+    setDraftingId(row.id);
+    startTransition(async () => {
+      try {
+        const result = await draftPendingIntroFollowup({ candidateId: row.id });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        if (!result.to) {
+          toast.message("No email on file — paste the address in Apple Mail.");
+        } else {
+          toast.success("Draft opened in Apple Mail.");
+        }
+        window.location.href = result.mailtoUrl;
+      } finally {
+        setDraftingId(null);
+      }
+    });
+  }
+
   return (
     <section className="space-y-2">
-      <h2 className="text-lg font-semibold">Pending intros</h2>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">Pending intros</h2>
+          <p className="text-sm text-muted-foreground">
+            When an intro lands, draft a short follow-up to that person.
+          </p>
+        </div>
+      </div>
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="border-b text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">Name</th>
@@ -407,6 +446,7 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
               <th className="px-3 py-2 font-medium">Via</th>
               <th className="px-3 py-2 font-medium">Queue status</th>
               <th className="px-3 py-2 font-medium">Requested on</th>
+              <th className="px-3 py-2 font-medium">Follow-up</th>
             </tr>
           </thead>
           <tbody>
@@ -437,12 +477,8 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
                           toast.error(result.error);
                           return;
                         }
-                        const stillPending =
-                          result.candidate.tier === "tier1" &&
-                          (result.candidate.queueStatus === "queued" ||
-                            result.candidate.queueStatus === "intro_requested");
                         setRows((current) =>
-                          stillPending
+                          stillPendingIntro(result.candidate.queueStatus, result.candidate.tier)
                             ? current.map((item) =>
                                 item.id === row.id
                                   ? {
@@ -465,6 +501,24 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
                   </select>
                 </td>
                 <td className="px-3 py-2">{formatRequested(row.introRequestedAt)}</td>
+                <td className="px-3 py-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={row.queueStatus === "intro_made" ? "default" : "outline"}
+                    disabled={pending && draftingId === row.id}
+                    onClick={() => draftFollowup(row)}
+                  >
+                    {draftingId === row.id ? (
+                      "Drafting…"
+                    ) : (
+                      <>
+                        <Mail className="h-3.5 w-3.5" />
+                        Draft follow-up
+                      </>
+                    )}
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
