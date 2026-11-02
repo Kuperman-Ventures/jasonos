@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   actionLogDayKey,
@@ -16,6 +17,54 @@ import {
   upcomingRowWhen,
   type UpcomingItem,
 } from "@/lib/actions/upcoming-format";
+
+function useCollapsedGroups() {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+
+  function toggle(key: string) {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return { collapsed, toggle };
+}
+
+function DayGroup({
+  label,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer items-center gap-2 border-b bg-muted/40 px-4 py-1.5 text-left text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+      >
+        <span>
+          {label} · {count}
+        </span>
+        <ChevronDown
+          className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+        />
+      </button>
+      {open ? children : null}
+    </div>
+  );
+}
 
 export function ActionLogClient({
   rows,
@@ -108,6 +157,7 @@ function UpcomingSection({
   filtered: boolean;
   today: string;
 }) {
+  const { collapsed, toggle } = useCollapsedGroups();
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
@@ -133,10 +183,15 @@ function UpcomingSection({
       ) : (
         <div>
           {groups.map((group) => (
-            <div key={group.key}>
-              <h3 className="bg-muted/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {group.label}
-              </h3>
+            <DayGroup
+              key={group.key}
+              label={group.label}
+              count={group.rows.length}
+              open={filtered || !collapsed.has(group.key)}
+              onToggle={() => {
+                if (!filtered) toggle(group.key);
+              }}
+            >
               <ul>
                 {group.rows.map((item) => (
                   <li
@@ -165,7 +220,7 @@ function UpcomingSection({
                   </li>
                 ))}
               </ul>
-            </div>
+            </DayGroup>
           ))}
         </div>
       )}
@@ -188,6 +243,7 @@ function HistorySection({
   capped: boolean;
   empty: boolean;
 }) {
+  const { collapsed, toggle } = useCollapsedGroups();
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
@@ -209,10 +265,15 @@ function HistorySection({
       ) : (
         <div>
           {groups.map((group) => (
-            <div key={group.key}>
-              <h3 className="bg-muted/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {group.label}
-              </h3>
+            <DayGroup
+              key={group.key}
+              label={group.label}
+              count={group.rows.length}
+              open={filtered || !collapsed.has(group.key)}
+              onToggle={() => {
+                if (!filtered) toggle(group.key);
+              }}
+            >
               <ul>
                 {group.rows.map((row) => (
                   <li
@@ -240,7 +301,7 @@ function HistorySection({
                   </li>
                 ))}
               </ul>
-            </div>
+            </DayGroup>
           ))}
           {capped && !filtered ? (
             <p className="px-4 py-3 text-center text-[11px] text-muted-foreground">
