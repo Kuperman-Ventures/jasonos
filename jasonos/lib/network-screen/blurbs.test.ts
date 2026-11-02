@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildEmailBodyWithBlurbs } from "./blurbs.ts";
+import { buildEmailBodyWithBlurbs, peopleInTheAsk } from "./blurbs.ts";
 import type { NetworkScreenCandidate, NetworkScreenDetail } from "./types.ts";
 
 const BODY = "Hello.\n\n- Jason";
@@ -90,12 +90,12 @@ describe("buildEmailBodyWithBlurbs", () => {
     );
   });
 
-  it("leaves out a person who is not in the ask", () => {
+  it("includes all tier1 people even when warmth is new", () => {
     const result = buildEmailBodyWithBlurbs(
       screen({ includeBlurbsInEmail: true, relationshipWarmth: "new", candidates: [ada, grace] })
     );
     assert.match(result, /Ada Lovelace:\nAda blurb/);
-    assert.doesNotMatch(result, /Grace Hopper/);
+    assert.match(result, /Grace Hopper:\nGrace blurb/);
   });
 
   it("skips a person with an empty blurb", () => {
@@ -105,5 +105,24 @@ describe("buildEmailBodyWithBlurbs", () => {
     );
     assert.match(result, /Ada Lovelace:\nAda blurb/);
     assert.doesNotMatch(result, /Empty Person/);
+  });
+});
+
+describe("peopleInTheAsk", () => {
+  it("returns all tier1 people in sort order, capped at three", () => {
+    const people = [
+      person({ id: "a", name: "A", sortOrder: 2 }),
+      person({ id: "b", name: "B", sortOrder: 0 }),
+      person({ id: "c", name: "C", sortOrder: 1 }),
+      person({ id: "d", name: "D", sortOrder: 3, tier: "tier2" }),
+      person({ id: "e", name: "E", sortOrder: 4 }),
+    ];
+    const asked = peopleInTheAsk(
+      screen({ relationshipWarmth: "new", candidates: people })
+    );
+    assert.deepEqual(
+      asked.map((person) => person.id),
+      ["b", "c", "a"]
+    );
   });
 });

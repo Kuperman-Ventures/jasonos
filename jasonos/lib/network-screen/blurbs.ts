@@ -1,16 +1,4 @@
-import type { Bucket, NetworkScreenCandidate, NetworkScreenDetail } from "./types";
-
-const BUCKET_RANK: Record<Bucket, number> = {
-  hiring_path: 0,
-  recruiter: 1,
-  peer_referral: 2,
-  prospect: 3,
-  operating_partner: 4,
-  speaking_content: 5,
-  industry_peer: 6,
-  not_relevant: 7,
-  unscored: 8,
-};
+import type { NetworkScreenCandidate, NetworkScreenDetail } from "./types";
 
 export function blurbWordCount(text: string): number {
   const trimmed = text.trim();
@@ -18,17 +6,12 @@ export function blurbWordCount(text: string): number {
   return trimmed.split(/\s+/).length;
 }
 
-/** Tier 1 people the intro-request email actually asks the connector to introduce. */
+/** Tier 1 people the intro-request email asks the connector to introduce (all three). */
 export function peopleInTheAsk(screen: NetworkScreenDetail): NetworkScreenCandidate[] {
-  const tier1 = screen.candidates
+  return screen.candidates
     .filter((person) => person.tier === "tier1")
-    .sort(
-      (a, b) => BUCKET_RANK[a.bucket] - BUCKET_RANK[b.bucket] || a.sortOrder - b.sortOrder
-    );
-  if (screen.relationshipWarmth === "warm" || screen.relationshipWarmth === "expecting_review") {
-    return tier1;
-  }
-  return tier1.slice(0, 1);
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .slice(0, 3);
 }
 
 export function buildEmailBodyWithBlurbs(screen: NetworkScreenDetail): string {
