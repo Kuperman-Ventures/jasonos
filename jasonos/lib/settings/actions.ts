@@ -34,6 +34,7 @@ import {
   describeBeeperTokenProblem,
   interpretBeeperAuthStatuses,
   isAuthDeniedStatus,
+  isLocalBeeperBase,
   pickBeeperConnectionConfig,
 } from "@/lib/integrations/beeper-health";
 
@@ -422,10 +423,11 @@ export async function testServiceConnection(
     };
     try {
       // Tailscale Funnel / Cloudflare tunnels are often slower than localhost.
-      const info = await beeperGet(base, "/v1/info", beeperKey, 8_000);
+      const remote = !isLocalBeeperBase(base);
+      const info = await beeperGet(base, "/v1/info", beeperKey, remote ? 20_000 : 8_000);
       const accounts =
         info.ok && !isAuthDeniedStatus(info.status)
-          ? await beeperGet(base, "/v1/accounts", beeperKey, 10_000)
+          ? await beeperGet(base, "/v1/accounts", beeperKey, remote ? 25_000 : 10_000)
           : null;
       const probe = interpretBeeperAuthStatuses(
         info.status,
@@ -1131,20 +1133,36 @@ async function beeperGet(
   token: string,
   timeoutMs: number
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(`${base}${path}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
+  const remote = !isLocalBeeperBase(base);
+  const retries = remote ? 1 : 0;
+  const attempt = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${base}${path}`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let lastErr: unknown;
+  for (let tryIndex = 0; tryIndex <= retries; tryIndex += 1) {
+    try {
+      return await attempt();
+    } catch (err) {
+      lastErr = err;
+      const timedOut = err instanceof Error && err.name === "AbortError";
+      if (timedOut && tryIndex < retries) continue;
+      throw err;
+    }
   }
+  throw lastErr instanceof Error ? lastErr : new Error("Beeper request failed.");
 }
 
 async function fetchJsonApi(base: string, path: string, key: string, label: string) {

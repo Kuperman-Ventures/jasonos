@@ -33,6 +33,28 @@ export function pickBeeperConnectionConfig(
   return withToken ?? {};
 }
 
+/** True for Desktop on this machine; Funnel / Cloudflare need longer waits. */
+export function isLocalBeeperBase(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase();
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+/** Soft-skip Sync copy when Desktop / Funnel will not answer in time. */
+export function beeperUnavailableMessage(opts: {
+  baseUrl: string;
+  timedOut?: boolean;
+}): string {
+  const base = opts.baseUrl.replace(/\/$/, "") || "Beeper Desktop";
+  if (opts.timedOut) {
+    return `No Beeper data synced (timed out reaching ${base}). Keep Beeper Desktop open on the Mac Mini, leave Tailscale Funnel up, and stop the Mac from sleeping.`;
+  }
+  return `No Beeper data synced (couldn’t reach ${base}). Keep Beeper Desktop open and Tailscale Funnel up, or paste the Funnel URL in Settings → Beeper.`;
+}
+
 /** Reject Sync-toast paste-ins and other non-token junk before fetch. */
 export function describeBeeperTokenProblem(token: string): string | null {
   const value = token.trim();
