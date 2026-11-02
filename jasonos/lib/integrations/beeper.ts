@@ -6,7 +6,9 @@ import {
   toE164,
 } from "@/lib/integrations/beeper-links";
 import {
+  beeperUnavailableMessage,
   describeBeeperTokenProblem,
+  isLocalBeeperBase,
   pickBeeperConnectionConfig,
 } from "@/lib/integrations/beeper-health";
 import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
@@ -174,32 +176,50 @@ async function beeperFetch(
     throw new BeeperApiError(401, tokenProblem);
   }
 
-  const timeoutMs = init?.timeoutMs ?? 8_000;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const root = await resolveBaseUrl();
+  const remote = !isLocalBeeperBase(root);
+  // Funnel / Cloudflare are slower and flakier than localhost Desktop.
+  const timeoutMs = init?.timeoutMs ?? (remote ? 20_000 : 8_000);
+  const retries = remote ? 1 : 0;
 
-  try {
-    const res = await fetch(`${root}${path}`, {
-      ...init,
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(init?.headers ?? {}),
-      },
-      cache: "no-store",
-    });
-    return res;
-  } catch (err) {
-    const name = err instanceof Error ? err.name : "";
-    if (name === "AbortError") {
-      throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
+  const attempt = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${root}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(init?.headers ?? {}),
+        },
+        cache: "no-store",
+      });
+    } finally {
+      clearTimeout(timer);
     }
-    throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
-  } finally {
-    clearTimeout(timer);
+  };
+
+  let lastErr: unknown;
+  for (let tryIndex = 0; tryIndex <= retries; tryIndex += 1) {
+    try {
+      return await attempt();
+    } catch (err) {
+      lastErr = err;
+      const timedOut = err instanceof Error && err.name === "AbortError";
+      if (timedOut && tryIndex < retries) continue;
+      throw new BeeperUnavailableError(
+        beeperUnavailableMessage({ baseUrl: root, timedOut })
+      );
+    }
   }
+  throw new BeeperUnavailableError(
+    beeperUnavailableMessage({
+      baseUrl: root,
+      timedOut: lastErr instanceof Error && lastErr.name === "AbortError",
+    })
+  );
 }
 
 export class BeeperUnavailableError extends Error {
@@ -240,8 +260,11 @@ async function throwIfAuthFailed(res: Response): Promise<void> {
 /** Probe Desktop API. Throws BeeperUnavailableError when closed / unreachable. */
 export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string }> {
   const baseUrl = await resolveBaseUrl();
+  const remote = !isLocalBeeperBase(baseUrl);
   try {
-    const info = await beeperFetch("/v1/info", { timeoutMs: 8_000 });
+    const info = await beeperFetch("/v1/info", {
+      timeoutMs: remote ? 20_000 : 8_000,
+    });
     await throwIfAuthFailed(info);
     if (!info.ok) {
       throw new BeeperUnavailableError(
@@ -250,7 +273,9 @@ export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string 
     }
     // /v1/info is discovery and can 200 with a dead token. Accounts is what Sync
     // actually needs, and is where a 401 shows up.
-    const accounts = await beeperFetch("/v1/accounts", { timeoutMs: 10_000 });
+    const accounts = await beeperFetch("/v1/accounts", {
+      timeoutMs: remote ? 25_000 : 10_000,
+    });
     await throwIfAuthFailed(accounts);
     return { ok: true, baseUrl };
   } catch (err) {
@@ -258,12 +283,10 @@ export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string 
     if (err instanceof BeeperUnavailableError) {
       if (err.message.includes(baseUrl)) throw err;
       throw new BeeperUnavailableError(
-        `No Beeper data synced (couldn’t reach ${baseUrl}). Keep Beeper Desktop open and Tailscale Funnel up, or paste the Funnel URL in Settings → Beeper.`
+        beeperUnavailableMessage({ baseUrl })
       );
     }
-    throw new BeeperUnavailableError(
-      `No Beeper data synced (couldn’t reach ${baseUrl}). Keep Beeper Desktop open and Tailscale Funnel up, or paste the Funnel URL in Settings → Beeper.`
-    );
+    throw new BeeperUnavailableError(beeperUnavailableMessage({ baseUrl }));
   }
 }
 

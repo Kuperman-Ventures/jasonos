@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperUnavailableMessage,
   describeBeeperTokenProblem,
   interpretBeeperAuthStatuses,
+  isLocalBeeperBase,
   pickBeeperConnectionConfig,
 } from "./beeper-health.ts";
 
@@ -68,5 +70,31 @@ describe("pickBeeperConnectionConfig", () => {
     ]);
     assert.equal(picked.access_token, "real-token");
     assert.equal(picked.base_url, "https://jasons-mac-mini.tail3a2028.ts.net");
+  });
+});
+
+describe("isLocalBeeperBase", () => {
+  it("treats localhost Desktop as local", () => {
+    assert.equal(isLocalBeeperBase("http://127.0.0.1:23373"), true);
+    assert.equal(isLocalBeeperBase("http://localhost:23373"), true);
+  });
+
+  it("treats Tailscale Funnel as remote", () => {
+    assert.equal(
+      isLocalBeeperBase("https://jasons-mac-mini.tail3a2028.ts.net"),
+      false
+    );
+  });
+});
+
+describe("beeperUnavailableMessage", () => {
+  it("names the Funnel host on timeout", () => {
+    assert.match(
+      beeperUnavailableMessage({
+        baseUrl: "https://jasons-mac-mini.tail3a2028.ts.net",
+        timedOut: true,
+      }),
+      /timed out reaching https:\/\/jasons-mac-mini\.tail3a2028\.ts\.net/
+    );
   });
 });
