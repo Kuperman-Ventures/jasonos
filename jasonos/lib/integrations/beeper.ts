@@ -179,7 +179,15 @@ async function beeperFetch(
   const root = await resolveBaseUrl();
   const remote = !isLocalBeeperBase(root);
   // Funnel / Cloudflare are slower and flakier than localhost Desktop.
-  const timeoutMs = init?.timeoutMs ?? (remote ? 20_000 : 8_000);
+  const requested = init?.timeoutMs;
+  const timeoutMs =
+    requested == null
+      ? remote
+        ? 20_000
+        : 8_000
+      : remote
+        ? Math.max(requested, Math.round(requested * 1.75))
+        : requested;
   const retries = remote ? 1 : 0;
 
   const attempt = async (): Promise<Response> => {
