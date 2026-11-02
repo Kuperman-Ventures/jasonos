@@ -505,6 +505,7 @@ function PendingIntrosPanel({ intros }: { intros: PendingIntro[] }) {
                   <Button
                     type="button"
                     size="sm"
+                    className="gap-1.5"
                     variant={row.queueStatus === "intro_made" ? "default" : "outline"}
                     disabled={pending && draftingId === row.id}
                     onClick={() => draftFollowup(row)}
