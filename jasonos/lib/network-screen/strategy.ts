@@ -42,6 +42,14 @@ export const DRAFT_RULES = `- Never use a product name the recipient would not k
 - Match tone to the warmth setting. Cold or new contacts stay shorter and more direct; warm contacts can close the loop on commitments first.
 - Hyphens, not em dashes. Plain language. No clever phrasing.`;
 
+export const INTRO_FOLLOWUP_RULES = `- This email is FROM Jason TO the person he was just introduced to. The connector already made the introduction.
+- Open by naming the connector and thanking them for connecting you. One short sentence.
+- Say who Jason is in terms this person would recognize, tied to why the intro was worth making. One or two sentences. Use the why/ask lines. Do not invent an open role, a mutual friend, or any fact that is not in the inputs.
+- Ask for a short call. Low stakes. One sentence.
+- Greet by first name. Sign off "- Jason". Hyphens, not em dashes. Plain language. No clever phrasing.
+- Never use a product name the recipient would not know (for example "Refactor Sprint"). Describe the work plainly.
+- Do not pitch Kuperman Advisors unless the person's lane/bucket is advisors (prospect or operating_partner). For job_search intros, stay on the CMO / SVP Marketing search.`;
+
 export const BLURB_RULES = `FORWARDABLE INTRO BLURB RULES:
 - Written as the connector, in first person, about Jason, addressed to the person being introduced. The connector will paste this into their own email. It must not sound like Jason wrote it.
 - 80 to 120 words. One paragraph. No subject line, no greeting, no sign-off.

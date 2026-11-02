@@ -139,7 +139,7 @@ export function registerNetworkScreenTools(server: McpServer) {
     {
       title: "Pending intro requests",
       description:
-        "Intro recommendations still queued or already requested, across every Network Screen, with the connector's name. Read-only.",
+        "Intro recommendations still queued, requested, or intro-made (waiting on Jason's follow-up), across every Network Screen, with the connector's name. Read-only.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

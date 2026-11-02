@@ -161,6 +161,12 @@ export type PendingIntro = {
   name: string;
   title: string | null;
   company: string | null;
+  headline: string | null;
+  linkedinUrl: string | null;
+  why: string | null;
+  ask: string | null;
+  lane: Lane;
+  bucket: Bucket;
   connectorName: string;
   queueStatus: QueueStatus;
   introRequestedAt: string | null;
