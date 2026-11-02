@@ -15,6 +15,7 @@ import {
   importedSiblingId,
   type ScreenSnapshot,
 } from "@/lib/network-screen/follow-import";
+import { resolveIntroFollowupDraft } from "@/lib/network-screen/followup-draft";
 import { classifyCandidates, type ClassifiedPick } from "@/lib/network-screen/score";
 import {
   BLURB_RULES,
@@ -1236,13 +1237,25 @@ export async function draftPendingIntroFollowup({
     to = await connectorEmail(sb, data.contact_id);
   }
 
+  const draftInput = {
+    name,
+    firstName: first,
+    connectorName,
+    title: blank(data.title),
+    company: blank(data.company),
+    why: blank(data.why),
+    ask: blank(data.ask),
+    lane: blank(data.lane),
+  };
+
   const system = `${JASON_CORE_VOICE}
 
 ${NO_AI_SLOP_WRITING_RULES}
 
 ${INTRO_FOLLOWUP_RULES}
 
-Return STRICT JSON only: {"subject":"...","body":"..."}
+Return STRICT JSON only on one object: {"subject":"...","body":"..."}
+Put the full email in body. Escape newlines in body as \\n. No markdown fences.
 Greet by first name (${first}). Sign off "- Jason". Hyphens, not em dashes.`;
   const prompt = `Write the follow-up email FROM Jason TO ${name} after ${connectorName} introduced them.
 
@@ -1271,9 +1284,9 @@ ${blank(screen?.partner_note) || "(none)"}`;
       messages: [{ role: "user", content: prompt }],
       providerOptions: anthropicOptions(),
     });
-    const parsed = parseJsonObject(text);
-    const subject = stripEmDashes(blank(parsed?.subject) ?? `Thanks for connecting — ${connectorName}`);
-    const body = stripEmDashes(blank(parsed?.body) ?? "");
+    const draft = resolveIntroFollowupDraft(text, draftInput);
+    const subject = stripEmDashes(draft.subject);
+    const body = stripEmDashes(draft.body);
     if (!body) {
       return { ok: false, error: "The draft did not come back in a usable form. Try again." };
     }
@@ -1285,7 +1298,16 @@ ${blank(screen?.partner_note) || "(none)"}`;
     return { ok: true, subject, body, to, mailtoUrl };
   } catch (err) {
     console.error("[network-screen.intro-followup]", err);
-    return { ok: false, error: "Couldn't reach the drafting model. Try again." };
+    // Model outage still should not block a quick follow-up.
+    const draft = resolveIntroFollowupDraft(null, draftInput);
+    const subject = stripEmDashes(draft.subject);
+    const body = stripEmDashes(draft.body);
+    const mailtoUrl = buildMailtoUrl({
+      to: to ?? "",
+      subject,
+      body,
+    });
+    return { ok: true, subject, body, to, mailtoUrl };
   }
 }
 
