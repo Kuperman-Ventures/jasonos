@@ -45,15 +45,16 @@ function render(): string {
 }
 
 describe("Action log day groups", () => {
-  it("renders each day group as an open toggle with its count", () => {
+  it("starts each day group collapsed, with the count still on the header", () => {
     const html = render();
-    assert.match(html, /aria-expanded="true"/);
+    assert.equal(html.includes('aria-expanded="true"'), false);
+    assert.equal((html.match(/aria-expanded="false"/g) ?? []).length, 3);
     assert.match(html, /Overdue · 1/);
     assert.match(html, /Wednesday, Nov 4 · 1/);
-    assert.match(html, /Check in with Dana/);
-    assert.match(html, /Priya Shah/);
-    assert.match(html, /Snoozed/);
-    assert.match(html, /Follow up on the intro/);
+    assert.match(html, /Monday, Nov 2 · 1/);
+    assert.equal(html.includes("Check in with Dana"), false);
+    assert.equal(html.includes("Priya Shah"), false);
+    assert.equal(html.includes("Follow up on the intro"), false);
     assert.equal(html.includes("<h3"), false);
   });
 });

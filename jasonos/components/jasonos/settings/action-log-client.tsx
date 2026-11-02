@@ -18,11 +18,11 @@ import {
   type UpcomingItem,
 } from "@/lib/actions/upcoming-format";
 
-function useCollapsedGroups() {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+function useOpenGroups() {
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(() => new Set());
 
   function toggle(key: string) {
-    setCollapsed((current) => {
+    setOpenKeys((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -30,7 +30,7 @@ function useCollapsedGroups() {
     });
   }
 
-  return { collapsed, toggle };
+  return { openKeys, toggle };
 }
 
 function DayGroup({
@@ -157,7 +157,7 @@ function UpcomingSection({
   filtered: boolean;
   today: string;
 }) {
-  const { collapsed, toggle } = useCollapsedGroups();
+  const { openKeys, toggle } = useOpenGroups();
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
@@ -187,7 +187,7 @@ function UpcomingSection({
               key={group.key}
               label={group.label}
               count={group.rows.length}
-              open={filtered || !collapsed.has(group.key)}
+              open={filtered || openKeys.has(group.key)}
               onToggle={() => {
                 if (!filtered) toggle(group.key);
               }}
@@ -243,7 +243,7 @@ function HistorySection({
   capped: boolean;
   empty: boolean;
 }) {
-  const { collapsed, toggle } = useCollapsedGroups();
+  const { openKeys, toggle } = useOpenGroups();
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
@@ -269,7 +269,7 @@ function HistorySection({
               key={group.key}
               label={group.label}
               count={group.rows.length}
-              open={filtered || !collapsed.has(group.key)}
+              open={filtered || openKeys.has(group.key)}
               onToggle={() => {
                 if (!filtered) toggle(group.key);
               }}
