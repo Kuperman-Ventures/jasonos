@@ -559,25 +559,46 @@ type ClassificationEntry = {
   ask?: unknown;
 };
 
+const CLASSIFY_CHUNK = 40;
+
 async function screenBrief(_sb: ReturnType<typeof createServiceRoleClient>): Promise<string> {
   return `Classify every connection into one of these lanes:\n${NETWORK_SCREEN_LANE_DEFINITIONS}`;
 }
 
-async function classifyConnections(
-  screen: NetworkScreenDetail,
-  brief: string
-): Promise<ReturnType<typeof classifyCandidates>> {
-  const payload = screen.candidates.map((person) => ({
-    id: person.id,
-    name: person.name,
-    headline: person.headline,
-    location: person.location,
-    linkedin_degree: person.linkedinDegree,
-    mutual_connections: person.mutualConnections,
+type ConnectionPayload = {
+  id: string;
+  name: string;
+  headline: string | null;
+  location: string | null;
+  linkedin_degree: string | null;
+  mutual_connections: string | null;
+};
+
+function picksFromEntries(entries: ClassificationEntry[]): ClassifiedPick[] {
+  return entries.map((entry) => ({
+    id: blank(entry.id) ?? "",
+    lane: blank(entry.lane) ?? "none",
+    tier: blank(entry.tier) ?? "none",
+    bucket: blank(entry.bucket) ?? "not_relevant",
+    title: blank(entry.title),
+    company: blank(entry.company),
+    why: blank(entry.why),
+    ask: blank(entry.ask),
   }));
+}
+
+async function classifyChunk(
+  screen: NetworkScreenDetail,
+  brief: string,
+  payload: ConnectionPayload[],
+  chunkIndex: number,
+  chunkCount: number
+): Promise<ClassifiedPick[]> {
+  const chunkLabel =
+    chunkCount > 1 ? `\nThis is chunk ${chunkIndex + 1} of ${chunkCount}. Only classify people in this chunk.` : "";
   const { text } = await generateText({
     model: heavyModel(),
-    maxOutputTokens: 16000,
+    maxOutputTokens: 8000,
     system: NETWORK_SCREEN_STRATEGY,
     messages: [
       {
@@ -585,12 +606,12 @@ async function classifyConnections(
         content: `What Jason is looking for:
 ${brief}
 
-Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.connectorHeadline}` : ""}${screen.connectorCompany ? ` at ${screen.connectorCompany}` : ""}.
+Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.connectorHeadline}` : ""}${screen.connectorCompany ? ` at ${screen.connectorCompany}` : ""}.${chunkLabel}
 
 Return STRICT JSON only:
-{"people":[{"id":"","lane":"job_search|advisors|industry|none","tier":"tier1|tier2|none","bucket":"","title":"","company":"","why":"","ask":""}]}
+{"people":[{"id":"","lane":"job_search|advisors|industry","tier":"tier1|tier2","bucket":"","title":"","company":"","why":"","ask":""}]}
 
-One entry per person. Use ids from the list. Mark linkedin_degree 1st as tier2 with lane by the same rules.
+Return only people on a real lane. Omit everyone else. Use ids from the list. Mark linkedin_degree 1st as tier2 with lane by the same rules.
 
 Connections:
 ${JSON.stringify(payload)}`,
@@ -603,16 +624,30 @@ ${JSON.stringify(payload)}`,
   if (!Array.isArray(entries)) {
     throw new Error("The classification did not come back in a usable form.");
   }
-  const picks: ClassifiedPick[] = (entries as ClassificationEntry[]).map((entry) => ({
-    id: blank(entry.id) ?? "",
-    lane: blank(entry.lane) ?? "none",
-    tier: blank(entry.tier) ?? "none",
-    bucket: blank(entry.bucket) ?? "not_relevant",
-    title: blank(entry.title),
-    company: blank(entry.company),
-    why: blank(entry.why),
-    ask: blank(entry.ask),
+  return picksFromEntries(entries as ClassificationEntry[]);
+}
+
+async function classifyConnections(
+  screen: NetworkScreenDetail,
+  brief: string
+): Promise<ReturnType<typeof classifyCandidates>> {
+  const payload: ConnectionPayload[] = screen.candidates.map((person) => ({
+    id: person.id,
+    name: person.name,
+    headline: person.headline,
+    location: person.location,
+    linkedin_degree: person.linkedinDegree,
+    mutual_connections: person.mutualConnections,
   }));
+  const chunks: ConnectionPayload[][] = [];
+  for (let i = 0; i < payload.length; i += CLASSIFY_CHUNK) {
+    chunks.push(payload.slice(i, i + CLASSIFY_CHUNK));
+  }
+  const picks: ClassifiedPick[] = [];
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunkPicks = await classifyChunk(screen, brief, chunks[index]!, index, chunks.length);
+    picks.push(...chunkPicks);
+  }
   return classifyCandidates(screen.candidates, picks);
 }
 
@@ -638,16 +673,6 @@ export async function scoreNetworkScreen({
   }
 
   const sb = createServiceRoleClient();
-  if (!rerun) {
-    const { data: claimed, error: claimError } = await sb
-      .from("network_screens")
-      .update({ status: "scored" satisfies ScreenStatus })
-      .eq("id", screenId)
-      .eq("status", "captured")
-      .select("id");
-    if (claimError) return { ok: false, error: claimError.message };
-    if (!claimed?.length) return getNetworkScreen(screenId);
-  }
 
   let classified: ReturnType<typeof classifyCandidates>;
   try {
@@ -655,9 +680,6 @@ export async function scoreNetworkScreen({
     classified = await classifyConnections(loaded.screen, brief);
   } catch (err) {
     console.error("[network-screen.recommend]", err);
-    if (!rerun) {
-      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
-    }
     const message = err instanceof Error ? err.message : "";
     if (message.includes("usable form")) return { ok: false, error: message };
     return { ok: false, error: "Couldn't classify the connections. Try again." };
@@ -689,13 +711,19 @@ export async function scoreNetworkScreen({
   const results = await Promise.all(writes);
   const failed = results.find((result) => result.error);
   if (failed?.error) {
-    if (!rerun) {
-      await sb.from("network_screens").update({ status: "captured" satisfies ScreenStatus }).eq("id", screenId);
-    }
     return { ok: false, error: failed.error.message };
   }
 
-  if (rerun && previousStatus !== "drafted" && previousStatus !== "requested") {
+  if (!rerun) {
+    const { data: claimed, error: claimError } = await sb
+      .from("network_screens")
+      .update({ status: "scored" satisfies ScreenStatus })
+      .eq("id", screenId)
+      .eq("status", "captured")
+      .select("id");
+    if (claimError) return { ok: false, error: claimError.message };
+    if (!claimed?.length) return getNetworkScreen(screenId);
+  } else if (previousStatus !== "drafted" && previousStatus !== "requested") {
     const { error: statusError } = await sb
       .from("network_screens")
       .update({ status: "scored" satisfies ScreenStatus })

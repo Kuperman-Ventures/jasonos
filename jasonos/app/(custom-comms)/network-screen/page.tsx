@@ -5,6 +5,8 @@ import { NetworkScreenClient } from "@/components/jasonos/email/network-screen-c
 
 export const metadata: Metadata = { title: "Network Screen · JasonOS" };
 export const dynamic = "force-dynamic";
+/** Scoring large LinkedIn lists runs several model calls; keep the action alive. */
+export const maxDuration = 300;
 
 export default async function NetworkScreenPage({
   searchParams,
