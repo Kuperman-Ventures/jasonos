@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { applyScoreRules, classifyCandidates } from "./score.ts";
+import { applyScoreRules, classifyCandidates, isNamedCompany } from "./score.ts";
+
+describe("isNamedCompany", () => {
+  it("rejects category labels and accepts proper names", () => {
+    assert.equal(isNamedCompany("Independent"), false);
+    assert.equal(isNamedCompany("Executive Recruiter"), false);
+    assert.equal(isNamedCompany("Steiner Executive Search Group"), true);
+    assert.equal(isNamedCompany(null), false);
+  });
+});
 
 describe("applyScoreRules", () => {
   it("keeps a 1st-degree connection off Tier 1", () => {
@@ -64,8 +73,8 @@ describe("classifyCandidates", () => {
   it("caps tier1 at three and demotes the rest to tier2", () => {
     const classified = classifyCandidates(people, [
       { id: "a", lane: "job_search", tier: "tier1", bucket: "hiring_path", title: "CEO", company: "Acme", why: "Hires the marketing seat", ask: "Ask for an intro" },
-      { id: "c", lane: "job_search", tier: "tier1", bucket: "recruiter", title: "Partner", company: "Search", why: "Recruits CMOs", ask: "Ask if a search is open" },
-      { id: "d", lane: "advisors", tier: "tier1", bucket: "prospect", title: "Founder", company: "Startup", why: "Series A SaaS founder", ask: "Ask for a diagnostic intro" },
+      { id: "c", lane: "job_search", tier: "tier1", bucket: "recruiter", title: "Partner", company: "Search Co", why: "Recruits CMOs", ask: "Ask if a search is open" },
+      { id: "d", lane: "advisors", tier: "tier1", bucket: "prospect", title: "Founder", company: "Nimbus Labs", why: "Series A SaaS founder", ask: "Ask for a diagnostic intro" },
       { id: "e", lane: "job_search", tier: "tier1", bucket: "hiring_path", title: "CRO", company: "Gamma", why: "Fourth name", ask: "Should become bench" },
       { id: "f", lane: "industry", tier: "tier2", bucket: "industry_peer", title: "CMO", company: "Big", why: "Worth knowing", ask: null },
     ]);
@@ -117,11 +126,49 @@ describe("classifyCandidates", () => {
   it("demotes a tier1 pick that has no reason", () => {
     const classified = classifyCandidates(people, [
       { id: "a", lane: "job_search", tier: "tier1", bucket: "hiring_path", title: "CEO", company: "Acme", why: "  ", ask: "Ask" },
-      { id: "c", lane: "job_search", tier: "tier1", bucket: "recruiter", title: "Partner", company: "Search", why: "Recruits CMOs", ask: "Ask if a search is open" },
+      { id: "c", lane: "job_search", tier: "tier1", bucket: "recruiter", title: "Partner", company: "Search Co", why: "Recruits CMOs", ask: "Ask if a search is open" },
     ]);
     const byId = Object.fromEntries(classified.map((person) => [person.id, person]));
     assert.equal(byId.a?.tier, "tier2");
     assert.equal(byId.a?.ask, null);
     assert.equal(byId.c?.tier, "tier1");
+  });
+
+  it("demotes a tier1 pick with a category company label", () => {
+    const classified = classifyCandidates(people, [
+      {
+        id: "a",
+        lane: "job_search",
+        tier: "tier1",
+        bucket: "recruiter",
+        title: "Partner",
+        company: "Boutique Search Firm",
+        why: "Places CMO seats at B2B SaaS companies",
+        ask: "Ask for an intro",
+      },
+    ]);
+    const row = classified.find((person) => person.id === "a");
+    assert.equal(row?.tier, "tier2");
+    assert.equal(row?.ask, null);
+    assert.equal(row?.nextAction, null);
+  });
+
+  it("keeps a tier1 pick with a named company", () => {
+    const classified = classifyCandidates(people, [
+      {
+        id: "a",
+        lane: "job_search",
+        tier: "tier1",
+        bucket: "recruiter",
+        title: "Partner",
+        company: "Torch Group",
+        why: "Torch Group places C-level marketing leaders at B2B tech companies.",
+        ask: "Ask for an intro to Michele",
+      },
+    ]);
+    const row = classified.find((person) => person.id === "a");
+    assert.equal(row?.tier, "tier1");
+    assert.equal(row?.ask, "Ask for an intro to Michele");
+    assert.equal(row?.company, "Torch Group");
   });
 });

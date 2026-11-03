@@ -70,6 +70,15 @@ function laneKey(value: string): string {
   return value.trim().toLowerCase().replace(/[\s/]+/g, "_").replace(/_+/g, "_");
 }
 
+/** Category words that describe a kind of company rather than naming one. */
+const CATEGORY_COMPANY =
+  /^(a |an |the )?(boutique |independent |executive |retained |global |national )*(search firm|search|recruiter|recruiting|recruitment|executive search|consulting|consultant|advisor|advisory|startup|independent|self[- ]employed|freelance|stealth)( firm| group| practice)?$/i;
+
+export function isNamedCompany(company: string | null): boolean {
+  if (!company) return false;
+  return !CATEGORY_COMPANY.test(company.trim());
+}
+
 export function applyScoreRules(input: ScoreInput): ScoreResult {
   const tierText = tierKey(input.tier);
   let tier: Tier = isTier(tierText) ? tierText : "none";
@@ -130,7 +139,7 @@ export function classifyCandidates(
       why = null;
       ask = null;
       if (person.linkedinDegree !== "1st") nextAction = null;
-    } else if (tier === "tier1" && (!why || !ask)) {
+    } else if (tier === "tier1" && (!why || !ask || !isNamedCompany(scored.company))) {
       tier = "tier2";
       ask = null;
       if (person.linkedinDegree !== "1st") nextAction = null;
