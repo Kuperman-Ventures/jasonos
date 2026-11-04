@@ -75,9 +75,7 @@ Live flow: start on /live (blank deck, from a playbook, or Library). Work the de
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
 
-To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch. Do not use a separate Supabase execute_sql connector.
-
-If these tools are missing from a scheduled run, search for "jasonos" or "publish_morning_brief" first. As a fallback, POST the same payload to https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password.
+To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch only. Never use Supabase execute_sql (no INSERT, no UPSERT, no DELETE on morning_briefs or inbox_dispatches). publish_morning_brief already replaces that day's row. A Supabase DELETE waits for human confirmation and can hang a scheduled run for minutes — skip that path entirely. If JasonOS publish tools are missing, search for "jasonos" or "publish_morning_brief", then immediately POST https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password. Do not wait on a pending confirmation dialog.
 
 Connections Register (Settings -> Connections) tracks every access grant across Jason's accounts, automation tools and apps. Read it with get_connections_register and list_connection_changes. Keep it current with upsert_connection_grant, update_connection_grant, upsert_connection_node and upsert_connection_coverage; use import_connections_register for bulk loads. When access is removed, set status to revoked rather than deleting the row.
 
@@ -311,7 +309,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Publish morning brief",
       description:
-        "Write today's (or a given Eastern date's) morning brief markdown into JasonOS Home. Replaces that day's row if it already exists. Use this instead of Supabase execute_sql.",
+        "Write today's (or a given Eastern date's) morning brief markdown into JasonOS Home. Replaces that day's row if it already exists. Always use this tool (or POST /api/morning-brief/publish). Never DELETE or INSERT morning_briefs through Supabase execute_sql — that path asks for confirmation and can time out on scheduled runs.",
       inputSchema: z.object({
         content_md: z.string().min(80).max(80_000),
         date: z.string().describe("YYYY-MM-DD America/New_York. Defaults to today.").optional(),
@@ -337,7 +335,7 @@ export function registerJasonosTools(server: McpServer) {
     {
       title: "Publish inbox dispatch",
       description:
-        "Write today's (or a given Eastern date's) inbox dispatch JSON into JasonOS Home. payload_json must be the InboxDispatch object (boarding, holding, noise). Replaces that day's row if it already exists. Use this instead of Supabase execute_sql.",
+        "Write today's (or a given Eastern date's) inbox dispatch JSON into JasonOS Home. payload_json must be the InboxDispatch object (boarding, holding, noise). Replaces that day's row if it already exists. Always use this tool (or POST /api/inbox-dispatch/publish). Never write inbox_dispatches through Supabase execute_sql.",
       inputSchema: z.object({
         payload_json: z.string().min(2).max(400_000),
         date: z.string().describe("YYYY-MM-DD America/New_York. Defaults to today.").optional(),

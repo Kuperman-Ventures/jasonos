@@ -97,8 +97,10 @@ If nothing shows up, Claude Desktop often cannot find `npx`. In Terminal run `wh
 ## 5. Morning brief publisher (scheduled Claude)
 
 The weekday brief and inbox dispatch used to be written with Anthropic's
-official Supabase connector (`execute_sql`). That connector is often absent
-from scheduled runs, so Home froze on the last successful day.
+official Supabase connector (`execute_sql`). That path fails on scheduled
+runs: tools are often absent, and a `DELETE` waits for human confirmation
+until it times out. Home then looks stuck even though Claude finished the
+draft.
 
 Use the JasonOS connector instead:
 
@@ -111,6 +113,9 @@ Use the JasonOS connector instead:
    `https://jasonos.vercel.app/api/morning-brief/publish` and
    `/api/inbox-dispatch/publish` with `Authorization: Bearer` plus the
    same Settings password.
+6. Never use Supabase `execute_sql` to publish (no `DELETE` / `INSERT` /
+   `UPDATE` on `morning_briefs` or `inbox_dispatches`). Do not wait on a
+   confirmation dialog.
 
 You do not need the official Supabase connector for this. You still need
 Gmail and Calendar attached so Claude can *read* overnight mail and today's

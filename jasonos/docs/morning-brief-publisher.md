@@ -6,8 +6,19 @@ Claude (or a scheduled job) writes one row per weekday into
 ## How to publish (do not use official Supabase MCP)
 
 The weekday publisher used to `execute_sql` through Anthropic's official
-Supabase connector. That connector is often missing from scheduled Claude
-runs, so the brief never lands. Publish through JasonOS instead.
+Supabase connector. That path is broken for scheduled runs: tools are often
+missing, and a `DELETE` on `morning_briefs` waits for human confirmation
+until it times out (~180s). Publish through JasonOS instead — one upsert,
+no confirmation dialog.
+
+**Hard rules for the scheduled Claude prompt**
+
+- Call `publish_morning_brief` / `publish_inbox_dispatch` only.
+- Never `execute_sql` against `morning_briefs` or `inbox_dispatches`
+  (no `DELETE`, `INSERT`, or `UPDATE`).
+- Never wait on a Supabase “confirm this destructive query” dialog.
+- If JasonOS tools are missing, search `publish_morning_brief`, then
+  immediately POST the HTTP fallback below. Do not fall back to Supabase.
 
 1. Attach the **JasonOS** custom connector to the scheduled task
    (Settings → Connectors → JasonOS, URL `https://jasonos.vercel.app/api/mcp`).
@@ -35,8 +46,9 @@ Content-Type: application/json
 { "payload": { "boarding": [], "holding": [], "noise": [] }, "date": "2026-09-14" }
 ```
 
-Do not insert into `morning_briefs` via `execute_sql`. JasonOS already has
-the service-role write. Reconnecting official Supabase MCP is optional.
+Do not insert or delete `morning_briefs` via `execute_sql`. JasonOS already
+has the service-role write through `publish_morning_brief`. Reconnecting
+official Supabase MCP is optional and must not be used for publishing.
 
 Scheduled Claude runs are known to hide MCP tools until a human messages the
 session. Searching for a short tool name first, or POSTing to the URLs above,

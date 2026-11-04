@@ -358,6 +358,12 @@ describe("JasonOS area map", () => {
     assert.match(JASONOS_MCP_INSTRUCTIONS, /run_ai_help/);
     assert.match(JASONOS_MCP_INSTRUCTIONS, /review_run/);
   });
+
+  it("bans Supabase execute_sql deletes for morning brief publish", () => {
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /publish_morning_brief/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /Never use Supabase execute_sql/i);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /pending confirmation/i);
+  });
 });
 
 describe("publisher date and payload helpers", () => {
