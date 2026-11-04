@@ -85,7 +85,8 @@ export function applyScoreRules(input: ScoreInput): ScoreResult {
   let nextAction = blank(input.nextAction);
   const firstDegree = input.linkedinDegree === "1st";
   if (firstDegree) {
-    tier = "tier2";
+    // Classifier forces lane already_connected; keep them off tier1 here too.
+    tier = "none";
     nextAction = REACTIVATE;
   }
   const why = tier === "tier1" || tier === "tier2" ? blank(input.why) : null;
@@ -104,6 +105,25 @@ export function applyScoreRules(input: ScoreInput): ScoreResult {
   };
 }
 
+function alreadyConnectedRow(
+  id: string,
+  title: string | null,
+  company: string | null,
+  why: string | null
+): ClassifiedCandidate {
+  return {
+    id,
+    lane: "already_connected",
+    bucket: "not_relevant",
+    tier: "none",
+    title,
+    company,
+    why,
+    ask: null,
+    nextAction: REACTIVATE,
+  };
+}
+
 /** Classify every captured person from the model picks. Cap tier1 at three. */
 export function classifyCandidates(
   people: { id: string; linkedinDegree: string | null }[],
@@ -116,6 +136,13 @@ export function classifyCandidates(
   for (const pick of picks) {
     if (!pick.id || !byId.has(pick.id) || classified.has(pick.id)) continue;
     const person = byId.get(pick.id)!;
+    if (person.linkedinDegree === "1st") {
+      classified.set(
+        pick.id,
+        alreadyConnectedRow(pick.id, blank(pick.title), blank(pick.company), blank(pick.why))
+      );
+      continue;
+    }
     const scored = applyScoreRules({
       linkedinDegree: person.linkedinDegree,
       bucket: pick.bucket,
@@ -133,16 +160,24 @@ export function classifyCandidates(
     let ask = scored.ask;
     let nextAction = scored.nextAction;
 
+    if (lane === "already_connected") {
+      classified.set(
+        pick.id,
+        alreadyConnectedRow(pick.id, scored.title, scored.company, why)
+      );
+      continue;
+    }
+
     if (lane === "none" || lane === "unassigned") {
       lane = "none";
       tier = "none";
       why = null;
       ask = null;
-      if (person.linkedinDegree !== "1st") nextAction = null;
+      nextAction = null;
     } else if (tier === "tier1" && (!why || !ask || !isNamedCompany(scored.company))) {
       tier = "tier2";
       ask = null;
-      if (person.linkedinDegree !== "1st") nextAction = null;
+      nextAction = null;
     }
 
     if (tier === "tier1") tier1Order.push(pick.id);
@@ -168,12 +203,16 @@ export function classifyCandidates(
     if (keptTier1 > INTRO_RECOMMENDATION_LIMIT) {
       row.tier = "tier2";
       row.ask = null;
-      if (byId.get(id)?.linkedinDegree !== "1st") row.nextAction = null;
+      row.nextAction = null;
     }
   }
 
   for (const person of people) {
     if (classified.has(person.id)) continue;
+    if (person.linkedinDegree === "1st") {
+      classified.set(person.id, alreadyConnectedRow(person.id, null, null, null));
+      continue;
+    }
     classified.set(person.id, {
       id: person.id,
       lane: "none",
@@ -183,7 +222,7 @@ export function classifyCandidates(
       company: null,
       why: null,
       ask: null,
-      nextAction: person.linkedinDegree === "1st" ? REACTIVATE : null,
+      nextAction: null,
     });
   }
 

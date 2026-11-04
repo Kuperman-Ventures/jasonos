@@ -374,7 +374,13 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
       (person) => person.tier === "tier2" && person.lane === lane
     ),
   }));
-  const skippedCount = (screen?.candidates ?? []).filter((person) => person.lane === "none").length;
+  const alreadyConnected = (screen?.candidates ?? []).filter(
+    (person) => person.lane === "already_connected" || person.linkedinDegree === "1st"
+  );
+  const skippedCount = (screen?.candidates ?? []).filter(
+    (person) => person.lane === "none" && person.linkedinDegree !== "1st"
+  ).length;
+  const isOverlapOnly = screen?.status === "overlap_only";
 
   function saveQueueStatus(person: NetworkScreenCandidate, queueStatus: QueueStatus) {
     if (person.queueStatus === queueStatus) return;
@@ -721,11 +727,17 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
             </div>
           ) : (
             <>
-              <p className="text-sm">
-                {screen.totalCountLabel
-                  ? `Read ${screen.visibleCount} of ${screen.totalCountLabel} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`
-                  : `Read ${screen.visibleCount} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`}
-              </p>
+              {isOverlapOnly ? (
+                <p className="rounded-lg border border-dashed px-3 py-2 text-sm">
+                  LinkedIn only exposed mutual connections. No new intro targets on this screen.
+                </p>
+              ) : (
+                <p className="text-sm">
+                  {screen.totalCountLabel
+                    ? `Read ${screen.visibleCount} of ${screen.totalCountLabel} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`
+                    : `Read ${screen.visibleCount} connections. These are the people to ask ${screen.connectorName} to introduce you to. Useful others stay on the bench.`}
+                </p>
+              )}
 
               <ol className="space-y-4">
                 {recommendations.map((person, index) => (
@@ -774,64 +786,90 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   </li>
                 ))}
               </ol>
-              {recommendations.length === 0 ? (
+              {recommendations.length === 0 && !isOverlapOnly ? (
                 <p className="text-sm text-muted-foreground">No intro recommendations yet.</p>
               ) : null}
 
-              <div className="space-y-3">
-                <h3 className="font-semibold">Bench</h3>
-                {benchGroups.map((group) => (
-                  <details key={group.lane} className="rounded-lg border">
-                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-                      {group.label} ({group.people.length})
-                    </summary>
-                    <ul className="divide-y border-t">
-                      {group.people.length === 0 ? (
-                        <li className="px-3 py-2 text-sm text-muted-foreground">No one in this lane.</li>
-                      ) : (
-                        group.people.map((person) => (
-                          <li key={person.id} className="space-y-2 px-3 py-3">
-                            <div>
-                              <p className="font-medium">{person.name}</p>
-                              <p className="truncate text-sm text-muted-foreground">
-                                {[person.title, person.company, person.headline]
-                                  .filter(Boolean)
-                                  .join(" · ") || "No headline captured"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {BUCKET_LABELS[person.bucket]}
-                              </p>
-                            </div>
-                            {person.why ? (
-                              <p className="text-sm">{person.why}</p>
-                            ) : null}
-                            <label className="block space-y-1 text-sm">
-                              <span className="font-medium">Status</span>
-                              <select
-                                className={selectClass}
-                                value={person.queueStatus}
-                                onChange={(event) =>
-                                  saveQueueStatus(person, event.target.value as QueueStatus)
-                                }
-                              >
-                                {QUEUE_STATUSES.map((status) => (
-                                  <option key={status} value={status}>
-                                    {QUEUE_STATUS_LABELS[status]}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </details>
-                ))}
-                <p className="text-sm text-muted-foreground">
-                  {skippedCount} {skippedCount === 1 ? "person" : "people"} skipped
-                </p>
-              </div>
+              {!isOverlapOnly ? (
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Bench</h3>
+                  {benchGroups.map((group) => (
+                    <details key={group.lane} className="rounded-lg border">
+                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                        {group.label} ({group.people.length})
+                      </summary>
+                      <ul className="divide-y border-t">
+                        {group.people.length === 0 ? (
+                          <li className="px-3 py-2 text-sm text-muted-foreground">No one in this lane.</li>
+                        ) : (
+                          group.people.map((person) => (
+                            <li key={person.id} className="space-y-2 px-3 py-3">
+                              <div>
+                                <p className="font-medium">{person.name}</p>
+                                <p className="truncate text-sm text-muted-foreground">
+                                  {[person.title, person.company, person.headline]
+                                    .filter(Boolean)
+                                    .join(" · ") || "No headline captured"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {BUCKET_LABELS[person.bucket]}
+                                </p>
+                              </div>
+                              {person.why ? (
+                                <p className="text-sm">{person.why}</p>
+                              ) : null}
+                              <label className="block space-y-1 text-sm">
+                                <span className="font-medium">Status</span>
+                                <select
+                                  className={selectClass}
+                                  value={person.queueStatus}
+                                  onChange={(event) =>
+                                    saveQueueStatus(person, event.target.value as QueueStatus)
+                                  }
+                                >
+                                  {QUEUE_STATUSES.map((status) => (
+                                    <option key={status} value={status}>
+                                      {QUEUE_STATUS_LABELS[status]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </details>
+                  ))}
+                  <p className="text-sm text-muted-foreground">
+                    {skippedCount} {skippedCount === 1 ? "person" : "people"} skipped
+                  </p>
+                </div>
+              ) : null}
 
+              {alreadyConnected.length ? (
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Already connected</h3>
+                  <ul className="divide-y rounded-lg border">
+                    {alreadyConnected.map((person) => (
+                      <li key={person.id} className="space-y-1 px-3 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{person.name}</p>
+                          <span className="rounded border px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Already connected
+                          </span>
+                        </div>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {[person.title, person.company, person.headline]
+                            .filter(Boolean)
+                            .join(" · ") || "No headline captured"}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {!isOverlapOnly ? (
               <div className="space-y-3">
                 <Button
                   type="button"
@@ -974,6 +1012,7 @@ export function NetworkScreenClient({ initialScreenId }: { initialScreenId: stri
                   Done saves the three recommendations and the note. It does not send mail or mark the intro requested.
                 </p>
               </div>
+              ) : null}
             </>
           )}
         </section>

@@ -23,9 +23,9 @@ describe("applyScoreRules", () => {
       ask: "Intro to the CEO",
       nextAction: "Ask for the intro",
     });
-    assert.equal(scored.tier, "tier2");
+    assert.equal(scored.tier, "none");
     assert.equal(scored.nextAction, "Reactivate directly");
-    assert.equal(scored.why, "They hire CMOs");
+    assert.equal(scored.why, null);
     assert.equal(scored.ask, null);
   });
 
@@ -101,15 +101,27 @@ describe("classifyCandidates", () => {
     assert.equal(row?.ask, null);
   });
 
-  it("forces 1st degree to tier2 with reactivate", () => {
+  it("forces 1st degree to already_connected and off tier1", () => {
     const classified = classifyCandidates(people, [
       { id: "b", lane: "job_search", tier: "tier1", bucket: "hiring_path", title: "CEO", company: "Known", why: "Already connected", ask: "Skip" },
     ]);
     const row = classified.find((person) => person.id === "b");
-    assert.equal(row?.tier, "tier2");
+    assert.equal(row?.lane, "already_connected");
+    assert.equal(row?.tier, "none");
     assert.equal(row?.nextAction, "Reactivate directly");
     assert.equal(row?.why, "Already connected");
     assert.equal(row?.ask, null);
+    assert.equal(classified.filter((person) => person.tier === "tier1").length, 0);
+  });
+
+  it("marks unclassified 1st-degree people as already_connected", () => {
+    const classified = classifyCandidates(people, [
+      { id: "a", lane: "job_search", tier: "tier1", bucket: "hiring_path", title: "CEO", company: "Acme", why: "Hires the marketing seat", ask: "Ask for an intro" },
+    ]);
+    const first = classified.find((person) => person.id === "b");
+    assert.equal(first?.lane, "already_connected");
+    assert.equal(first?.tier, "none");
+    assert.equal(first?.nextAction, "Reactivate directly");
   });
 
   it("marks skipped people as lane none", () => {

@@ -125,7 +125,12 @@ export function registerNetworkScreenTools(server: McpServer) {
             advisors: benchPeople.filter((person) => person.lane === "advisors").map(benchSlim),
             industry: benchPeople.filter((person) => person.lane === "industry").map(benchSlim),
           },
-          skipped_count: screen.candidates.filter((person) => person.lane === "none").length,
+          already_connected_count: screen.candidates.filter(
+            (person) => person.lane === "already_connected" || person.linkedinDegree === "1st"
+          ).length,
+          skipped_count: screen.candidates.filter(
+            (person) => person.lane === "none" && person.linkedinDegree !== "1st"
+          ).length,
           draft:
             screen.draftSubject || screen.draftBody
               ? { subject: screen.draftSubject, body: screen.draftBody }

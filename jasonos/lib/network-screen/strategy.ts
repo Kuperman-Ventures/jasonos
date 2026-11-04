@@ -33,7 +33,7 @@ Rules:
 - If a person fits two lanes, pick the one with the more concrete near-term ask. A B2B SaaS CEO at a 40-person company is advisors. A CEO at a 500-person company is job_search.
 - Company size is not in the data. Use only signals in the headline (Series A, seed, PE-backed, public, startup, founder, "10x growth", named large company). Do not guess ARR. When the headline gives no size signal, do not put the person in advisors, and do not put the person in job_search tier1.
 - Never justify a recruiter with "cross-referral", "adjacent network", "broad network", or "may know hiring managers". Those phrases mean the fit is not there. Mark tier2 or none.
-- Skip anyone with linkedin_degree 1st for the intro ask. Mark them tier2, next_action "Reactivate directly", lane by the same rules.
+- Skip anyone with linkedin_degree 1st. Do not return them. Code marks them lane already_connected and keeps them off tier1.
 - tier2 is everyone else you return. Write a one-sentence why for each. No ask for tier2.
 
 Buckets by lane:
