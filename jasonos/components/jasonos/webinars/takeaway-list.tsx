@@ -5,8 +5,12 @@ import type { WebinarTakeawayRow } from "@/lib/webinars/store";
 
 export function TakeawayList({
   takeaways,
+  sessionTopicSlug = null,
+  topicNames = {},
 }: {
   takeaways: WebinarTakeawayRow[];
+  sessionTopicSlug?: string | null;
+  topicNames?: Record<string, string>;
 }) {
   if (!takeaways.length) {
     return (
@@ -20,6 +24,11 @@ export function TakeawayList({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm text-foreground">{t.text}</p>
             {t.track ? <TrackPill track={t.track as Track} /> : null}
+            {t.topic_slug && t.topic_slug !== sessionTopicSlug ? (
+              <span className="text-xs text-muted-foreground">
+                {topicNames[t.topic_slug] ?? t.topic_slug}
+              </span>
+            ) : null}
             {t.is_action ? (
               t.card_id ? (
                 <Link

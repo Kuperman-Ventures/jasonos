@@ -12,6 +12,7 @@ import {
   type DetectedWebinarSession,
   type WebinarNote,
 } from "./detect";
+import { resolveTopicAssignment, type ActiveTopic } from "./topics";
 
 const TRANSCRIPT_PER_SESSION_CAP = 80_000;
 const TRANSCRIPT_TOTAL_CAP = 300_000;
@@ -34,6 +35,7 @@ const speakerSchema = z.object({
 
 const takeawaySchema = z.object({
   text: z.string().min(1).max(2_000),
+  topic_slug: z.string().min(1).max(60).optional(),
   track: z
     .enum(["venture", "advisors", "job_search", "personal"])
     .nullable()
@@ -45,9 +47,17 @@ const takeawaySchema = z.object({
 export const publishSessionSchema = z.object({
   session_key: z.string().min(1).max(200),
   title: z.string().min(1).max(300),
+  topic_slug: z.string().min(1).max(60),
   host_org: z.string().max(200).optional().default(""),
   speakers: z.array(speakerSchema).max(40).optional().default([]),
   summary_md: z.string().max(50_000).optional().default(""),
+  proposed_topic: z
+    .object({
+      slug: z.string().min(1).max(60),
+      name: z.string().min(1).max(80),
+      reason: z.string().max(500),
+    })
+    .optional(),
   takeaways: z.array(takeawaySchema).max(40),
 });
 
@@ -70,6 +80,7 @@ export type WebinarSessionRow = {
   detection: string;
   status: "candidate" | "confirmed" | "dismissed";
   summary_md: string;
+  topic_slug: string | null;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -80,11 +91,31 @@ export type WebinarTakeawayRow = {
   session_id: string;
   sort_order: number;
   text: string;
+  topic_slug: string | null;
   track: Track | null;
   relevance_note: string;
   is_action: boolean;
   card_id: string | null;
   created_at: string;
+};
+
+export type WebinarTopicStatus = "active" | "proposed" | "archived";
+
+export type WebinarTopicRow = {
+  slug: string;
+  name: string;
+  description: string;
+  sort_order: number;
+  status: WebinarTopicStatus;
+  proposed_reason: string;
+  merged_into: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WebinarTopicWithCounts = WebinarTopicRow & {
+  session_count: number;
+  takeaway_count: number;
 };
 
 export type WebinarDigestRow = {
@@ -398,8 +429,51 @@ export async function setWebinarSessionStatus(input: {
   return { ok: true as const, session: data as WebinarSessionRow };
 }
 
+async function loadActiveTopics(): Promise<ActiveTopic[]> {
+  const { data, error } = await jasonosDb()
+    .from("webinar_topics")
+    .select("slug, name")
+    .eq("status", "active")
+    .order("sort_order", { ascending: true });
+  if (error) fail(error);
+  return (data ?? []) as ActiveTopic[];
+}
+
+async function insertProposedTopicIfNew(proposed: {
+  slug: string;
+  name: string;
+  proposed_reason: string;
+}) {
+  const sb = jasonosDb();
+  const { data: existing, error: readErr } = await sb
+    .from("webinar_topics")
+    .select("slug")
+    .eq("slug", proposed.slug)
+    .maybeSingle();
+  if (readErr) fail(readErr);
+  if (existing) return;
+  const { error } = await sb.from("webinar_topics").insert({
+    slug: proposed.slug,
+    name: proposed.name,
+    description: "",
+    sort_order: 0,
+    status: "proposed",
+    proposed_reason: proposed.proposed_reason,
+  });
+  if (error && !/duplicate|already exists/i.test(error.message)) fail(error);
+}
+
 export async function publishWebinarSession(raw: PublishWebinarSessionInput) {
   const input = publishSessionSchema.parse(raw);
+  const activeTopics = await loadActiveTopics();
+  const assignment = resolveTopicAssignment(
+    {
+      topic_slug: input.topic_slug,
+      proposed_topic: input.proposed_topic ?? null,
+      takeaways: input.takeaways,
+    },
+    activeTopics
+  );
   const sb = jasonosDb();
   const { data: existing, error: readErr } = await sb
     .from("webinar_sessions")
@@ -410,6 +484,7 @@ export async function publishWebinarSession(raw: PublishWebinarSessionInput) {
   if (!existing) {
     throw new Error(`Unknown session_key: ${input.session_key}`);
   }
+  if (assignment.proposed) await insertProposedTopicIfNew(assignment.proposed);
   const session = existing as WebinarSessionRow;
 
   const { data: updated, error: upErr } = await sb
@@ -419,6 +494,7 @@ export async function publishWebinarSession(raw: PublishWebinarSessionInput) {
       host_org: input.host_org ?? "",
       speakers: input.speakers ?? [],
       summary_md: input.summary_md ?? "",
+      topic_slug: assignment.session_topic_slug,
       status: "confirmed",
       published_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -456,6 +532,7 @@ export async function publishWebinarSession(raw: PublishWebinarSessionInput) {
         session_id: session.id,
         sort_order: i,
         text: t.text.trim(),
+        topic_slug: assignment.takeaways[i]!.topic_slug,
         track: t.track ?? null,
         relevance_note: t.relevance_note ?? "",
         is_action: Boolean(t.is_action),
@@ -609,14 +686,30 @@ export type WebinarsPageWeek = {
   candidates: WebinarSessionRow[];
 };
 
+/** Monday–Sunday windows ending with the current week. `weeks: 1` is this week. */
+function reportingWindow(weeks: number) {
+  const weekCount = Math.max(1, Math.min(12, weeks));
+  const thisMonday = mondayStartOfWeekYmd(etYmd());
+  const oldest = addDaysYmd(thisMonday, -(weekCount - 1) * 7);
+  const newestEnd = addDaysYmd(thisMonday, 6);
+  return { weekCount, thisMonday, oldest, newestEnd };
+}
+
+function isPublished(session: { status: string; published_at: string | null }): boolean {
+  return session.status === "confirmed" && Boolean(session.published_at);
+}
+
+function isCandidate(session: { status: string; published_at: string | null }): boolean {
+  return (
+    session.status === "candidate" ||
+    (session.status === "confirmed" && !session.published_at)
+  );
+}
+
 export async function getWebinarsPage(input: { weeks?: number } = {}): Promise<{
   weeks: WebinarsPageWeek[];
 }> {
-  const weekCount = Math.max(1, Math.min(12, input.weeks ?? 4));
-  const today = etYmd();
-  const thisMonday = mondayStartOfWeekYmd(today);
-  const oldest = addDaysYmd(thisMonday, -(weekCount - 1) * 7);
-  const newestEnd = addDaysYmd(thisMonday, 6);
+  const { weekCount, thisMonday, oldest, newestEnd } = reportingWindow(input.weeks ?? 4);
 
   const sb = jasonosDb();
   const { data: digests, error: dErr } = await sb
@@ -636,9 +729,7 @@ export async function getWebinarsPage(input: { weeks?: number } = {}): Promise<{
   if (sErr) fail(sErr);
 
   const sessionRows = (sessions ?? []) as WebinarSessionRow[];
-  const confirmedIds = sessionRows
-    .filter((s) => s.status === "confirmed" && s.published_at)
-    .map((s) => s.id);
+  const confirmedIds = sessionRows.filter((s) => isPublished(s)).map((s) => s.id);
   let takeaways: WebinarTakeawayRow[] = [];
   if (confirmedIds.length) {
     const { data: takes, error: tErr } = await sb
@@ -662,16 +753,12 @@ export async function getWebinarsPage(input: { weeks?: number } = {}): Promise<{
       (s) => s.session_date >= week_start && s.session_date <= week_end
     );
     const confirmed = inWeek
-      .filter((s) => s.status === "confirmed" && s.published_at)
+      .filter((s) => isPublished(s))
       .map((s) => ({
         ...s,
         takeaways: takeaways.filter((t) => t.session_id === s.id),
       }));
-    const candidates = inWeek.filter(
-      (s) =>
-        s.status === "candidate" ||
-        (s.status === "confirmed" && !s.published_at)
-    );
+    const candidates = inWeek.filter((s) => isCandidate(s));
     const mon = new Date(`${week_start}T12:00:00Z`);
     const week_label = `Week of ${mon.toLocaleDateString("en-US", {
       month: "short",
@@ -687,4 +774,387 @@ export async function getWebinarsPage(input: { weeks?: number } = {}): Promise<{
     });
   }
   return { weeks };
+}
+
+const TOPIC_STATUSES = new Set<WebinarTopicStatus>(["active", "proposed", "archived"]);
+
+export async function listWebinarTopics(input: { include_archived?: boolean } = {}): Promise<{
+  topics: WebinarTopicWithCounts[];
+}> {
+  const sb = jasonosDb();
+  const [{ data: topics, error: topicErr }, { data: sessions, error: sessionErr }, { data: takes, error: takeErr }] =
+    await Promise.all([
+      sb.from("webinar_topics").select("*").order("sort_order", { ascending: true }),
+      sb.from("webinar_sessions").select("id, topic_slug, status, published_at"),
+      sb.from("webinar_takeaways").select("topic_slug, session_id"),
+    ]);
+  if (topicErr) fail(topicErr);
+  if (sessionErr) fail(sessionErr);
+  if (takeErr) fail(takeErr);
+
+  const sessionRows = (sessions ?? []) as Array<
+    Pick<WebinarSessionRow, "id" | "topic_slug" | "status" | "published_at">
+  >;
+  const publishedIds = new Set(
+    sessionRows.filter((session) => isPublished(session)).map((session) => session.id)
+  );
+  const sessionCount = new Map<string, number>();
+  for (const session of sessionRows) {
+    if (!session.topic_slug || !publishedIds.has(session.id)) continue;
+    sessionCount.set(session.topic_slug, (sessionCount.get(session.topic_slug) ?? 0) + 1);
+  }
+  const takeawayCount = new Map<string, number>();
+  for (const takeaway of (takes ?? []) as Array<{ topic_slug: string | null; session_id: string }>) {
+    if (!takeaway.topic_slug || !publishedIds.has(takeaway.session_id)) continue;
+    takeawayCount.set(
+      takeaway.topic_slug,
+      (takeawayCount.get(takeaway.topic_slug) ?? 0) + 1
+    );
+  }
+
+  const rows = ((topics ?? []) as WebinarTopicRow[])
+    .filter((topic) => input.include_archived || topic.status !== "archived")
+    .map((topic) => ({
+      ...topic,
+      session_count: sessionCount.get(topic.slug) ?? 0,
+      takeaway_count: takeawayCount.get(topic.slug) ?? 0,
+    }));
+  return { topics: rows };
+}
+
+export async function upsertWebinarTopic(input: {
+  slug: string;
+  name: string;
+  description: string;
+  sort_order: number;
+  status: WebinarTopicStatus;
+}): Promise<WebinarTopicRow> {
+  const slug = input.slug.trim();
+  const name = input.name.trim();
+  if (!slug || slug.length > 60) throw new Error("Slug must be 1-60 characters.");
+  if (!name || name.length > 80) throw new Error("Name must be 1-80 characters.");
+  if (!TOPIC_STATUSES.has(input.status)) {
+    throw new Error("Status must be active, proposed, or archived.");
+  }
+  const description = (input.description ?? "").slice(0, 2_000);
+  const sort_order = Number.isFinite(input.sort_order) ? Math.trunc(input.sort_order) : 0;
+  const sb = jasonosDb();
+  const { data: existing, error: readErr } = await sb
+    .from("webinar_topics")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (readErr) fail(readErr);
+  const patch = {
+    name,
+    description,
+    sort_order,
+    status: input.status,
+    updated_at: new Date().toISOString(),
+  };
+  if (existing) {
+    const { data, error } = await sb
+      .from("webinar_topics")
+      .update(patch)
+      .eq("slug", slug)
+      .select("*")
+      .single();
+    if (error) fail(error);
+    return data as WebinarTopicRow;
+  }
+  const { data, error } = await sb
+    .from("webinar_topics")
+    .insert({ slug, ...patch })
+    .select("*")
+    .single();
+  if (error) fail(error);
+  return data as WebinarTopicRow;
+}
+
+export async function acceptProposedTopic(input: { slug: string }): Promise<WebinarTopicRow> {
+  const slug = input.slug.trim();
+  const sb = jasonosDb();
+  const { data: topic, error: readErr } = await sb
+    .from("webinar_topics")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (readErr) fail(readErr);
+  if (!topic) throw new Error(`Unknown topic "${slug}".`);
+  const row = topic as WebinarTopicRow;
+  if (row.status !== "proposed") throw new Error(`Topic "${slug}" is not proposed.`);
+  const { data: maxRow, error: maxErr } = await sb
+    .from("webinar_topics")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (maxErr) fail(maxErr);
+  const sort_order = ((maxRow as { sort_order?: number } | null)?.sort_order ?? 0) + 10;
+  const { data, error } = await sb
+    .from("webinar_topics")
+    .update({
+      status: "active",
+      sort_order,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("slug", slug)
+    .select("*")
+    .single();
+  if (error) fail(error);
+  return data as WebinarTopicRow;
+}
+
+export async function mergeTopic(input: {
+  from_slug: string;
+  into_slug: string;
+}): Promise<{ from: WebinarTopicRow; into_slug: string }> {
+  const fromSlug = input.from_slug.trim();
+  const intoSlug = input.into_slug.trim();
+  if (!fromSlug || !intoSlug) throw new Error("Choose a topic to merge and a topic to keep.");
+  if (fromSlug === intoSlug) throw new Error("Pick a different topic to merge into.");
+  const sb = jasonosDb();
+  const { data: rows, error: readErr } = await sb
+    .from("webinar_topics")
+    .select("*")
+    .in("slug", [fromSlug, intoSlug]);
+  if (readErr) fail(readErr);
+  const topics = (rows ?? []) as WebinarTopicRow[];
+  const from = topics.find((topic) => topic.slug === fromSlug);
+  const into = topics.find((topic) => topic.slug === intoSlug);
+  if (!from) throw new Error(`Unknown topic "${fromSlug}".`);
+  if (!into) throw new Error(`Unknown topic "${intoSlug}".`);
+  if (into.status !== "active") throw new Error("Merge into an active topic.");
+
+  const now = new Date().toISOString();
+  const { error: sessionErr } = await sb
+    .from("webinar_sessions")
+    .update({ topic_slug: intoSlug, updated_at: now })
+    .eq("topic_slug", fromSlug);
+  if (sessionErr) fail(sessionErr);
+  const { error: takeErr } = await sb
+    .from("webinar_takeaways")
+    .update({ topic_slug: intoSlug })
+    .eq("topic_slug", fromSlug);
+  if (takeErr) fail(takeErr);
+  const { data: archived, error: topicErr } = await sb
+    .from("webinar_topics")
+    .update({
+      status: "archived",
+      merged_into: intoSlug,
+      updated_at: now,
+    })
+    .eq("slug", fromSlug)
+    .select("*")
+    .single();
+  if (topicErr) fail(topicErr);
+  return { from: archived as WebinarTopicRow, into_slug: intoSlug };
+}
+
+export async function archiveWebinarTopic(input: { slug: string }): Promise<WebinarTopicRow> {
+  const slug = input.slug.trim();
+  const sb = jasonosDb();
+  const [{ data: sessions, error: sessionErr }, { data: takes, error: takeErr }] = await Promise.all([
+    sb.from("webinar_sessions").select("id").eq("topic_slug", slug).limit(1),
+    sb.from("webinar_takeaways").select("id").eq("topic_slug", slug).limit(1),
+  ]);
+  if (sessionErr) fail(sessionErr);
+  if (takeErr) fail(takeErr);
+  if ((sessions ?? []).length || (takes ?? []).length) {
+    throw new Error("Merge this topic into another one first.");
+  }
+  const { data: existing, error: existingErr } = await sb
+    .from("webinar_topics")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (existingErr) fail(existingErr);
+  if (!existing) throw new Error(`Unknown topic "${slug}".`);
+  const { data, error } = await sb
+    .from("webinar_topics")
+    .update({ status: "archived", updated_at: new Date().toISOString() })
+    .eq("slug", slug)
+    .select("*")
+    .single();
+  if (error) fail(error);
+  return data as WebinarTopicRow;
+}
+
+export type WebinarsByTopic = {
+  topics: Array<
+    WebinarTopicRow & {
+      sessions: Array<WebinarSessionRow & { takeaways: WebinarTakeawayRow[] }>;
+    }
+  >;
+  proposed: WebinarTopicRow[];
+  candidates: WebinarSessionRow[];
+  digest: WebinarDigestRow | null;
+};
+
+export async function getWebinarsByTopic(input: { weeks?: number | null } = {}): Promise<WebinarsByTopic> {
+  const thisMonday = mondayStartOfWeekYmd(etYmd());
+  const currentWeekEnd = addDaysYmd(thisMonday, 6);
+  const bounded = typeof input.weeks === "number";
+  const range = bounded ? reportingWindow(input.weeks as number) : null;
+  const candidateWindow = reportingWindow(4);
+  const sb = jasonosDb();
+
+  let sessionQuery = sb
+    .from("webinar_sessions")
+    .select("*")
+    .order("session_date", { ascending: false })
+    .order("started_at", { ascending: false });
+  if (range) {
+    const from = range.oldest < candidateWindow.oldest ? range.oldest : candidateWindow.oldest;
+    sessionQuery = sessionQuery.gte("session_date", from).lte("session_date", currentWeekEnd);
+  }
+
+  const [{ data: topicRows, error: topicErr }, { data: digest, error: digestErr }, { data: sessions, error: sessionErr }] =
+    await Promise.all([
+      sb.from("webinar_topics").select("*").order("sort_order", { ascending: true }),
+      sb.from("webinar_digests").select("*").eq("week_start", thisMonday).maybeSingle(),
+      sessionQuery,
+    ]);
+  if (topicErr) fail(topicErr);
+  if (digestErr) fail(digestErr);
+  if (sessionErr) fail(sessionErr);
+
+  const allTopics = (topicRows ?? []) as WebinarTopicRow[];
+  const sessionRows = (sessions ?? []) as WebinarSessionRow[];
+  const inRange = (session: WebinarSessionRow) => {
+    if (!range) return true;
+    return session.session_date >= range.oldest && session.session_date <= range.newestEnd;
+  };
+  const published = sessionRows.filter((session) => isPublished(session) && inRange(session));
+  const publishedIds = published.map((session) => session.id);
+  let takeaways: WebinarTakeawayRow[] = [];
+  if (publishedIds.length) {
+    const { data: takes, error: takeErr } = await sb
+      .from("webinar_takeaways")
+      .select("*")
+      .in("session_id", publishedIds)
+      .order("sort_order", { ascending: true });
+    if (takeErr) fail(takeErr);
+    takeaways = (takes ?? []) as WebinarTakeawayRow[];
+  }
+
+  const byTopic = new Map<string, Array<WebinarSessionRow & { takeaways: WebinarTakeawayRow[] }>>();
+  for (const session of published) {
+    if (!session.topic_slug) continue;
+    const list = byTopic.get(session.topic_slug) ?? [];
+    list.push({
+      ...session,
+      takeaways: takeaways.filter((takeaway) => takeaway.session_id === session.id),
+    });
+    byTopic.set(session.topic_slug, list);
+  }
+
+  const topics = allTopics
+    .filter((topic) => (byTopic.get(topic.slug)?.length ?? 0) > 0)
+    .map((topic) => ({ ...topic, sessions: byTopic.get(topic.slug) ?? [] }));
+
+  const candidates = sessionRows.filter(
+    (session) =>
+      isCandidate(session) &&
+      session.session_date >= candidateWindow.oldest &&
+      session.session_date <= candidateWindow.newestEnd
+  );
+
+  return {
+    topics,
+    proposed: allTopics.filter((topic) => topic.status === "proposed"),
+    candidates,
+    digest: (digest as WebinarDigestRow | null) ?? null,
+  };
+}
+
+export type TopicTakeawayView = {
+  id: string;
+  text: string;
+  topic_slug: string | null;
+  track: Track | null;
+  relevance_note: string;
+  is_action: boolean;
+  card_id: string | null;
+  created_at: string;
+  session_id: string;
+  session_title: string;
+  session_date: string;
+  transcript_url: string | null;
+};
+
+export async function getTopicPage(input: {
+  slug: string;
+  weeks?: number | null;
+}): Promise<{
+  topic: WebinarTopicRow;
+  takeaway_count: number;
+  session_count: number;
+  takeaways: TopicTakeawayView[];
+} | null> {
+  const slug = input.slug.trim();
+  const sb = jasonosDb();
+  const { data: topic, error: topicErr } = await sb
+    .from("webinar_topics")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (topicErr) fail(topicErr);
+  if (!topic) return null;
+
+  const range = typeof input.weeks === "number" ? reportingWindow(input.weeks) : null;
+  const { data: takes, error: takeErr } = await sb
+    .from("webinar_takeaways")
+    .select("id, text, topic_slug, track, relevance_note, is_action, card_id, created_at, session_id")
+    .eq("topic_slug", slug)
+    .order("created_at", { ascending: false });
+  if (takeErr) fail(takeErr);
+  const takeRows = (takes ?? []) as WebinarTakeawayRow[];
+  const sessionIds = [...new Set(takeRows.map((takeaway) => takeaway.session_id))];
+  const sessionById = new Map<string, Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url">>();
+  if (sessionIds.length) {
+    const { data: sessions, error: sessionErr } = await sb
+      .from("webinar_sessions")
+      .select("id, title, session_date, transcript_url")
+      .in("id", sessionIds);
+    if (sessionErr) fail(sessionErr);
+    for (const session of (sessions ?? []) as Array<
+      Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url">
+    >) {
+      sessionById.set(session.id, session);
+    }
+  }
+
+  const takeaways: TopicTakeawayView[] = [];
+  for (const row of takeRows) {
+    const session = sessionById.get(row.session_id);
+    if (!session) continue;
+    if (
+      range &&
+      (session.session_date < range.oldest || session.session_date > range.newestEnd)
+    ) {
+      continue;
+    }
+    takeaways.push({
+      id: row.id,
+      text: row.text,
+      topic_slug: row.topic_slug,
+      track: row.track,
+      relevance_note: row.relevance_note,
+      is_action: row.is_action,
+      card_id: row.card_id,
+      created_at: row.created_at,
+      session_id: row.session_id,
+      session_title: session.title,
+      session_date: session.session_date,
+      transcript_url: session.transcript_url,
+    });
+  }
+
+  return {
+    topic: topic as WebinarTopicRow,
+    takeaway_count: takeaways.length,
+    session_count: new Set(takeaways.map((takeaway) => takeaway.session_id)).size,
+    takeaways,
+  };
 }

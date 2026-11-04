@@ -50,6 +50,7 @@ export function listJasonosAreas() {
       {
         area: "webinars",
         tools: [
+          "list_webinar_topics",
           "list_webinar_candidates",
           "publish_webinar_session",
           "set_webinar_session_status",

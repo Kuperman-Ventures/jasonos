@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const status = /invalid|must be|Send a JSON|not valid JSON|empty|cannot be|kind must|Unknown session|week_start/.test(
+    const status = /invalid|must be|Send a JSON|not valid JSON|empty|cannot be|kind must|Unknown session|Unknown topic|topic_slug|week_start/.test(
       message
     )
       ? 400

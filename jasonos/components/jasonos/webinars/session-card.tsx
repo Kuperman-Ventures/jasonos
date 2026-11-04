@@ -36,9 +36,11 @@ function speakersLine(speakers: unknown): string | null {
 export function SessionCard({
   session,
   takeaways,
+  topicNames = {},
 }: {
   session: WebinarSessionRow;
   takeaways: WebinarTakeawayRow[];
+  topicNames?: Record<string, string>;
 }) {
   const speakers = speakersLine(session.speakers);
   return (
@@ -68,7 +70,11 @@ export function SessionCard({
           </ReactMarkdown>
         </div>
       ) : null}
-      <TakeawayList takeaways={takeaways} />
+      <TakeawayList
+        takeaways={takeaways}
+        sessionTopicSlug={session.topic_slug}
+        topicNames={topicNames}
+      />
     </article>
   );
 }

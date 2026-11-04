@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   getWebinarDigest,
+  listWebinarTopics,
   publishSessionSchema,
   publishWebinarDigest,
   publishWebinarSession,
@@ -11,6 +12,7 @@ import {
 import { runTool } from "./result";
 
 export const WEBINAR_TOOL_NAMES = [
+  "list_webinar_topics",
   "list_webinar_candidates",
   "publish_webinar_session",
   "set_webinar_session_status",
@@ -20,11 +22,31 @@ export const WEBINAR_TOOL_NAMES = [
 
 export function registerWebinarTools(server: McpServer) {
   server.registerTool(
+    "list_webinar_topics",
+    {
+      title: "List webinar topics",
+      description:
+        "Webinar topics ordered by sort_order, with session_count and takeaway_count for confirmed published sessions. Archived topics are omitted unless include_archived is true. publish_webinar_session only accepts status active.",
+      inputSchema: z.object({
+        include_archived: z.boolean().optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) =>
+      runTool(async () => {
+        const result = await listWebinarTopics({
+          include_archived: args.include_archived,
+        });
+        return { ok: true, topics: result.topics };
+      })
+  );
+
+  server.registerTool(
     "list_webinar_candidates",
     {
       title: "List webinar candidates",
       description:
-        "Scan calendar + Granola/Wispr for webinar sessions in the last N days (default 3, max 21). Returns session_key, status, detection, title, session_date, transcript (null for calendar_only, dismissed, and unconfirmed note_solo_long), notes_summary, transcript_url. Confirm note_solo_long rows on /webinars before summarizing.",
+        "Scan calendar + Granola/Wispr for webinar sessions in the last N days (default 3, max 21). Returns session_key, status, detection, title, session_date, transcript (null for calendar_only, dismissed, and unconfirmed note_solo_long), notes_summary, transcript_url, and topics (active slug, name, description). Confirm note_solo_long rows on /webinars before summarizing.",
       inputSchema: z.object({
         days: z.number().int().min(1).max(21).optional(),
       }),
@@ -32,11 +54,21 @@ export function registerWebinarTools(server: McpServer) {
     },
     async (args) =>
       runTool(async () => {
-        const result = await scanWebinarCandidates({ daysBack: args.days ?? 3 });
+        const [result, topicList] = await Promise.all([
+          scanWebinarCandidates({ daysBack: args.days ?? 3 }),
+          listWebinarTopics(),
+        ]);
         return {
           ok: true,
           days: result.days_back,
           errors: result.errors,
+          topics: topicList.topics
+            .filter((topic) => topic.status === "active")
+            .map((topic) => ({
+              slug: topic.slug,
+              name: topic.name,
+              description: topic.description,
+            })),
           sessions: result.sessions.map((s) => ({
             session_key: s.session_key,
             status: s.status,
@@ -60,7 +92,7 @@ export function registerWebinarTools(server: McpServer) {
     {
       title: "Publish webinar session",
       description:
-        "Publish a summarized webinar session. payload_json is JSON: { session_key, title, host_org?, speakers?: [{name, title?, org?}], summary_md?, takeaways: [{ text, track?: 'venture'|'advisors'|'job_search'|'personal'|null, relevance_note?, is_action? }] }. Sets status confirmed, replaces takeaways, and creates Action Queue cards for is_action takeaways.",
+        "payload_json is JSON: { session_key, title, topic_slug (required, from list_webinar_topics), host_org?, speakers?, summary_md?, proposed_topic?: { slug, name, reason }, takeaways: [{ text, topic_slug?, track?, relevance_note?, is_action? }] }. Unknown topic_slug is rejected with the active list.",
       inputSchema: z.object({
         payload_json: z.string().min(2).max(200_000),
       }),
@@ -115,7 +147,7 @@ export function registerWebinarTools(server: McpServer) {
     {
       title: "Get webinar digest",
       description:
-        "That week's digest plus confirmed sessions and takeaways. Default: Monday of the current week in America/New_York.",
+        "That week's digest plus confirmed sessions and takeaways, including topic_slug. Default: Monday of the current week in America/New_York.",
       inputSchema: z.object({
         week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       }),
