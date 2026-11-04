@@ -16,6 +16,7 @@ import {
   type ScreenSnapshot,
 } from "@/lib/network-screen/follow-import";
 import { resolveIntroFollowupDraft } from "@/lib/network-screen/followup-draft";
+import { isOverlapOnlyImport } from "@/lib/network-screen/overlap";
 import { classifyCandidates, type ClassifiedPick } from "@/lib/network-screen/score";
 import {
   BLURB_RULES,
@@ -613,7 +614,7 @@ Connector: ${screen.connectorName}${screen.connectorHeadline ? `, ${screen.conne
 Return STRICT JSON only:
 {"people":[{"id":"","lane":"job_search|advisors|industry","tier":"tier1|tier2","bucket":"","title":"","company":"","why":"","ask":""}]}
 
-Return only people on a real lane. Omit everyone else. Use ids from the list. Mark linkedin_degree 1st as tier2 with lane by the same rules.
+Return only people on a real lane. Omit everyone else. Use ids from the list. Omit linkedin_degree 1st; code marks them already_connected.
 
 Connections:
 ${JSON.stringify(payload)}`,
@@ -689,8 +690,11 @@ export async function scoreNetworkScreen({
 
   const tier1 = classified.filter((person) => person.tier === "tier1");
   const tier2 = classified.filter((person) => person.tier === "tier2");
-  const none = classified.filter((person) => person.tier === "none");
-  const ordered = [...tier1, ...tier2, ...none];
+  const alreadyConnected = classified.filter((person) => person.lane === "already_connected");
+  const none = classified.filter(
+    (person) => person.tier === "none" && person.lane !== "already_connected"
+  );
+  const ordered = [...tier1, ...tier2, ...alreadyConnected, ...none];
 
   const writes = ordered.map((person, index) =>
     sb
@@ -788,8 +792,10 @@ export async function updateCandidate({
   let tier = patch.tier && isTier(patch.tier) ? patch.tier : undefined;
   if (tier && tier !== current.tier) {
     if (current.linkedin_degree === "1st" && tier === "tier1") {
-      tier = "tier2";
+      tier = "none";
+      next.lane = "already_connected";
       next.next_action = "Reactivate directly";
+      next.ask = null;
     }
     next.tier = tier;
     next.scored_by = "user";
@@ -1447,13 +1453,18 @@ export async function importNetworkScreen(input: {
     const { error: deleteError } = await sb.from("network_screen_candidates").delete().in("id", stale);
     if (deleteError) return { ok: false, error: deleteError.message };
   }
+  const totalCountLabel = blank(input.total_count_label);
+  const overlapOnly = isOverlapOnlyImport({
+    totalCountLabel,
+    degrees: rows.map((person) => person.linkedin_degree),
+  });
   const { error: updateError } = await sb
     .from("network_screens")
     .update({
       connector_degree: asDegree(input.connector_degree),
-      total_count_label: blank(input.total_count_label),
+      total_count_label: totalCountLabel,
       visible_count: rows.length,
-      status: "captured" satisfies ScreenStatus,
+      status: (overlapOnly ? "overlap_only" : "captured") satisfies ScreenStatus,
     })
     .eq("id", input.screen_id);
   if (updateError) return { ok: false, error: updateError.message };

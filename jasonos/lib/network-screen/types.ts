@@ -11,7 +11,14 @@ export const BUCKETS = [
 ] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
-export const LANES = ["unassigned", "job_search", "advisors", "industry", "none"] as const;
+export const LANES = [
+  "unassigned",
+  "job_search",
+  "advisors",
+  "industry",
+  "already_connected",
+  "none",
+] as const;
 export type Lane = (typeof LANES)[number];
 
 export const TIERS = ["none", "tier1", "tier2"] as const;
@@ -20,6 +27,7 @@ export type Tier = (typeof TIERS)[number];
 export const SCREEN_STATUSES = [
   "awaiting_capture",
   "captured",
+  "overlap_only",
   "scored",
   "drafted",
   "requested",
@@ -57,6 +65,7 @@ export const LANE_LABELS: Record<Lane, string> = {
   job_search: "Job search",
   advisors: "Kuperman Advisors",
   industry: "Industry",
+  already_connected: "Already connected",
   none: "None",
 };
 
@@ -78,6 +87,7 @@ export const QUEUE_STATUS_LABELS: Record<QueueStatus, string> = {
 export const SCREEN_STATUS_LABELS: Record<ScreenStatus, string> = {
   awaiting_capture: "Awaiting capture",
   captured: "Captured",
+  overlap_only: "Overlap only",
   scored: "Scored",
   drafted: "Drafted",
   requested: "Requested",
