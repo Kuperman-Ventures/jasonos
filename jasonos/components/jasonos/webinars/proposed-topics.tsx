@@ -20,7 +20,11 @@ export function ProposedTopics({
 
   if (!proposed.length) return null;
 
-  const run = (key: string, action: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) => {
+  const run = (
+    key: string,
+    action: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    success: string
+  ) => {
     setBusy(key);
     startTransition(async () => {
       const result = await action();
@@ -35,16 +39,21 @@ export function ProposedTopics({
   };
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-lg font-semibold text-foreground">Proposed topics</h2>
-      <ul className="space-y-3">
+    <section>
+      <h2 className="mb-4 text-[18px] font-semibold text-[#201e1d]">Proposed topics</h2>
+      <div className="rounded-[6px] border border-[rgba(32,30,29,0.10)] bg-[#ffffff]">
         {proposed.map((topic) => {
           const into = intoBySlug[topic.slug] || activeTopics[0]?.slug || "";
           return (
-            <li key={topic.slug} className="rounded-lg border border-border bg-card p-4">
-              <p className="text-sm font-medium text-foreground">{topic.name}</p>
+            <div
+              key={topic.slug}
+              className="border-t border-[rgba(32,30,29,0.08)] px-6 py-4 first:border-t-0"
+            >
+              <p className="text-[15px] font-semibold leading-[1.5] text-[#201e1d]">{topic.name}</p>
               {topic.proposed_reason ? (
-                <p className="mt-1 text-sm text-muted-foreground">{topic.proposed_reason}</p>
+                <p className="mt-1 text-[13px] leading-[1.5] text-[#605d5d]">
+                  {topic.proposed_reason}
+                </p>
               ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
@@ -53,11 +62,11 @@ export function ProposedTopics({
                   onClick={() =>
                     run(`accept:${topic.slug}`, () => acceptTopic(topic.slug), "Topic accepted.")
                   }
-                  className="rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                  className="rounded-[6px] bg-[#006786] px-3 py-1.5 text-[13px] font-semibold text-[#ffffff] disabled:opacity-50"
                 >
                   {busy === `accept:${topic.slug}` ? "…" : "Accept"}
                 </button>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <label className="flex items-center gap-2 text-[13px] text-[#605d5d]">
                   Merge into
                   <select
                     value={into}
@@ -68,7 +77,7 @@ export function ProposedTopics({
                         [topic.slug]: event.target.value,
                       }))
                     }
-                    className="rounded border border-border bg-background px-2 py-1 text-xs text-foreground"
+                    className="rounded-[6px] border border-[rgba(32,30,29,0.10)] bg-[#ffffff] px-2 py-1 text-[13px] text-[#201e1d]"
                   >
                     {activeTopics.map((active) => (
                       <option key={active.slug} value={active.slug}>
@@ -87,15 +96,15 @@ export function ProposedTopics({
                       "Topic merged."
                     )
                   }
-                  className="rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                  className="rounded-[6px] border border-[rgba(32,30,29,0.10)] bg-[#ffffff] px-3 py-1.5 text-[13px] text-[#201e1d] disabled:opacity-50"
                 >
                   {busy === `merge:${topic.slug}` ? "…" : "Merge"}
                 </button>
               </div>
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </section>
   );
 }

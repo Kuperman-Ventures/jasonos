@@ -35,6 +35,7 @@ const speakerSchema = z.object({
 
 const takeawaySchema = z.object({
   text: z.string().min(1).max(2_000),
+  lead: z.string().max(120).optional().default(""),
   topic_slug: z.string().min(1).max(60).optional(),
   track: z
     .enum(["venture", "advisors", "job_search", "personal"])
@@ -91,6 +92,7 @@ export type WebinarTakeawayRow = {
   session_id: string;
   sort_order: number;
   text: string;
+  lead: string;
   topic_slug: string | null;
   track: Track | null;
   relevance_note: string;
@@ -532,6 +534,7 @@ export async function publishWebinarSession(raw: PublishWebinarSessionInput) {
         session_id: session.id,
         sort_order: i,
         text: t.text.trim(),
+        lead: (t.lead ?? "").trim(),
         topic_slug: assignment.takeaways[i]!.topic_slug,
         track: t.track ?? null,
         relevance_note: t.relevance_note ?? "",
@@ -980,12 +983,23 @@ export async function archiveWebinarTopic(input: { slug: string }): Promise<Webi
   return data as WebinarTopicRow;
 }
 
+export type WebinarActionView = {
+  id: string;
+  text: string;
+  lead: string;
+  session_title: string;
+  session_id: string;
+  track: Track | null;
+  card_id: string | null;
+};
+
 export type WebinarsByTopic = {
   topics: Array<
     WebinarTopicRow & {
       sessions: Array<WebinarSessionRow & { takeaways: WebinarTakeawayRow[] }>;
     }
   >;
+  actions: WebinarActionView[];
   proposed: WebinarTopicRow[];
   candidates: WebinarSessionRow[];
   digest: WebinarDigestRow | null;
@@ -1060,8 +1074,47 @@ export async function getWebinarsByTopic(input: { weeks?: number | null } = {}):
       session.session_date <= candidateWindow.newestEnd
   );
 
+  const sessionById = new Map(published.map((session) => [session.id, session]));
+  const actions = takeaways
+    .filter((takeaway) => takeaway.is_action)
+    .flatMap((takeaway) => {
+      const session = sessionById.get(takeaway.session_id);
+      if (!session) return [];
+      return [
+        {
+          id: takeaway.id,
+          text: takeaway.text,
+          lead: takeaway.lead ?? "",
+          session_title: session.title,
+          session_id: session.id,
+          track: takeaway.track,
+          card_id: takeaway.card_id,
+          session_date: session.session_date,
+          started_at: session.started_at,
+          sort_order: takeaway.sort_order,
+        },
+      ];
+    })
+    .sort((a, b) => {
+      if (a.session_date !== b.session_date) return a.session_date < b.session_date ? 1 : -1;
+      const aStart = a.started_at ?? "";
+      const bStart = b.started_at ?? "";
+      if (aStart !== bStart) return aStart < bStart ? 1 : -1;
+      return a.sort_order - b.sort_order;
+    })
+    .map((row) => ({
+      id: row.id,
+      text: row.text,
+      lead: row.lead,
+      session_title: row.session_title,
+      session_id: row.session_id,
+      track: row.track,
+      card_id: row.card_id,
+    }));
+
   return {
     topics,
+    actions,
     proposed: allTopics.filter((topic) => topic.status === "proposed"),
     candidates,
     digest: (digest as WebinarDigestRow | null) ?? null,
@@ -1071,6 +1124,7 @@ export async function getWebinarsByTopic(input: { weeks?: number | null } = {}):
 export type TopicTakeawayView = {
   id: string;
   text: string;
+  lead: string;
   topic_slug: string | null;
   track: Track | null;
   relevance_note: string;
@@ -1080,6 +1134,7 @@ export type TopicTakeawayView = {
   session_id: string;
   session_title: string;
   session_date: string;
+  session_topic_slug: string | null;
   transcript_url: string | null;
 };
 
@@ -1105,21 +1160,24 @@ export async function getTopicPage(input: {
   const range = typeof input.weeks === "number" ? reportingWindow(input.weeks) : null;
   const { data: takes, error: takeErr } = await sb
     .from("webinar_takeaways")
-    .select("id, text, topic_slug, track, relevance_note, is_action, card_id, created_at, session_id")
+    .select("id, text, lead, topic_slug, track, relevance_note, is_action, card_id, created_at, session_id")
     .eq("topic_slug", slug)
     .order("created_at", { ascending: false });
   if (takeErr) fail(takeErr);
   const takeRows = (takes ?? []) as WebinarTakeawayRow[];
   const sessionIds = [...new Set(takeRows.map((takeaway) => takeaway.session_id))];
-  const sessionById = new Map<string, Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url">>();
+  const sessionById = new Map<
+    string,
+    Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url" | "topic_slug">
+  >();
   if (sessionIds.length) {
     const { data: sessions, error: sessionErr } = await sb
       .from("webinar_sessions")
-      .select("id, title, session_date, transcript_url")
+      .select("id, title, session_date, transcript_url, topic_slug")
       .in("id", sessionIds);
     if (sessionErr) fail(sessionErr);
     for (const session of (sessions ?? []) as Array<
-      Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url">
+      Pick<WebinarSessionRow, "id" | "title" | "session_date" | "transcript_url" | "topic_slug">
     >) {
       sessionById.set(session.id, session);
     }
@@ -1138,6 +1196,7 @@ export async function getTopicPage(input: {
     takeaways.push({
       id: row.id,
       text: row.text,
+      lead: row.lead ?? "",
       topic_slug: row.topic_slug,
       track: row.track,
       relevance_note: row.relevance_note,
@@ -1147,6 +1206,7 @@ export async function getTopicPage(input: {
       session_id: row.session_id,
       session_title: session.title,
       session_date: session.session_date,
+      session_topic_slug: session.topic_slug,
       transcript_url: session.transcript_url,
     });
   }

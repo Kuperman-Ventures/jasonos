@@ -1,100 +1,82 @@
-import Link from "next/link";
-import { TrackPill } from "@/components/jasonos/track-pill";
-import type { Track } from "@/lib/types";
+import { weekdayDate } from "@/lib/webinars/display";
 import type { TopicTakeawayView, WebinarTopicRow } from "@/lib/webinars/store";
-
-function countPhrase(count: number, singular: string, plural: string): string {
-  return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function formatSessionDate(ymd: string): string {
-  const date = new Date(`${ymd}T12:00:00Z`);
-  if (Number.isNaN(date.getTime())) return ymd;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
+import { TakeawayList } from "./takeaway-list";
+import { TopicHeader } from "./topic-header";
 
 export function TopicTakeaways({
   topic,
   takeaways,
   takeawayCount,
   sessionCount,
+  topicNames,
 }: {
   topic: WebinarTopicRow;
   takeaways: TopicTakeawayView[];
   takeawayCount: number;
   sessionCount: number;
+  topicNames: Record<string, string>;
 }) {
-  return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <Link
-          href="/webinars"
-          className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
-        >
-          Webinars
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{topic.name}</h1>
-        {topic.description ? (
-          <p className="text-sm text-muted-foreground">{topic.description}</p>
-        ) : null}
-        <p className="text-sm text-muted-foreground">
-          {countPhrase(takeawayCount, "takeaway", "takeaways")} from{" "}
-          {countPhrase(sessionCount, "session", "sessions")}
-        </p>
-      </header>
+  const groups: Array<{
+    id: string;
+    title: string;
+    date: string;
+    topicSlug: string | null;
+    items: TopicTakeawayView[];
+  }> = [];
+  const indexBySession = new Map<string, number>();
+  for (const takeaway of takeaways) {
+    const existing = indexBySession.get(takeaway.session_id);
+    if (existing == null) {
+      indexBySession.set(takeaway.session_id, groups.length);
+      groups.push({
+        id: takeaway.session_id,
+        title: takeaway.session_title,
+        date: takeaway.session_date,
+        topicSlug: takeaway.session_topic_slug,
+        items: [takeaway],
+      });
+    } else {
+      groups[existing]!.items.push(takeaway);
+    }
+  }
+  groups.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  for (const group of groups) {
+    group.items.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  }
+  const actions = takeaways.filter((takeaway) => takeaway.is_action).length;
 
-      {takeaways.length ? (
-        <ul className="space-y-4">
-          {takeaways.map((takeaway) => (
-            <li key={takeaway.id} className="border-l-2 border-border pl-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-foreground">{takeaway.text}</p>
-                {takeaway.track ? <TrackPill track={takeaway.track as Track} /> : null}
-                {takeaway.is_action ? (
-                  takeaway.card_id ? (
-                    <Link
-                      href={`/?card=${takeaway.card_id}`}
-                      className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                    >
-                      Action
-                    </Link>
-                  ) : (
-                    <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Action
-                    </span>
-                  )
-                ) : null}
-              </div>
-              {takeaway.relevance_note ? (
-                <p className="mt-1 text-xs text-muted-foreground">{takeaway.relevance_note}</p>
-              ) : null}
-              <p className="mt-1 text-xs text-muted-foreground">
-                {takeaway.transcript_url ? (
-                  <a
-                    href={takeaway.transcript_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline underline-offset-2 hover:text-foreground"
-                  >
-                    {takeaway.session_title}
-                  </a>
-                ) : (
-                  <span>{takeaway.session_title}</span>
-                )}
-                {" · "}
-                {formatSessionDate(takeaway.session_date)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">No takeaways in this topic yet.</p>
-      )}
+  return (
+    <div className="min-h-full bg-[#f6f5f3] text-[#201e1d]">
+      <div className="mx-auto flex max-w-[860px] flex-col gap-11 px-6 pb-20 pt-10">
+        <TopicHeader
+          slug={topic.slug}
+          name={topic.name}
+          sessions={sessionCount}
+          takeaways={takeawayCount}
+          actions={actions}
+          range="all"
+          backHref="/webinars"
+        />
+        {groups.length ? (
+          <div className="rounded-[6px] border border-[rgba(32,30,29,0.10)] bg-[#ffffff] px-6 py-2">
+            {groups.map((group) => (
+              <section key={group.id} className="border-t border-[rgba(32,30,29,0.08)] py-3 first:border-t-0">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#7d7979]">
+                  {group.title} · {weekdayDate(group.date)}
+                </p>
+                <TakeawayList
+                  takeaways={group.items}
+                  sessionTopicSlug={group.topicSlug}
+                  topicNames={topicNames}
+                  limit={null}
+                />
+              </section>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px] text-[#7d7979]">No takeaways in this topic yet.</p>
+        )}
+      </div>
     </div>
   );
 }

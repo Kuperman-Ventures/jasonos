@@ -92,7 +92,7 @@ export function registerWebinarTools(server: McpServer) {
     {
       title: "Publish webinar session",
       description:
-        "payload_json is JSON: { session_key, title, topic_slug (required, from list_webinar_topics), host_org?, speakers?, summary_md?, proposed_topic?: { slug, name, reason }, takeaways: [{ text, topic_slug?, track?, relevance_note?, is_action? }] }. Unknown topic_slug is rejected with the active list.",
+        "payload_json is JSON: { session_key, title, topic_slug (required, from list_webinar_topics), host_org?, speakers?, summary_md?, proposed_topic?: { slug, name, reason }, takeaways: [{ text, lead?, topic_slug?, track?, relevance_note?, is_action? }] }. lead is a 3 to 8 word bold opening; text is the full sentence without repeating it. Unknown topic_slug is rejected with the active list.",
       inputSchema: z.object({
         payload_json: z.string().min(2).max(200_000),
       }),

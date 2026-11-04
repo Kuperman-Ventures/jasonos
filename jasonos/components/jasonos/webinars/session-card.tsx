@@ -1,80 +1,95 @@
-import ReactMarkdown from "react-markdown";
+import { CalendarDays, ChevronUp, ExternalLink } from "lucide-react";
+import {
+  durationLabel,
+  firstSentence,
+  monogram,
+  speakerLine,
+  weekdayDate,
+} from "@/lib/webinars/display";
+import { topicStyle } from "@/lib/webinars/topic-style";
 import type { WebinarSessionRow, WebinarTakeawayRow } from "@/lib/webinars/store";
 import { TakeawayList } from "./takeaway-list";
-
-const markdownComponents = {
-  p: ({ children }: { children?: React.ReactNode }) => (
-    <p className="mb-2 text-sm leading-relaxed last:mb-0">{children}</p>
-  ),
-  ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul className="mb-2 list-disc space-y-1 pl-5 text-sm last:mb-0">{children}</ul>
-  ),
-  ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol className="mb-2 list-decimal space-y-1 pl-5 text-sm last:mb-0">{children}</ol>
-  ),
-  a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
-    <a href={href} className="underline underline-offset-2" target="_blank" rel="noreferrer">
-      {children}
-    </a>
-  ),
-};
-
-function speakersLine(speakers: unknown): string | null {
-  if (!Array.isArray(speakers) || !speakers.length) return null;
-  const names = speakers
-    .map((s) => {
-      if (!s || typeof s !== "object") return null;
-      const row = s as { name?: string; title?: string; org?: string };
-      if (!row.name) return null;
-      const bits = [row.name, row.title, row.org].filter(Boolean);
-      return bits.join(", ");
-    })
-    .filter(Boolean);
-  return names.length ? names.join(" · ") : null;
-}
 
 export function SessionCard({
   session,
   takeaways,
   topicNames = {},
+  onCollapse,
 }: {
   session: WebinarSessionRow;
   takeaways: WebinarTakeawayRow[];
   topicNames?: Record<string, string>;
+  onCollapse?: () => void;
 }) {
-  const speakers = speakersLine(session.speakers);
+  const style = topicStyle(session.topic_slug);
+  const speakers = speakerLine(session.speakers);
+  const when = weekdayDate(session.session_date);
+  const duration = durationLabel(session.duration_minutes);
+  const lede = firstSentence(session.summary_md);
+
   return (
-    <article className="rounded-lg border border-border bg-card p-4">
-      <header className="mb-3 space-y-1">
-        <h3 className="text-base font-semibold text-foreground">{session.title}</h3>
-        <p className="text-xs text-muted-foreground">
-          {[session.host_org || null, session.session_date, speakers]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {session.transcript_url ? (
-          <a
-            href={session.transcript_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-block text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
-          >
-            Open transcript
-          </a>
-        ) : null}
-      </header>
-      {session.summary_md ? (
-        <div className="mb-4 text-foreground">
-          <ReactMarkdown components={markdownComponents}>
-            {session.summary_md}
-          </ReactMarkdown>
+    <article className="rounded-[6px] border border-[rgba(32,30,29,0.10)] bg-[#ffffff] px-6 py-[22px]">
+      <header
+        className={onCollapse ? "flex cursor-pointer gap-[14px]" : "flex gap-[14px]"}
+        onClick={onCollapse}
+      >
+        <span
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-[6px] text-[13px] font-semibold"
+          style={{ background: style.tint, color: style.ink }}
+        >
+          {monogram(session.host_org, session.title)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-[18px] font-semibold leading-snug text-[#201e1d]">
+              {session.title}
+            </h3>
+            {onCollapse ? (
+              <button
+                type="button"
+                aria-label="Collapse session"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCollapse();
+                }}
+                className="mt-1 shrink-0 text-[#9b9797]"
+              >
+                <ChevronUp size={18} strokeWidth={2} />
+              </button>
+            ) : null}
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#605d5d]">
+            {speakers ? <span>{speakers}</span> : null}
+            <span className="inline-flex items-center gap-1">
+              <CalendarDays size={13} strokeWidth={2} />
+              {when}
+              {duration ? ` · ${duration}` : ""}
+            </span>
+            {session.transcript_url ? (
+              <a
+                href={session.transcript_url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="inline-flex items-center gap-1 text-[#201e1d] underline-offset-2 hover:underline"
+              >
+                <ExternalLink size={13} strokeWidth={2} />
+                Transcript
+              </a>
+            ) : null}
+          </p>
         </div>
-      ) : null}
-      <TakeawayList
-        takeaways={takeaways}
-        sessionTopicSlug={session.topic_slug}
-        topicNames={topicNames}
-      />
+      </header>
+      <div className="mt-4 pl-[58px] max-[720px]:pl-0">
+        {lede ? (
+          <p className="mb-3 text-[15.5px] leading-[1.5] text-[#444141]">{lede}</p>
+        ) : null}
+        <TakeawayList
+          takeaways={takeaways}
+          sessionTopicSlug={session.topic_slug}
+          topicNames={topicNames}
+        />
+      </div>
     </article>
   );
 }

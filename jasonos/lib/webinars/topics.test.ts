@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { publishSessionSchema } from "./store.ts";
 import { resolveTopicAssignment, type ActiveTopic } from "./topics.ts";
 
 const active: ActiveTopic[] = [
@@ -84,5 +85,34 @@ describe("resolveTopicAssignment", () => {
       status: "proposed",
       proposed_reason: "None of the active topics cover retail media networks.",
     });
+  });
+});
+
+describe("takeaway lead", () => {
+  const session = {
+    session_key: "session-1",
+    title: "A webinar",
+    topic_slug: "ai-search-aeo",
+  };
+
+  it("defaults lead to an empty string and caps it at 120 characters", () => {
+    const parsed = publishSessionSchema.parse({
+      ...session,
+      takeaways: [{ text: "The full sentence." }],
+    });
+    assert.equal(parsed.takeaways[0]?.lead, "");
+
+    const capped = publishSessionSchema.parse({
+      ...session,
+      takeaways: [{ text: "The full sentence.", lead: "x".repeat(120) }],
+    });
+    assert.equal(capped.takeaways[0]?.lead.length, 120);
+
+    assert.throws(() =>
+      publishSessionSchema.parse({
+        ...session,
+        takeaways: [{ text: "The full sentence.", lead: "x".repeat(121) }],
+      })
+    );
   });
 });
