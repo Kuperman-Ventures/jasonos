@@ -1,6 +1,7 @@
 import type { Likelihood, Section } from "@/lib/dashboard/schema";
 import { LikelihoodPill } from "./LikelihoodPill";
 import { SectionHeading } from "./section-heading";
+import styles from "./dashboard.module.css";
 
 type Table = Extract<Section, { type: "table" }>;
 type Cell = Table["rows"][number][number];
@@ -23,27 +24,22 @@ function TableCell({ value }: { value: Cell }) {
 
 export function TableSection({ section }: { section: Table }) {
   return (
-    <section id={section.id} className="min-w-0 scroll-mt-6">
+    <section id={section.id} className={styles.section}>
       <SectionHeading>{section.heading}</SectionHeading>
-      <div className="min-w-0 overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
           <thead>
-            <tr className="border-b">
+            <tr>
               {section.columns.map((column) => (
-                <th
-                  key={column}
-                  className="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground [font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace]"
-                >
-                  {column}
-                </th>
+                <th key={column}>{column}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {section.rows.map((row, index) => (
-              <tr key={index} className="border-b last:border-b-0">
+              <tr key={index}>
                 {section.columns.map((column, cell) => (
-                  <td key={column} className="px-3 py-3 align-top text-xs leading-relaxed">
+                  <td key={column}>
                     <TableCell value={row[cell] ?? ""} />
                   </td>
                 ))}
@@ -52,11 +48,7 @@ export function TableSection({ section }: { section: Table }) {
           </tbody>
         </table>
       </div>
-      {section.legend ? (
-        <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-          {section.legend}
-        </p>
-      ) : null}
+      {section.legend ? <p className={styles.legend}>{section.legend}</p> : null}
     </section>
   );
 }

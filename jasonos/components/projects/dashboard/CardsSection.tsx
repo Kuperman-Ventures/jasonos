@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Likelihood, Section } from "@/lib/dashboard/schema";
 import { LikelihoodPill } from "./LikelihoodPill";
 import { SectionHeading } from "./section-heading";
+import styles from "./dashboard.module.css";
 
 type Cards = Extract<Section, { type: "cards" }>;
 type Card = Cards["cards"][number];
@@ -17,23 +18,36 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 function Column({ column }: { column: Card["columns"][number] }) {
-  if (column.kind === "list") {
-    return (
-      <ul className="list-disc space-y-1 pl-4 text-xs leading-relaxed">
-        {(column.items ?? []).map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    );
-  }
-  if (column.kind === "basis") {
-    return (
-      <p className="border-l-2 border-muted-foreground/40 pl-3 text-xs leading-relaxed text-muted-foreground">
-        {column.text}
-      </p>
-    );
-  }
-  return <p className="text-xs leading-relaxed">{column.text}</p>;
+  return (
+    <div className={styles.column}>
+      <div className={styles.columnLabel}>{column.label}</div>
+      {column.kind === "list" ? (
+        <ul className={styles.list}>
+          {(column.items ?? []).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+      {column.kind === "text" ? <p className={styles.text}>{column.text}</p> : null}
+      {column.kind === "basis" ? <p className={styles.basis}>{column.text}</p> : null}
+    </div>
+  );
+}
+
+function Halves({ columns }: { columns: Card["columns"] }) {
+  const mid = Math.ceil(columns.length / 2);
+  const halves = [columns.slice(0, mid), columns.slice(mid)].filter((half) => half.length > 0);
+  return (
+    <div className={styles.columns}>
+      {halves.map((half) => (
+        <div key={half[0]?.label}>
+          {half.map((column) => (
+            <Column key={column.label} column={column} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function CardsSection({ section }: { section: Cards }) {
@@ -45,22 +59,18 @@ export function CardsSection({ section }: { section: Cards }) {
       : section.cards.filter((card) => card.likelihood === filter);
 
   return (
-    <section id={section.id} className="scroll-mt-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <SectionHeading className="mb-0">{section.heading}</SectionHeading>
+    <section id={section.id} className={styles.section}>
+      <div className={styles.sectionBar}>
+        <SectionHeading className={styles.headingInline}>{section.heading}</SectionHeading>
         {filtering ? (
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by likelihood">
+          <div className={styles.filters} role="group" aria-label="Filter by likelihood">
             {FILTERS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 aria-pressed={filter === item.id}
                 onClick={() => setFilter(item.id)}
-                className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                  filter === item.id
-                    ? "border-foreground bg-foreground text-background"
-                    : "bg-card text-muted-foreground"
-                }`}
+                className={styles.chip}
               >
                 {item.label}
               </button>
@@ -68,44 +78,26 @@ export function CardsSection({ section }: { section: Cards }) {
           </div>
         ) : null}
       </div>
-      <div className="space-y-3">
+      <div className={styles.cards}>
         {cards.map((card) => (
-          <article key={card.id} id={card.id} className="scroll-mt-6 rounded-xl border bg-card p-4">
-            <header className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold tracking-tight">
-                  {card.num != null ? <span className="mr-2 tabular-nums">{card.num}</span> : null}
+          <article key={card.id} id={card.id} className={styles.card}>
+            <header className={styles.cardHeader}>
+              <div>
+                <h3 className={styles.cardTitle}>
+                  {card.num != null ? <span className={styles.num}>{card.num}</span> : null}
                   {card.title}
                 </h3>
-                {card.lead ? (
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Lead: {card.lead}
-                  </p>
-                ) : null}
+                {card.lead ? <p className={styles.lead}>Lead: {card.lead}</p> : null}
               </div>
               {card.likelihood ? <LikelihoodPill likelihood={card.likelihood} /> : null}
             </header>
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {card.columns.map((column) => (
-                <div key={column.label} className="min-w-0">
-                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    {column.label}
-                  </div>
-                  <Column column={column} />
-                </div>
-              ))}
-            </div>
+            <hr className={styles.rule} />
+            <Halves columns={card.columns} />
           </article>
         ))}
-        {cards.length === 0 ? (
-          <p className="text-xs text-muted-foreground">None in this group.</p>
-        ) : null}
+        {cards.length === 0 ? <p className={styles.empty}>None in this group.</p> : null}
       </div>
-      {section.legend ? (
-        <p className="mt-3 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-          {section.legend}
-        </p>
-      ) : null}
+      {section.legend ? <p className={styles.legend}>{section.legend}</p> : null}
     </section>
   );
 }
