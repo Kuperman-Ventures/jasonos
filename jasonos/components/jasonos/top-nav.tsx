@@ -89,6 +89,10 @@ const NAV: NavItem[] = [
       { href: "/projects", label: "Projects" },
       { href: "/todos", label: "To-Dos" },
       {
+        href: "/projects/oversight-agenda",
+        label: "Oversight Agenda Dashboard",
+      },
+      {
         href: "/projects/professor-roadmap",
         label: "Professor Roadmap",
       },
@@ -103,10 +107,6 @@ const NAV: NavItem[] = [
       {
         href: "/projects/ski-tracker",
         label: "Ski Tracker",
-      },
-      {
-        href: "/projects/oversight-agenda",
-        label: "Oversight Agenda",
       },
       {
         href: "/projects/fuck-you-batman",
