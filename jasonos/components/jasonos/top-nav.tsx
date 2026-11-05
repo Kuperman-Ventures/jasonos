@@ -229,10 +229,25 @@ function NavGroup({
 
 export function TopNav({
   networkingCounts,
+  projectLinks = [],
 }: {
   networkingCounts?: NetworkingNavCounts;
+  projectLinks?: { href: string; label: string }[];
 }) {
   const pathname = usePathname();
+  const nav = NAV.map((item) => {
+    if (item.kind !== "group" || item.label !== "Projects" || projectLinks.length === 0) {
+      return item;
+    }
+    const known = new Set(item.children.map((child) => child.href));
+    return {
+      ...item,
+      children: [
+        ...item.children,
+        ...projectLinks.filter((link) => !known.has(link.href)),
+      ],
+    };
+  });
 
   function isActive(item: NavLinkItem | NavGroupItem): boolean {
     if (item.kind === "link") {
@@ -255,7 +270,7 @@ export function TopNav({
         </Link>
 
         <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             if (item.kind === "link") {
               return (
                 <NavLink

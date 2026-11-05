@@ -40,7 +40,17 @@ export function listJasonosAreas() {
       { area: "today", tools: ["get_today", "get_status"] },
       { area: "must_dos_and_cards", tools: ["get_must_dos", "list_action_cards"] },
       { area: "todos_and_projects", tools: ["list_todos", "list_projects"] },
-      { area: "project_links", tools: ["list_project_links", "add_project_link"] },
+      {
+        area: "project_pages",
+        tools: [
+          "create_project",
+          "get_project_dashboard",
+          "set_project_dashboard",
+          "update_project_dashboard_section",
+          "list_project_links",
+          "add_project_link",
+        ],
+      },
       { area: "morning_brief", tools: ["get_morning_brief", "publish_morning_brief"] },
       { area: "inbox", tools: ["get_inbox_dispatch", "publish_inbox_dispatch"] },
       {

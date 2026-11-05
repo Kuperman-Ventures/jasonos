@@ -10,15 +10,19 @@ import type { NetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 /** Hide JasonOS chrome on standalone public tools and the login page. */
 export function JasonOsChrome({
   networkingCounts,
+  projectLinks,
 }: {
   networkingCounts?: NetworkingNavCounts;
+  projectLinks?: { href: string; label: string }[];
 }) {
   const pathname = usePathname() ?? "";
   if (hidesJasonosChrome(pathname)) return null;
   const liveCall = isLiveCallPath(pathname);
   return (
     <>
-      {liveCall ? null : <TopNav networkingCounts={networkingCounts} />}
+      {liveCall ? null : (
+        <TopNav networkingCounts={networkingCounts} projectLinks={projectLinks} />
+      )}
       <TellClaudePalette />
       {liveCall ? null : (
       <button

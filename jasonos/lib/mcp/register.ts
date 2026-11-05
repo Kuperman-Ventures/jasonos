@@ -62,6 +62,12 @@ import { registerWebinarTools } from "./webinars-tools";
 import { registerConnectionsTools } from "./connections-tools";
 import { registerNetworkScreenTools } from "./network-screen-tools";
 import { registerFybTools } from "./fyb-tools";
+import {
+  createProject,
+  getProjectDashboard,
+  setProjectDashboard,
+  updateProjectDashboardSection,
+} from "@/lib/dashboard/store";
 import { getProfessorRoadmap } from "@/lib/professor-roadmap/store";
 import { jsonResult, runTool } from "./result";
 
@@ -74,6 +80,8 @@ Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, add_pro
 Live flow: start on /live (blank deck, from a playbook, or Library). Work the deck — edit slides, rubric, Save as, AI help from people/playbook/open text/transcripts/meeting context, attach a calendar meeting anytime. Rehearse, then Run. Review scores slides, goal, and a Browning-style rubric. Held meetings lists past calendar meetings (10 days); attach_transcript from Granola/Wispr (full spoken transcript, not notes), paste_transcript as fallback, then review_run. list_recent_notes merges both sources. list_upcoming_meeting_preps returns deck_id when linked. Tools: list_playbooks / list_decks / get_deck, create_deck, set_deck_slides, set_goal, set_rubric, get_default_rubric / set_default_rubric, get_person_context, run_ai_help (optional preset why|rapport|what_how|tailor), attach_meeting, get_transcript, attach_transcript, paste_transcript, list_recent_notes, review_run / get_review, update_playbook_from_deck / create_playbook_from_deck.
 
 File a plan, artifact, or doc on a project page with add_project_link. Read what is already filed with list_project_links. project_slug is the page's URL slug, for example ski-tracker.
+
+Dashboard pages live at /projects/{slug}. create_project adds the page record (not a to-do project). set_project_dashboard replaces the whole page when the shape changes (sections added, removed, or rewritten). update_project_dashboard_section changes one section of an existing page: omit position to replace the section with the same id, or append it when that id is new. get_project_dashboard reads the saved document.
 
 To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch only. Never use Supabase execute_sql (no INSERT, no UPSERT, no DELETE on morning_briefs or inbox_dispatches). publish_morning_brief already replaces that day's row. A Supabase DELETE waits for human confirmation and can hang a scheduled run for minutes — skip that path entirely. If JasonOS publish tools are missing, search for "jasonos" or "publish_morning_brief", then immediately POST https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password. Do not wait on a pending confirmation dialog.
 
@@ -793,6 +801,71 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (args) => runTool(() => addProjectLink(args))
+  );
+
+  server.registerTool(
+    "create_project",
+    {
+      title: "Create project page",
+      description:
+        "Create a dashboard project page at /projects/{slug}. Writes project_pages, not the to-do projects list. Slug is lowercase with hyphens, max 80. Track is venture, advisors, job_search, or personal. If the slug exists, returns ok false with reason slug exists and the existing record. Does not write the page body. Use set_project_dashboard for a full document, or update_project_dashboard_section to change one section.",
+      inputSchema: z.object({
+        slug: z.string().min(1).max(80),
+        title: z.string().min(1).max(200),
+        track: z.enum(["venture", "advisors", "job_search", "personal"]),
+        status: z.string().min(1).max(40).optional(),
+        description: z.string().max(500).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => createProject(args))
+  );
+
+  server.registerTool(
+    "get_project_dashboard",
+    {
+      title: "Get project dashboard",
+      description:
+        "Read the JSON dashboard document for a project page. Returns the document plus updated_on, updated_by, and updated_at. If nothing is saved, returns ok false with reason no dashboard.",
+      inputSchema: z.object({
+        project_slug: z.string().min(1).max(80),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getProjectDashboard(args.project_slug))
+  );
+
+  server.registerTool(
+    "set_project_dashboard",
+    {
+      title: "Set project dashboard",
+      description:
+        "Replace the entire dashboard document for a project page. Use this when the page changes shape: sections added or removed, or a new document. Validates the document before saving. On failure returns ok false with the schema error path and message. On success upserts the row and returns the saved document and timestamps. This is a full replace. To edit one section of an existing page, use update_project_dashboard_section.",
+      inputSchema: z.object({
+        project_slug: z.string().min(1).max(80),
+        document: z.record(z.string(), z.unknown()),
+        updated_by: z.string().min(1).max(80).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => setProjectDashboard(args))
+  );
+
+  server.registerTool(
+    "update_project_dashboard_section",
+    {
+      title: "Update project dashboard section",
+      description:
+        "Change one section of an existing dashboard. Use this for a content edit inside the current page. Omit position to replace the section with the same id, or append the section when that id is new. Pass position to insert at that index (the previous copy of the same id is removed first). Validates the section and the whole document, then saves. Sets updatedOn in the document to today's date in America/New_York. For a new page or a rewrite that adds or removes several sections, use set_project_dashboard instead.",
+      inputSchema: z.object({
+        project_slug: z.string().min(1).max(80),
+        section: z.record(z.string(), z.unknown()),
+        position: z.number().int().min(0).max(19).optional(),
+        updated_by: z.string().min(1).max(80).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => updateProjectDashboardSection(args))
   );
 
   server.registerTool(
