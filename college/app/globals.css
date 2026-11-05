@@ -1217,8 +1217,11 @@ footer {
   font-size: 14px;
   font-weight: 600;
 }
-.mobile-snap-facts dd[data-level="top"] { color: var(--lvl-4-fg, var(--text-accent)); }
-.mobile-snap-facts dd[data-level="high"] { color: var(--lvl-3-fg, var(--text-accent)); }
+/* Use fill colors for text — *-fg tokens are white for chips on colored grounds. */
+.mobile-snap-facts dd[data-level="top"] { color: var(--lvl-4, var(--text-accent)); }
+.mobile-snap-facts dd[data-level="high"] { color: var(--lvl-3, var(--text-accent)); }
+.mobile-snap-facts dd[data-level="moderate"] { color: var(--lvl-2, var(--text-muted)); }
+.mobile-snap-facts dd[data-level="safety"] { color: var(--lvl-1, var(--text-muted)); }
 .mobile-snap-photos {
   margin: 0 0 18px;
 }
@@ -1290,10 +1293,10 @@ footer {
   white-space: nowrap;
   color: var(--color-text);
 }
-.colleges-mobile-interest[data-level="top"] { color: var(--lvl-4-fg, var(--text-accent)); }
-.colleges-mobile-interest[data-level="high"] { color: var(--lvl-3-fg, var(--text-accent)); }
-.colleges-mobile-interest[data-level="moderate"] { color: var(--lvl-2-fg, var(--text-muted)); }
-.colleges-mobile-interest[data-level="safety"] { color: var(--lvl-1-fg, var(--text-muted)); }
+.colleges-mobile-interest[data-level="top"] { color: var(--lvl-4, var(--text-accent)); }
+.colleges-mobile-interest[data-level="high"] { color: var(--lvl-3, var(--text-accent)); }
+.colleges-mobile-interest[data-level="moderate"] { color: var(--lvl-2, var(--text-muted)); }
+.colleges-mobile-interest[data-level="safety"] { color: var(--lvl-1, var(--text-muted)); }
 .school-card h3 { font-size: 22px; margin-bottom: var(--space-2); }
 .card-meta {
   display: flex;
