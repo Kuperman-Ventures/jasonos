@@ -6,13 +6,13 @@ type Text = Extract<Section, { type: "text" }>;
 
 export function TextSection({ section }: { section: Text }) {
   return (
-    <section id={section.id} className={styles.section}>
+    <>
       {section.heading ? <SectionHeading>{section.heading}</SectionHeading> : null}
       {section.paragraphs.map((paragraph) => (
         <p key={paragraph} className={styles.paragraph}>
           {paragraph}
         </p>
       ))}
-    </section>
+    </>
   );
 }

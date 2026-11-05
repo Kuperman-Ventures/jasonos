@@ -15,6 +15,12 @@ describe("dashboard document", () => {
   it("accepts the oversight agenda seed", () => {
     const document = DashboardDocument.parse(seed.document);
     assert.equal(document.title, "Oversight Agenda Dashboard");
+    assert.equal(document.header?.eyebrow, "120th Congress");
+    assert.equal(document.header?.counter?.sectionId, "areas");
+    assert.deepEqual(
+      document.sections.map((section) => section.id),
+      ["news", "next", "areas", "impeachment-math", "targets", "sources"]
+    );
     assert.equal(document.sections.length, 6);
     assert.equal(seed.project.slug, "oversight-agenda");
     assert.match(seed.project.description, /^Seven Democratic/);
@@ -30,6 +36,20 @@ describe("dashboard document", () => {
       assert.equal(table.columns.length, 6);
       for (const row of table.rows) assert.equal(row.length, table.columns.length);
     }
+  });
+
+  it("still accepts a document that predates news, dates, and the header", () => {
+    const document = DashboardDocument.parse({
+      version: 1,
+      title: "T",
+      updatedOn: "2026-11-05",
+      sections: [
+        { type: "tiles", id: "t", tiles: [{ label: "A", value: "1" }] },
+        { type: "timeline", id: "l", heading: "H", items: [{ when: "Now", what: "Thing" }] },
+      ],
+    });
+    assert.equal(document.header, undefined);
+    assert.equal(document.sections[1]?.type === "timeline" && document.sections[1].items[0].date, undefined);
   });
 
   it("reports a schema path when a document is invalid", () => {

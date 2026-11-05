@@ -24,7 +24,7 @@ function TableCell({ value }: { value: Cell }) {
 
 export function TableSection({ section }: { section: Table }) {
   return (
-    <section id={section.id} className={styles.section}>
+    <>
       <SectionHeading>{section.heading}</SectionHeading>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -49,6 +49,6 @@ export function TableSection({ section }: { section: Table }) {
         </table>
       </div>
       {section.legend ? <p className={styles.legend}>{section.legend}</p> : null}
-    </section>
+    </>
   );
 }

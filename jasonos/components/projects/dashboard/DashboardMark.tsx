@@ -1,9 +1,8 @@
-/** Recovered from the Oversight page. Red field, grey squares, dark glass. */
 export function DashboardMark() {
   return (
     <svg
-      width="40"
-      height="40"
+      width="88"
+      height="88"
       viewBox="0 0 88 88"
       role="img"
       aria-label="Oversight Agenda Dashboard logo"
