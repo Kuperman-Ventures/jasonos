@@ -1,25 +1,29 @@
 import type { ReactNode } from "react";
-import { Fraunces, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
-const display = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600"],
+// Self-hosted variable fonts. next/font/google downloads at build time, and
+// Google sometimes returns extensionless /l/font?kit= URLs. Next 16.2.4 then
+// crashes the webpack build (vercel/next.js#99114). These files are the latin
+// subsets that call would have saved.
+const display = localFont({
+  src: "./fonts/fraunces-latin.woff2",
+  weight: "100 900",
+  display: "swap",
   variable: "--font-pd-display",
-  display: "swap",
 });
 
-const body = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const body = localFont({
+  src: "./fonts/ibm-plex-sans-latin.woff2",
+  weight: "100 700",
+  display: "swap",
   variable: "--font-pd-body",
-  display: "swap",
 });
 
-const data = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-pd-mono",
+const data = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
+  weight: "100 800",
   display: "swap",
+  variable: "--font-pd-mono",
 });
 
 export default function ProjectDashboardLayout({ children }: { children: ReactNode }) {
