@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import { AreaCard } from "@/components/projects/oversight-agenda/AreaCard";
 import type { Likelihood, OversightArea } from "@/lib/projects/oversight-agenda/data";
 import { cn } from "@/lib/utils";
@@ -12,35 +9,49 @@ const FILTERS: { id: "all" | Likelihood; label: string }[] = [
   { id: "low", label: "Low" },
 ];
 
-export function AreaList({ areas }: { areas: OversightArea[] }) {
-  const [filter, setFilter] = useState<"all" | Likelihood>("all");
+export function AreaList({
+  areas,
+  filter,
+  onFilter,
+}: {
+  areas: OversightArea[];
+  filter: "all" | Likelihood;
+  onFilter: (filter: "all" | Likelihood) => void;
+}) {
   const shown =
     filter === "all" ? areas : areas.filter((area) => area.likelihood === filter);
 
   return (
-    <div className="space-y-3">
-      <div role="group" aria-label="Filter by likelihood" className="flex flex-wrap gap-2">
-        {FILTERS.map((item) => {
-          const pressed = filter === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={pressed}
-              onClick={() => setFilter(item.id)}
-              className={cn(
-                "rounded-md border px-2.5 py-1.5 text-xs font-medium",
-                pressed
-                  ? "border-[var(--jos-ink)] bg-[var(--jos-ink)] text-[var(--jos-bg)]"
-                  : "bg-card text-foreground"
-              )}
-            >
-              {item.label}
-            </button>
-          );
-        })}
+    <div>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-5">
+        <h2 className="m-0 text-[32px] font-extrabold tracking-[-0.02em]">Investigation Areas</h2>
+        <div
+          role="group"
+          aria-label="Filter by likelihood"
+          className="flex max-w-full flex-wrap border-2 border-[var(--color-text)]"
+        >
+          {FILTERS.map((item) => {
+            const pressed = filter === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={pressed}
+                onClick={() => onFilter(item.id)}
+                className={cn(
+                  "border-r border-[var(--color-text)] px-4 py-2.5 text-left text-sm font-semibold",
+                  pressed
+                    ? "bg-[var(--color-text)] text-[var(--color-bg)]"
+                    : "bg-transparent text-[var(--color-text)]"
+                )}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-6">
         {shown.map((area) => (
           <AreaCard key={area.id} area={area} />
         ))}
