@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const Likelihood = z.enum(["high", "medium", "low"]);
 
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 export const TileSection = z.object({
   type: z.literal("tiles"),
   id: z.string(),
@@ -11,6 +13,7 @@ export const TileSection = z.object({
     value: z.string(),
     note: z.string().optional(),
     mono: z.boolean().optional(),
+    size: z.enum(["large", "small"]).optional(),
   })).min(1).max(8),
 });
 
@@ -22,6 +25,7 @@ export const TimelineSection = z.object({
     when: z.string(),
     what: z.string(),
     why: z.string().optional(),
+    date: Day.optional(),
   })).min(1).max(8),
 });
 
@@ -65,6 +69,18 @@ export const TextSection = z.object({
   paragraphs: z.array(z.string()).min(1),
 });
 
+export const NewsSection = z.object({
+  type: z.literal("news"),
+  id: z.string(),
+  heading: z.string(),
+  items: z.array(z.object({
+    added: Day,
+    outlet: z.string(),
+    headline: z.string(),
+    url: z.string().url(),
+  })).min(1),
+});
+
 export const SourcesSection = z.object({
   type: z.literal("sources"),
   id: z.string(),
@@ -83,13 +99,23 @@ export const Section = z.discriminatedUnion("type", [
   TableSection,
   TextSection,
   SourcesSection,
+  NewsSection,
 ]);
+
+export const DashboardHeader = z.object({
+  eyebrow: z.string().optional(),
+  counter: z.object({
+    sectionId: z.string(),
+    label: z.string(),
+  }).optional(),
+});
 
 export const DashboardDocument = z.object({
   version: z.literal(1),
   title: z.string(),
   subtitle: z.string().optional(),
   updatedOn: z.string(),
+  header: DashboardHeader.optional(),
   sections: z.array(Section).min(1).max(20),
 });
 

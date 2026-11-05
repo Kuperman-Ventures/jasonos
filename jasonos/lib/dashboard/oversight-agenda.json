@@ -13,13 +13,46 @@
     "updatedOn": "2026-11-05",
     "sections": [
       {
-        "type": "tiles",
-        "id": "status",
-        "tiles": [
-          { "label": "House", "value": "Democratic majority", "note": "Projected by ABC, CBS, NBC. Jeffries expects at least 255 seats once counting ends." },
-          { "label": "Senate", "value": "Democratic majority", "note": "Projected by NBC. ABC graphic shows a 7-seat Democratic gain." },
-          { "label": "Oversight powers", "value": "Subpoena, compel testimony", "note": "Chairs can enforce through civil contempt in court. Garcia says DOJ enforcement is unlikely." },
-          { "label": "White House position", "value": "\"Sham investigations\"", "note": "No statement yet on whether it will cooperate with document requests or witness calls." }
+        "type": "news",
+        "id": "news",
+        "heading": "Latest News",
+        "items": [
+          {
+            "added": "2026-11-05",
+            "outlet": "ABC News",
+            "headline": "Democrats take the House. Here's what they plan to investigate",
+            "url": "https://abcnews.com/Politics/democrats-house-heres-plan-investigate-legislative-agenda/story?id=137832144"
+          },
+          {
+            "added": "2026-11-05",
+            "outlet": "CBS News",
+            "headline": "2026 House election results live updates",
+            "url": "https://www.cbsnews.com/live-updates/house-election-results-2026/"
+          },
+          {
+            "added": "2026-11-05",
+            "outlet": "NBC News",
+            "headline": "Democrats capture full control of Congress, NBC News projects",
+            "url": "https://www.nbcnews.com/politics/2026-election/democrats-capture-full-control-congress-nbc-news-projects-fueled-victo-rcna607042"
+          },
+          {
+            "added": "2026-11-05",
+            "outlet": "Axios",
+            "headline": "House Democrats introduce 6 articles of impeachment targeting Pete Hegseth",
+            "url": "https://www.axios.com/2026/04/15/iran-war-pete-hegseth-congress-impeachment-articles-democrats-reflecting-search-interest-order"
+          },
+          {
+            "added": "2026-11-05",
+            "outlet": "IBTimes",
+            "headline": "Could Pete Hegseth be impeached next?",
+            "url": "https://www.ibtimes.co.uk/pete-hegseth-impeachment-articles-democratic-congress-1830152"
+          },
+          {
+            "added": "2026-11-05",
+            "outlet": "Axios",
+            "headline": "Dems turn their sights to Pam Bondi after Noem firing",
+            "url": "https://axios.com/2026/03/05/pam-bondi-kristi-noem-democrats-epstein-impeach"
+          }
         ]
       },
       {
@@ -27,10 +60,30 @@
         "id": "next",
         "heading": "What Happens Next",
         "items": [
-          { "when": "Nov 18-19, 2026", "what": "House Democratic leadership elections", "why": "Jeffries is the declared candidate for Speaker. Committee chair slates follow leadership." },
-          { "when": "Dec 2026", "what": "Chairs ratified, staff hired, document requests drafted", "why": "Presumptive chairs are already naming targets and witnesses. Requests go out before formal power arrives." },
-          { "when": "Jan 3, 2027", "what": "120th Congress convenes, Speaker vote", "why": "Subpoena power and committee budgets take effect once the House organizes. Hegseth impeachment articles must be reintroduced." },
-          { "when": "Q1 2027", "what": "First public hearings", "why": "Garcia has committed to public Epstein hearings. Several investigations are expected to launch at once." }
+          {
+            "when": "Nov 18-19, 2026",
+            "what": "House Democratic leadership elections",
+            "why": "Jeffries is the declared candidate for Speaker. Committee chair slates follow leadership.",
+            "date": "2026-11-18"
+          },
+          {
+            "when": "Dec 2026",
+            "what": "Chairs ratified, staff hired, document requests drafted",
+            "why": "Presumptive chairs are already naming targets and witnesses. Requests go out before formal power arrives.",
+            "date": "2026-12-15"
+          },
+          {
+            "when": "Jan 3, 2027",
+            "what": "120th Congress convenes, Speaker vote",
+            "why": "Subpoena power and committee budgets take effect once the House organizes. Hegseth impeachment articles must be reintroduced.",
+            "date": "2027-01-03"
+          },
+          {
+            "when": "Q1 2027",
+            "what": "First public hearings",
+            "why": "Garcia has committed to public Epstein hearings. Several investigations are expected to launch at once.",
+            "date": "2027-02-15"
+          }
         ]
       },
       {
@@ -47,10 +100,36 @@
             "lead": "House Oversight, Rep. Robert Garcia (presumptive chair)",
             "likelihood": "high",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Government contractors and no-bid contracts", "Individuals who received or purchased presidential pardons", "Trump family real estate and business dealings", "Cryptocurrency frameworks and defense contracts, and whether donations or relationships drove decisions", "Corporate donors to the White House ballroom"] },
-              { "label": "Next steps", "kind": "list", "items": ["Garcia has named Stephen Miller, Corey Lewandowski, Kristi Noem and Trump family members as witnesses he will call", "Interviews sought with Jared Kushner and other family members on business dealings", "Subpoena enforcement planned through lawsuits and civil contempt in court"] },
-              { "label": "What could slow it", "kind": "text", "text": "DOJ is unlikely to enforce criminal contempt, so non-cooperation drags into litigation. The White House has not committed to cooperating." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "The presumptive chair has publicly listed targets and witnesses and described his enforcement plan. This is the most developed area." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Government contractors and no-bid contracts",
+                  "Individuals who received or purchased presidential pardons",
+                  "Trump family real estate and business dealings",
+                  "Cryptocurrency frameworks and defense contracts, and whether donations or relationships drove decisions",
+                  "Corporate donors to the White House ballroom"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Garcia has named Stephen Miller, Corey Lewandowski, Kristi Noem and Trump family members as witnesses he will call",
+                  "Interviews sought with Jared Kushner and other family members on business dealings",
+                  "Subpoena enforcement planned through lawsuits and civil contempt in court"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "DOJ is unlikely to enforce criminal contempt, so non-cooperation drags into litigation. The White House has not committed to cooperating."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "The presumptive chair has publicly listed targets and witnesses and described his enforcement plan. This is the most developed area."
+              }
             ]
           },
           {
@@ -60,10 +139,35 @@
             "lead": "Multiple committees; Judiciary (Rep. Jamie Raskin) on antitrust",
             "likelihood": "medium",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Executives and informal presidential advisers who shaped federal policy", "Companies that committed resources to presidential priorities in exchange for favorable treatment", "Administration AI policy, including export controls on advanced semiconductors", "Market concentration and circular investments across the AI value chain"] },
-              { "label": "Next steps", "kind": "list", "items": ["Raskin has named corporate mergers and antitrust as a Judiciary focus", "No chair has announced AI-specific or export-control hearings yet", "Likely first step is document requests to agencies that set AI and chip policy"] },
-              { "label": "What could slow it", "kind": "text", "text": "Jurisdiction is split across Judiciary, Energy and Commerce, Oversight and Senate committees. Export-control questions touch national security briefings that slow public hearings." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Antitrust has a named chair and a public statement. The AI and export-control pieces appear only in strategy memos so far." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Executives and informal presidential advisers who shaped federal policy",
+                  "Companies that committed resources to presidential priorities in exchange for favorable treatment",
+                  "Administration AI policy, including export controls on advanced semiconductors",
+                  "Market concentration and circular investments across the AI value chain"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Raskin has named corporate mergers and antitrust as a Judiciary focus",
+                  "No chair has announced AI-specific or export-control hearings yet",
+                  "Likely first step is document requests to agencies that set AI and chip policy"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Jurisdiction is split across Judiciary, Energy and Commerce, Oversight and Senate committees. Export-control questions touch national security briefings that slow public hearings."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Antitrust has a named chair and a public statement. The AI and export-control pieces appear only in strategy memos so far."
+              }
             ]
           },
           {
@@ -73,10 +177,35 @@
             "lead": "House Judiciary (Rep. Jamie Raskin); Senate: Sen. Sheldon Whitehouse (DOJ and antitrust settlements), Sen. Elizabeth Warren (financial regulation)",
             "likelihood": "high",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Politicization of DOJ and FBI, firing of career prosecutors, the $1.8 billion Anti-Weaponization fund", "DOJ and antitrust settlements in media and entertainment, and whether they benefited private parties", "Bank chartering, supervision decisions and tax settlements driven by political favoritism", "Handling of the Epstein investigation, including financial institutions and advisors who may have financed it"] },
-              { "label": "Next steps", "kind": "list", "items": ["Garcia plans public Epstein hearings and may subpoena Attorney General Todd Blanche over withheld pages", "Raskin plans Judiciary hearings on DOJ politicization and pay-to-play pardons", "Whitehouse and Warren probes on the Senate side have not been formally announced"] },
-              { "label": "What could slow it", "kind": "text", "text": "Executive privilege and ongoing-investigation claims from DOJ. Senate committee chairs are not yet confirmed." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Two presumptive House chairs have committed to specific hearings and a possible cabinet-level subpoena. The Senate pieces are expected but not announced, so the rating rests on the House side." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Politicization of DOJ and FBI, firing of career prosecutors, the $1.8 billion Anti-Weaponization fund",
+                  "DOJ and antitrust settlements in media and entertainment, and whether they benefited private parties",
+                  "Bank chartering, supervision decisions and tax settlements driven by political favoritism",
+                  "Handling of the Epstein investigation, including financial institutions and advisors who may have financed it"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Garcia plans public Epstein hearings and may subpoena Attorney General Todd Blanche over withheld pages",
+                  "Raskin plans Judiciary hearings on DOJ politicization and pay-to-play pardons",
+                  "Whitehouse and Warren probes on the Senate side have not been formally announced"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Executive privilege and ongoing-investigation claims from DOJ. Senate committee chairs are not yet confirmed."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Two presumptive House chairs have committed to specific hearings and a possible cabinet-level subpoena. The Senate pieces are expected but not announced, so the rating rests on the House side."
+              }
             ]
           },
           {
@@ -86,10 +215,34 @@
             "lead": "House Natural Resources, Rep. Jared Huffman (expected chair)",
             "likelihood": "low",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Management of public lands under the administration's environmental policy", "Donations tied to Freedom250, the 250th anniversary program", "Whether natural resource policy was traded for political or financial support"] },
-              { "label": "Next steps", "kind": "list", "items": ["No post-election statement from Huffman on specific hearings or witnesses", "Likely to start with document requests to Interior and the Freedom250 commission", "Freedom250 events through July 4, 2027 keep the donor question live"] },
-              { "label": "What could slow it", "kind": "text", "text": "Not named in any post-election leadership statement. Competes for committee time with legislative priorities and with higher-profile probes." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Appears in strategy memos only. No chair has gone on record since the election." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Management of public lands under the administration's environmental policy",
+                  "Donations tied to Freedom250, the 250th anniversary program",
+                  "Whether natural resource policy was traded for political or financial support"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "No post-election statement from Huffman on specific hearings or witnesses",
+                  "Likely to start with document requests to Interior and the Freedom250 commission",
+                  "Freedom250 events through July 4, 2027 keep the donor question live"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Not named in any post-election leadership statement. Competes for committee time with legislative priorities and with higher-profile probes."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Appears in strategy memos only. No chair has gone on record since the election."
+              }
             ]
           },
           {
@@ -99,10 +252,35 @@
             "lead": "Rep. Frank Pallone (Energy and Commerce), Sen. Maria Cantwell (Commerce)",
             "likelihood": "medium",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Surveillance pricing: using consumer data to charge variable prices", "Healthcare and prescription drug costs", "Predatory lending", "Utilities, fossil fuel operations and large data centers: electricity costs, water use and grid impact"] },
-              { "label": "Next steps", "kind": "list", "items": ["Leadership's first legislative moves are affordability bills: ACA premium subsidies and reversing Medicaid cuts", "Oversight hearings on pricing and data centers would run alongside that agenda", "No specific hearing dates or witness lists announced"] },
-              { "label": "What could slow it", "kind": "text", "text": "Leadership wants affordability framed as legislation first. Corporate targets are outside the administration, so hearings draw less media attention than Trump-focused probes." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Named committee leads and a clear leadership priority on cost of living, but no announced hearings. The legislative push may absorb the committee calendar." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Surveillance pricing: using consumer data to charge variable prices",
+                  "Healthcare and prescription drug costs",
+                  "Predatory lending",
+                  "Utilities, fossil fuel operations and large data centers: electricity costs, water use and grid impact"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Leadership's first legislative moves are affordability bills: ACA premium subsidies and reversing Medicaid cuts",
+                  "Oversight hearings on pricing and data centers would run alongside that agenda",
+                  "No specific hearing dates or witness lists announced"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Leadership wants affordability framed as legislation first. Corporate targets are outside the administration, so hearings draw less media attention than Trump-focused probes."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Named committee leads and a clear leadership priority on cost of living, but no announced hearings. The legislative push may absorb the committee calendar."
+              }
             ]
           },
           {
@@ -112,10 +290,32 @@
             "lead": "House Democratic leadership (Speaker-designate Hakeem Jeffries); House Judiciary (Rep. Jamie Raskin)",
             "likelihood": "low",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Would require explicit evidence from the investigations above, such as direct bribery in defense contracting or pardon-selling"] },
-              { "label": "Next steps", "kind": "list", "items": ["Jeffries: nothing ruled in, nothing ruled out; no caucus member has raised it with him", "Raskin: a critical tool, used only if benefits outweigh the cost in time and attention", "Any move would follow, not precede, findings from Oversight and Judiciary"] },
-              { "label": "What could slow it", "kind": "text", "text": "Senate conviction needs 67 votes, which Democrats do not have. Leadership is prioritizing affordability. Some new members say there is no path to removal." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Leadership has deliberately kept it open as leverage, but no one in leadership is advocating it now and the Senate math rules out removal." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Would require explicit evidence from the investigations above, such as direct bribery in defense contracting or pardon-selling"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Jeffries: nothing ruled in, nothing ruled out; no caucus member has raised it with him",
+                  "Raskin: a critical tool, used only if benefits outweigh the cost in time and attention",
+                  "Any move would follow, not precede, findings from Oversight and Judiciary"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Senate conviction needs 67 votes, which Democrats do not have. Leadership is prioritizing affordability. Some new members say there is no path to removal."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Leadership has deliberately kept it open as leverage, but no one in leadership is advocating it now and the Senate math rules out removal."
+              }
             ]
           },
           {
@@ -125,10 +325,35 @@
             "lead": "House Judiciary (Rep. Jamie Raskin); House Armed Services (Rep. Adam Smith) on Hegseth; House Oversight (Rep. Robert Garcia) on Blanche and Miller",
             "likelihood": "high",
             "columns": [
-              { "label": "Target areas", "kind": "list", "items": ["Defense Secretary Pete Hegseth: six articles already filed (Apr 15, 2026) over the Iran war, law of armed conflict, mishandling of military information, obstruction of oversight, and politicizing the armed forces", "Attorney General Todd Blanche: handling of Epstein files, including withheld pages; subpoena threatened by Garcia", "White House deputy chief of staff Stephen Miller: named by Jeffries alongside Bondi as someone who has to go; named by Garcia as a witness", "HHS Secretary Robert F. Kennedy Jr.: impeachment threats from rank-and-file Democrats since December 2025; no post-election leadership statement"] },
-              { "label": "Next steps", "kind": "list", "items": ["Hegseth articles expire with the 119th Congress and must be reintroduced in January; Jeffries has said Democrats will run Hegseth out of town as one of their first actions", "Rep. Thomas Massie (R) plans to force a lame-duck vote on his own eight-article Hegseth resolution", "Pressure campaigns, not impeachment votes, removed DHS Secretary Kristi Noem (ousted after 50+ Democrats signed articles) and Attorney General Pam Bondi (fired Apr 2, 2026 after articles over Epstein documents); expect the same pattern first"] },
-              { "label": "What could slow it", "kind": "text", "text": "Only two cabinet officials have ever been impeached (Belknap 1876, Mayorkas 2024) and neither was convicted. Senate conviction still needs 67 votes. Raskin, Schiff and Crow are described as cautious on impeachment." },
-              { "label": "Basis for the rating", "kind": "basis", "text": "Articles against Hegseth exist with cosponsors, the Speaker-designate has committed publicly to removing him, and the likely Armed Services chair is inclined to back proceedings. The rating covers formal action beginning, not conviction." }
+              {
+                "label": "Target areas",
+                "kind": "list",
+                "items": [
+                  "Defense Secretary Pete Hegseth: six articles already filed (Apr 15, 2026) over the Iran war, law of armed conflict, mishandling of military information, obstruction of oversight, and politicizing the armed forces",
+                  "Attorney General Todd Blanche: handling of Epstein files, including withheld pages; subpoena threatened by Garcia",
+                  "White House deputy chief of staff Stephen Miller: named by Jeffries alongside Bondi as someone who has to go; named by Garcia as a witness",
+                  "HHS Secretary Robert F. Kennedy Jr.: impeachment threats from rank-and-file Democrats since December 2025; no post-election leadership statement"
+                ]
+              },
+              {
+                "label": "Next steps",
+                "kind": "list",
+                "items": [
+                  "Hegseth articles expire with the 119th Congress and must be reintroduced in January; Jeffries has said Democrats will run Hegseth out of town as one of their first actions",
+                  "Rep. Thomas Massie (R) plans to force a lame-duck vote on his own eight-article Hegseth resolution",
+                  "Pressure campaigns, not impeachment votes, removed DHS Secretary Kristi Noem (ousted after 50+ Democrats signed articles) and Attorney General Pam Bondi (fired Apr 2, 2026 after articles over Epstein documents); expect the same pattern first"
+                ]
+              },
+              {
+                "label": "What could slow it",
+                "kind": "text",
+                "text": "Only two cabinet officials have ever been impeached (Belknap 1876, Mayorkas 2024) and neither was convicted. Senate conviction still needs 67 votes. Raskin, Schiff and Crow are described as cautious on impeachment."
+              },
+              {
+                "label": "Basis for the rating",
+                "kind": "basis",
+                "text": "Articles against Hegseth exist with cosponsors, the Speaker-designate has committed publicly to removing him, and the likely Armed Services chair is inclined to back proceedings. The rating covers formal action beginning, not conviction."
+              }
             ]
           }
         ]
@@ -138,24 +363,119 @@
         "id": "impeachment-math",
         "heading": "Impeachment Targets",
         "tiles": [
-          { "label": "House: to impeach", "value": "218", "mono": true, "note": "Simple majority. Democrats are projected to hold it. Applies to the President and to any civil officer." },
-          { "label": "Senate: to convict", "value": "67", "mono": true, "note": "Two-thirds. A 7-seat gain leaves Democrats well short without Republican votes." },
-          { "label": "Cabinet precedent", "value": "2", "mono": true, "note": "Cabinet officials ever impeached: Belknap (1876) and Mayorkas (2024). Neither was convicted." }
+          {
+            "label": "House: to impeach",
+            "value": "218",
+            "mono": true,
+            "note": "Simple majority. Democrats are projected to hold it. Applies to the President and to any civil officer.",
+            "size": "large"
+          },
+          {
+            "label": "Senate: to convict",
+            "value": "67",
+            "mono": true,
+            "note": "Two-thirds. A 7-seat gain leaves Democrats well short without Republican votes.",
+            "size": "large"
+          },
+          {
+            "label": "Cabinet precedent",
+            "value": "2",
+            "mono": true,
+            "note": "Cabinet officials ever impeached: Belknap (1876) and Mayorkas (2024). Neither was convicted.",
+            "size": "large"
+          }
         ]
       },
       {
         "type": "table",
         "id": "targets",
         "heading": "Targets by Official",
-        "columns": ["Official", "Role", "Status", "Articles filed", "Leadership stance", "Likelihood of formal action"],
+        "columns": [
+          "Official",
+          "Role",
+          "Status",
+          "Articles filed",
+          "Leadership stance",
+          "Likelihood of formal action"
+        ],
         "rows": [
-          ["Donald Trump", "President", "In office", "None by the incoming majority", "Jeffries: nothing ruled in or out. Raskin: a tool to use only if benefits outweigh costs.", { "pill": "low", "text": "Low" }],
-          ["Pete Hegseth", "Defense Secretary", "In office", "Six articles, Rep. Yassamin Ansari, Apr 15, 2026, 12 cosponsors, referred to Judiciary. Separate eight-article resolution from Rep. Thomas Massie (R).", "Jeffries: run him out of town as one of the first actions. Smith: inclined to back proceedings.", { "pill": "high", "text": "High" }],
-          ["Todd Blanche", "Attorney General (confirmed after Bondi's firing)", "In office", "None found", "Garcia may subpoena him over withheld Epstein pages. No impeachment statement.", { "pill": "medium", "text": "Medium" }],
-          ["Stephen Miller", "White House deputy chief of staff", "In office", "None found", "Jeffries: pursue with the same intensity that led to Noem's ouster. Garcia: will be called to testify.", { "pill": "medium", "text": "Medium" }],
-          ["Robert F. Kennedy Jr.", "HHS Secretary", "In office", "Threatened by rank-and-file Democrats, Dec 2025", "No post-election leadership statement.", { "pill": "low", "text": "Low" }],
-          ["Kristi Noem", "Former DHS Secretary", "Ousted, March 2026; now in a lower-profile role", "Articles drew 50+ Democratic signatures, Jan 2026", "Rep. Delia Ramirez still wants hearings.", { "pill": "low", "text": "Low" }],
-          ["Pam Bondi", "Former Attorney General", "Fired Apr 2, 2026", "Rep. Shri Thanedar, Mar 2026: obstruction of Congress, dereliction of duty (Epstein documents)", "Out of office; no longer an impeachment target.", { "pill": "low", "text": "Low" }]
+          [
+            "Donald Trump",
+            "President",
+            "In office",
+            "None by the incoming majority",
+            "Jeffries: nothing ruled in or out. Raskin: a tool to use only if benefits outweigh costs.",
+            {
+              "pill": "low",
+              "text": "Low"
+            }
+          ],
+          [
+            "Pete Hegseth",
+            "Defense Secretary",
+            "In office",
+            "Six articles, Rep. Yassamin Ansari, Apr 15, 2026, 12 cosponsors, referred to Judiciary. Separate eight-article resolution from Rep. Thomas Massie (R).",
+            "Jeffries: run him out of town as one of the first actions. Smith: inclined to back proceedings.",
+            {
+              "pill": "high",
+              "text": "High"
+            }
+          ],
+          [
+            "Todd Blanche",
+            "Attorney General (confirmed after Bondi's firing)",
+            "In office",
+            "None found",
+            "Garcia may subpoena him over withheld Epstein pages. No impeachment statement.",
+            {
+              "pill": "medium",
+              "text": "Medium"
+            }
+          ],
+          [
+            "Stephen Miller",
+            "White House deputy chief of staff",
+            "In office",
+            "None found",
+            "Jeffries: pursue with the same intensity that led to Noem's ouster. Garcia: will be called to testify.",
+            {
+              "pill": "medium",
+              "text": "Medium"
+            }
+          ],
+          [
+            "Robert F. Kennedy Jr.",
+            "HHS Secretary",
+            "In office",
+            "Threatened by rank-and-file Democrats, Dec 2025",
+            "No post-election leadership statement.",
+            {
+              "pill": "low",
+              "text": "Low"
+            }
+          ],
+          [
+            "Kristi Noem",
+            "Former DHS Secretary",
+            "Ousted, March 2026; now in a lower-profile role",
+            "Articles drew 50+ Democratic signatures, Jan 2026",
+            "Rep. Delia Ramirez still wants hearings.",
+            {
+              "pill": "low",
+              "text": "Low"
+            }
+          ],
+          [
+            "Pam Bondi",
+            "Former Attorney General",
+            "Fired Apr 2, 2026",
+            "Rep. Shri Thanedar, Mar 2026: obstruction of Congress, dereliction of duty (Epstein documents)",
+            "Out of office; no longer an impeachment target.",
+            {
+              "pill": "low",
+              "text": "Low"
+            }
+          ]
         ],
         "legend": "Likelihood here means formal House action (reintroduced articles, Judiciary hearings, or a floor vote) in the first half of 2027, not Senate conviction. The Noem and Bondi rows show the pattern so far: pressure campaigns backed by filed articles led to removal before any impeachment vote."
       },
@@ -164,18 +484,54 @@
         "id": "sources",
         "heading": "Sources",
         "items": [
-          { "title": "Original brief (committee leads, target areas, Guardian citations)" },
-          { "title": "ABC News: Democrats take the House. Here's what they plan to investigate", "url": "https://abcnews.com/Politics/democrats-house-heres-plan-investigate-legislative-agenda/story?id=137832144" },
-          { "title": "CBS News: 2026 House election results live updates", "url": "https://www.cbsnews.com/live-updates/house-election-results-2026/" },
-          { "title": "NBC News: Democrats capture full control of Congress", "url": "https://www.nbcnews.com/politics/2026-election/democrats-capture-full-control-congress-nbc-news-projects-fueled-victo-rcna607042" },
-          { "title": "IBTimes: Could Pete Hegseth be impeached next?", "url": "https://www.ibtimes.co.uk/pete-hegseth-impeachment-articles-democratic-congress-1830152" },
-          { "title": "Axios: House Democrats introduce 6 articles of impeachment targeting Pete Hegseth", "url": "https://www.axios.com/2026/04/15/iran-war-pete-hegseth-congress-impeachment-articles-democrats-reflecting-search-interest-order" },
-          { "title": "Axios: Dems turn their sights to Pam Bondi after Noem firing", "url": "https://axios.com/2026/03/05/pam-bondi-kristi-noem-democrats-epstein-impeach" },
-          { "title": "Axios: Over 50 House Dems sign onto Kristi Noem impeachment articles", "url": "https://www.axios.com/2026/01/13/kristi-noem-impeachment-democrats-ice-congress" },
-          { "title": "Axios: These 3 Trump Cabinet officials are facing impeachment threats", "url": "https://www.axios.com/2025/12/11/impeachment-hegseth-noem-rfk-trump-democrats" },
-          { "title": "ABC News: Trump replacing Pam Bondi as attorney general, Todd Blanche to step in", "url": "https://abcnews.com/US/trump-replacing-pam-bondi-attorney-general-todd-blanche/story?id=131647710" }
+          {
+            "title": "Original brief (committee leads, target areas, Guardian citations)"
+          },
+          {
+            "title": "ABC News: Democrats take the House. Here's what they plan to investigate",
+            "url": "https://abcnews.com/Politics/democrats-house-heres-plan-investigate-legislative-agenda/story?id=137832144"
+          },
+          {
+            "title": "CBS News: 2026 House election results live updates",
+            "url": "https://www.cbsnews.com/live-updates/house-election-results-2026/"
+          },
+          {
+            "title": "NBC News: Democrats capture full control of Congress",
+            "url": "https://www.nbcnews.com/politics/2026-election/democrats-capture-full-control-congress-nbc-news-projects-fueled-victo-rcna607042"
+          },
+          {
+            "title": "IBTimes: Could Pete Hegseth be impeached next?",
+            "url": "https://www.ibtimes.co.uk/pete-hegseth-impeachment-articles-democratic-congress-1830152"
+          },
+          {
+            "title": "Axios: House Democrats introduce 6 articles of impeachment targeting Pete Hegseth",
+            "url": "https://www.axios.com/2026/04/15/iran-war-pete-hegseth-congress-impeachment-articles-democrats-reflecting-search-interest-order"
+          },
+          {
+            "title": "Axios: Dems turn their sights to Pam Bondi after Noem firing",
+            "url": "https://axios.com/2026/03/05/pam-bondi-kristi-noem-democrats-epstein-impeach"
+          },
+          {
+            "title": "Axios: Over 50 House Dems sign onto Kristi Noem impeachment articles",
+            "url": "https://www.axios.com/2026/01/13/kristi-noem-impeachment-democrats-ice-congress"
+          },
+          {
+            "title": "Axios: These 3 Trump Cabinet officials are facing impeachment threats",
+            "url": "https://www.axios.com/2025/12/11/impeachment-hegseth-noem-rfk-trump-democrats"
+          },
+          {
+            "title": "ABC News: Trump replacing Pam Bondi as attorney general, Todd Blanche to step in",
+            "url": "https://abcnews.com/US/trump-replacing-pam-bondi-attorney-general-todd-blanche/story?id=131647710"
+          }
         ]
       }
-    ]
+    ],
+    "header": {
+      "eyebrow": "120th Congress",
+      "counter": {
+        "sectionId": "areas",
+        "label": "Investigations in process or on deck"
+      }
+    }
   }
 }

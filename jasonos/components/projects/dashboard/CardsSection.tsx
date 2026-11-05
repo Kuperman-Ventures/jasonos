@@ -2,25 +2,25 @@
 
 import { useState } from "react";
 import type { Likelihood, Section } from "@/lib/dashboard/schema";
-import { LikelihoodPill } from "./LikelihoodPill";
+import { LIKELIHOOD_TONE, LikelihoodPill } from "./LikelihoodPill";
+import { useDashboardFilter, type DashboardFilter } from "./DashboardFilterContext";
 import { SectionHeading } from "./section-heading";
 import styles from "./dashboard.module.css";
 
 type Cards = Extract<Section, { type: "cards" }>;
 type Card = Cards["cards"][number];
-type Filter = "all" | Likelihood;
 
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "high", label: "High" },
-  { id: "medium", label: "Medium" },
-  { id: "low", label: "Low" },
+const FILTERS: { id: DashboardFilter; label: (total: number) => string }[] = [
+  { id: "all", label: (total) => `All ${total}` },
+  { id: "high", label: () => "High likelihood" },
+  { id: "medium", label: () => "Medium" },
+  { id: "low", label: () => "Low" },
 ];
 
-function Column({ column }: { column: Card["columns"][number] }) {
+function ColumnBlock({ column, likelihood }: { column: Card["columns"][number]; likelihood?: Likelihood }) {
   return (
-    <div className={styles.column}>
-      <div className={styles.columnLabel}>{column.label}</div>
+    <div className={styles.columnBlock}>
+      <h4 className={styles.columnLabel}>{column.label}</h4>
       {column.kind === "list" ? (
         <ul className={styles.list}>
           {(column.items ?? []).map((item) => (
@@ -28,21 +28,28 @@ function Column({ column }: { column: Card["columns"][number] }) {
           ))}
         </ul>
       ) : null}
-      {column.kind === "text" ? <p className={styles.text}>{column.text}</p> : null}
-      {column.kind === "basis" ? <p className={styles.basis}>{column.text}</p> : null}
+      {column.kind === "text" ? <p className={styles.columnText}>{column.text}</p> : null}
+      {column.kind === "basis" ? (
+        <p
+          className={styles.basis}
+          style={likelihood ? { borderColor: LIKELIHOOD_TONE[likelihood].fg } : undefined}
+        >
+          {column.text}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function Halves({ columns }: { columns: Card["columns"] }) {
-  const mid = Math.ceil(columns.length / 2);
-  const halves = [columns.slice(0, mid), columns.slice(mid)].filter((half) => half.length > 0);
+function Halves({ card }: { card: Card }) {
+  const mid = Math.ceil(card.columns.length / 2);
+  const halves = [card.columns.slice(0, mid), card.columns.slice(mid)].filter((half) => half.length > 0);
   return (
-    <div className={styles.columns}>
-      {halves.map((half) => (
-        <div key={half[0]?.label}>
+    <div className={styles.cardBody}>
+      {halves.map((half, index) => (
+        <div key={half[0]?.label ?? index} className={styles.column}>
           {half.map((column) => (
-            <Column key={column.label} column={column} />
+            <ColumnBlock key={column.label} column={column} likelihood={card.likelihood} />
           ))}
         </div>
       ))}
@@ -51,53 +58,55 @@ function Halves({ columns }: { columns: Card["columns"] }) {
 }
 
 export function CardsSection({ section }: { section: Cards }) {
-  const [filter, setFilter] = useState<Filter>("all");
-  const filtering = section.filterBy === "likelihood";
-  const cards =
-    !filtering || filter === "all"
-      ? section.cards
-      : section.cards.filter((card) => card.likelihood === filter);
+  const shared = useDashboardFilter();
+  const linked = section.filterBy === "likelihood" && shared?.sectionId === section.id;
+  const [local, setLocal] = useState<DashboardFilter>("all");
+  const filter = linked && shared ? shared.filter : local;
+  const setFilter = linked && shared ? shared.setFilter : setLocal;
+  const shown = filter === "all" ? section.cards : section.cards.filter((card) => card.likelihood === filter);
 
   return (
-    <section id={section.id} className={styles.section}>
-      <div className={styles.sectionBar}>
-        <SectionHeading className={styles.headingInline}>{section.heading}</SectionHeading>
-        {filtering ? (
-          <div className={styles.filters} role="group" aria-label="Filter by likelihood">
+    <>
+      <div className={styles.filterRow}>
+        <SectionHeading>{section.heading}</SectionHeading>
+        {section.filterBy === "likelihood" ? (
+          <div role="group" aria-label="Filter by likelihood" className={styles.filters}>
             {FILTERS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 aria-pressed={filter === item.id}
                 onClick={() => setFilter(item.id)}
-                className={styles.chip}
+                className={styles.filterButton}
               >
-                {item.label}
+                {item.label(section.cards.length)}
               </button>
             ))}
           </div>
         ) : null}
       </div>
       <div className={styles.cards}>
-        {cards.map((card) => (
-          <article key={card.id} id={card.id} className={styles.card}>
-            <header className={styles.cardHeader}>
-              <div>
-                <h3 className={styles.cardTitle}>
-                  {card.num != null ? <span className={styles.num}>{card.num}</span> : null}
-                  {card.title}
-                </h3>
-                {card.lead ? <p className={styles.lead}>Lead: {card.lead}</p> : null}
+        {shown.map((card) => (
+          <article key={card.id} className={styles.card}>
+            <div className={styles.cardHead}>
+              <div className={styles.cardIdentity}>
+                {card.num != null ? <div className={styles.cardNum}>{card.num}</div> : null}
+                <div>
+                  <h3 className={styles.cardTitle}>{card.title}</h3>
+                  {card.lead ? (
+                    <p className={styles.lead}>
+                      <strong>Lead:</strong> {card.lead}
+                    </p>
+                  ) : null}
+                </div>
               </div>
               {card.likelihood ? <LikelihoodPill likelihood={card.likelihood} /> : null}
-            </header>
-            <hr className={styles.rule} />
-            <Halves columns={card.columns} />
+            </div>
+            <Halves card={card} />
           </article>
         ))}
-        {cards.length === 0 ? <p className={styles.empty}>None in this group.</p> : null}
       </div>
       {section.legend ? <p className={styles.legend}>{section.legend}</p> : null}
-    </section>
+    </>
   );
 }

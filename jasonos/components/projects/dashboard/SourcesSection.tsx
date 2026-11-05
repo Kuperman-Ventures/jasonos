@@ -16,25 +16,25 @@ function safeHttpUrl(url: string): string | null {
 
 export function SourcesSection({ section }: { section: Sources }) {
   return (
-    <section id={section.id} className={styles.section}>
-      <SectionHeading>{section.heading}</SectionHeading>
+    <>
+      <SectionHeading className={styles.headingSources}>{section.heading}</SectionHeading>
       <ol className={styles.sources}>
         {section.items.map((item) => {
           const href = item.url ? safeHttpUrl(item.url) : null;
           return (
             <li key={`${item.title}-${item.url ?? ""}`}>
               {href ? (
-                <a href={href} target="_blank" rel="noreferrer">
+                <a href={href} target="_blank" rel="noopener noreferrer">
                   {item.title}
                 </a>
               ) : (
                 item.title
               )}
-              {item.note ? <span className={styles.note}>{item.note}</span> : null}
+              {item.note ? <span className={styles.note}> {item.note}</span> : null}
             </li>
           );
         })}
       </ol>
-    </section>
+    </>
   );
 }

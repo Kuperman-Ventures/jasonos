@@ -32,7 +32,7 @@ export default async function ProjectPage({
 
   return (
     <>
-      {dashboard ? <ProjectDashboard document={dashboard} slug={project.slug} /> : null}
+      {dashboard ? <ProjectDashboard document={dashboard} /> : null}
       <div className="mx-auto min-w-0 max-w-[1200px] overflow-x-clip px-4 pb-16">
         {dashboard ? null : (
           <header className="py-6">

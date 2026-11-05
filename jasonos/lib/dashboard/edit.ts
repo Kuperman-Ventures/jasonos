@@ -1,4 +1,4 @@
-import { DashboardDocument, Section, type DashboardDocument as Dashboard, type Section as DashboardSection } from "./schema";
+import { DashboardDocument, DashboardHeader, Section, type DashboardDocument as Dashboard, type Section as DashboardSection } from "./schema";
 
 export const PROJECT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -28,6 +28,7 @@ export function readableDocument(raw: unknown): Dashboard | null {
     title?: unknown;
     subtitle?: unknown;
     updatedOn?: unknown;
+    header?: unknown;
     sections?: unknown;
   };
   if (doc.version !== 1 || typeof doc.title !== "string" || typeof doc.updatedOn !== "string") {
@@ -48,11 +49,13 @@ export function readableDocument(raw: unknown): Dashboard | null {
     console.warn(`[project-dashboard] skipped section ${id} (${type})`);
   }
   if (!sections.length) return null;
+  const header = DashboardHeader.safeParse(doc.header);
   return {
     version: 1,
     title: doc.title,
     subtitle: typeof doc.subtitle === "string" ? doc.subtitle : undefined,
     updatedOn: doc.updatedOn,
+    header: header.success ? header.data : undefined,
     sections,
   };
 }
