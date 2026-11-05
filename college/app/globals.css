@@ -1109,17 +1109,152 @@ footer {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  width: 100%;
   min-height: 56px;
   padding: 12px 2px;
   color: inherit;
   text-decoration: none;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font: inherit;
   -webkit-tap-highlight-color: transparent;
 }
-a.colleges-mobile-row:active {
+.colleges-mobile-row:active {
   background: var(--hover-fill);
 }
 .colleges-mobile-row.is-static {
   cursor: default;
+}
+
+.mobile-snap {
+  min-height: 100dvh;
+  padding: 12px 16px 40px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.mobile-snap-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 4px 0 10px;
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+}
+.mobile-snap-back,
+.mobile-snap-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font: 600 13px/1.2 var(--font-body);
+  cursor: pointer;
+}
+.mobile-snap-upload {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+.mobile-snap-upload:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.mobile-snap-status {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+.mobile-snap-hero {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+.mobile-snap-hero h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 650;
+}
+.mobile-snap-hero p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--text-subtle);
+}
+.mobile-snap-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin: 0 0 20px;
+}
+.mobile-snap-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border-radius: 3px;
+}
+.mobile-snap-facts dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.mobile-snap-facts dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.mobile-snap-facts dd[data-level="top"] { color: var(--lvl-4-fg, var(--text-accent)); }
+.mobile-snap-facts dd[data-level="high"] { color: var(--lvl-3-fg, var(--text-accent)); }
+.mobile-snap-photos {
+  margin: 0 0 18px;
+}
+.mobile-snap-photos h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.mobile-snap-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.mobile-snap-thumb {
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--color-surface) center / cover no-repeat;
+  border: 1px solid var(--color-border);
+}
+.mobile-snap-empty {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-subtle);
+}
+.mobile-snap-site {
+  display: inline-flex;
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--link, var(--text-accent));
+}
+.school-photos-upload-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-subtle);
 }
 .colleges-mobile-name {
   display: flex;

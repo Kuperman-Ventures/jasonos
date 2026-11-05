@@ -89,9 +89,22 @@ export function SchoolPhotos({
   const schoolPhotos = schoolPhotosForSchool(school.id, school.name);
   const virtualTourUrl = linkOverrideFor("virtual-tours", school.id) ?? virtualTourUrlForSchool(school.name);
   const virtualTourEmbedUrl = virtualTourEmbedUrlForSchool(school.name);
-  // Family uploads need image storage tagged like Notes — not wired yet.
-  const [familyPhotos] = useState<SchoolPhoto[]>([]);
+  const [familyPhotos, setFamilyPhotos] = useState<SchoolPhoto[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { fetchFamilyPhotos } = await import("@/lib/upload-school-photos");
+      const items = await fetchFamilyPhotos(school.id);
+      if (!cancelled) setFamilyPhotos(items);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [school.id]);
 
   const roll: RollItem[] = [
     ...familyPhotos.map((photo) => {
@@ -261,10 +274,11 @@ export function SchoolPhotos({
           <button
             type="button"
             className="school-photos-add"
+            disabled={uploadBusy}
             onClick={() => uploadInputRef.current?.click()}
           >
             <UploadSimple size={24} weight="duotone" aria-hidden="true" />
-            Add photos
+            {uploadBusy ? "Uploading…" : "Add photos"}
           </button>
           {virtualTourEmbedUrl ? (
             <button
@@ -293,12 +307,35 @@ export function SchoolPhotos({
             accept="image/*"
             multiple
             hidden
-            onChange={() => {
-              /* Upload storage not wired — see Step 1 report. */
-              if (uploadInputRef.current) uploadInputRef.current.value = "";
+            onChange={(event) => {
+              const files = event.target.files;
+              if (!files?.length) return;
+              void (async () => {
+                setUploadBusy(true);
+                setUploadStatus(`Uploading ${files.length}…`);
+                const { uploadSchoolPhotos } = await import("@/lib/upload-school-photos");
+                const result = await uploadSchoolPhotos(school.id, files);
+                if (result.uploaded.length) {
+                  setFamilyPhotos((prev) => [...result.uploaded, ...prev]);
+                }
+                setUploadStatus(
+                  result.errors[0] ??
+                    (result.uploaded.length === 1
+                      ? "Photo added for the family"
+                      : `${result.uploaded.length} photos added`),
+                );
+                setUploadBusy(false);
+                if (uploadInputRef.current) uploadInputRef.current.value = "";
+                window.setTimeout(() => setUploadStatus(""), 3200);
+              })();
             }}
           />
         </div>
+        {uploadStatus ? (
+          <p className="school-photos-upload-status" role="status">
+            {uploadStatus}
+          </p>
+        ) : null}
       </div>
 
       <div className="school-photos-group">
