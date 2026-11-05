@@ -130,6 +130,39 @@
   padding: 56px 0 0;
 }
 
+.cardAppendix {
+  padding: 28px 24px 24px;
+  border-top: 1px solid var(--pd-neutral-300);
+  background: var(--pd-surface);
+}
+
+.card > .cardAppendix:first-child {
+  border-top: 0;
+}
+
+.cardAppendix .heading {
+  margin-bottom: 20px;
+  font-size: 22px;
+}
+
+.cardAppendix .legend {
+  margin-top: 20px;
+}
+
+.cardAppendix .tiles {
+  border-top: 0;
+}
+
+.cardAppendix .table {
+  border-width: 1px;
+  border-color: var(--pd-neutral-300);
+}
+
+.cardAppendix .table th {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--pd-text);
+}
+
 .heading {
   margin: 0 0 32px;
   font-size: 32px;
