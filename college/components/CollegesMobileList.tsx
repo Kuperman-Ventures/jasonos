@@ -9,12 +9,13 @@ import {
   tierLabel,
   type School,
 } from "@/lib/types";
+import { compareSchools } from "@/lib/list";
 
 export function CollegesMobileList({ schools }: { schools: School[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const rows = [...schools]
     .filter((school) => !school.archived)
-    .sort((a, b) => a.listOrder - b.listOrder);
+    .sort((a, b) => compareSchools(a, b, "interest"));
   const selected = selectedId
     ? rows.find((school) => school.id === selectedId) ?? null
     : null;
