@@ -1,27 +1,21 @@
 import type { Section } from "@/lib/dashboard/schema";
 import { SectionHeading } from "./section-heading";
+import styles from "./dashboard.module.css";
 
 type Tiles = Extract<Section, { type: "tiles" }>;
 
-const mono =
-  "[font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace] tabular-nums";
-
 export function TilesSection({ section }: { section: Tiles }) {
   return (
-    <section id={section.id} className="scroll-mt-6">
+    <section id={section.id} className={styles.section}>
       {section.heading ? <SectionHeading>{section.heading}</SectionHeading> : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={styles.tiles}>
         {section.tiles.map((tile) => (
-          <div key={tile.label} className="min-w-0 rounded-xl border bg-card p-4">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {tile.label}
-            </div>
-            <div className={`mt-2 text-sm font-semibold tracking-tight ${tile.mono ? mono : ""}`}>
+          <div key={tile.label} className={styles.tile}>
+            <div className={styles.tileLabel}>{tile.label}</div>
+            <div className={tile.mono ? `${styles.tileValue} ${styles.tileValueMono}` : styles.tileValue}>
               {tile.value}
             </div>
-            {tile.note ? (
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{tile.note}</p>
-            ) : null}
+            {tile.note ? <p className={styles.note}>{tile.note}</p> : null}
           </div>
         ))}
       </div>

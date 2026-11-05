@@ -1,10 +1,12 @@
 import type { DashboardDocument, Section } from "@/lib/dashboard/schema";
 import { CardsSection } from "./CardsSection";
+import { DashboardMark } from "./DashboardMark";
 import { SourcesSection } from "./SourcesSection";
 import { TableSection } from "./TableSection";
 import { TextSection } from "./TextSection";
 import { TilesSection } from "./TilesSection";
 import { TimelineSection } from "./TimelineSection";
+import styles from "./dashboard.module.css";
 
 const KNOWN_SECTIONS = new Set(["tiles", "timeline", "cards", "table", "text", "sources"]);
 
@@ -27,27 +29,43 @@ function renderSection(section: Section) {
   }
 }
 
-export function ProjectDashboard({ document }: { document: DashboardDocument }) {
+/** A subtitle with its own first line uses that line as the small header label. */
+function headerCopy(subtitle?: string): { kicker?: string; subtitle?: string } {
+  if (!subtitle?.trim()) return {};
+  const [first, ...rest] = subtitle.split("\n");
+  const more = rest.join("\n").trim();
+  if (first?.trim() && more) return { kicker: first.trim(), subtitle: more };
+  return { subtitle: subtitle.trim() };
+}
+
+export function ProjectDashboard({
+  document,
+  slug,
+}: {
+  document: DashboardDocument;
+  slug?: string;
+}) {
+  const header = headerCopy(document.subtitle);
   return (
-    <div className="mx-auto min-w-0 max-w-[1200px] space-y-8 overflow-x-clip px-4 py-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">{document.title}</h1>
-        {document.subtitle ? (
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            {document.subtitle}
-          </p>
-        ) : null}
-        <p className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Updated {document.updatedOn}
-        </p>
-      </header>
-      {document.sections.map((section) => {
-        if (!KNOWN_SECTIONS.has(section.type)) {
-          console.warn(`[project-dashboard] skipped section ${section.id} (${section.type})`);
-          return null;
-        }
-        return <div key={section.id}>{renderSection(section)}</div>;
-      })}
+    <div className={styles.page}>
+      <div className={styles.inner}>
+        <header className={styles.header}>
+          {slug === "oversight-agenda" ? <DashboardMark /> : null}
+          <div className={styles.headerCopy}>
+            {header.kicker ? <p className={styles.kicker}>{header.kicker}</p> : null}
+            <h1 className={styles.title}>{document.title}</h1>
+            {header.subtitle ? <p className={styles.subtitle}>{header.subtitle}</p> : null}
+            <p className={styles.updated}>Updated {document.updatedOn}</p>
+          </div>
+        </header>
+        {document.sections.map((section) => {
+          if (!KNOWN_SECTIONS.has(section.type)) {
+            console.warn(`[project-dashboard] skipped section ${section.id} (${section.type})`);
+            return null;
+          }
+          return <div key={section.id}>{renderSection(section)}</div>;
+        })}
+      </div>
     </div>
   );
 }

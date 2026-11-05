@@ -1,15 +1,11 @@
+import styles from "./dashboard.module.css";
+
 export function SectionHeading({
   children,
-  className = "mb-3",
+  className,
 }: {
   children: string;
   className?: string;
 }) {
-  return (
-    <h2
-      className={`text-[10px] font-semibold uppercase tracking-widest text-muted-foreground ${className}`}
-    >
-      {children}
-    </h2>
-  );
+  return <h2 className={className ? `${styles.heading} ${className}` : styles.heading}>{children}</h2>;
 }
