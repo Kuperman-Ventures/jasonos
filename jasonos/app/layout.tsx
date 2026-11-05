@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { JasonOsChrome } from "@/components/jasonos/jasonos-chrome";
 import { PUBLIC_SURFACE_HEADER } from "@/lib/auth/public-routes";
+import { listProjectPages } from "@/lib/dashboard/store";
 import { getNetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
 const hanken = Hanken_Grotesk({
@@ -36,6 +37,12 @@ export default async function RootLayout({
   const headerStore = await headers();
   const publicSurface = headerStore.get(PUBLIC_SURFACE_HEADER) === "1";
   const networkingCounts = publicSurface ? undefined : await getNetworkingNavCounts();
+  const projectLinks = publicSurface
+    ? undefined
+    : (await listProjectPages()).map((page) => ({
+        href: `/projects/${page.slug}`,
+        label: page.title,
+      }));
   return (
     <html
       lang="en"
@@ -50,7 +57,7 @@ export default async function RootLayout({
         }`}
       >
         <TooltipProvider delay={150}>
-          <JasonOsChrome networkingCounts={networkingCounts} />
+          <JasonOsChrome networkingCounts={networkingCounts} projectLinks={projectLinks} />
           <main className="flex-1">{children}</main>
           <Toaster position="bottom-right" />
         </TooltipProvider>

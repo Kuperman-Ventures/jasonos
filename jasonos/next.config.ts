@@ -10,6 +10,7 @@ const projectRoot =
   process.env.NEXT_PRIVATE_OUTPUT_TRACE_ROOT || path.join(import.meta.dirname);
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   outputFileTracingRoot: projectRoot,
   turbopack: {
     root: projectRoot,

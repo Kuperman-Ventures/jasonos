@@ -307,6 +307,10 @@ describe("registerJasonosTools", () => {
     assert.ok(!registered.includes("list_people_in_motion"));
     assert.ok(registered.includes("add_project_link"));
     assert.ok(registered.includes("list_project_links"));
+    assert.ok(registered.includes("create_project"));
+    assert.ok(registered.includes("get_project_dashboard"));
+    assert.ok(registered.includes("set_project_dashboard"));
+    assert.ok(registered.includes("update_project_dashboard_section"));
     assert.ok(registered.includes("list_weekly_provocations"));
     for (const name of NETWORK_SCREEN_TOOL_NAMES) {
       assert.ok(registered.includes(name), `missing ${name}`);
@@ -340,6 +344,12 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("request_fyb_entry_changes"));
     assert.ok(tools.includes("list_project_links"));
     assert.ok(tools.includes("add_project_link"));
+    assert.ok(tools.includes("create_project"));
+    assert.ok(tools.includes("get_project_dashboard"));
+    assert.ok(tools.includes("set_project_dashboard"));
+    assert.ok(tools.includes("update_project_dashboard_section"));
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /set_project_dashboard replaces the whole page/);
+    assert.match(JASONOS_MCP_INSTRUCTIONS, /update_project_dashboard_section changes one section/);
     assert.ok(tools.includes("list_weekly_provocations"));
     assert.ok(tools.includes("import_network_screen"));
     assert.ok(tools.includes("get_network_screen"));
