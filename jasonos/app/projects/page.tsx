@@ -1,7 +1,8 @@
 import { EmptyState } from "@/components/jasonos/empty-state";
 import { TrackPill } from "@/components/jasonos/track-pill";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, BookOpen, GraduationCap, Mountain, Snowflake, Sparkles, Target, Telescope, Users } from "lucide-react";
+import { ArrowUpRight, BookOpen, GraduationCap, Mountain, Scale, Snowflake, Sparkles, Target, Telescope, Users } from "lucide-react";
+import { project as oversightAgenda } from "@/lib/projects/oversight-agenda/data";
 import { format } from "date-fns";
 import Link from "next/link";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -132,6 +133,25 @@ export default async function ProjectsPage() {
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
                   Weekend ski call: Mountain Creek, a 2-hour Epic mountain, or a
                   hotel overnight. Coming soon.
+                </p>
+              </div>
+            </div>
+            <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href="/projects/oversight-agenda"
+            className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
+                <Scale className="h-4 w-4 text-foreground/80" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  {oversightAgenda.title}
+                </h2>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  {oversightAgenda.description}
                 </p>
               </div>
             </div>

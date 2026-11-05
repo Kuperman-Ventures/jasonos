@@ -105,6 +105,10 @@ const NAV: NavItem[] = [
         label: "Ski Tracker",
       },
       {
+        href: "/projects/oversight-agenda",
+        label: "Oversight Agenda",
+      },
+      {
         href: "/projects/fuck-you-batman",
         label: "Fuck You Batman",
       },

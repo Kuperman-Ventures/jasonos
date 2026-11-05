@@ -14,6 +14,7 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/iugr/deck"), true);
     assert.equal(isPublicJasonosPath("/iugr/dark-matter"), true);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker"), true);
+    assert.equal(isPublicJasonosPath("/projects/oversight-agenda"), true);
     assert.equal(isPublicJasonosPath("/api/ski-tracker"), true);
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker"), true);
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker/vermont"), true);
@@ -44,6 +45,7 @@ describe("public JasonOS paths", () => {
     assert.equal(isPublicJasonosPath("/projects/fuck-you-batman"), false);
     assert.equal(isPublicJasonosPath("/projects/trailbound-at"), false);
     assert.equal(isPublicJasonosPath("/projects/ski-tracker-evil"), false);
+    assert.equal(isPublicJasonosPath("/projects/oversight-agenda-evil"), false);
     assert.equal(isPublicJasonosPath("/api/ski-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/projects/dark-matter-travel-tracker-evil"), false);
     assert.equal(isPublicJasonosPath("/api/dark-matter-travel-tracker-evil"), false);
@@ -78,6 +80,7 @@ describe("public JasonOS paths", () => {
     assert.equal(hidesJasonosChrome("/iugr"), true);
     assert.equal(hidesJasonosChrome("/iugr/dark-matter"), true);
     assert.equal(hidesJasonosChrome("/projects/ski-tracker"), true);
+    assert.equal(hidesJasonosChrome("/projects/oversight-agenda"), true);
     assert.equal(hidesJasonosChrome("/projects/dark-matter-travel-tracker"), true);
     assert.equal(hidesJasonosChrome("/dark-matter"), true);
     assert.equal(hidesJasonosChrome("/rank"), true);
