@@ -10,7 +10,15 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { CaretLeft, CaretRight, MonitorPlay, Star, UploadSimple, X } from "@phosphor-icons/react";
+import {
+  CaretLeft,
+  CaretRight,
+  MonitorPlay,
+  Star,
+  Trash,
+  UploadSimple,
+  X,
+} from "@phosphor-icons/react";
 import type { MemberProfile } from "@/lib/member-avatars";
 import { memberInitials } from "@/lib/member-avatars";
 import {
@@ -81,9 +89,12 @@ function schoolMeta(photo: SchoolPhoto): ReactNode {
 export function SchoolPhotos({
   school,
   memberProfiles,
+  canDeletePhotos = false,
 }: {
   school: School;
   memberProfiles: MemberProfile[];
+  /** Admin-only: delete family visit photos. */
+  canDeletePhotos?: boolean;
 }) {
   const headingName = schoolPhotosHeadingName(school.name);
   const schoolPhotos = schoolPhotosForSchool(school.id, school.name);
@@ -92,6 +103,7 @@ export function SchoolPhotos({
   const [familyPhotos, setFamilyPhotos] = useState<SchoolPhoto[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -225,6 +237,41 @@ export function SchoolPhotos({
     : "";
   const current = viewerIndex != null ? roll[viewerIndex] : null;
 
+  async function deleteFamilyPhoto(photoId: string) {
+    if (!canDeletePhotos || deleteBusyId) return;
+    if (!window.confirm("Delete this photo for the whole family?")) return;
+    setDeleteBusyId(photoId);
+    const { deleteSchoolPhoto } = await import("@/lib/upload-school-photos");
+    const result = await deleteSchoolPhoto(school.id, photoId);
+    if (!result.ok) {
+      setUploadStatus(result.error || "Could not delete photo");
+      setDeleteBusyId(null);
+      window.setTimeout(() => setUploadStatus(""), 3200);
+      return;
+    }
+    setFamilyPhotos((prev) => {
+      const next = prev.filter((photo) => photo.id !== photoId);
+      setViewerIndex((cur) => {
+        if (cur == null) return cur;
+        const removedAt = prev.findIndex((photo) => photo.id === photoId);
+        if (removedAt < 0) return cur;
+        if (next.length === 0 && schoolPhotos.length === 0) return null;
+        // Keep viewer on a sensible neighbor after removing a family photo.
+        if (cur > removedAt) return cur - 1;
+        if (cur === removedAt) {
+          const familyLeft = next.length;
+          if (familyLeft === 0) return schoolPhotos.length ? 0 : null;
+          return Math.min(cur, familyLeft - 1);
+        }
+        return cur;
+      });
+      return next;
+    });
+    setUploadStatus("Photo deleted");
+    setDeleteBusyId(null);
+    window.setTimeout(() => setUploadStatus(""), 2400);
+  }
+
   return (
     <section className="school-photos">
       <div className="school-photos-group">
@@ -242,31 +289,47 @@ export function SchoolPhotos({
             const profile = profileFor(memberProfiles, photo.userId);
             const name = profile?.displayName ?? "Family";
             return (
-              <figure key={photo.id}>
-                <button
-                  type="button"
-                  className="school-photos-thumb"
-                  style={thumbStyle(photo, index + 1)}
-                  aria-label={`Open: ${photo.caption}`}
-                  onClick={(event) => openViewer(index, event.currentTarget)}
-                >
-                  <span className="school-photos-who" title={name}>
-                    {profile?.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.avatarUrl} alt="" />
-                    ) : (
-                      memberInitials(name)
-                    )}
-                  </span>
-                  {photo.starred ? (
-                    <Star
-                      className="school-photos-star"
-                      weight="duotone"
-                      size={18}
-                      aria-label="Starred"
-                    />
+              <figure key={photo.id} className="school-photos-figure">
+                <div className="school-photos-thumb-wrap">
+                  <button
+                    type="button"
+                    className="school-photos-thumb"
+                    style={thumbStyle(photo, index + 1)}
+                    aria-label={`Open: ${photo.caption}`}
+                    onClick={(event) => openViewer(index, event.currentTarget)}
+                  >
+                    <span className="school-photos-who" title={name}>
+                      {profile?.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={profile.avatarUrl} alt="" />
+                      ) : (
+                        memberInitials(name)
+                      )}
+                    </span>
+                    {photo.starred ? (
+                      <Star
+                        className="school-photos-star"
+                        weight="duotone"
+                        size={18}
+                        aria-label="Starred"
+                      />
+                    ) : null}
+                  </button>
+                  {canDeletePhotos ? (
+                    <button
+                      type="button"
+                      className="school-photos-delete"
+                      aria-label={`Delete ${photo.caption}`}
+                      disabled={deleteBusyId === photo.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void deleteFamilyPhoto(photo.id);
+                      }}
+                    >
+                      <Trash size={16} weight="bold" aria-hidden="true" />
+                    </button>
                   ) : null}
-                </button>
+                </div>
                 <figcaption>{photo.caption}</figcaption>
               </figure>
             );
@@ -404,6 +467,17 @@ export function SchoolPhotos({
               <span className="school-photos-viewer-pos">
                 {viewerIndex + 1} / {roll.length}
               </span>
+              {canDeletePhotos && current.kind === "family" ? (
+                <button
+                  type="button"
+                  className="school-photos-vbtn school-photos-vbtn-sq school-photos-vbtn-delete"
+                  aria-label="Delete photo"
+                  disabled={deleteBusyId === current.id}
+                  onClick={() => void deleteFamilyPhoto(current.id)}
+                >
+                  <Trash size={18} weight="bold" aria-hidden="true" />
+                </button>
+              ) : null}
               <button
                 ref={closeBtnRef}
                 type="button"

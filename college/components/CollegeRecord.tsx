@@ -32,6 +32,7 @@ import { SchoolProjectManagement } from "./SchoolProjectManagement";
 import { SchoolRequirements } from "./SchoolRequirements";
 import { SchoolPhotos } from "./SchoolPhotos";
 import { SchoolTripPlanning } from "./SchoolTripPlanning";
+import { isAdminRole } from "@/lib/permissions";
 
 type SchoolModalTab =
   | "snapshot"
@@ -85,6 +86,7 @@ export function CollegeRecord({
   canAdvancePhase,
   memberId,
   memberName,
+  memberRole,
   memberProfiles,
   onBack,
   onNavigate,
@@ -132,6 +134,7 @@ export function CollegeRecord({
   canAdvancePhase: boolean;
   memberId: string;
   memberName: string;
+  memberRole: string;
   memberProfiles: MemberProfile[];
   onBack: () => void;
   /** Step to another school in the current list without closing the modal. */
@@ -830,7 +833,11 @@ export function CollegeRecord({
           ) : null}
 
           {tab === "photos" ? (
-            <SchoolPhotos school={school} memberProfiles={memberProfiles} />
+            <SchoolPhotos
+              school={school}
+              memberProfiles={memberProfiles}
+              canDeletePhotos={isAdminRole(memberRole)}
+            />
           ) : null}
 
           {tab === "visit" ? (

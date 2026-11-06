@@ -47,3 +47,18 @@ export async function fetchFamilyPhotos(schoolId: string): Promise<SchoolPhoto[]
   const body = (await response.json().catch(() => ({}))) as { items?: SchoolPhoto[] };
   return Array.isArray(body.items) ? body.items : [];
 }
+
+export async function deleteSchoolPhoto(
+  schoolId: string,
+  photoId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch(
+    `/api/schools/${encodeURIComponent(schoolId)}/photos/${encodeURIComponent(photoId)}`,
+    { method: "DELETE" },
+  );
+  const body = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) {
+    return { ok: false, error: body.error || "Could not delete photo" };
+  }
+  return { ok: true };
+}

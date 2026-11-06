@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isSession, requireCollegeSession } from "@/lib/auth";
+import { isSession, isSuperAdmin, requireCollegeSession } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/db";
 import {
   SCHOOL_PHOTO_BUCKET,
@@ -12,6 +12,9 @@ type Context = { params: Promise<{ id: string; photoId: string }> };
 export async function DELETE(_request: Request, context: Context) {
   const session = await requireCollegeSession();
   if (!isSession(session)) return session;
+  if (!isSuperAdmin(session)) {
+    return NextResponse.json({ error: "Only an admin can delete photos" }, { status: 403 });
+  }
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Photo delete needs Supabase" }, { status: 503 });
   }

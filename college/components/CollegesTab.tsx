@@ -1162,6 +1162,7 @@ export function CollegesTab({
           canAdvancePhase={canAdvance}
           memberId={memberId}
           memberName={memberName}
+          memberRole={memberRole}
           memberProfiles={memberProfiles}
           onBack={onClose}
           onNavigate={onNavigateSchool}
