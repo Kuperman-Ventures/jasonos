@@ -1455,9 +1455,9 @@ export function Portal({
     replaceSchool(body.school);
   }
 
-  async function addContact(id: string, contact: ContactPatch) {
+  async function addContact(id: string, contact: ContactPatch): Promise<boolean> {
     const name = contact.name?.trim() ?? "";
-    if (!name) return;
+    if (!name) return false;
     if (!pipeline.persisted) {
       setSchools((current) =>
         current.map((school) =>
@@ -1479,16 +1479,17 @@ export function Portal({
         ),
       );
       setSaveState("Not saved");
-      return;
+      return true;
     }
     const response = await fetch(`/api/schools/${id}/contacts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(contact),
     });
-    if (!response.ok) return;
+    if (!response.ok) return false;
     const body = (await response.json()) as { school: School };
     replaceSchool(body.school);
+    return true;
   }
 
   async function patchContact(id: string, contactId: string, patch: ContactPatch) {
@@ -1527,7 +1528,16 @@ export function Portal({
 
   // Mobile is list-only: no left rail, no other tabs/chrome.
   if (viewport === "mobile") {
-    return <CollegesMobileList schools={schools} memberRole={member.role} />;
+    return (
+      <CollegesMobileList
+        schools={schools}
+        memberId={member.id}
+        memberRole={member.role}
+        onAddContact={(id, contact) => addContact(id, contact)}
+        onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
+        onSendNote={(id, payload) => void sendSchoolProjectNote(id, payload)}
+      />
+    );
   }
 
   return (

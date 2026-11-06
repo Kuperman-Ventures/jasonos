@@ -7,17 +7,27 @@ import { MobileSchoolSnapshot } from "./MobileSchoolSnapshot";
 import {
   interestLabel,
   tierLabel,
+  type ContactPatch,
   type School,
 } from "@/lib/types";
 import { compareSchools } from "@/lib/list";
 import { isAdminRole } from "@/lib/permissions";
+import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 
 export function CollegesMobileList({
   schools,
+  memberId,
   memberRole,
+  onAddContact,
+  onDeleteContact,
+  onSendNote,
 }: {
   schools: School[];
+  memberId: string;
   memberRole: string;
+  onAddContact: (schoolId: string, contact: ContactPatch) => Promise<boolean>;
+  onDeleteContact: (schoolId: string, contactId: string) => void;
+  onSendNote: (schoolId: string, payload: RoutedSchoolNotePayload) => void;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const rows = [...schools]
@@ -31,8 +41,12 @@ export function CollegesMobileList({
     return (
       <MobileSchoolSnapshot
         school={selected}
+        memberId={memberId}
         canDeletePhotos={isAdminRole(memberRole)}
         onBack={() => setSelectedId(null)}
+        onAddContact={(contact) => onAddContact(selected.id, contact)}
+        onDeleteContact={(contactId) => onDeleteContact(selected.id, contactId)}
+        onSendNote={(payload) => onSendNote(selected.id, payload)}
       />
     );
   }

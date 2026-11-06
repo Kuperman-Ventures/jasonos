@@ -1254,6 +1254,121 @@ footer {
   font-size: 14px;
   color: var(--link, var(--text-accent));
 }
+.mobile-snap-visit {
+  margin: 0 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mobile-snap-visit h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.mobile-snap-visit-lead {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-subtle);
+}
+.mobile-snap-contacts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-snap-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface, transparent);
+}
+.mobile-snap-contact-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.mobile-snap-contact-main strong {
+  font-size: 15px;
+}
+.mobile-snap-contact-main a {
+  color: var(--link, var(--text-accent));
+  word-break: break-word;
+}
+.mobile-snap-contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mobile-snap-contact-btn {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 3px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mobile-snap-contact-btn-muted {
+  color: var(--text-subtle);
+}
+.mobile-snap-contact-form {
+  display: grid;
+  gap: 8px;
+}
+.mobile-snap-contact-form .btn,
+.mobile-snap-visit > .btn {
+  width: 100%;
+}
+.mobile-snap-note {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.mobile-snap-todo-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.mobile-snap-todo-check input {
+  margin-top: 2px;
+}
+.mobile-snap-notes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mobile-snap-notes li {
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-divider, var(--color-border));
+  font-size: 14px;
+  line-height: 1.4;
+}
+.mobile-snap-notes p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+.mobile-snap-notes span {
+  font-size: 12px;
+  color: var(--text-subtle);
+}
 .school-photos-upload-status {
   margin: 8px 0 0;
   font-size: 13px;
