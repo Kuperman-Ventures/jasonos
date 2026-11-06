@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CaretLeft, Trash, UploadSimple } from "@phosphor-icons/react";
 import { SchoolMark } from "./SchoolMark";
 import { SafetyBadge } from "./SafetyBadge";
@@ -8,7 +8,9 @@ import {
   interestLabel,
   statusLabel,
   tierLabel,
+  type ContactPatch,
   type School,
+  type SchoolContact,
 } from "@/lib/types";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
 import {
@@ -25,21 +27,44 @@ import {
   fetchFamilyPhotos,
   uploadSchoolPhotos,
 } from "@/lib/upload-school-photos";
+import {
+  buildSchoolProjectNote,
+  noteRoutesLabel,
+  routeSchoolNote,
+  type RoutedSchoolNotePayload,
+} from "@/lib/school-project-notes";
+import { memberOwnerId } from "@/lib/project-todos";
 
 export function MobileSchoolSnapshot({
   school,
+  memberId,
   canDeletePhotos = false,
   onBack,
+  onAddContact,
+  onDeleteContact,
+  onSendNote,
 }: {
   school: School;
+  memberId: string;
   canDeletePhotos?: boolean;
   onBack: () => void;
+  onAddContact: (contact: ContactPatch) => Promise<boolean>;
+  onDeleteContact: (contactId: string) => void;
+  onSendNote: (payload: RoutedSchoolNotePayload) => void;
 }) {
   const [familyPhotos, setFamilyPhotos] = useState<SchoolPhoto[]>([]);
   const [busy, setBusy] = useState(false);
   const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactRole, setContactRole] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactBusy, setContactBusy] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [alsoTodo, setAlsoTodo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const schoolPhotos = schoolPhotosForSchool(school.id, school.name);
   const siteHref = websiteHref(school.website);
@@ -57,6 +82,9 @@ export function MobileSchoolSnapshot({
     school.undergradEnrollment != null && Number.isFinite(school.undergradEnrollment)
       ? formatUndergrads(school.undergradEnrollment)
       : "";
+  const contacts = [...school.contacts].sort((a, b) => a.name.localeCompare(b.name));
+  const recentNotes = school.projectNotes.slice(0, 5);
+  const canSaveNote = Boolean(noteText.trim());
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +96,11 @@ export function MobileSchoolSnapshot({
       cancelled = true;
     };
   }, [school.id]);
+
+  function flashStatus(message: string, ms = 3200) {
+    setStatus(message);
+    window.setTimeout(() => setStatus(""), ms);
+  }
 
   async function onPickFiles(files: FileList | null) {
     if (!files?.length) return;
@@ -111,6 +144,61 @@ export function MobileSchoolSnapshot({
     }
     setDeleteBusyId(null);
     window.setTimeout(() => setStatus(""), 2800);
+  }
+
+  async function submitContact(event: FormEvent) {
+    event.preventDefault();
+    if (!contactName.trim() || contactBusy) return;
+    setContactBusy(true);
+    const payload: ContactPatch = {
+      name: contactName.trim(),
+      role: contactRole.trim(),
+      email: contactEmail.trim(),
+      phone: contactPhone.trim(),
+    };
+    const ok = await onAddContact(payload);
+    setContactBusy(false);
+    if (!ok) {
+      flashStatus("Could not save contact — try again", 5000);
+      return;
+    }
+    const line = contactRole.trim()
+      ? `Met with ${contactName.trim()} (${contactRole.trim()})`
+      : `Met with ${contactName.trim()}`;
+    setNoteText((prev) => (prev.trim() ? `${prev.trim()}\n${line}` : line));
+    setContactName("");
+    setContactRole("");
+    setContactEmail("");
+    setContactPhone("");
+    flashStatus(`Saved ${contactName.trim()} — added to visit note`);
+    queueMicrotask(() => noteRef.current?.focus());
+  }
+
+  function appendContactToNote(contact: SchoolContact) {
+    const line = contact.role.trim()
+      ? `Met with ${contact.name} (${contact.role})`
+      : `Met with ${contact.name}`;
+    setNoteText((prev) => (prev.trim() ? `${prev.trim()}\n${line}` : line));
+    queueMicrotask(() => noteRef.current?.focus());
+  }
+
+  function saveVisitNote() {
+    const note = buildSchoolProjectNote({
+      text: noteText,
+      userId: memberOwnerId(memberId),
+      schoolId: school.id,
+      dest: { todo: alsoTodo, notes: true, calendar: false },
+      date: "",
+    });
+    if (!note) return;
+    onSendNote(routeSchoolNote(note));
+    setNoteText("");
+    setAlsoTodo(false);
+    flashStatus(
+      alsoTodo
+        ? "Visit note saved to Notes + To-Do"
+        : "Visit note saved for thank-you / follow-up",
+    );
   }
 
   return (
@@ -194,6 +282,127 @@ export function MobileSchoolSnapshot({
           </div>
         ) : null}
       </dl>
+
+      <section className="mobile-snap-visit" aria-label="Who you met">
+        <h2>Who you met</h2>
+        <p className="mobile-snap-visit-lead">
+          Capture people on this visit for thank-you notes later.
+        </p>
+        {contacts.length === 0 ? (
+          <p className="mobile-snap-empty">No contacts yet for this school.</p>
+        ) : (
+          <ul className="mobile-snap-contacts">
+            {contacts.map((contact) => (
+              <li key={contact.id} className="mobile-snap-contact">
+                <div className="mobile-snap-contact-main">
+                  <strong>{contact.name}</strong>
+                  {contact.role ? <span>{contact.role}</span> : null}
+                  {contact.email ? (
+                    <a href={`mailto:${contact.email}`}>{contact.email}</a>
+                  ) : null}
+                  {contact.phone ? <span>{contact.phone}</span> : null}
+                </div>
+                <div className="mobile-snap-contact-actions">
+                  <button
+                    type="button"
+                    className="mobile-snap-contact-btn"
+                    onClick={() => appendContactToNote(contact)}
+                  >
+                    Add to note
+                  </button>
+                  <button
+                    type="button"
+                    className="mobile-snap-contact-btn mobile-snap-contact-btn-muted"
+                    onClick={() => onDeleteContact(contact.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <form className="mobile-snap-contact-form" onSubmit={(event) => void submitContact(event)}>
+          <input
+            className="field"
+            value={contactName}
+            placeholder="Name"
+            required
+            autoComplete="name"
+            onChange={(event) => setContactName(event.target.value)}
+          />
+          <input
+            className="field"
+            value={contactRole}
+            placeholder="Role (admissions, student, coach…)"
+            autoComplete="organization-title"
+            onChange={(event) => setContactRole(event.target.value)}
+          />
+          <input
+            className="field"
+            value={contactEmail}
+            type="email"
+            placeholder="Email"
+            autoComplete="email"
+            inputMode="email"
+            onChange={(event) => setContactEmail(event.target.value)}
+          />
+          <input
+            className="field"
+            value={contactPhone}
+            type="tel"
+            placeholder="Phone"
+            autoComplete="tel"
+            inputMode="tel"
+            onChange={(event) => setContactPhone(event.target.value)}
+          />
+          <button type="submit" className="btn btn-primary" disabled={contactBusy || !contactName.trim()}>
+            {contactBusy ? "Saving…" : "Add contact"}
+          </button>
+        </form>
+      </section>
+
+      <section className="mobile-snap-visit" aria-label="Visit note">
+        <h2>Visit note</h2>
+        <p className="mobile-snap-visit-lead">
+          Details for a follow-up or thank-you. Saved to Notes
+          {alsoTodo ? " and To-Do" : ""}.
+        </p>
+        <textarea
+          ref={noteRef}
+          className="field mobile-snap-note"
+          rows={5}
+          placeholder={`What stood out at ${school.name}? Who helped? What to mention in a thank-you…`}
+          value={noteText}
+          onChange={(event) => setNoteText(event.target.value)}
+        />
+        <label className="mobile-snap-todo-check">
+          <input
+            type="checkbox"
+            checked={alsoTodo}
+            onChange={(event) => setAlsoTodo(event.target.checked)}
+          />
+          <span>Also create a to-do for the follow-up</span>
+        </label>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={!canSaveNote}
+          onClick={saveVisitNote}
+        >
+          Save visit note
+        </button>
+        {recentNotes.length ? (
+          <ul className="mobile-snap-notes">
+            {recentNotes.map((note) => (
+              <li key={note.id}>
+                <p>{note.text}</p>
+                <span>{noteRoutesLabel(note)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
       {familyPhotos.length ? (
         <section className="mobile-snap-photos" aria-label="Family photos">
