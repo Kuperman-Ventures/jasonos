@@ -57,18 +57,31 @@ export async function POST(request: Request, context: Context) {
 
   const mime = normalizeImageMime(file);
   if (!mime) {
+    const typeHint = file.type?.trim() ? ` (got ${file.type})` : "";
     return NextResponse.json(
-      { error: "Use a JPG, PNG, WebP, GIF, or HEIC photo" },
+      {
+        error: `Use a JPG, PNG, WebP, GIF, or HEIC photo${typeHint}`,
+      },
       { status: 400 },
     );
   }
-  if (file.size <= 0 || file.size > SCHOOL_PHOTO_MAX_BYTES) {
-    return NextResponse.json({ error: "Photo must be under 10 MB" }, { status: 400 });
+  if (file.size <= 0) {
+    return NextResponse.json({ error: "File is empty" }, { status: 400 });
+  }
+  if (file.size > SCHOOL_PHOTO_MAX_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    return NextResponse.json(
+      { error: `Photo must be under 10 MB (this file is ${mb} MB)` },
+      { status: 400 },
+    );
   }
 
   const ext = schoolPhotoExtension(mime, file.name);
   if (!ext) {
-    return NextResponse.json({ error: "Unsupported image type" }, { status: 400 });
+    return NextResponse.json(
+      { error: `Unsupported image type (${mime})` },
+      { status: 400 },
+    );
   }
 
   const captionRaw = form.get("caption");
@@ -89,7 +102,10 @@ export async function POST(request: Request, context: Context) {
     upsert: false,
   });
   if (uploadError) {
-    return NextResponse.json({ error: uploadError.message }, { status: 400 });
+    return NextResponse.json(
+      { error: `Storage upload failed — ${uploadError.message}` },
+      { status: 400 },
+    );
   }
 
   try {
@@ -107,6 +123,9 @@ export async function POST(request: Request, context: Context) {
   } catch (error) {
     await storage.remove([path]).catch(() => undefined);
     const message = error instanceof Error ? error.message : "Could not save photo";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      { error: `Saved to storage but database insert failed — ${message}` },
+      { status: 400 },
+    );
   }
 }

@@ -78,7 +78,14 @@ export function MobileSchoolSnapshot({
       setFamilyPhotos((prev) => [...result.uploaded, ...prev]);
     }
     if (result.errors.length) {
-      setStatus(result.errors[0] ?? "Some photos failed");
+      const first = result.errors[0] ?? "Some photos failed";
+      const extra =
+        result.errors.length > 1 ? ` (+${result.errors.length - 1} more)` : "";
+      const saved =
+        result.uploaded.length > 0
+          ? ` · ${result.uploaded.length} saved`
+          : "";
+      setStatus(`${first}${extra}${saved}`);
     } else {
       setStatus(
         result.uploaded.length === 1
@@ -88,7 +95,7 @@ export function MobileSchoolSnapshot({
     }
     setBusy(false);
     if (inputRef.current) inputRef.current.value = "";
-    window.setTimeout(() => setStatus(""), 3200);
+    window.setTimeout(() => setStatus(""), result.errors.length ? 8000 : 3200);
   }
 
   async function onDeletePhoto(photoId: string) {
