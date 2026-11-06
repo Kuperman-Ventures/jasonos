@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CaretLeft, UploadSimple } from "@phosphor-icons/react";
+import { CaretLeft, Trash, UploadSimple } from "@phosphor-icons/react";
 import { SchoolMark } from "./SchoolMark";
 import { SafetyBadge } from "./SafetyBadge";
 import {
@@ -21,19 +21,23 @@ import {
 } from "@/lib/school-photos";
 import { formatUndergrads } from "@/lib/campus-size";
 import {
+  deleteSchoolPhoto,
   fetchFamilyPhotos,
   uploadSchoolPhotos,
 } from "@/lib/upload-school-photos";
 
 export function MobileSchoolSnapshot({
   school,
+  canDeletePhotos = false,
   onBack,
 }: {
   school: School;
+  canDeletePhotos?: boolean;
   onBack: () => void;
 }) {
   const [familyPhotos, setFamilyPhotos] = useState<SchoolPhoto[]>([]);
   const [busy, setBusy] = useState(false);
+  const [deleteBusyId, setDeleteBusyId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +89,21 @@ export function MobileSchoolSnapshot({
     setBusy(false);
     if (inputRef.current) inputRef.current.value = "";
     window.setTimeout(() => setStatus(""), 3200);
+  }
+
+  async function onDeletePhoto(photoId: string) {
+    if (!canDeletePhotos || deleteBusyId) return;
+    if (!window.confirm("Delete this photo for the whole family?")) return;
+    setDeleteBusyId(photoId);
+    const result = await deleteSchoolPhoto(school.id, photoId);
+    if (!result.ok) {
+      setStatus(result.error || "Could not delete photo");
+    } else {
+      setFamilyPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+      setStatus("Photo deleted");
+    }
+    setDeleteBusyId(null);
+    window.setTimeout(() => setStatus(""), 2800);
   }
 
   return (
@@ -176,21 +195,33 @@ export function MobileSchoolSnapshot({
             {familyPhotos.map((photo) => {
               const url = displayThumb(photo);
               return (
-                <a
-                  key={photo.id}
-                  className="mobile-snap-thumb"
-                  href={photo.src ?? url ?? "#"}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={
-                    url
-                      ? {
-                          backgroundImage: `url(${JSON.stringify(url).slice(1, -1)})`,
-                        }
-                      : undefined
-                  }
-                  aria-label={photo.caption}
-                />
+                <div key={photo.id} className="mobile-snap-thumb-wrap">
+                  <a
+                    className="mobile-snap-thumb"
+                    href={photo.src ?? url ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={
+                      url
+                        ? {
+                            backgroundImage: `url(${JSON.stringify(url).slice(1, -1)})`,
+                          }
+                        : undefined
+                    }
+                    aria-label={photo.caption}
+                  />
+                  {canDeletePhotos ? (
+                    <button
+                      type="button"
+                      className="mobile-snap-delete"
+                      aria-label={`Delete ${photo.caption}`}
+                      disabled={deleteBusyId === photo.id}
+                      onClick={() => void onDeletePhoto(photo.id)}
+                    >
+                      <Trash size={14} weight="bold" aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
               );
             })}
           </div>

@@ -10,8 +10,15 @@ import {
   type School,
 } from "@/lib/types";
 import { compareSchools } from "@/lib/list";
+import { isAdminRole } from "@/lib/permissions";
 
-export function CollegesMobileList({ schools }: { schools: School[] }) {
+export function CollegesMobileList({
+  schools,
+  memberRole,
+}: {
+  schools: School[];
+  memberRole: string;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const rows = [...schools]
     .filter((school) => !school.archived)
@@ -24,6 +31,7 @@ export function CollegesMobileList({ schools }: { schools: School[] }) {
     return (
       <MobileSchoolSnapshot
         school={selected}
+        canDeletePhotos={isAdminRole(memberRole)}
         onBack={() => setSelectedId(null)}
       />
     );

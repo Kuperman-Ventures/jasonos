@@ -1527,7 +1527,7 @@ export function Portal({
 
   // Mobile is list-only: no left rail, no other tabs/chrome.
   if (viewport === "mobile") {
-    return <CollegesMobileList schools={schools} />;
+    return <CollegesMobileList schools={schools} memberRole={member.role} />;
   }
 
   return (
