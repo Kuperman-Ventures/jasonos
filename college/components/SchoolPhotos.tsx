@@ -381,15 +381,30 @@ export function SchoolPhotos({
                 if (result.uploaded.length) {
                   setFamilyPhotos((prev) => [...result.uploaded, ...prev]);
                 }
-                setUploadStatus(
-                  result.errors[0] ??
-                    (result.uploaded.length === 1
+                if (result.errors.length) {
+                  const first = result.errors[0] ?? "Some photos failed";
+                  const extra =
+                    result.errors.length > 1
+                      ? ` (+${result.errors.length - 1} more)`
+                      : "";
+                  const saved =
+                    result.uploaded.length > 0
+                      ? ` · ${result.uploaded.length} saved`
+                      : "";
+                  setUploadStatus(`${first}${extra}${saved}`);
+                } else {
+                  setUploadStatus(
+                    result.uploaded.length === 1
                       ? "Photo added for the family"
-                      : `${result.uploaded.length} photos added`),
-                );
+                      : `${result.uploaded.length} photos added`,
+                  );
+                }
                 setUploadBusy(false);
                 if (uploadInputRef.current) uploadInputRef.current.value = "";
-                window.setTimeout(() => setUploadStatus(""), 3200);
+                window.setTimeout(
+                  () => setUploadStatus(""),
+                  result.errors.length ? 8000 : 3200,
+                );
               })();
             }}
           />
