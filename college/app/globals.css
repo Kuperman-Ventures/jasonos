@@ -14221,6 +14221,9 @@ html[data-mode="dark"] .school-photos-label { font-weight: 500; }
 .mobile-snap-thumb-wrap {
   position: relative;
 }
+.mobile-snap-thumb-wrap .mobile-snap-thumb {
+  width: 100%;
+}
 .mobile-snap-delete {
   position: absolute;
   top: 4px;
