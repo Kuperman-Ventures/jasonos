@@ -1,24 +1,145 @@
 export type SlideInput = { headline: string; bullets: string[] };
 
+/** Spoken-line emphasis inside a slide body. Stored as `# ` / `## ` prefixes. */
+export type BulletFormat = "header" | "subheader" | "body";
+
+export type ParsedBullet = { text: string; format: BulletFormat };
+
+const BULLET_FORMAT_RANK: Record<BulletFormat, number> = {
+  header: 0,
+  subheader: 1,
+  body: 2,
+};
+
+const BULLET_FORMAT_BY_RANK: BulletFormat[] = ["header", "subheader", "body"];
+
+/** Read `# ` / `## ` markers. Plain lines are body (legacy default). */
+export function parseBulletLine(raw: string): ParsedBullet {
+  const line = raw.trim().replace(/\s+/g, " ");
+  if (line.startsWith("## ")) {
+    return { text: line.slice(3).trim(), format: "subheader" };
+  }
+  if (line.startsWith("# ")) {
+    return { text: line.slice(2).trim(), format: "header" };
+  }
+  return { text: line, format: "body" };
+}
+
+export function formatBulletLine(bullet: ParsedBullet): string {
+  const text = bullet.text.trim().replace(/\s+/g, " ");
+  if (!text) return "";
+  if (bullet.format === "header") return `# ${text}`;
+  if (bullet.format === "subheader") return `## ${text}`;
+  return text;
+}
+
+/** Raise emphasis: body → subheader → header. */
+export function promoteBulletLine(raw: string): string {
+  const parsed = parseBulletLine(raw);
+  if (!parsed.text) return "";
+  const rank = BULLET_FORMAT_RANK[parsed.format];
+  if (rank <= 0) return formatBulletLine(parsed);
+  return formatBulletLine({ text: parsed.text, format: BULLET_FORMAT_BY_RANK[rank - 1] });
+}
+
+/** Lower emphasis: header → subheader → body. */
+export function demoteBulletLine(raw: string): string {
+  const parsed = parseBulletLine(raw);
+  if (!parsed.text) return "";
+  const rank = BULLET_FORMAT_RANK[parsed.format];
+  if (rank >= BULLET_FORMAT_BY_RANK.length - 1) return formatBulletLine(parsed);
+  return formatBulletLine({ text: parsed.text, format: BULLET_FORMAT_BY_RANK[rank + 1] });
+}
+
+/**
+ * Promote or demote every line that intersects the textarea selection.
+ * Blank lines are left alone. Cursor stays on the same line when possible.
+ */
+export function applyBulletFormatToSelection(
+  text: string,
+  selectionStart: number,
+  selectionEnd: number,
+  direction: "promote" | "demote"
+): { text: string; selectionStart: number; selectionEnd: number } {
+  const start = Math.max(0, Math.min(selectionStart, selectionEnd, text.length));
+  const end = Math.max(0, Math.max(selectionStart, selectionEnd, start));
+  const lines = text.split("\n");
+  let offset = 0;
+  let lineStartIndex = 0;
+  let lineEndIndex = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const next = offset + lines[i].length + (i < lines.length - 1 ? 1 : 0);
+    if (offset <= start) lineStartIndex = i;
+    if (offset < end || (start === end && offset <= start)) lineEndIndex = i;
+    offset = next;
+  }
+  if (start === end && start === text.length && lines.length) {
+    lineStartIndex = lines.length - 1;
+    lineEndIndex = lines.length - 1;
+  }
+
+  const transform = direction === "promote" ? promoteBulletLine : demoteBulletLine;
+  const nextLines = lines.map((line, index) => {
+    if (index < lineStartIndex || index > lineEndIndex) return line;
+    if (!line.trim()) return line;
+    return transform(line);
+  });
+  const nextText = nextLines.join("\n");
+
+  let nextStart = 0;
+  for (let i = 0; i < lineStartIndex; i++) nextStart += nextLines[i].length + 1;
+  let nextEnd = nextStart;
+  for (let i = lineStartIndex; i <= lineEndIndex; i++) {
+    nextEnd += nextLines[i].length;
+    if (i < lineEndIndex) nextEnd += 1;
+  }
+  if (start === end) {
+    const caret = Math.min(nextEnd, nextStart + nextLines[lineStartIndex].length);
+    return { text: nextText, selectionStart: caret, selectionEnd: caret };
+  }
+  return { text: nextText, selectionStart: nextStart, selectionEnd: nextEnd };
+}
+
 export function bulletsFromJson(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const out: string[] = [];
   for (const item of value) {
-    if (typeof item !== "string") continue;
-    const line = item.trim().replace(/\s+/g, " ");
-    if (line) out.push(line);
+    if (typeof item === "string") {
+      const line = formatBulletLine(parseBulletLine(item));
+      if (line) out.push(line);
+      continue;
+    }
+    if (item && typeof item === "object") {
+      const row = item as { text?: unknown; format?: unknown; t?: unknown; f?: unknown };
+      const text =
+        typeof row.text === "string"
+          ? row.text
+          : typeof row.t === "string"
+            ? row.t
+            : "";
+      const formatRaw =
+        typeof row.format === "string" ? row.format : typeof row.f === "string" ? row.f : "body";
+      const format: BulletFormat =
+        formatRaw === "header" || formatRaw === "subheader" || formatRaw === "body"
+          ? formatRaw
+          : "body";
+      const line = formatBulletLine({ text, format });
+      if (line) out.push(line);
+    }
   }
   return out;
 }
 
 export function toJsonBullets(bullets: string[]): string[] {
-  return bullets.map((line) => line.trim()).filter(Boolean);
+  return bullets
+    .map((line) => formatBulletLine(parseBulletLine(line)))
+    .filter(Boolean);
 }
 
 export function bulletsTextToLines(text: string): string[] {
   return text
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => formatBulletLine(parseBulletLine(line)))
     .filter(Boolean);
 }
 
@@ -40,7 +161,11 @@ export function normalizeSlideInputs(
   const out: SlideInput[] = [];
   for (const slide of slides) {
     const headline = (slide.headline ?? "").trim().slice(0, 240) || "Untitled";
-    const bullets = toJsonBullets(slide.bullets ?? []).map((line) => line.slice(0, 800));
+    const bullets = toJsonBullets(slide.bullets ?? []).map((line) => {
+      const parsed = parseBulletLine(line);
+      const capped = parsed.text.slice(0, 800);
+      return formatBulletLine({ text: capped, format: parsed.format });
+    });
     if (bullets.length > 24) return { ok: false, error: "Too many bullets on one slide (max 24)." };
     out.push({ headline, bullets });
   }
@@ -243,11 +368,15 @@ export function parseAiHelpSlidesJson(
         ? (row as { headline: string }).headline
         : "";
     const bulletsRaw = (row as { bullets?: unknown }).bullets;
-    const bullets = Array.isArray(bulletsRaw)
-      ? bulletsRaw.filter((line): line is string => typeof line === "string")
-      : [];
+    const bullets = bulletsFromJson(bulletsRaw);
     const trimmedBullets = bullets
-      .map((line) => capWords(line.trim().replace(/\s+/g, " "), 14))
+      .map((line) => {
+        const parsed = parseBulletLine(line);
+        return formatBulletLine({
+          text: capWords(parsed.text, 14),
+          format: parsed.format,
+        });
+      })
       .filter(Boolean)
       .slice(0, 6);
     slides.push({ headline, bullets: trimmedBullets });
@@ -352,9 +481,7 @@ export function parseTailorJson(
         ? (row as { headline: string }).headline
         : "";
     const bulletsRaw = (row as { bullets?: unknown }).bullets;
-    const bullets = Array.isArray(bulletsRaw)
-      ? bulletsRaw.filter((line): line is string => typeof line === "string")
-      : [];
+    const bullets = bulletsFromJson(bulletsRaw);
     slides.push({ headline, bullets });
   }
   const normalized = normalizeSlideInputs(slides);

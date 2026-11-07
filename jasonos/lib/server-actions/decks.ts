@@ -1867,13 +1867,14 @@ export async function runAiHelp(
 ${NO_AI_SLOP_WRITING_RULES}
 
 ${modeLine}${presetScope}
-Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide. No markdown in slide text.
+Each bullet is one short spoken line (under 14 words). Max 6 bullets per slide.
+Bullet format prefixes (keep when editing unless the instruction changes emphasis): "# " = header, "## " = subheader, plain = body. Do not use other markdown in slide text.
 Facts from context that you cannot verify from the provided sources should be phrased cautiously or omitted.
 Person context sections are labelled by source and date. When drafting lines about why this call matters, who referred Jason, or what to raise, use the person context first and quote it in Jason's voice. If a needed fact is not in the context, write the line with the gap in square brackets, for example [what you hope to learn from her], and do not invent it.
 
 Reply with a single JSON array only. No markdown fences. No commentary before or after.
 Shape:
-[{"headline":"...","bullets":["..."]}]`;
+[{"headline":"...","bullets":["# Header line","## Subheader line","Body line"]}]`;
 
     const user = `Instructions:\n${instructions}
 

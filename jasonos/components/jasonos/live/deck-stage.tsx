@@ -20,21 +20,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DeckDetail } from "@/lib/server-actions/decks";
-import { formatElapsed } from "@/lib/live/decks-helpers";
+import { formatElapsed, parseBulletLine, type BulletFormat } from "@/lib/live/decks-helpers";
 import { endRun, startRun } from "@/lib/server-actions/decks";
 import { cn } from "@/lib/utils";
 
 type Mode = "rehearse" | "run";
 
 const SIZE_STEPS = [
-  { headline: 56, bullet: 30 },
-  { headline: 52, bullet: 28 },
-  { headline: 48, bullet: 26 },
-  { headline: 44, bullet: 24 },
-  { headline: 40, bullet: 22 },
-  { headline: 36, bullet: 20 },
-  { headline: 32, bullet: 18 },
+  { headline: 56, header: 36, subheader: 32, bullet: 28 },
+  { headline: 52, header: 34, subheader: 30, bullet: 26 },
+  { headline: 48, header: 32, subheader: 28, bullet: 24 },
+  { headline: 44, header: 30, subheader: 26, bullet: 22 },
+  { headline: 40, header: 28, subheader: 24, bullet: 20 },
+  { headline: 36, header: 26, subheader: 22, bullet: 18 },
+  { headline: 32, header: 24, subheader: 20, bullet: 16 },
 ] as const;
+
+function bulletBaseSize(
+  sizes: (typeof SIZE_STEPS)[number],
+  format: BulletFormat
+): number {
+  if (format === "header") return sizes.header;
+  if (format === "subheader") return sizes.subheader;
+  return sizes.bullet;
+}
 
 const FOOTER_PX = 36;
 
@@ -142,8 +151,10 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
 
     const measure = () => {
       for (let i = 0; i < SIZE_STEPS.length; i++) {
-        const { headline, bullet } = SIZE_STEPS[i];
+        const { headline, header, subheader, bullet } = SIZE_STEPS[i];
         content.style.setProperty("--stage-headline", `${headline}px`);
+        content.style.setProperty("--stage-header", `${header}px`);
+        content.style.setProperty("--stage-subheader", `${subheader}px`);
         content.style.setProperty("--stage-bullet", `${bullet}px`);
         if (content.scrollHeight <= available + 1) {
           setSizeStep(i);
@@ -227,6 +238,8 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
             style={
               {
                 "--stage-headline": `${sizes.headline}px`,
+                "--stage-header": `${sizes.header}px`,
+                "--stage-subheader": `${sizes.subheader}px`,
                 "--stage-bullet": `${sizes.bullet}px`,
               } as CSSProperties
             }
@@ -239,17 +252,26 @@ export function DeckStage({ deck, mode }: { deck: DeckDetail; mode: Mode }) {
             </h1>
             {current.bullets.length ? (
               <ul className="mt-6 space-y-3 leading-[1.25]">
-                {current.bullets.map((bullet) => {
-                  const long = wordCount(bullet) > 40;
-                  const base = sizes.bullet;
+                {current.bullets.map((bullet, bulletIndex) => {
+                  const parsed = parseBulletLine(bullet);
+                  if (!parsed.text) return null;
+                  const long = wordCount(parsed.text) > 40;
+                  const base = bulletBaseSize(sizes, parsed.format);
                   const fontSize = long ? base - 2 : base;
                   return (
                     <li
-                      key={bullet}
-                      className="border-l-[3px] border-[var(--jos-focus)] pl-4 font-medium"
+                      key={`${bulletIndex}-${parsed.format}-${parsed.text}`}
+                      className={cn(
+                        "border-l-[3px] pl-4",
+                        parsed.format === "header" &&
+                          "mt-5 border-[var(--jos-ink)] font-extrabold tracking-tight first:mt-0",
+                        parsed.format === "subheader" &&
+                          "mt-3 border-[var(--jos-muted)] font-bold first:mt-0",
+                        parsed.format === "body" && "border-[var(--jos-focus)] font-medium"
+                      )}
                       style={{ fontSize: `${fontSize}px` }}
                     >
-                      {bullet}
+                      {parsed.text}
                     </li>
                   );
                 })}

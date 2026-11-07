@@ -2,24 +2,40 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   alignRubricScores,
+  applyBulletFormatToSelection,
   averageRubricScores,
   bulletsFromJson,
   bulletsLinesToText,
   bulletsTextToLines,
   capWords,
+  demoteBulletLine,
   extractTranscriptSection,
+  formatBulletLine,
   formatElapsed,
   normalizeRubricLines,
   normalizeSlideInputs,
   parseAiHelpSlidesJson,
+  parseBulletLine,
   parseReviewJson,
   parseTailorJson,
+  promoteBulletLine,
   toJsonBullets,
 } from "./decks-helpers.ts";
 
 describe("decks pure helpers", () => {
   it("bulletsFromJson keeps string lines only", () => {
     assert.deepEqual(bulletsFromJson([" a ", 1, "b"]), ["a", "b"]);
+  });
+
+  it("bulletsFromJson accepts format objects", () => {
+    assert.deepEqual(
+      bulletsFromJson([
+        { text: " Open ", format: "header" },
+        { t: "Detail", f: "subheader" },
+        "plain",
+      ]),
+      ["# Open", "## Detail", "plain"]
+    );
   });
 
   it("bullet text round-trip", () => {
@@ -29,6 +45,40 @@ describe("decks pure helpers", () => {
 
   it("toJsonBullets trims and drops blanks", () => {
     assert.deepEqual(toJsonBullets(["  hi ", "", "there "]), ["hi", "there"]);
+  });
+
+  it("parseBulletLine reads header and subheader prefixes", () => {
+    assert.deepEqual(parseBulletLine("# Why this call"), { text: "Why this call", format: "header" });
+    assert.deepEqual(parseBulletLine("## Ask first"), { text: "Ask first", format: "subheader" });
+    assert.deepEqual(parseBulletLine("Stay under two minutes"), {
+      text: "Stay under two minutes",
+      format: "body",
+    });
+  });
+
+  it("promote and demote walk header → subheader → body", () => {
+    assert.equal(promoteBulletLine("body line"), "## body line");
+    assert.equal(promoteBulletLine("## body line"), "# body line");
+    assert.equal(promoteBulletLine("# body line"), "# body line");
+    assert.equal(demoteBulletLine("# body line"), "## body line");
+    assert.equal(demoteBulletLine("## body line"), "body line");
+    assert.equal(demoteBulletLine("body line"), "body line");
+  });
+
+  it("applyBulletFormatToSelection changes the current line", () => {
+    const text = "# Open\n## Detail\nBody";
+    const demoted = applyBulletFormatToSelection(text, 0, 0, "demote");
+    assert.equal(demoted.text, "## Open\n## Detail\nBody");
+    const promoted = applyBulletFormatToSelection(text, text.length, text.length, "promote");
+    assert.equal(promoted.text, "# Open\n## Detail\n## Body");
+    const range = applyBulletFormatToSelection(text, 0, text.length, "demote");
+    assert.equal(range.text, "## Open\nDetail\nBody");
+  });
+
+  it("formatBulletLine round-trips parseBulletLine", () => {
+    for (const line of ["# Header", "## Sub", "Body"]) {
+      assert.equal(formatBulletLine(parseBulletLine(line)), line);
+    }
   });
 
   it("capWords clips long text", () => {

@@ -1,4 +1,5 @@
 import type { DeckDetail, DeckReview } from "@/lib/server-actions/decks";
+import { parseBulletLine } from "./decks-helpers";
 
 export const REVIEW_PACKAGE_KIND = "jasonos.live.review_package" as const;
 export const REVIEW_PACKAGE_VERSION = 1 as const;
@@ -166,7 +167,13 @@ export function reviewPackageToMarkdown(pkg: ReviewFinetunePackage): string {
     for (const slide of pkg.slides) {
       lines.push("");
       lines.push(`### ${slide.position}. ${slide.headline}`);
-      for (const bullet of slide.bullets) lines.push(`- ${bullet}`);
+      for (const bullet of slide.bullets) {
+        const parsed = parseBulletLine(bullet);
+        if (!parsed.text) continue;
+        if (parsed.format === "header") lines.push(`- **${parsed.text}**`);
+        else if (parsed.format === "subheader") lines.push(`  - *${parsed.text}*`);
+        else lines.push(`  - ${parsed.text}`);
+      }
     }
   }
 
