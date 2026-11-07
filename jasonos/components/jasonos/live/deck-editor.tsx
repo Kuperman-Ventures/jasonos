@@ -4,8 +4,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
 } from "react";
 import Link from "next/link";
@@ -35,6 +37,7 @@ import { SaveRow } from "@/components/jasonos/live/save-row";
 import { AiHelpPanel } from "@/components/jasonos/live/ai-help-panel";
 import { useSavedField } from "@/components/jasonos/live/use-saved-field";
 import {
+  applyBulletFormatToSelection,
   bulletsLinesToText,
   bulletsTextToLines,
   type SlideInput,
@@ -244,6 +247,45 @@ function DeckEditorInner({
       return { ok: true, value, savedAt: result.savedAt };
     },
   });
+
+  const bulletsRef = useRef<HTMLTextAreaElement>(null);
+  const pendingBulletSelection = useRef<{ start: number; end: number } | null>(null);
+
+  useEffect(() => {
+    const sel = pendingBulletSelection.current;
+    const el = bulletsRef.current;
+    if (!sel || !el) return;
+    pendingBulletSelection.current = null;
+    el.focus();
+    el.setSelectionRange(sel.start, sel.end);
+  }, [slideField.value.bulletsText]);
+
+  const formatBulletsSelection = useCallback(
+    (direction: "promote" | "demote") => {
+      const el = bulletsRef.current;
+      const start = el?.selectionStart ?? 0;
+      const end = el?.selectionEnd ?? start;
+      const next = applyBulletFormatToSelection(slideField.value.bulletsText, start, end, direction);
+      pendingBulletSelection.current = {
+        start: next.selectionStart,
+        end: next.selectionEnd,
+      };
+      slideField.setValue({ ...slideField.value, bulletsText: next.text });
+    },
+    [slideField]
+  );
+
+  const onBulletsKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        formatBulletsSelection(event.shiftKey ? "promote" : "demote");
+        return;
+      }
+      slideField.onKeyDown(event);
+    },
+    [formatBulletsSelection, slideField]
+  );
 
   const anyDirty =
     slideField.dirty || nameField.dirty || descriptionField.dirty || goalField.dirty;
@@ -620,15 +662,40 @@ function DeckEditorInner({
                 className="mt-2 border-[var(--jos-line)] bg-[var(--jos-bg)] text-[24px] font-bold leading-tight"
                 placeholder="Headline"
               />
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!slideField.value.bulletsText.trim()}
+                  onClick={() => formatBulletsSelection("promote")}
+                >
+                  Promote
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!slideField.value.bulletsText.trim()}
+                  onClick={() => formatBulletsSelection("demote")}
+                >
+                  Demote
+                </Button>
+                <p className="text-[12px] text-[var(--jos-muted)]">
+                  Tab demotes · Shift+Tab promotes · <code className="font-semibold">#</code> header ·{" "}
+                  <code className="font-semibold">##</code> subheader · plain body
+                </p>
+              </div>
               <Textarea
+                ref={bulletsRef}
                 value={slideField.value.bulletsText}
                 onChange={(event) =>
                   slideField.setValue({ ...slideField.value, bulletsText: event.target.value })
                 }
-                onKeyDown={slideField.onKeyDown}
+                onKeyDown={onBulletsKeyDown}
                 rows={8}
-                className="mt-3 min-h-[12rem] border-[var(--jos-line)] bg-[var(--jos-bg)] text-[14px]"
-                placeholder="One bullet per line"
+                className="mt-2 min-h-[12rem] border-[var(--jos-line)] bg-[var(--jos-bg)] font-mono text-[14px]"
+                placeholder={"# Header line\n## Subheader line\nBody bullet"}
               />
               <SaveRow
                 state={slideField.state}
