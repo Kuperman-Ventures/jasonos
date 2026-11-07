@@ -17,6 +17,7 @@ import {
   authorizationServerMetadata,
   buildAuthorizeRedirect,
   exchangeOAuthToken,
+  isHttpsRedirect,
   issueAccessToken,
   parseAuthorizeParams,
   pkceS256,
@@ -206,6 +207,32 @@ describe("OAuth login helpers", () => {
     assert.equal(parsed.ok, false);
   });
 
+  it("allows https, loopback http, and the Cursor app callback", () => {
+    const cursor = "cursor://anysphere.cursor-retrieval/oauth/user-JasonOS/callback";
+    assert.equal(isHttpsRedirect("https://claude.ai/api/mcp/auth_callback"), true);
+    assert.equal(isHttpsRedirect("http://localhost:8787/callback"), true);
+    assert.equal(isHttpsRedirect("http://127.0.0.1:3000/cb"), true);
+    assert.equal(isHttpsRedirect(cursor), true);
+    assert.equal(isHttpsRedirect("http://evil.example/callback"), false);
+    assert.equal(isHttpsRedirect("cursor://evil.example/oauth/callback"), false);
+    assert.equal(
+      isHttpsRedirect("cursor://anysphere.cursor-retrieval.evil/oauth/callback"),
+      false
+    );
+    assert.equal(isHttpsRedirect("cursor:anysphere.cursor-retrieval/oauth/callback"), false);
+
+    const parsed = parseAuthorizeParams(
+      new URLSearchParams({
+        client_id: "cursor",
+        redirect_uri: cursor,
+        code_challenge: "a".repeat(43),
+        code_challenge_method: "S256",
+        response_type: "code",
+      })
+    );
+    assert.equal(parsed.ok, true);
+  });
+
   it("issues a code and exchanges it with PKCE", () => {
     const secret = "settings-password";
     const verifier = `v${"a".repeat(42)}`;
@@ -244,6 +271,51 @@ describe("OAuth login helpers", () => {
       return "";
     });
     assert.equal(bad.status, 400);
+  });
+
+  it("exchanges a Cursor app callback the same way as an https callback", () => {
+    const secret = "settings-password";
+    const verifier = `v${"b".repeat(42)}`;
+    const redirectUri = "cursor://anysphere.cursor-retrieval/oauth/user-JasonOS/callback";
+    const parsed = parseAuthorizeParams(
+      new URLSearchParams({
+        client_id: "cursor",
+        redirect_uri: redirectUri,
+        code_challenge: pkceS256(verifier),
+        code_challenge_method: "S256",
+        response_type: "code",
+        state: "cursor-state",
+      })
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const issued = buildAuthorizeRedirect(secret, parsed.value);
+    assert.equal(issued.ok, true);
+    if (!issued.ok) return;
+    const back = new URL(issued.redirect);
+    assert.equal(back.protocol, "cursor:");
+    assert.equal(back.hostname, "anysphere.cursor-retrieval");
+    assert.equal(back.pathname, "/oauth/user-JasonOS/callback");
+    assert.equal(back.searchParams.get("state"), "cursor-state");
+    const code = back.searchParams.get("code") ?? "";
+    const ok = exchangeOAuthToken(secret, (key) => {
+      if (key === "grant_type") return "authorization_code";
+      if (key === "code") return code;
+      if (key === "code_verifier") return verifier;
+      if (key === "redirect_uri") return redirectUri;
+      return "";
+    });
+    assert.equal(ok.status, 200);
+
+    const rejected = exchangeOAuthToken(secret, (key) => {
+      if (key === "grant_type") return "authorization_code";
+      if (key === "code") return code;
+      if (key === "code_verifier") return verifier;
+      if (key === "redirect_uri") return "cursor://evil.example/oauth/callback";
+      return "";
+    });
+    assert.equal(rejected.status, 400);
+    assert.equal(rejected.body.error, "invalid_grant");
   });
 });
 

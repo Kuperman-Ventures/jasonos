@@ -130,6 +130,9 @@ export function issueAccessToken(secret: string) {
   };
 }
 
+const CURSOR_OAUTH_HOST = "anysphere.cursor-retrieval";
+
+/** https, loopback http, or Cursor's app callback (`cursor://anysphere.cursor-retrieval/...`). */
 export function isHttpsRedirect(uri: string) {
   try {
     const url = new URL(uri);
@@ -137,6 +140,7 @@ export function isHttpsRedirect(uri: string) {
     if (url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {
       return true;
     }
+    if (url.protocol === "cursor:" && url.hostname === CURSOR_OAUTH_HOST) return true;
     return false;
   } catch {
     return false;
@@ -163,7 +167,7 @@ export function parseAuthorizeParams(
   const redirectUri = params.get("redirect_uri")?.trim() || "";
   if (!redirectUri) return { ok: false, error: "Claude did not send a return address." };
   if (!isHttpsRedirect(redirectUri)) {
-    return { ok: false, error: "The return address must be https (or localhost)." };
+    return { ok: false, error: "The return address must be https, localhost, or the Cursor app." };
   }
 
   const method = params.get("code_challenge_method") || "S256";
@@ -220,7 +224,10 @@ export function exchangeOAuthToken(
   }
   const payload = verifyJwt(get("code"), secret);
   if (payload?.typ !== "auth_code") return { status: 400, body: { error: "invalid_grant" } };
-  if (payload.redirect_uri !== get("redirect_uri")) return { status: 400, body: { error: "invalid_grant" } };
+  const redirectUri = get("redirect_uri");
+  if (!isHttpsRedirect(redirectUri) || payload.redirect_uri !== redirectUri) {
+    return { status: 400, body: { error: "invalid_grant" } };
+  }
   if (payload.code_challenge !== pkceS256(get("code_verifier"))) {
     return { status: 400, body: { error: "invalid_grant" } };
   }
