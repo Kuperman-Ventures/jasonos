@@ -4,11 +4,13 @@ export type ResumeHandoffRow = {
   gmail_thread_id: string | null;
   resume_message_id: string | null;
   resume_filename: string | null;
+  resume_storage_path?: string | null;
   contact_name: string | null;
 };
 
 /** True when we can open a Word/PDF from this handoff (filename optional). */
 export function hasResumeFile(row: ResumeHandoffRow): boolean {
+  if (row.resume_storage_path?.trim()) return true;
   if (row.resume_filename?.trim() && (row.resume_message_id || row.gmail_message_id)) {
     return true;
   }
