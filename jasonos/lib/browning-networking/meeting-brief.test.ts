@@ -42,6 +42,23 @@ Launched a retail media offer with the sales lead.`,
     assert.equal(sections.length, 4);
   });
 
+  it("builds Who they are from unstructured PDF executive-summary text", () => {
+    const brief = meetingBrief({
+      name: "Helgi Bloom",
+      whyTheyReplied: null,
+      tracyBody:
+        "Jerry asked Helgi Bloom to reach out to you for networking. He will be in touch with you shortly.",
+      resumeText:
+        "Driving Enterprise Value by Aligning Finance, Operations & G&A to Improve Performance, Execute Strategy & Scale Growth Executive Profile Strategic CFO and enterprise operator with 10+ years of C-suite leadership in PE-backed technology, SaaS, data / analytics, and tech- enabled services businesses, spanning Finance, G&A, strategy, and broader operations. Value-creation partner to CEOs, Boards, founders. Reduced AGDATA's monthly close from 100 to 10 days; enabled Vista Equity Partners' successful exit. Scaled ScanSoft to $2B+ Nuance through 75 acquisitions, investments, and $1B+ financing execution.",
+    });
+    assert.ok(brief);
+    assert.match(brief ?? "", /Who they are/);
+    assert.match(brief ?? "", /AGDATA|ScanSoft|Nuance|Vista Equity/i);
+    assert.match(brief ?? "", /Resume/);
+    assert.match(brief ?? "", /Why Tracy thinks you should talk/);
+    assert.match(brief ?? "", /Jerry asked Helgi/);
+  });
+
   it("skips Tracy's template when she does not add a specific reason", () => {
     const brief = meetingBrief({
       name: "Matthew Deutsch",

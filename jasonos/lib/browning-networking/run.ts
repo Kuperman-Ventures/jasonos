@@ -29,7 +29,12 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, isBrowningHoldEvent, type CalendarGuestEvent } from "./booking";
 import { syncHandoffHolds, syncOpenHandoffHolds } from "./hold-sync";
 import { syncBrowningMeetingReminders } from "./reminder-sync";
-import { backfillMissingPackets, storeHandoffPacket } from "./packet-store";
+import {
+  backfillMissingPackets,
+  backfillResumeStorage,
+  refreshThinMeetingBriefs,
+  storeHandoffPacket,
+} from "./packet-store";
 import {
   buildBrowningPlan,
   ensurePrepForHandoff,
@@ -144,6 +149,16 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.thankYous = followed.thankYous;
     result.plansBuilt = followed.plansBuilt;
     result.packetsStored = await backfillMissingPackets(sb);
+    try {
+      await backfillResumeStorage(sb);
+    } catch (err) {
+      console.error("[browning-networking] resume storage backfill", err);
+    }
+    try {
+      await refreshThinMeetingBriefs(sb);
+    } catch (err) {
+      console.error("[browning-networking] brief refresh", err);
+    }
     await collapseDuplicateHandoffs(sb);
     await linkBrowningReferrals(sb);
     result.sentReplies = await detectSentReplies(sb);
@@ -762,7 +777,7 @@ async function enrichParsedFromResume(
 const CONTACT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const RESUME_HANDOFF_COLUMNS =
-  "gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, contact_name, received_at";
+  "gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, resume_storage_path, contact_name, received_at";
 
 export async function findHandoffResumeSource(contactId: string): Promise<ResumeHandoffRow | null> {
   if (!CONTACT_ID.test(contactId)) return null;
@@ -789,7 +804,9 @@ export async function findHandoffResumeSource(contactId: string): Promise<Resume
     .from("browning_handoffs")
     .select(RESUME_HANDOFF_COLUMNS)
     .eq("contact_name", name)
-    .or("resume_filename.not.is.null,resume_message_id.not.is.null")
+    .or(
+      "resume_filename.not.is.null,resume_message_id.not.is.null,resume_storage_path.not.is.null"
+    )
     .order("received_at", { ascending: false })
     .limit(5);
   if (named.error) return null;
@@ -801,7 +818,21 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   bytes: Buffer;
 } | null> {
   const data = await findHandoffResumeSource(contactId);
-  if (!data?.gmail_account) return null;
+  if (!data) return null;
+
+  // Prefer persisted bytes — Outlook/Gmail message IDs go stale.
+  if (data.resume_storage_path?.trim()) {
+    const { downloadBrowningResumeFromStorage } = await import("./resume-storage");
+    const stored = await downloadBrowningResumeFromStorage(data.resume_storage_path);
+    if (stored) {
+      return {
+        filename: data.resume_filename?.trim() || stored.filename,
+        bytes: stored.bytes,
+      };
+    }
+  }
+
+  if (!data.gmail_account) return null;
   const messageId = data.resume_message_id || data.gmail_message_id;
   const threadId = data.gmail_thread_id || null;
   // Filename may be missing; scan the resume message and/or the whole thread
@@ -809,9 +840,42 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   if (!messageId && !threadId) return null;
   const file = /@(outlook|hotmail|live)\.com$/i.test(data.gmail_account)
     ? messageId
-      ? await outlookResume(messageId)
+      ? await outlookResume(messageId, data.contact_name)
       : null
     : await gmailResume(data.gmail_account, messageId, data.contact_name, threadId);
+
+  // Cache a successful live download so the next click does not need Outlook.
+  if (file && data.resume_message_id) {
+    try {
+      const { uploadBrowningResume } = await import("./resume-storage");
+      const sb = createServiceRoleClient();
+      const { data: row } = await sb
+        .from("browning_handoffs")
+        .select("id")
+        .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
+        .order("received_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (row?.id) {
+        const path = await uploadBrowningResume({
+          handoffId: String(row.id),
+          filename: file.filename,
+          bytes: file.bytes,
+        });
+        if (path) {
+          await sb
+            .from("browning_handoffs")
+            .update({
+              resume_storage_path: path,
+              resume_filename: file.filename,
+            })
+            .eq("id", row.id);
+        }
+      }
+    } catch (err) {
+      console.error("[browning-networking] resume cache", err);
+    }
+  }
   return file;
 }
 

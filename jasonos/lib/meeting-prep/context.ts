@@ -292,6 +292,7 @@ async function attachResumeFiles(
       gmail_thread_id: row.gmail_thread_id,
       resume_message_id: row.resume_message_id,
       resume_filename: row.resume_filename,
+      resume_storage_path: null,
       contact_name: null,
     };
     const resume =

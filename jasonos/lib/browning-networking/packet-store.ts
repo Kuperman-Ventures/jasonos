@@ -27,6 +27,8 @@ import {
   type MailAttachmentFile,
   type PacketDocument,
 } from "./packet";
+import { uploadBrowningResume } from "./resume-storage";
+import { meetingBrief } from "./meeting-brief";
 type Sb = ReturnType<typeof createServiceRoleClient>;
 
 export type PacketStoreInput = {
@@ -58,9 +60,11 @@ export async function storeHandoffPacket(
   const resumeFile = pickResumeAttachment(files, input.contactName);
   const otherFiles = files.filter((file) => file !== resumeFile);
 
+  let resumeBytes: Buffer | null = null;
   let resumeText: string | null = null;
   let resumeFilename: string | null = null;
   if (resumeFile) {
+    resumeBytes = resumeFile.bytes;
     resumeText = await extractAttachmentText(resumeFile);
     resumeFilename = resumeFile.filename;
   } else {
@@ -71,6 +75,7 @@ export async function storeHandoffPacket(
       input.threadId
     );
     if (fallback) {
+      resumeBytes = fallback.bytes;
       resumeText = await extractAttachmentText(fallback);
       resumeFilename = fallback.filename;
     }
@@ -102,6 +107,31 @@ export async function storeHandoffPacket(
     tracyBody: input.tracyBody,
     resumeText,
   });
+  const brief = meetingBrief({
+    name: input.contactName,
+    tracyBody: input.tracyBody,
+    resumeText,
+    whyTheyReplied: input.whyTheyReplied,
+  });
+
+  // Do not mark packet_stored_at when mail returned nothing — backfill can retry.
+  // Filename-only rows with empty text are the old failure mode; those get
+  // re-queued by backfillMissingPackets until we get bytes or give up.
+  const gotUsefulPacket = Boolean(
+    resumeText?.trim() || resumeBytes || otherDocuments.length
+  );
+  if (!gotUsefulPacket) {
+    return { ok: true, stored: false };
+  }
+
+  let resumeStoragePath: string | null = null;
+  if (resumeBytes && resumeFilename) {
+    resumeStoragePath = await uploadBrowningResume({
+      handoffId: input.handoffId,
+      filename: resumeFilename,
+      bytes: resumeBytes,
+    });
+  }
 
   const patch: Record<string, unknown> = {
     resume_text: capText(resumeText, RESUME_TEXT_CAP),
@@ -113,11 +143,16 @@ export async function storeHandoffPacket(
   if (resumeFilename) patch.resume_filename = resumeFilename;
   if (messageId) patch.resume_message_id = messageId;
   if (primaryLinkedIn) patch.linkedin_url = primaryLinkedIn;
+  if (resumeStoragePath) patch.resume_storage_path = resumeStoragePath;
+  if (brief) patch.meeting_brief = brief;
 
   const { error } = await sb.from("browning_handoffs").update(patch).eq("id", input.handoffId);
   if (error) return { ok: false, error: error.message };
 
   const contactId = input.createdContactId || input.existingContactId;
+  if (contactId && brief) {
+    await sb.from("contacts").update({ browning_prep: brief }).eq("id", contactId);
+  }
   if (contactId && resumeText) {
     await fillContactTitleCompany(sb, contactId, resumeText, primaryLinkedIn);
   } else if (contactId && primaryLinkedIn) {
@@ -131,24 +166,181 @@ export async function storeHandoffPacket(
   return { ok: true, stored: true };
 }
 
-export async function backfillMissingPackets(sb: Sb, max = 12): Promise<number> {
+/**
+ * Rebuild thin meeting briefs from already-stored resume_text (PDF Executive
+ * Summaries that the old line-length filter skipped).
+ */
+export async function refreshThinMeetingBriefs(sb: Sb, max = 20): Promise<number> {
   const { data, error } = await sb
     .from("browning_handoffs")
     .select(
-      "id, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, contact_name, contact_email, why_they_replied, linkedin_url, created_contact_id, existing_contact_id, subject"
+      "id, contact_name, meeting_brief, resume_text, why_they_replied, subject, intro_reason, created_contact_id, existing_contact_id"
+    )
+    .not("resume_text", "is", null)
+    .neq("status", "dismissed")
+    .order("call_starts_at", { ascending: true, nullsFirst: false })
+    .limit(80);
+  if (error || !data?.length) {
+    if (error) console.error("[browning-networking] brief refresh load", error);
+    return 0;
+  }
+
+  let wrote = 0;
+  for (const row of data) {
+    if (wrote >= max) break;
+    const resumeText = String(row.resume_text ?? "").trim();
+    if (resumeText.length < 200) continue;
+    const previous = String(row.meeting_brief ?? "").trim();
+    // Keep briefs that already have a Who they are section with substance.
+    if (/^Who they are\n.{80,}/m.test(previous) && /Resume\n-/m.test(previous)) {
+      continue;
+    }
+    const brief = meetingBrief({
+      name: (row.contact_name as string | null) ?? null,
+      tracyBody: String(row.intro_reason ?? row.subject ?? ""),
+      resumeText,
+      whyTheyReplied: (row.why_they_replied as string | null) ?? null,
+    });
+    if (!brief || brief === previous) continue;
+    if (!/^Who they are\n/m.test(brief) && !/Resume\n-/m.test(brief)) continue;
+
+    const { error: updateError } = await sb
+      .from("browning_handoffs")
+      .update({ meeting_brief: brief })
+      .eq("id", row.id);
+    if (updateError) {
+      console.error("[browning-networking] brief refresh", updateError);
+      continue;
+    }
+    const contactId =
+      (row.created_contact_id as string | null) ||
+      (row.existing_contact_id as string | null);
+    if (contactId) {
+      await sb.from("contacts").update({ browning_prep: brief }).eq("id", contactId);
+    }
+    wrote += 1;
+  }
+  return wrote;
+}
+
+/**
+ * Re-download Tracy attachments and cache bytes for handoffs missing storage.
+ * Also fills empty resume_text + meeting_brief when the attachment is still in mail.
+ * Empty-string resume_storage_path means we already tried and mail was gone.
+ */
+export async function backfillResumeStorage(sb: Sb, max = 8): Promise<number> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select(
+      "id, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, resume_text, why_they_replied, subject, intro_reason, contact_name, created_contact_id, existing_contact_id"
     )
     .not("resume_message_id", "is", null)
-    .is("packet_stored_at", null)
+    .is("resume_storage_path", null)
     .neq("status", "dismissed")
-    .order("received_at", { ascending: false })
-    .limit(max);
+    .order("call_starts_at", { ascending: true, nullsFirst: false })
+    .limit(Math.max(max, 12));
   if (error || !data?.length) {
-    if (error) console.error("[browning-networking] packet backfill", error);
+    if (error) console.error("[browning-networking] resume storage backfill", error);
     return 0;
   }
 
   let stored = 0;
   for (const row of data) {
+    if (stored >= max) break;
+    const accountEmail = String(row.gmail_account ?? "");
+    const messageId = String(row.resume_message_id || row.gmail_message_id || "");
+    if (!accountEmail || !messageId) continue;
+    const file = await loadSingleResume(
+      accountEmail,
+      messageId,
+      (row.contact_name as string | null) ?? null,
+      (row.gmail_thread_id as string | null) ?? null
+    );
+    if (!file) {
+      // Stop hourly retries when Outlook/Gmail no longer has the attachment.
+      await sb
+        .from("browning_handoffs")
+        .update({ resume_storage_path: "" })
+        .eq("id", row.id)
+        .is("resume_storage_path", null);
+      continue;
+    }
+    const path = await uploadBrowningResume({
+      handoffId: String(row.id),
+      filename: file.filename,
+      bytes: file.bytes,
+    });
+    if (!path) continue;
+
+    const patch: Record<string, unknown> = {
+      resume_storage_path: path,
+      resume_filename: (row.resume_filename as string | null) || file.filename,
+      packet_stored_at: new Date().toISOString(),
+    };
+    let resumeText = String(row.resume_text ?? "").trim();
+    if (resumeText.length < 80) {
+      const extracted = await extractAttachmentText(file);
+      if (extracted?.trim()) {
+        resumeText = extracted.trim();
+        patch.resume_text = capText(resumeText, RESUME_TEXT_CAP);
+        const brief = meetingBrief({
+          name: (row.contact_name as string | null) ?? null,
+          tracyBody: String(row.intro_reason ?? row.subject ?? ""),
+          resumeText,
+          whyTheyReplied: (row.why_they_replied as string | null) ?? null,
+        });
+        if (brief) patch.meeting_brief = brief;
+      }
+    }
+
+    const { error: updateError } = await sb
+      .from("browning_handoffs")
+      .update(patch)
+      .eq("id", row.id);
+    if (updateError) {
+      console.error("[browning-networking] resume storage update", updateError);
+      continue;
+    }
+    const contactId =
+      (row.created_contact_id as string | null) ||
+      (row.existing_contact_id as string | null);
+    if (contactId && typeof patch.meeting_brief === "string") {
+      await sb
+        .from("contacts")
+        .update({ browning_prep: patch.meeting_brief })
+        .eq("id", contactId);
+    }
+    stored += 1;
+  }
+  return stored;
+}
+
+export async function backfillMissingPackets(sb: Sb, max = 12): Promise<number> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select(
+      "id, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_text, resume_storage_path, packet_stored_at, contact_name, contact_email, why_they_replied, linkedin_url, created_contact_id, existing_contact_id, subject"
+    )
+    .not("resume_message_id", "is", null)
+    .neq("status", "dismissed")
+    .order("received_at", { ascending: false })
+    .limit(40);
+  if (error || !data?.length) {
+    if (error) console.error("[browning-networking] packet backfill", error);
+    return 0;
+  }
+
+  const needsWork = data.filter((row) => {
+    if (!(row.packet_stored_at as string | null)) return true;
+    const text = String(row.resume_text ?? "").trim();
+    // Old bug: marked stored with filename but empty extract — retry while
+    // storage is still null (not the empty-string "give up" sentinel).
+    return text.length < 80 && row.resume_storage_path === null;
+  });
+
+  let stored = 0;
+  for (const row of needsWork) {
+    if (stored >= max) break;
     const accountEmail = String(row.gmail_account ?? "");
     const messageId = String(row.gmail_message_id ?? "");
     if (!accountEmail || !messageId) continue;
@@ -169,6 +361,14 @@ export async function backfillMissingPackets(sb: Sb, max = 12): Promise<number> 
     });
     if (result.ok && result.stored) stored += 1;
     else if (!result.ok) console.error("[browning-networking] packet store", result.error);
+    else if ((row.packet_stored_at as string | null) && row.resume_storage_path === null) {
+      // Already marked stored, mail still empty — stop retrying.
+      await sb
+        .from("browning_handoffs")
+        .update({ resume_storage_path: "" })
+        .eq("id", row.id)
+        .is("resume_storage_path", null);
+    }
   }
   return stored;
 }

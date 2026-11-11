@@ -114,8 +114,19 @@ function readResume(resumeText: string | null): {
 
   const summaryText = sentences(summary.join(" "), 2);
   const usedInWho = !summaryText && points.length > 0;
-  const whoParts = [role, summaryText || (usedInWho ? points[0] : "")].filter(Boolean);
-  const resumePoints = (usedInWho ? points.slice(1) : points).slice(0, 4);
+  let whoParts = [role, summaryText || (usedInWho ? points[0] : "")].filter(Boolean);
+  let resumePoints = (usedInWho ? points.slice(1) : points).slice(0, 4);
+
+  // Unstructured Executive Summary PDFs: no headings, no dated role line.
+  // Use the first substantive sentences so prep is not Tracy's one-liner only.
+  if (!whoParts.length && !resumePoints.length && lines.length) {
+    const opener = lines.slice(0, 3);
+    whoParts = [sentences(opener.join(" "), 2)].filter(Boolean);
+    resumePoints = lines
+      .slice(whoParts.length ? 2 : 0)
+      .filter((line) => line.length >= 40)
+      .slice(0, 4);
+  }
 
   return {
     who: clip(whoParts.join(" "), 500),
@@ -150,9 +161,22 @@ function readTracyNote(body: string): { why: string; talk: string } {
 }
 
 function resumeLines(resumeText: string | null): string[] {
-  return (resumeText ?? "")
+  // PDFs often extract as one long paragraph with few newlines. Split those
+  // into sentences so Executive Summary packets are not dropped by the
+  // length filter below.
+  const raw = (resumeText ?? "")
     .replace(/\r/g, "")
     .split("\n")
+    .flatMap((line) => {
+      const cleaned = line.replace(/^[\s•·*\-–]+/, "").replace(/\s+/g, " ").trim();
+      if (!cleaned) return [];
+      if (cleaned.length <= 280) return [cleaned];
+      return cleaned
+        .split(/(?<=[.!?])\s+|(?<=;)\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    });
+  return raw
     .map((line) => line.replace(/^[\s•·*\-–]+/, "").replace(/\s+/g, " ").trim())
     .filter((line) => line.length >= 12 && line.length <= 280)
     .filter((line) => !/@/.test(line))

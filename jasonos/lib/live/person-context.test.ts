@@ -32,6 +32,31 @@ describe("person-context pure helpers", () => {
     assert.match(ctx.text, /Who they are\nName: Ada Example/);
   });
 
+  it("puts packet highlights and resume excerpt into the Browning brief", () => {
+    const ctx = assemblePersonContext({
+      contactId: "c-helgi",
+      name: "Helgi Bloom",
+      title: "CFO",
+      companyName: "Example",
+      packetHighlights: [
+        "10+ years C-suite leadership in PE-backed technology.",
+        "Reduced AGDATA monthly close from 100 to 10 days.",
+      ],
+      resumeText:
+        "Strategic CFO and enterprise operator with 10+ years of C-suite leadership in PE-backed technology and SaaS.",
+      handoff: {
+        introReason: "Jerry asked Helgi Bloom to reach out to you for networking.",
+        meetingBrief: "Why Tracy thinks you should talk\nJerry asked Helgi Bloom to reach out.",
+      },
+    });
+    const browning = ctx.sections.find((row) => row.key === "browning_brief");
+    assert.ok(browning);
+    assert.match(browning!.text, /From Tracy's packet/);
+    assert.match(browning!.text, /AGDATA monthly close/);
+    assert.match(browning!.text, /Resume excerpt/);
+    assert.match(browning!.text, /Strategic CFO/);
+  });
+
   it("handoff, conversation, and reviewed deck fill sections 3, 6, and 7 with dates", () => {
     const ctx = assemblePersonContext({
       contactId: "c2",

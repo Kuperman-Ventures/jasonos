@@ -268,6 +268,10 @@ export type PersonContextInput = {
     meetingBrief?: string | null;
   } | null;
   browningPrep?: string | null;
+  /** Three short facts from the Tracy resume packet (meeting_preps.packet_highlights). */
+  packetHighlights?: string[] | null;
+  /** Raw resume/executive-summary text from the handoff packet. */
+  resumeText?: string | null;
   researchBrief?: string | null;
   researchAt?: string | null;
   companyResearchBrief?: string | null;
@@ -355,10 +359,23 @@ function buildWhyAgreed(input: PersonContextInput): string {
 
 function buildBrowningBrief(input: PersonContextInput, whoText: string): string {
   const chunks: string[] = [];
+  const highlights = (input.packetHighlights ?? [])
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  if (highlights.length) {
+    chunks.push(
+      ["From Tracy's packet:", ...highlights.map((item) => `- ${item}`)].join("\n")
+    );
+  }
   if (input.browningPrep?.trim()) chunks.push(input.browningPrep.trim());
   const brief = handoffBriefToText(input.handoff?.brief);
   if (brief) chunks.push(brief);
   if (input.handoff?.meetingBrief?.trim()) chunks.push(input.handoff.meetingBrief.trim());
+  const resume = (input.resumeText ?? "").replace(/\s+/g, " ").trim();
+  if (resume.length >= 80) {
+    chunks.push(`Resume excerpt: ${resume.slice(0, 900)}${resume.length > 900 ? "…" : ""}`);
+  }
   const seen = new Set<string>();
   const unique: string[] = [];
   for (const chunk of chunks) {
@@ -581,13 +598,29 @@ async function loadPersonContextInput(
   const { data: handoffRows, error: handoffError } = await sb
     .from("browning_handoffs")
     .select(
-      "why_they_replied, quoted_reply, intro_reason, availability_note, reply_excerpt, brief, meeting_brief, created_at, existing_contact_id, created_contact_id"
+      "why_they_replied, quoted_reply, intro_reason, availability_note, reply_excerpt, brief, meeting_brief, resume_text, prep_id, created_at, existing_contact_id, created_contact_id"
     )
     .or(`existing_contact_id.eq.${contactId},created_contact_id.eq.${contactId}`)
     .order("created_at", { ascending: false })
     .limit(1);
   if (handoffError) throw new Error(handoffError.message);
   const handoffRow = handoffRows?.[0] ?? null;
+
+  let packetHighlights: string[] | null = null;
+  const prepId = (handoffRow?.prep_id as string | null) ?? null;
+  if (prepId) {
+    const { data: prep } = await sb
+      .from("meeting_preps")
+      .select("packet_highlights")
+      .eq("id", prepId)
+      .maybeSingle();
+    const raw = prep?.packet_highlights;
+    if (Array.isArray(raw)) {
+      packetHighlights = raw.filter(
+        (item): item is string => typeof item === "string" && item.trim().length > 0
+      );
+    }
+  }
 
   const { data: conversationRows, error: convError } = await sb
     .from("browning_conversations")
@@ -700,6 +733,8 @@ async function loadPersonContextInput(
         }
       : null,
     browningPrep: (contact.browning_prep as string | null) ?? null,
+    packetHighlights,
+    resumeText: (handoffRow?.resume_text as string | null) ?? null,
     researchBrief: (contact.research_brief as string | null) ?? null,
     researchAt: (contact.research_at as string | null) ?? null,
     companyResearchBrief: company?.research_brief ?? null,
