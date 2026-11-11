@@ -1,5 +1,8 @@
+"use client";
+
 import type { Section } from "@/lib/dashboard/schema";
 import { newsToneColor, presentNews } from "@/lib/dashboard/present";
+import { MobileCollapse } from "./MobileCollapse";
 import { SectionHeading } from "./section-heading";
 import styles from "./dashboard.module.css";
 
@@ -7,14 +10,22 @@ type News = Extract<Section, { type: "news" }>;
 
 export function NewsSection({ section, updatedOn }: { section: News; updatedOn: string }) {
   const now = new Date();
+  const count = section.items.length;
+  const summary = `${count} ${count === 1 ? "story" : "stories"}`;
+
   return (
-    <>
-      <div className={styles.headingRow}>
-        <SectionHeading>{section.heading}</SectionHeading>
-        <div className={styles.meta}>
-          {section.items.length} stories / {updatedOn}
+    <MobileCollapse
+      title={section.heading}
+      summary={summary}
+      desktopHeading={
+        <div className={styles.headingRow}>
+          <SectionHeading>{section.heading}</SectionHeading>
+          <div className={styles.meta}>
+            {count} stories / {updatedOn}
+          </div>
         </div>
-      </div>
+      }
+    >
       <div className={styles.newsGrid}>
         {section.items.map((item) => {
           const card = presentNews(item, now);
@@ -46,6 +57,6 @@ export function NewsSection({ section, updatedOn }: { section: News; updatedOn: 
           );
         })}
       </div>
-    </>
+    </MobileCollapse>
   );
 }

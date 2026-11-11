@@ -30,22 +30,21 @@ export default async function ProjectPage({
   if (!project) notFound();
   const dashboard = await readProjectDashboard(slug);
 
+  if (dashboard) {
+    return <ProjectDashboard document={dashboard} />;
+  }
+
   return (
-    <>
-      {dashboard ? <ProjectDashboard document={dashboard} /> : null}
-      <div className="mx-auto min-w-0 max-w-[1200px] overflow-x-clip px-4 pb-16">
-        {dashboard ? null : (
-          <header className="py-6">
-            <h1 className="text-xl font-semibold tracking-tight">{project.title}</h1>
-            {project.description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                {project.description}
-              </p>
-            ) : null}
-          </header>
-        )}
-        <ProjectLinks slug={project.slug} />
-      </div>
-    </>
+    <div className="mx-auto min-w-0 max-w-[1200px] overflow-x-clip px-4 pb-16">
+      <header className="py-6">
+        <h1 className="text-xl font-semibold tracking-tight">{project.title}</h1>
+        {project.description ? (
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+            {project.description}
+          </p>
+        ) : null}
+      </header>
+      <ProjectLinks slug={project.slug} />
+    </div>
   );
 }
