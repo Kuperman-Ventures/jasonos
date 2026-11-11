@@ -1,5 +1,8 @@
+"use client";
+
 import type { Section } from "@/lib/dashboard/schema";
 import { timelineTag, todayFlagPosition } from "@/lib/dashboard/present";
+import { MobileCollapse } from "./MobileCollapse";
 import { SectionHeading } from "./section-heading";
 import styles from "./dashboard.module.css";
 
@@ -8,10 +11,15 @@ type Timeline = Extract<Section, { type: "timeline" }>;
 export function TimelineSection({ section }: { section: Timeline }) {
   const dated = section.items.every((item) => item.date);
   const flag = dated ? todayFlagPosition(section.items.map((item) => item.date ?? "")) : null;
+  const count = section.items.length;
+  const summary = `${count} ${count === 1 ? "step" : "steps"}`;
 
   return (
-    <>
-      <SectionHeading>{section.heading}</SectionHeading>
+    <MobileCollapse
+      title={section.heading}
+      summary={summary}
+      desktopHeading={<SectionHeading>{section.heading}</SectionHeading>}
+    >
       <div className={styles.timelineWrap}>
         {flag ? (
           <div className={styles.today} style={{ left: flag.left }}>
@@ -29,7 +37,11 @@ export function TimelineSection({ section }: { section: Timeline }) {
                 ? "var(--pd-accent)"
                 : "var(--pd-text)";
             return (
-              <li key={`${item.date ?? item.when}-${item.what}`} className={styles.timelineItem} style={{ opacity: past ? 0.55 : 1 }}>
+              <li
+                key={`${item.date ?? item.when}-${item.what}`}
+                className={styles.timelineItem}
+                style={{ opacity: past ? 0.55 : 1 }}
+              >
                 <div className={styles.marker} style={{ background: dot }} />
                 <div className={styles.when}>
                   {item.when}
@@ -42,6 +54,6 @@ export function TimelineSection({ section }: { section: Timeline }) {
           })}
         </ol>
       </div>
-    </>
+    </MobileCollapse>
   );
 }

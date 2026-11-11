@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Likelihood, Section } from "@/lib/dashboard/schema";
 import { LIKELIHOOD_TONE, LikelihoodPill } from "./LikelihoodPill";
 import { useDashboardFilter, type DashboardFilter } from "./DashboardFilterContext";
+import { MobileCollapse } from "./MobileCollapse";
 import { SectionHeading } from "./section-heading";
 import { TableSection } from "./TableSection";
 import { TilesSection } from "./TilesSection";
@@ -89,27 +90,37 @@ export function CardsSection({
   const shown = filter === "all" ? section.cards : section.cards.filter((card) => card.likelihood === filter);
   const host = section.cards[section.cards.length - 1];
   const hostVisible = Boolean(host && shown.some((card) => card.id === host.id));
+  const total = section.cards.length;
+  const summary = `${total} ${total === 1 ? "area" : "areas"}`;
+  const filters =
+    section.filterBy === "likelihood" ? (
+      <div role="group" aria-label="Filter by likelihood" className={styles.filters}>
+        {FILTERS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={filter === item.id}
+            onClick={() => setFilter(item.id)}
+            className={styles.filterButton}
+          >
+            {item.label(section.cards.length)}
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   return (
-    <>
-      <div className={styles.filterRow}>
-        <SectionHeading>{section.heading}</SectionHeading>
-        {section.filterBy === "likelihood" ? (
-          <div role="group" aria-label="Filter by likelihood" className={styles.filters}>
-            {FILTERS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={filter === item.id}
-                onClick={() => setFilter(item.id)}
-                className={styles.filterButton}
-              >
-                {item.label(section.cards.length)}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+    <MobileCollapse
+      title={section.heading}
+      summary={summary}
+      desktopHeading={
+        <div className={styles.filterRow}>
+          <SectionHeading>{section.heading}</SectionHeading>
+          {filters}
+        </div>
+      }
+    >
+      {filters ? <div className={styles.mobileFilters}>{filters}</div> : null}
       <div className={styles.cards}>
         {shown.map((card) => (
           <article key={card.id} className={styles.card}>
@@ -138,6 +149,6 @@ export function CardsSection({
         ) : null}
       </div>
       {section.legend ? <p className={styles.legend}>{section.legend}</p> : null}
-    </>
+    </MobileCollapse>
   );
 }
