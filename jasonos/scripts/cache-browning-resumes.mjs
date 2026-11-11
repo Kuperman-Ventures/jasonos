@@ -78,28 +78,32 @@ async function downloadResume(token, messageId, nameHint) {
   return { filename: file.name || "resume.pdf", bytes: Buffer.from(full.contentBytes, "base64") };
 }
 
-const ids = [
-  "35587c7d-9eb5-4774-8343-7cb49d8b40ad",
-  "6a37f1ec-159c-4ec0-8858-cb9e3bdfbc05",
-];
 const { data: rows, error } = await sb
   .from("browning_handoffs")
   .select("id, contact_name, resume_message_id, resume_filename, resume_storage_path")
-  .in("id", ids);
+  .not("resume_message_id", "is", null)
+  .is("resume_storage_path", null)
+  .neq("status", "dismissed")
+  .order("call_starts_at", { ascending: true, nullsFirst: false })
+  .limit(20);
 if (error) throw error;
 
 const token = await outlookToken();
-console.log("outlook token", Boolean(token));
+console.log("outlook token", Boolean(token), "candidates", rows?.length ?? 0);
 if (!token) process.exit(1);
 
 for (const row of rows ?? []) {
-  if (row.resume_storage_path) {
-    console.log(row.contact_name, "already stored", row.resume_storage_path);
-    continue;
-  }
   const file = await downloadResume(token, row.resume_message_id, row.contact_name);
   console.log(row.contact_name, file ? `${file.filename} ${file.bytes.length}b` : "NO FILE");
-  if (!file) continue;
+  if (!file) {
+    // Empty string = tried, mail gone — hourly backfill skips these.
+    await sb
+      .from("browning_handoffs")
+      .update({ resume_storage_path: "" })
+      .eq("id", row.id)
+      .is("resume_storage_path", null);
+    continue;
+  }
   const path = `browning/${row.id}/${(file.filename || "resume.pdf").replace(/[^\w.\- ()]+/g, "")}`;
   const { error: upError } = await sb.storage.from("resumes").upload(path, file.bytes, {
     contentType: file.filename.toLowerCase().endsWith(".pdf")
