@@ -8,6 +8,7 @@ import {
   listGoogleSentMailHits,
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
+import { shouldCountGmailMessageForTouch } from "@/lib/integrations/gmail-labels";
 import {
   listOutlookConversationMessages,
   listOutlookSentMailHits,
@@ -239,11 +240,18 @@ async function openRowHasInboundReply(row: {
   );
   if (!thread?.messages?.length) return false;
   return threadHasInboundReply({
-    messages: thread.messages.map((msg) => ({
-      id: msg.id,
-      from: msg.from ?? "",
-      date: msg.date ?? "",
-    })),
+    messages: thread.messages
+      .filter((msg) =>
+        shouldCountGmailMessageForTouch({
+          labelIds: msg.labelIds,
+          fromMe: isFromMe(msg.from ?? ""),
+        })
+      )
+      .map((msg) => ({
+        id: msg.id,
+        from: msg.from ?? "",
+        date: msg.date ?? "",
+      })),
     afterSentAt: row.sent_at,
     sentMessageId: row.gmail_message_id,
     isFromMe,
@@ -627,14 +635,21 @@ export async function getSentEmailThread(
   if (!thread) {
     return { ok: false, error: "Couldn't load that thread from Gmail." };
   }
-  const messages = thread.messages.map((msg) => ({
-    id: msg.id,
-    from: msg.from?.trim() || "Unknown",
-    to: msg.to?.trim() || "",
-    date: msg.date || "",
-    subject: msg.subject?.trim() || "(no subject)",
-    body: messageBody(msg),
-    fromMe: isFromMe(msg.from ?? ""),
-  }));
+  const messages = thread.messages
+    .filter((msg) =>
+      shouldCountGmailMessageForTouch({
+        labelIds: msg.labelIds,
+        fromMe: isFromMe(msg.from ?? ""),
+      })
+    )
+    .map((msg) => ({
+      id: msg.id,
+      from: msg.from?.trim() || "Unknown",
+      to: msg.to?.trim() || "",
+      date: msg.date || "",
+      subject: msg.subject?.trim() || "(no subject)",
+      body: messageBody(msg),
+      fromMe: isFromMe(msg.from ?? ""),
+    }));
   return { ok: true, messages };
 }

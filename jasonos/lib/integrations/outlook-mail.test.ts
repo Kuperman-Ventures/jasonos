@@ -5,8 +5,10 @@ import {
   formatGraphAddress,
   graphSinceTimestamp,
   inferOutlookWellKnownName,
+  isOutlookSentFolder,
   mapGraphMessage,
   outlookTouchExternalId,
+  outlookTouchExternalIdMatches,
   rankOutlookFolders,
   shouldCountOutlookMessage,
   shouldSkipOutlookFolder,
@@ -23,6 +25,15 @@ describe("inferOutlookWellKnownName", () => {
   });
 });
 
+describe("isOutlookSentFolder", () => {
+  it("recognizes Sent Items and the personal Sent label", () => {
+    assert.equal(isOutlookSentFolder({ wellKnownName: "sentitems" }), true);
+    assert.equal(isOutlookSentFolder({ displayName: "Sent" }), true);
+    assert.equal(isOutlookSentFolder({ displayName: "Inbox" }), false);
+    assert.equal(isOutlookSentFolder({ displayName: "Drafts" }), false);
+  });
+});
+
 describe("outlookTouchExternalId", () => {
   it("shortens huge Graph message ids so PostgREST pre-checks stay under URL limits", () => {
     const huge = `AAMkAGI2${"A".repeat(200)}`;
@@ -33,6 +44,9 @@ describe("outlookTouchExternalId", () => {
       outlookTouchExternalId(huge, "contact-1"),
       `${id}::contact-1`
     );
+    assert.equal(outlookTouchExternalIdMatches(id, huge), true);
+    assert.equal(outlookTouchExternalIdMatches(`${id}::contact-1`, huge), true);
+    assert.equal(outlookTouchExternalIdMatches("outlook:other", huge), false);
   });
 });
 
@@ -159,8 +173,17 @@ describe("shouldCountOutlookMessage", () => {
       shouldCountOutlookMessage({
         sentDateTime: "2026-03-01T15:04:05.000Z",
         fromMe: true,
+        inSentItems: true,
       }),
       true
+    );
+    assert.equal(
+      shouldCountOutlookMessage({
+        sentDateTime: "2026-03-01T15:04:05.000Z",
+        fromMe: true,
+        inSentItems: false,
+      }),
+      false
     );
     assert.equal(
       shouldCountOutlookMessage({
@@ -186,6 +209,7 @@ describe("dedupeOutlookMessages", () => {
       webLink: null,
       conversationId: null,
       internetMessageId: null,
+      inSentItems: true,
     };
     const second = { ...first, subject: "second" };
     assert.deepEqual(dedupeOutlookMessages([first, second]).map((m) => m.subject), ["first"]);

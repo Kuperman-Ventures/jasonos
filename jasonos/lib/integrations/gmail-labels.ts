@@ -33,14 +33,16 @@ export function isGmailScheduledMessage(msg: {
 
 /**
  * Whether this message should count as a completed mail touch.
- * Drafts and scheduled sends do not. Outbound mail counts only with SENT,
- * including when Gmail omitted labels — a draft reply in a Sent thread must
- * not look like a send.
+ * Gmail stamps INBOX or SENT on real mail. No labels, a DRAFT label, or a
+ * scheduled send that has not landed in Sent means the message was not sent.
+ * Outbound mail counts only with SENT. A draft reply sitting in a Sent
+ * thread must not look like a send, even when Gmail omitted the labels.
  */
 export function shouldCountGmailMessageForTouch(msg: {
   labelIds?: string[] | null;
   fromMe: boolean;
 }): boolean {
+  if (!msg.labelIds?.length) return false;
   if (isGmailDraftMessage(msg)) return false;
   if (isGmailScheduledMessage(msg) && !isGmailSentMessage(msg)) return false;
   if (msg.fromMe && !isGmailSentMessage(msg)) return false;

@@ -446,6 +446,14 @@ async function listCounterpartiesForToken(
         });
       }
     } else {
+      if (
+        !shouldCountGmailMessageForTouch({
+          labelIds: mapped.labelIds,
+          fromMe: false,
+        })
+      ) {
+        continue;
+      }
       const person = pickInboundPerson(
         fromHeader,
         mapped.from === get("From") ? get("Reply-To") : undefined,

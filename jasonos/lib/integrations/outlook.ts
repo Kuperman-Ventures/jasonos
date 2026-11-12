@@ -17,6 +17,7 @@ import {
   formatGraphAddress,
   graphSinceTimestamp,
   inferOutlookWellKnownName,
+  isOutlookSentFolder,
   joinGraphAddresses,
   mapGraphMessage,
   outlookTouchExternalId,
@@ -250,8 +251,9 @@ export async function listOutlookMessages(
   for (const folder of folders) {
     try {
       const raw = await listFolderMessages(accessToken, folder, sinceIso);
+      const inSentItems = isOutlookSentFolder(folder);
       for (const message of raw) {
-        const mapped = mapGraphMessage(message);
+        const mapped = mapGraphMessage(message, { inSentItems });
         if (!mapped) continue;
         if (new Date(mapped.date).getTime() < sinceMs) continue;
         collected.push(mapped);
@@ -264,6 +266,35 @@ export async function listOutlookMessages(
   }
 
   return { messages: dedupeOutlookMessages(collected), warnings };
+}
+
+/**
+ * Open Outlook drafts. Their Graph ids are hashed into contact_touches
+ * external ids, so sync can drop an engagement that was saved but never sent.
+ */
+export async function listOutlookDraftMessageIds(
+  accessToken: string,
+  max = 200
+): Promise<string[]> {
+  const ids: string[] = [];
+  let url: string | null =
+    "/me/mailFolders/drafts/messages?$top=50&$select=id,isDraft";
+  for (let page = 0; page < 8 && url && ids.length < max; page += 1) {
+    const { status, body } = await graphGet(accessToken, url);
+    if (status === 404) return ids;
+    if (status < 200 || status >= 300) {
+      throw new Error(graphErrorMessage(status, body));
+    }
+    for (const raw of (body?.value ?? []) as Array<{ id?: string; isDraft?: boolean }>) {
+      if (!raw.id) continue;
+      if (raw.isDraft === false) continue;
+      ids.push(raw.id);
+      if (ids.length >= max) break;
+    }
+    const next = body?.["@odata.nextLink"];
+    url = next ? next.replace("https://graph.microsoft.com/v1.0", "") : null;
+  }
+  return ids;
 }
 
 export interface OutlookSearchedMessage {
@@ -435,7 +466,7 @@ export async function listOutlookSentMailHits(opts?: {
     );
     for (const message of messages.slice(0, max)) {
       if (message.isDraft) continue;
-      const mapped = mapGraphMessage(message);
+      const mapped = mapGraphMessage(message, { inSentItems: true });
       if (!mapped?.sentAt) continue;
       const qualified = qualifySentMessage({
         subject: mapped.subject,
@@ -546,7 +577,7 @@ export async function listOutlookSentRecipientTouches(opts?: {
     const messages = await listFolderMessages(account.token, folder, sinceIso);
     for (const message of messages.slice(0, max)) {
       if (message.isDraft) continue;
-      const mapped = mapGraphMessage(message);
+      const mapped = mapGraphMessage(message, { inSentItems: true });
       if (!mapped?.sentAt) continue;
       const qualified = qualifySentMessage({
         subject: mapped.subject,

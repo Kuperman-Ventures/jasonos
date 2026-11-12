@@ -72,20 +72,40 @@ export interface OutlookMessage {
   webLink: string | null;
   conversationId: string | null;
   internetMessageId: string | null;
+  /** True only when this copy was read from Sent Items. */
+  inSentItems: boolean;
 }
 
 /**
  * Drafts and unsent outbound mail do not count as completed outreach.
- * Inbound mail can arrive with only receivedDateTime.
+ * Outbound credit requires Sent Items plus a send time. A copy sitting in
+ * Inbox, Archive, or a custom folder is not a send. Inbound mail can arrive
+ * with only receivedDateTime.
  */
 export function shouldCountOutlookMessage(msg: {
   isDraft?: boolean | null;
   sentDateTime?: string | null;
   fromMe: boolean;
+  /** False when the copy was read from a folder other than Sent Items. */
+  inSentItems?: boolean;
 }): boolean {
   if (msg.isDraft) return false;
-  if (msg.fromMe && !msg.sentDateTime?.trim()) return false;
+  if (!msg.fromMe) return true;
+  if (msg.inSentItems === false) return false;
+  if (!msg.sentDateTime?.trim()) return false;
   return true;
+}
+
+/** True for the Sent Items folder, including the personal "Sent" label. */
+export function isOutlookSentFolder(folder: {
+  displayName?: string | null;
+  wellKnownName?: string | null;
+}): boolean {
+  const well =
+    (folder.wellKnownName ?? "").trim().toLowerCase() ||
+    inferOutlookWellKnownName(folder.displayName) ||
+    "";
+  return well === "sentitems";
 }
 
 /**
@@ -138,6 +158,18 @@ export function outlookTouchExternalId(
     .digest("hex")
     .slice(0, 32);
   return contactId ? `outlook:${digest}::${contactId}` : `outlook:${digest}`;
+}
+
+/** True when a stored Outlook touch id belongs to this Graph message. */
+export function outlookTouchExternalIdMatches(
+  externalId: string | null | undefined,
+  messageId: string
+): boolean {
+  const id = messageId.trim();
+  if (!id) return false;
+  const digest = outlookTouchExternalId(id);
+  const external = (externalId ?? "").trim();
+  return external === digest || external.startsWith(`${digest}::`);
 }
 
 function priorityIndex(folder: {
@@ -193,7 +225,10 @@ export function joinGraphAddresses(
   return (recipients ?? []).map(formatGraphAddress).filter(Boolean).join(", ");
 }
 
-export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
+export function mapGraphMessage(
+  raw: GraphMessage,
+  opts?: { inSentItems?: boolean }
+): OutlookMessage | null {
   if (!raw.id || raw.isDraft) return null;
   const rawDate = raw.sentDateTime || raw.receivedDateTime;
   if (!rawDate) return null;
@@ -218,6 +253,7 @@ export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
     webLink: raw.webLink?.trim() || null,
     conversationId: raw.conversationId?.trim() || null,
     internetMessageId: raw.internetMessageId?.trim() || null,
+    inSentItems: opts?.inSentItems === true,
   };
 }
 

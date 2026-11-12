@@ -180,10 +180,15 @@ async function getAssociatedActivities(
   });
 }
 
-/** HubSpot drafts and queued sends are not completed outreach. */
+/**
+ * HubSpot email credit requires a completed send. Blank status stays, because
+ * a logged email often has no status. Anything else that is not SENT,
+ * BOUNCED, or FAILED is still a draft or a queue.
+ */
 function isUnsentHubSpotEmail(status: string | undefined): boolean {
   const value = (status ?? "").trim().toUpperCase();
-  return value === "DRAFT" || value === "SCHEDULED" || value === "SENDING";
+  if (!value) return false;
+  return value !== "SENT" && value !== "BOUNCED" && value !== "FAILED";
 }
 
 function withHubSpotUrl(contact: HubSpotContact | null): HubSpotContact | null {
