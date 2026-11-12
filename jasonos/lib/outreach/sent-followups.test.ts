@@ -99,6 +99,30 @@ describe("qualifySentMessage", () => {
       }).ok,
       false
     );
+    assert.equal(
+      qualifySentMessage({
+        labelIds: [],
+        to: "Ada <ada@example.com>",
+      }).ok,
+      false
+    );
+    assert.equal(
+      qualifySentMessage({
+        labelIds: ["SCHEDULED"],
+        to: "Ada <ada@example.com>",
+      }).ok,
+      false
+    );
+  });
+
+  it("still accepts Outlook sent mail that has no Gmail labels", () => {
+    assert.equal(
+      qualifySentMessage({
+        subject: "Hello",
+        to: "Ada <ada@example.com>",
+      }).ok,
+      true
+    );
   });
 });
 

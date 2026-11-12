@@ -13,7 +13,10 @@ import {
 } from "@/lib/integrations/gmail-labels";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
-import { listOutlookMessages } from "@/lib/integrations/outlook";
+import {
+  listOutlookDraftMessageIds,
+  listOutlookMessages,
+} from "@/lib/integrations/outlook";
 import {
   getOutlookAccountAccess,
   getOutlookConnectionStatus,
@@ -57,6 +60,7 @@ import {
 import {
   insertContactTouches,
   purgeUnsentGmailTouches,
+  purgeUnsentOutlookTouches,
   recordSyncState,
   type ContactTouchInput,
   type InsertTouchesResult,
@@ -1057,8 +1061,9 @@ function unavailableBeeperResult(
 
 // ---------------------------------------------------------------------------
 // Outlook.com sync — Microsoft Graph mail from Sent, Inbox, Archive, and
-// other non-junk folders. Not connected is a soft skip. Expired sign-in is
-// a real failure so Settings can show reconnect.
+// other non-junk folders. Outbound credit comes only from Sent Items.
+// Not connected is a soft skip. Expired sign-in is a real failure so
+// Settings can show reconnect.
 // ---------------------------------------------------------------------------
 
 const OUTLOOK_NOT_CONNECTED = "Outlook not connected — skipped";
@@ -1124,6 +1129,7 @@ export async function syncOutreachFromOutlook(opts?: {
       !shouldCountOutlookMessage({
         sentDateTime: m.sentAt,
         fromMe: outbound,
+        inSentItems: m.inSentItems,
       })
     ) {
       continue;
@@ -1172,6 +1178,12 @@ export async function syncOutreachFromOutlook(opts?: {
   const insertResult = await insertContactTouches(touches);
   const staged = await upsertCandidateSightings(sightings, lookup);
   await applyEmailEnrichments(enrich);
+  try {
+    const draftIds = await listOutlookDraftMessageIds(account.token);
+    await purgeUnsentOutlookTouches(draftIds);
+  } catch (err) {
+    console.error("[outreach-sync.outlook] draft purge failed", err);
+  }
   revalidatePaths();
 
   const softWarnings = [...fetched.warnings, ...provocationWarnings];

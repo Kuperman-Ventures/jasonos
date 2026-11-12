@@ -25,6 +25,10 @@ import {
   listGoogleAccessTokens,
   type GoogleAccessToken,
 } from "@/lib/integrations/google-tokens";
+import {
+  outlookTouchExternalId,
+  outlookTouchExternalIdMatches,
+} from "@/lib/integrations/outlook-mail";
 import { etYmd } from "@/lib/dates";
 import {
   CADENCE_DAYS,
@@ -427,6 +431,63 @@ export async function purgeUnsentGmailTouches(opts?: {
     return purgeInflight;
   }
   return run;
+}
+
+/**
+ * Drop Outlook engagements whose Graph message is still a draft. Saving a
+ * draft is not a send, so Engaged Today should fall back to the last real
+ * touch.
+ */
+export async function purgeUnsentOutlookTouches(
+  draftMessageIds: string[]
+): Promise<number> {
+  const ids = [...new Set(draftMessageIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ids.length) return 0;
+
+  const sb = createServiceRoleClient();
+  const contactIds = new Set<string>();
+  let removed = 0;
+
+  for (let i = 0; i < ids.length; i += 8) {
+    const chunk = ids.slice(i, i + 8);
+    const or = chunk
+      .map((id) => {
+        const digest = outlookTouchExternalId(id);
+        return `external_id.eq.${digest},external_id.like.${digest}::%`;
+      })
+      .join(",");
+    const { data, error } = await sb
+      .from("contact_touches")
+      .select("id,contact_id,external_id")
+      .eq("source", "outlook")
+      .or(or);
+    if (error) {
+      console.error("[touches.purgeOutlookDrafts] read", error.message);
+      continue;
+    }
+    const rows = (data ?? []).filter((row) =>
+      chunk.some((id) =>
+        outlookTouchExternalIdMatches(row.external_id as string | null, id)
+      )
+    );
+    if (!rows.length) continue;
+    const touchIds = rows.map((row) => row.id as string);
+    const { error: delErr } = await sb
+      .from("contact_touches")
+      .delete()
+      .in("id", touchIds);
+    if (delErr) {
+      console.error("[touches.purgeOutlookDrafts] delete", delErr.message);
+      continue;
+    }
+    removed += touchIds.length;
+    for (const row of rows) {
+      if (row.contact_id) contactIds.add(row.contact_id as string);
+    }
+  }
+
+  await Promise.all([...contactIds].map((id) => restampContactTouchState(id)));
+  return removed;
 }
 
 async function purgeUnsentGmailTouchesNow(

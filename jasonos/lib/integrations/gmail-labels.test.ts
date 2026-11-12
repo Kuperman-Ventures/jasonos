@@ -88,10 +88,14 @@ describe("shouldCountGmailMessageForTouch", () => {
     );
   });
 
-  it("keeps inbound mail when labels are missing", () => {
+  it("does not count mail when Gmail omitted labels", () => {
     assert.equal(
       shouldCountGmailMessageForTouch({ fromMe: false }),
-      true
+      false
+    );
+    assert.equal(
+      shouldCountGmailMessageForTouch({ labelIds: [], fromMe: false }),
+      false
     );
   });
 });

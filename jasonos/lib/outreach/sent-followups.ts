@@ -3,7 +3,11 @@
 // Outlook. Jason picks a day count; Home shows the thread once that day arrives.
 
 import { daysBetweenYmd } from "../dates";
-import { isGmailDraftMessage, isGmailSentMessage } from "../integrations/gmail-labels";
+import {
+  isGmailDraftMessage,
+  isGmailScheduledMessage,
+  isGmailSentMessage,
+} from "../integrations/gmail-labels";
 import { canonicalEmail, isMyOwnAddress } from "./contact-lookup";
 import { isCalendarInviteSubject, isNoiseEmail } from "./mail-noise";
 
@@ -143,7 +147,10 @@ export function qualifySentMessage(msg: {
   cc?: string | null;
 }): { ok: true; recipients: MailAddress[]; toLine: string } | { ok: false } {
   if (isGmailDraftMessage(msg)) return { ok: false };
-  if (msg.labelIds?.length && !isGmailSentMessage(msg)) return { ok: false };
+  if (isGmailScheduledMessage(msg) && !isGmailSentMessage(msg)) return { ok: false };
+  // Gmail callers pass labelIds, and an empty list is not Sent. Outlook
+  // callers omit the field because they already read Sent Items.
+  if (Array.isArray(msg.labelIds) && !isGmailSentMessage(msg)) return { ok: false };
   if (isCalendarInviteSubject(msg.subject)) return { ok: false };
   const recipients = externalRecipients(msg.to, msg.cc);
   if (!recipients.length) return { ok: false };
