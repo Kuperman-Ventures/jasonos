@@ -100,8 +100,7 @@ export default async function ProjectsPage() {
               <div>
                 <h2 className="text-sm font-semibold tracking-tight">LOTR</h2>
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                  Standalone LOTR project surface outside JasonOS login and
-                  chrome.
+                  Map of Middle-earth with key locations and scene highlights.
                 </p>
               </div>
             </div>

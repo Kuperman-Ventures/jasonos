@@ -1,0 +1,385 @@
+.lotr-page {
+  --lotr-bg: #d8dde4;
+  --lotr-land: #c5cec0;
+  --lotr-land-deep: #aeb9a8;
+  --lotr-sea: #7f97a8;
+  --lotr-sea-deep: #5f7a8c;
+  --lotr-ink: #1c2429;
+  --lotr-muted: #4d5b64;
+  --lotr-accent: #2f5d4a;
+  --lotr-accent-soft: #d7e4dc;
+  --lotr-pin: #8b3a2b;
+  --lotr-pin-dim: #8b3a2b55;
+  --lotr-forest: #6f8a6a88;
+  --lotr-ridge: #3d4a42;
+  --lotr-panel: #f2f4f1;
+  --lotr-border: #98a39a;
+  --lotr-font-display: var(--font-lotr-display), "Source Serif 4", Georgia, serif;
+  --lotr-font-ui: var(--font-lotr-ui), "Source Sans 3", system-ui, sans-serif;
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at 20% 0%, #e6ebe8 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 20%, #cfd8e0 0%, transparent 45%),
+    linear-gradient(180deg, var(--lotr-bg), #cfd5cc 100%);
+  color: var(--lotr-ink);
+  font-family: var(--lotr-font-ui);
+}
+
+.lotr-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 12px 28px;
+}
+
+.lotr-header h1 {
+  margin: 4px 0 0;
+  font-family: var(--lotr-font-display);
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+}
+
+.lotr-header p {
+  margin: 6px 0 0;
+  color: var(--lotr-muted);
+  font-size: 0.875rem;
+  max-width: 40rem;
+}
+
+.lotr-eyebrow {
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--lotr-muted);
+}
+
+.lotr-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lotr-age {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--lotr-border);
+  background: var(--lotr-panel);
+}
+
+.lotr-age button,
+.lotr-tale button,
+.lotr-whole,
+.lotr-loc-list button,
+.lotr-sheet-close {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.lotr-age button {
+  min-height: 44px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--lotr-muted);
+  font-weight: 600;
+}
+
+.lotr-age button[aria-pressed="true"] {
+  background: var(--lotr-accent);
+  color: #f5f8f6;
+}
+
+.lotr-tales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lotr-tale button {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--lotr-border);
+  background: var(--lotr-panel);
+  color: var(--lotr-muted);
+  font-size: 0.8rem;
+}
+
+.lotr-tale button[aria-pressed="true"] {
+  background: var(--lotr-accent-soft);
+  border-color: var(--lotr-accent);
+  color: var(--lotr-ink);
+}
+
+.lotr-map-wrap {
+  position: relative;
+  border: 1px solid var(--lotr-border);
+  background: var(--lotr-sea-deep);
+  overflow: hidden;
+  aspect-ratio: 1000 / 760;
+  width: 100%;
+}
+
+.lotr-map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transition: all 0.55s ease;
+}
+
+.lotr-region {
+  fill: #b7c2b088;
+  stroke: var(--lotr-ink);
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: fill 0.2s ease;
+}
+
+.lotr-region:hover,
+.lotr-region:focus-visible {
+  fill: #9eb4a0cc;
+  outline: none;
+}
+
+.lotr-region-label {
+  fill: var(--lotr-ink);
+  font-family: var(--lotr-font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.lotr-pin {
+  cursor: pointer;
+}
+
+.lotr-pin circle.lotr-pin-hit {
+  fill: transparent;
+}
+
+.lotr-pin circle.lotr-pin-dot {
+  fill: var(--lotr-pin);
+  stroke: #f4f1ec;
+  stroke-width: 2;
+}
+
+.lotr-pin[data-dimmed="true"] circle.lotr-pin-dot {
+  fill: var(--lotr-pin-dim);
+}
+
+.lotr-pin-label {
+  fill: var(--lotr-ink);
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.lotr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lotr-whole {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--lotr-border);
+  background: var(--lotr-panel);
+  color: var(--lotr-ink);
+  font-weight: 600;
+}
+
+.lotr-whole:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.lotr-region-title {
+  margin: 0;
+  font-family: var(--lotr-font-display);
+  font-size: 1.25rem;
+}
+
+.lotr-loc-list {
+  display: grid;
+  gap: 6px;
+}
+
+.lotr-loc-list button {
+  min-height: 44px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--lotr-border);
+  background: var(--lotr-panel);
+  color: var(--lotr-ink);
+}
+
+.lotr-loc-list button[data-dimmed="true"] {
+  opacity: 0.45;
+}
+
+.lotr-loc-list button span {
+  display: block;
+  color: var(--lotr-muted);
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.lotr-footer {
+  margin: 8px 0 0;
+  color: var(--lotr-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.lotr-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #1c242966;
+  z-index: 40;
+}
+
+.lotr-sheet {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--lotr-panel);
+  color: var(--lotr-ink);
+  border: 1px solid var(--lotr-border);
+  box-shadow: 0 -8px 32px #1c242933;
+}
+
+.lotr-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 8px;
+  border-bottom: 1px solid var(--lotr-border);
+}
+
+.lotr-sheet-header h2 {
+  margin: 0;
+  font-family: var(--lotr-font-display);
+  font-size: 1.4rem;
+  line-height: 1.15;
+}
+
+.lotr-sheet-header p {
+  margin: 6px 0 0;
+  color: var(--lotr-muted);
+  font-size: 0.85rem;
+}
+
+.lotr-sheet-close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--lotr-border);
+  background: #e8ebe6;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.lotr-sheet-body {
+  overflow: auto;
+  padding: 12px 16px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lotr-tale-group {
+  margin-top: 14px;
+}
+
+.lotr-tale-group h3 {
+  margin: 0 0 8px;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lotr-accent);
+}
+
+.lotr-scene {
+  padding: 10px 0;
+  border-top: 1px solid #d5dbd4;
+}
+
+.lotr-scene h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.lotr-scene p {
+  margin: 6px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.lotr-scene cite {
+  display: block;
+  margin-top: 6px;
+  color: var(--lotr-muted);
+  font-size: 0.75rem;
+  font-style: normal;
+}
+
+@media (max-width: 899px) {
+  .lotr-sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 75vh;
+    border-bottom: 0;
+    animation: lotr-sheet-up 0.22s ease-out;
+  }
+}
+
+@media (min-width: 900px) {
+  .lotr-shell {
+    padding: 24px 20px 40px;
+  }
+
+  .lotr-sheet {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(420px, 40vw);
+    max-height: none;
+    border-right: 0;
+    animation: lotr-sheet-in 0.22s ease-out;
+  }
+}
+
+@keyframes lotr-sheet-up {
+  from {
+    transform: translateY(18px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes lotr-sheet-in {
+  from {
+    transform: translateX(18px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
