@@ -7,6 +7,14 @@ import { TaleFilter } from "./TaleFilter";
 import { REGIONS } from "@/lib/lotr/regions";
 import { LOCATIONS } from "@/lib/lotr/locations";
 import {
+  COASTLINE,
+  FORESTS,
+  LAKES,
+  MOUNTAINS,
+  NUMENOR,
+  RIVERS,
+} from "@/lib/lotr/geography";
+import {
   TALES_BY_AGE,
   WHOLE_VIEW_BOX,
   locationInAge,
@@ -157,69 +165,57 @@ export function LotrMap() {
           <rect x="0" y="0" width="1000" height="760" fill="#6f8797" />
           <rect x="0" y="0" width="1000" height="760" fill="url(#lotr-sea-hatch)" opacity="0.25" />
 
-          {/* Landmass — original schematic silhouette */}
           <path
-            d="M120,250 C160,180 250,150 340,140 C420,130 500,90 580,95 C680,100 760,150 820,210 C880,270 940,320 950,400 C960,490 900,560 840,610 C780,660 700,700 620,710 C520,725 430,700 360,660 C280,610 220,560 180,500 C130,420 90,340 120,250 Z"
+            className="lotr-land"
+            d={COASTLINE}
+            fill="#c2cbbd"
+            stroke="#3d4a42"
+            strokeWidth="2"
+          />
+          <path
+            className="lotr-land"
+            d={NUMENOR}
             fill="#c2cbbd"
             stroke="#3d4a42"
             strokeWidth="2"
           />
 
-          {/* Western sea bite / Gulf */}
-          <path
-            d="M90,260 C130,280 150,320 145,360 C120,350 95,310 90,260 Z"
-            fill="#6f8797"
-          />
+          {Object.entries(FORESTS).map(([name, d]) => (
+            <path key={name} className="lotr-forest" d={d} fill="#6f8a6a99" stroke="none" />
+          ))}
 
-          {/* Forests */}
-          <ellipse cx="300" cy="280" rx="28" ry="18" fill="#6f8a6a88" />
-          <ellipse cx="650" cy="210" rx="70" ry="95" fill="#6f8a6a99" />
-          <ellipse cx="530" cy="360" rx="35" ry="28" fill="#6f8a6a88" />
-          <ellipse cx="520" cy="425" rx="40" ry="30" fill="#6f8a6a88" />
+          {Object.entries(LAKES).map(([name, d]) => (
+            <path key={name} className="lotr-lake" d={d} fill="#5f7a8c" stroke="#3d4a42" strokeWidth="1" />
+          ))}
 
-          {/* Misty Mountains ridge */}
-          <path
-            d="M470,160 L485,200 L475,240 L490,280 L480,330 L495,370 L485,410"
-            fill="none"
-            stroke="#3d4a42"
-            strokeWidth="3"
-            strokeLinecap="square"
-          />
-          <path
-            d="M490,170 L505,210 L495,250 L510,290 L500,340 L515,380"
-            fill="none"
-            stroke="#5a675f"
-            strokeWidth="2"
-          />
+          {Object.entries(RIVERS).map(([name, d]) => (
+            <path
+              key={name}
+              className="lotr-river"
+              d={d}
+              fill="none"
+              stroke="#5f7a8c"
+              strokeWidth={name === "anduin" ? 4 : 2.5}
+              strokeLinecap="round"
+            />
+          ))}
 
-          {/* White Mountains */}
-          <path
-            d="M560,500 L600,520 L640,510 L680,530 L720,520"
-            fill="none"
-            stroke="#3d4a42"
-            strokeWidth="3"
-          />
-
-          {/* Anduin */}
-          <path
-            d="M560,180 C570,260 580,320 600,400 C620,480 640,540 650,620 C655,660 640,700 620,720"
-            fill="none"
-            stroke="#5f7a8c"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-
-          {/* Coast hint south */}
-          <path
-            d="M200,620 C280,650 360,670 450,680 C540,690 620,700 700,690"
-            fill="none"
-            stroke="#5f7a8c"
-            strokeWidth="2"
-            opacity="0.7"
-          />
-
-          {/* Island of Numenor */}
-          <ellipse cx="95" cy="610" rx="42" ry="28" fill="#c2cbbd" stroke="#3d4a42" strokeWidth="2" />
+          {Object.entries(MOUNTAINS).map(([name, d]) => (
+            <path
+              key={name}
+              className="lotr-ridge"
+              d={d}
+              fill="none"
+              stroke="#3d4a42"
+              strokeWidth={
+                name === "mistyMountains" || name === "whiteMountains" || name === "ephelDuath"
+                  ? 3.2
+                  : 2.6
+              }
+              strokeLinecap="square"
+              strokeLinejoin="miter"
+            />
+          ))}
 
           {!regionId
             ? REGIONS.map((region) => {
@@ -254,10 +250,11 @@ export function LotrMap() {
             : null}
 
           {regionId
-            ? regionLocations.map((location) => {
+            ? regionLocations.map((location, index) => {
                 const name = locationName(location, age);
                 if (!name) return null;
                 const matched = scenesForTales(location, age, selectedTales).length > 0;
+                const labelY = location.y + (index % 2 === 0 ? -10 : 16);
                 return (
                   <g key={location.id} className="lotr-pin" data-dimmed={matched ? "false" : "true"}>
                     <g
@@ -275,11 +272,7 @@ export function LotrMap() {
                       <circle className="lotr-pin-hit" cx={location.x} cy={location.y} r={hitR} />
                       <circle className="lotr-pin-dot" cx={location.x} cy={location.y} r={7} />
                     </g>
-                    <text
-                      className="lotr-pin-label"
-                      x={location.x + 10}
-                      y={location.y + 4}
-                    >
+                    <text className="lotr-pin-label" x={location.x + 10} y={labelY}>
                       {name}
                     </text>
                   </g>

@@ -135,6 +135,17 @@
   transition: all 0.55s ease;
 }
 
+.lotr-land {
+  pointer-events: none;
+}
+
+.lotr-forest,
+.lotr-lake,
+.lotr-river,
+.lotr-ridge {
+  pointer-events: none;
+}
+
 .lotr-region {
   fill: #b7c2b088;
   stroke: var(--lotr-ink);

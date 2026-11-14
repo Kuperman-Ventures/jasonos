@@ -1,66 +1,66 @@
 import type { Region } from "./types";
 
-/** Rough tap polygons on the 1000×760 schematic. Original outlines, not traced from any published map. */
+/** Tap polygons sized to enclose relocated pins on the redrawn schematic. */
 export const REGIONS: Region[] = [
   {
     id: "lindon",
     name: "Lindon",
-    viewBox: "60 180 260 220",
-    path: "M70,220 L210,200 L250,250 L240,340 L160,360 L90,320 Z",
+    viewBox: "50 170 200 200",
+    path: "M60,190 L180,180 L200,250 L185,340 L100,350 L55,280 Z",
   },
   {
     id: "eriador",
     name: "Eriador",
-    viewBox: "210 200 320 140",
-    path: "M220,230 L500,220 L510,300 L240,320 Z",
+    viewBox: "210 210 280 140",
+    path: "M220,230 L450,220 L460,310 L230,325 Z",
   },
   {
     id: "eregion-moria",
     name: "Eregion And Moria",
-    viewBox: "400 290 160 120",
-    path: "M410,310 L540,300 L550,380 L420,390 Z",
+    viewBox: "380 300 140 110",
+    path: "M390,315 L500,305 L510,390 L395,400 Z",
   },
   {
     id: "rhovanion",
     name: "Rhovanion",
-    viewBox: "470 130 300 300",
-    path: "M490,150 L760,140 L770,400 L520,420 L480,300 Z",
+    viewBox: "450 110 320 300",
+    path: "M460,125 L760,115 L770,390 L500,400 L455,280 Z",
   },
   {
     id: "rohan-isengard",
     name: "Rohan And Isengard",
-    viewBox: "440 380 240 200",
-    path: "M450,400 L640,390 L650,540 L470,550 Z",
+    viewBox: "410 400 250 200",
+    path: "M420,420 L640,410 L650,580 L430,590 Z",
   },
   {
     id: "gondor",
     name: "Gondor",
-    viewBox: "560 480 200 200",
-    path: "M580,500 L740,490 L730,680 L600,690 L570,560 Z",
+    viewBox: "540 480 220 230",
+    path: "M550,505 L740,490 L730,700 L560,710 L545,560 Z",
   },
   {
     id: "mordor-southlands",
     name: "Mordor / The Southlands",
-    viewBox: "630 430 240 200",
-    path: "M650,450 L850,440 L860,600 L700,620 L640,540 Z",
+    viewBox: "640 430 260 220",
+    path: "M650,445 L890,435 L900,630 L700,645 L640,540 Z",
   },
   {
     id: "rhun",
     name: "Rhun",
-    viewBox: "790 240 200 180",
-    path: "M820,260 L970,250 L980,400 L830,410 Z",
+    viewBox: "820 260 170 160",
+    path: "M835,275 L980,265 L985,400 L840,410 Z",
   },
   {
     id: "the-north",
     name: "The North",
-    viewBox: "320 10 280 140",
-    path: "M340,30 L580,20 L590,120 L350,130 Z",
+    viewBox: "250 10 280 120",
+    path: "M260,20 L520,15 L530,110 L270,120 Z",
   },
   {
     id: "numenor-sea",
     name: "Numenor And The Sea",
-    viewBox: "0 350 240 320",
-    path: "M20,380 L200,370 L210,700 L30,710 Z",
+    viewBox: "0 240 220 460",
+    path: "M5,250 L180,245 L200,700 L10,710 Z",
   },
 ];
 

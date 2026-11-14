@@ -5,8 +5,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "grey-havens",
     regionId: "lindon",
-    x: 170,
-    y: 255,
+    x: 110,
+    y: 235,
     names: { third: "Grey Havens" },
     summary: "Elven harbors on the Gulf of Lhûn, the last shore of Middle-earth.",
     scenes: [
@@ -27,8 +27,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "lindon",
     regionId: "lindon",
-    x: 140,
-    y: 300,
+    x: 95,
+    y: 275,
     names: { second: "Lindon", third: "Lindon" },
     summary: "Gil-galad's realm in the northwest, seat of High-elven power in the Second Age.",
     scenes: [
@@ -57,8 +57,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "hobbiton",
     regionId: "eriador",
-    x: 260,
-    y: 260,
+    x: 250,
+    y: 280,
     names: { third: "Hobbiton and the Shire" },
     summary: "Quiet hills of the Shire where Bilbo and Frodo begin their journeys.",
     scenes: [
@@ -91,8 +91,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "old-forest",
     regionId: "eriador",
-    x: 298,
-    y: 278,
+    x: 292,
+    y: 298,
     names: { third: "Old Forest" },
     summary: "Ancient woods east of the Shire, watched by Tom Bombadil.",
     scenes: [
@@ -113,8 +113,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "bree",
     regionId: "eriador",
-    x: 330,
-    y: 265,
+    x: 325,
+    y: 278,
     names: { third: "Bree" },
     summary: "Crossroads town of Men and hobbits at the edge of the wild.",
     scenes: [
@@ -141,8 +141,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "weathertop",
     regionId: "eriador",
-    x: 385,
-    y: 262,
+    x: 370,
+    y: 268,
     names: { third: "Weathertop" },
     summary: "Ruined watchtower of Amon Sûl on the East Road.",
     scenes: [
@@ -157,7 +157,7 @@ export const LOCATIONS: Location[] = [
   {
     id: "trollshaws",
     regionId: "eriador",
-    x: 435,
+    x: 405,
     y: 255,
     names: { third: "Trollshaws" },
     summary: "Stone-troll country west of the Misty Mountains.",
@@ -179,8 +179,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "rivendell",
     regionId: "eriador",
-    x: 470,
-    y: 250,
+    x: 430,
+    y: 245,
     names: { second: "Rivendell", third: "Rivendell" },
     summary: "Elrond's hidden valley refuge in the foothills of the Misty Mountains.",
     scenes: [
@@ -215,8 +215,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "ost-in-edhil",
     regionId: "eregion-moria",
-    x: 450,
-    y: 345,
+    x: 415,
+    y: 340,
     names: { second: "Ost-in-Edhil" },
     summary: "Capital of Eregion, where Celebrimbor's smiths forged the Rings of Power.",
     scenes: [
@@ -249,8 +249,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "khazad-dum",
     regionId: "eregion-moria",
-    x: 492,
-    y: 340,
+    x: 448,
+    y: 348,
     names: { second: "Khazad-dum", third: "Moria" },
     summary: "The great dwarf-kingdom under the Misty Mountains, later called Moria.",
     scenes: [
@@ -291,8 +291,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "goblin-town",
     regionId: "rhovanion",
-    x: 505,
-    y: 225,
+    x: 452,
+    y: 215,
     names: { third: "Goblin-town and the High Pass" },
     summary: "Goblin tunnels under the Misty Mountains on the path to Wilderland.",
     scenes: [
@@ -313,8 +313,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "beorns-house",
     regionId: "rhovanion",
-    x: 560,
-    y: 230,
+    x: 515,
+    y: 235,
     names: { third: "Beorn's House" },
     summary: "The skin-changer's hall between the mountains and Mirkwood.",
     scenes: [
@@ -329,8 +329,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "mirkwood",
     regionId: "rhovanion",
-    x: 650,
-    y: 190,
+    x: 600,
+    y: 205,
     names: { third: "Mirkwood and the Elvenking's Halls" },
     summary: "The great forest of Greenwood the Great, darkened and ruled by Thranduil.",
     scenes: [
@@ -351,8 +351,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "lake-town",
     regionId: "rhovanion",
-    x: 692,
-    y: 205,
+    x: 705,
+    y: 175,
     names: { third: "Lake-town" },
     summary: "Esgaroth on the Long Lake, trade hub below the Lonely Mountain.",
     scenes: [
@@ -373,8 +373,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "erebor",
     regionId: "rhovanion",
-    x: 690,
-    y: 170,
+    x: 720,
+    y: 138,
     names: { third: "Erebor and Dale" },
     summary: "The Lonely Mountain and the ruined city of Dale at its feet.",
     scenes: [
@@ -401,8 +401,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "dol-guldur",
     regionId: "rhovanion",
-    x: 600,
-    y: 370,
+    x: 565,
+    y: 365,
     names: { second: "Dol Guldur", third: "Dol Guldur" },
     summary: "Stronghold in southern Mirkwood, long held by the Necromancer.",
     scenes: [
@@ -423,8 +423,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "lothlorien",
     regionId: "rhovanion",
-    x: 540,
-    y: 352,
+    x: 500,
+    y: 365,
     names: { third: "Lothlorien" },
     summary: "Galadriel and Celeborn's golden wood east of the mountains.",
     scenes: [
@@ -453,8 +453,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "fangorn",
     regionId: "rohan-isengard",
-    x: 520,
-    y: 420,
+    x: 495,
+    y: 430,
     names: { third: "Fangorn" },
     summary: "Entish forest on the borders of Rohan, home of Treebeard.",
     scenes: [
@@ -475,8 +475,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "isengard",
     regionId: "rohan-isengard",
-    x: 480,
-    y: 450,
+    x: 448,
+    y: 472,
     names: { third: "Isengard" },
     summary: "Saruman's ring of stone around Orthanc at the foot of the Misty Mountains.",
     scenes: [
@@ -503,8 +503,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "helms-deep",
     regionId: "rohan-isengard",
-    x: 490,
-    y: 490,
+    x: 475,
+    y: 532,
     names: { third: "Helm's Deep" },
     summary: "The Hornburg fortress in the Deeping Coomb of Rohan.",
     scenes: [
@@ -525,8 +525,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "edoras",
     regionId: "rohan-isengard",
-    x: 530,
-    y: 500,
+    x: 535,
+    y: 538,
     names: { third: "Edoras" },
     summary: "Capital of Rohan, crowned by the golden hall of Meduseld.",
     scenes: [
@@ -547,8 +547,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "dunharrow",
     regionId: "rohan-isengard",
-    x: 540,
-    y: 522,
+    x: 550,
+    y: 558,
     names: { third: "Dunharrow" },
     summary: "Mountain refuge of Rohan above the Paths of the Dead.",
     scenes: [
@@ -569,8 +569,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "amon-hen",
     regionId: "rohan-isengard",
-    x: 620,
-    y: 470,
+    x: 595,
+    y: 485,
     names: { third: "Amon Hen and Rauros" },
     summary: "Hill of Seeing above the falls where the Fellowship breaks.",
     scenes: [
@@ -593,8 +593,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "minas-tirith",
     regionId: "gondor",
-    x: 650,
-    y: 550,
+    x: 660,
+    y: 555,
     names: { third: "Minas Tirith and the Pelennor Fields" },
     summary: "The seven-tiered city of Gondor and the fields before its gate.",
     scenes: [
@@ -627,8 +627,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "osgiliath",
     regionId: "gondor",
-    x: 670,
-    y: 548,
+    x: 682,
+    y: 542,
     names: { third: "Osgiliath" },
     summary: "Former capital of Gondor on the Anduin, long fought over with Mordor.",
     scenes: [
@@ -649,8 +649,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "ithilien",
     regionId: "gondor",
-    x: 685,
-    y: 515,
+    x: 698,
+    y: 518,
     names: { third: "Ithilien and Henneth Annun" },
     summary: "Garden land of Gondor east of Anduin, base of Faramir's rangers.",
     scenes: [
@@ -671,8 +671,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "pelargir",
     regionId: "gondor",
-    x: 630,
-    y: 630,
+    x: 595,
+    y: 665,
     names: { third: "Pelargir" },
     summary: "Great southern haven of Gondor on the Anduin estuary.",
     scenes: [
@@ -689,8 +689,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "dead-marshes",
     regionId: "mordor-southlands",
-    x: 660,
-    y: 465,
+    x: 665,
+    y: 458,
     names: { third: "Dead Marshes" },
     summary: "Haunted wetlands west of the Black Gate.",
     scenes: [
@@ -705,8 +705,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "black-gate",
     regionId: "mordor-southlands",
-    x: 690,
-    y: 472,
+    x: 702,
+    y: 468,
     names: { third: "Black Gate" },
     summary: "Morannon, the fortified northern entrance to Mordor.",
     scenes: [
@@ -727,8 +727,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "minas-morgul",
     regionId: "mordor-southlands",
-    x: 700,
-    y: 552,
+    x: 722,
+    y: 548,
     names: { third: "Minas Morgul" },
     summary: "Once Minas Ithil, now the Witch-king's foul city in the Morgul Vale.",
     scenes: [
@@ -749,8 +749,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "cirith-ungol",
     regionId: "mordor-southlands",
-    x: 712,
-    y: 545,
+    x: 738,
+    y: 535,
     names: { third: "Cirith Ungol" },
     summary: "High pass and tower above Shelob's tunnels into Mordor.",
     scenes: [
@@ -777,8 +777,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "mount-doom",
     regionId: "mordor-southlands",
-    x: 750,
-    y: 520,
+    x: 772,
+    y: 518,
     names: { third: "Mount Doom" },
     summary: "Orodruin, the volcano where the One Ring was forged and unmade.",
     scenes: [
@@ -799,8 +799,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "barad-dur",
     regionId: "mordor-southlands",
-    x: 790,
-    y: 505,
+    x: 825,
+    y: 498,
     names: { third: "Barad-dur" },
     summary: "The Dark Tower, Sauron's seat in Mordor.",
     scenes: [
@@ -821,8 +821,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "tirharad",
     regionId: "mordor-southlands",
-    x: 735,
-    y: 545,
+    x: 748,
+    y: 595,
     names: { second: "Tirharad and Ostirith" },
     summary: "Southlands villages and the Elven watchtower before the land becomes Mordor.",
     scenes: [
@@ -857,8 +857,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "rhun",
     regionId: "rhun",
-    x: 880,
-    y: 330,
+    x: 905,
+    y: 345,
     names: { second: "Rhun" },
     summary: "The wide East beyond the Sea of Rhun, little known to the West.",
     scenes: [
@@ -887,8 +887,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "forodwaith",
     regionId: "the-north",
-    x: 450,
-    y: 60,
+    x: 340,
+    y: 55,
     names: { second: "Forodwaith" },
     summary: "Frozen northern waste where Galadriel's company hunted Sauron's trail.",
     scenes: [
@@ -911,8 +911,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "numenor",
     regionId: "numenor-sea",
-    x: 90,
-    y: 610,
+    x: 95,
+    y: 640,
     names: { second: "Numenor and Armenelos" },
     summary: "The island kingdom of the Dunedain and its capital Armenelos.",
     scenes: [
@@ -945,8 +945,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "sundering-seas",
     regionId: "numenor-sea",
-    x: 60,
-    y: 430,
+    x: 45,
+    y: 455,
     names: { second: "The Sundering Seas" },
     summary: "The great waters between Middle-earth, Numenor and the Undying Lands.",
     scenes: [
@@ -967,8 +967,8 @@ export const LOCATIONS: Location[] = [
   {
     id: "valinor",
     regionId: "numenor-sea",
-    x: 15,
-    y: 300,
+    x: 18,
+    y: 280,
     names: { second: "To Valinor", third: "To Valinor" },
     summary: "Edge marker for the Undying Lands beyond the bent seas.",
     scenes: [
