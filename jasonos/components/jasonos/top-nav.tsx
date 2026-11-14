@@ -93,6 +93,10 @@ const NAV: NavItem[] = [
         label: "Oversight Agenda Dashboard",
       },
       {
+        href: "/projects/lotr",
+        label: "LOTR",
+      },
+      {
         href: "/projects/professor-roadmap",
         label: "Professor Roadmap",
       },
