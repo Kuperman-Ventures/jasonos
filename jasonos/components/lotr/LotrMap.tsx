@@ -78,6 +78,12 @@ export function LotrMap() {
     setAge(next);
     setSelectedTales(new Set(TALES_BY_AGE[next]));
     setActiveId(null);
+    if (regionId) {
+      const stillVisible = LOCATIONS.some(
+        (location) => location.regionId === regionId && locationInAge(location, next)
+      );
+      if (!stillVisible) setRegionId(null);
+    }
   }
 
   function toggleTale(tale: Tale) {
@@ -119,7 +125,7 @@ export function LotrMap() {
 
       <div className="lotr-toolbar">
         <p className="lotr-region-title">
-          {activeRegion ? activeRegion.name : "Whole map"}
+          {activeRegion ? activeRegion.name : "All regions"}
         </p>
         <button
           type="button"
@@ -253,23 +259,22 @@ export function LotrMap() {
                 if (!name) return null;
                 const matched = scenesForTales(location, age, selectedTales).length > 0;
                 return (
-                  <g
-                    key={location.id}
-                    className="lotr-pin"
-                    data-dimmed={matched ? "false" : "true"}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={name}
-                    onClick={() => openLocation(location.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        openLocation(location.id);
-                      }
-                    }}
-                  >
-                    <circle className="lotr-pin-hit" cx={location.x} cy={location.y} r={hitR} />
-                    <circle className="lotr-pin-dot" cx={location.x} cy={location.y} r={7} />
+                  <g key={location.id} className="lotr-pin" data-dimmed={matched ? "false" : "true"}>
+                    <g
+                      role="button"
+                      tabIndex={0}
+                      aria-label={name}
+                      onClick={() => openLocation(location.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openLocation(location.id);
+                        }
+                      }}
+                    >
+                      <circle className="lotr-pin-hit" cx={location.x} cy={location.y} r={hitR} />
+                      <circle className="lotr-pin-dot" cx={location.x} cy={location.y} r={7} />
+                    </g>
                     <text
                       className="lotr-pin-label"
                       x={location.x + 10}

@@ -156,6 +156,9 @@
   font-weight: 700;
   pointer-events: none;
   text-anchor: middle;
+  paint-order: stroke fill;
+  stroke: #f2f4f1;
+  stroke-width: 3px;
 }
 
 .lotr-pin {
