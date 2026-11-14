@@ -125,6 +125,10 @@ describe("lotr geography", () => {
     assert.ok(pathPointCount(COASTLINE) >= 60, String(pathPointCount(COASTLINE)));
   });
 
+  it("keeps a dense coastline for the detailed schematic", () => {
+    assert.ok(pathPointCount(COASTLINE) >= 250, String(pathPointCount(COASTLINE)));
+  });
+
   it("names all seven mountain ranges, seven rivers and four forests", () => {
     assert.deepEqual(Object.keys(MOUNTAINS).sort(), [
       "blueMountains",

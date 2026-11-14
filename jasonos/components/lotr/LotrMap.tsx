@@ -9,10 +9,16 @@ import { LOCATIONS } from "@/lib/lotr/locations";
 import {
   COASTLINE,
   FORESTS,
+  FOREST_MARKS,
+  HILLS,
   LAKES,
   MOUNTAINS,
   NUMENOR,
+  PEAKS,
+  PLAIN_TEXTURE,
+  ROADS,
   RIVERS,
+  TRIBUTARIES,
 } from "@/lib/lotr/geography";
 import {
   TALES_BY_AGE,
@@ -170,24 +176,38 @@ export function LotrMap() {
             d={COASTLINE}
             fill="#c2cbbd"
             stroke="#3d4a42"
-            strokeWidth="2"
+            strokeWidth="1.6"
           />
           <path
             className="lotr-land"
             d={NUMENOR}
             fill="#c2cbbd"
             stroke="#3d4a42"
-            strokeWidth="2"
+            strokeWidth="1.6"
           />
 
           {Object.entries(FORESTS).map(([name, d]) => (
-            <path key={name} className="lotr-forest" d={d} fill="#6f8a6a99" stroke="none" />
+            <path key={name} className="lotr-forest" d={d} fill="#6f8a6a88" stroke="#4f6a4f55" strokeWidth="1" />
+          ))}
+          {Object.entries(FOREST_MARKS).map(([name, d]) => (
+            <path key={`fm-${name}`} className="lotr-forest-marks" d={d} fill="#5a755a66" stroke="none" />
           ))}
 
           {Object.entries(LAKES).map(([name, d]) => (
             <path key={name} className="lotr-lake" d={d} fill="#5f7a8c" stroke="#3d4a42" strokeWidth="1" />
           ))}
 
+          {Object.entries(TRIBUTARIES).map(([name, d]) => (
+            <path
+              key={`t-${name}`}
+              className="lotr-river lotr-tributary"
+              d={d}
+              fill="none"
+              stroke="#5f7a8c"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          ))}
           {Object.entries(RIVERS).map(([name, d]) => (
             <path
               key={name}
@@ -195,8 +215,44 @@ export function LotrMap() {
               d={d}
               fill="none"
               stroke="#5f7a8c"
-              strokeWidth={name === "anduin" ? 4 : 2.5}
+              strokeWidth={name === "anduin" ? 3.6 : 2.2}
               strokeLinecap="round"
+            />
+          ))}
+
+          {Object.entries(ROADS).map(([name, d]) => (
+            <path
+              key={`road-${name}`}
+              className="lotr-road"
+              d={d}
+              fill="none"
+              stroke="#6a5f52"
+              strokeWidth="1.2"
+              strokeDasharray="4 3"
+              strokeLinecap="round"
+            />
+          ))}
+
+          {Object.entries(HILLS).map(([name, d]) => (
+            <path
+              key={`hill-${name}`}
+              className="lotr-hills"
+              d={d}
+              fill="none"
+              stroke="#5a675f"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          ))}
+
+          {Object.entries(PLAIN_TEXTURE).map(([name, d]) => (
+            <path
+              key={`plain-${name}`}
+              className="lotr-plain"
+              d={d}
+              fill="none"
+              stroke="#7a6a5a55"
+              strokeWidth="1"
             />
           ))}
 
@@ -209,11 +265,22 @@ export function LotrMap() {
               stroke="#3d4a42"
               strokeWidth={
                 name === "mistyMountains" || name === "whiteMountains" || name === "ephelDuath"
-                  ? 3.2
-                  : 2.6
+                  ? 2.4
+                  : 2
               }
               strokeLinecap="square"
               strokeLinejoin="miter"
+            />
+          ))}
+
+          {Object.entries(PEAKS).map(([name, d]) => (
+            <path
+              key={`peak-${name}`}
+              className="lotr-peak"
+              d={d}
+              fill="#3d4a42"
+              stroke="#3d4a42"
+              strokeWidth="1"
             />
           ))}
 

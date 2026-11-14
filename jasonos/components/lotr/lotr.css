@@ -135,19 +135,22 @@
   transition: all 0.55s ease;
 }
 
-.lotr-land {
-  pointer-events: none;
-}
-
+.lotr-land,
 .lotr-forest,
+.lotr-forest-marks,
 .lotr-lake,
 .lotr-river,
-.lotr-ridge {
+.lotr-tributary,
+.lotr-ridge,
+.lotr-peak,
+.lotr-hills,
+.lotr-plain,
+.lotr-road {
   pointer-events: none;
 }
 
 .lotr-region {
-  fill: #b7c2b088;
+  fill: #b7c2b033;
   stroke: var(--lotr-ink);
   stroke-width: 1.2;
   cursor: pointer;
@@ -156,7 +159,7 @@
 
 .lotr-region:hover,
 .lotr-region:focus-visible {
-  fill: #9eb4a0cc;
+  fill: #9eb4a066;
   outline: none;
 }
 
