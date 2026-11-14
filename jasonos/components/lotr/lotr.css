@@ -249,7 +249,7 @@
 .lotr-backdrop {
   position: fixed;
   inset: 0;
-  background: #1c242966;
+  background: #1c2429b3;
   z-index: 40;
 }
 
@@ -271,6 +271,10 @@
   gap: 12px;
   padding: 16px 16px 8px;
   border-bottom: 1px solid var(--lotr-border);
+  background: var(--lotr-panel);
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .lotr-sheet-header h2 {
@@ -347,6 +351,15 @@
     border-bottom: 0;
     animation: lotr-sheet-up 0.22s ease-out;
   }
+
+  @keyframes lotr-sheet-up {
+    from {
+      transform: translateY(18px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
 }
 
 @media (min-width: 900px) {
@@ -365,24 +378,11 @@
   }
 }
 
-@keyframes lotr-sheet-up {
-  from {
-    transform: translateY(18px);
-    opacity: 0.6;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
 @keyframes lotr-sheet-in {
   from {
     transform: translateX(18px);
-    opacity: 0.6;
   }
   to {
     transform: translateX(0);
-    opacity: 1;
   }
 }
