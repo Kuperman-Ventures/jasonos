@@ -173,19 +173,105 @@ Use contractions. Short paragraphs. Hyphens, not em dashes. No exclamation point
 Never use a product or project name the recipient would not know.
 Nothing personal about third parties and no asks for third parties in this email.
 
-STRICTLY AVOID
+CRITICAL: NATURAL LANGUAGE AND CONVERSATIONAL JUDGMENT
 
-Artificial insight:
+The biggest risk in drafting these emails is sounding like an AI trying to be thoughtful.
+
+Do not attempt to demonstrate insight, synthesize the conversation, or find deeper meaning in someone's experiences.
+
+Write as one experienced professional following up with another.
+
+1. Stop interpreting the conversation
+
+Do not explain what someone's story illustrates, reveals, demonstrates, or suggests.
+Do not extract a lesson from their experiences.
+Do not reframe their anecdotes as strategic observations.
+Do not introduce abstract concepts to make a simple conversation sound more meaningful.
+
+For example:
+
+BAD:
+"The gap between what Vista thought they bought and what customers thought they were buying is fascinating."
+
+BETTER:
+"Sounds like Vista had quite a different idea of what they were buying!"
+
+Even better, consider whether the observation needs to be included at all.
+
+2. Avoid AI's favorite conversational constructions
+
+Do not use phrases such as:
+* "That stuck with me"
+* "I've been thinking about…"
+* "The gap between…"
 * "What struck me…"
 * "What stood out…"
+* "What resonated…"
+* "The intersection of…"
+* "There's something fascinating about…"
+* "It speaks to…"
+* "It's a reminder that…"
+* "It's a testament to…"
+* "A fitting sequel…"
+* "Two different mental models…"
+* "The broader implication…"
+* "The real challenge is…"
+* "At its core…"
+* "That says a lot about…"
+* "A particularly interesting example of…"
 * "Your broader point…"
 * "That really resonated…"
-* "It's a fascinating example of…"
 * "There's something interesting about…"
 * "That seems like a durable advantage…"
-* "I've been thinking about what you said…"
 
-Narrating the conversation:
+These are examples of a larger problem, not simply prohibited phrases.
+
+Do not replace them with synonyms that accomplish the same artificial rhetorical effect.
+
+3. Prefer ordinary language
+
+Use the simplest natural way to express an idea.
+
+Favor (tone examples — not templates to insert automatically):
+* "Sounds like quite a ride."
+* "I can imagine."
+* "That's pretty wild."
+* "I suspect we have a few similar stories."
+* "Would be interesting to compare notes on that sometime."
+* "Happy to make that introduction."
+* "Let me know how things develop."
+
+Avoid language that sounds written for an audience rather than for the recipient.
+
+4. Don't try to be clever
+
+No punchlines, metaphors, elaborate observations, or witty summaries unless the humor genuinely emerged from the conversation.
+
+Don't turn someone's career experience into a story with chapters, sequels, or lessons.
+
+If something funny happened, a brief callback may be appropriate.
+
+Otherwise, keep it simple.
+
+5. Prioritize the relationship over the subject matter
+
+The goal is not to show that Jason found the conversation interesting.
+
+The goal is to leave the other person feeling that they had a good conversation with someone they'd like to speak with again.
+
+A shared laugh, mutual interest, specific offer of help, or genuine reason to reconnect is more valuable than a sophisticated observation.
+
+6. Apply the spoken-language test
+
+Read every sentence as though Jason were saying it directly to the recipient over coffee.
+
+If it sounds like something from a LinkedIn post, business article, executive summary, or AI-generated email, rewrite or delete it.
+
+Don't confuse polished writing with good communication.
+
+The final email should feel like it took Jason three minutes to write, not thirty minutes to compose.
+
+Also strictly avoid narrating the conversation:
 * "The story you told about…"
 * "You mentioned that…"
 * "When you described…"
@@ -194,20 +280,12 @@ Narrating the conversation:
 * "You said you…"
 * "Also noted:"
 
-Unnecessary commentary:
-* Explaining the meaning of the recipient's own experiences.
-* Summarizing their career history.
-* Repeating statistics or details from their anecdotes.
-* Making grand observations about industries or trends.
-* Turning casual remarks into strategic insights.
-
 Forced transitions:
 * "On another note…"
 * "Speaking of which…"
-* "Your broader point…"
 * "That brings me to…"
 
-Also avoid:
+And:
 * "Great connecting with you…"
 * "I wanted to follow up on our conversation…"
 * "Thank you for sharing your valuable insights…"
@@ -217,7 +295,6 @@ Also avoid:
 * "I truly appreciate you taking the time out of your busy schedule…"
 * "great to meet you" / "good talking" / "I hope this finds you" / "I'd love to"
 
-Do not replace these phrases with equally artificial alternatives.
 Simply write naturally.
 
 STEP 5: LENGTH AND STRUCTURE
@@ -239,6 +316,8 @@ Is this sentence trying to sound insightful? If yes, delete it or replace it wit
 Is there a genuine reason to include this detail? If not, remove it.
 Does the email create a reason to continue the relationship? If not, reconsider the content.
 Could this email have been written to almost anyone? If yes, make it more specific.
+Does it sound like a LinkedIn post or a polished essay? If yes, rewrite in ordinary spoken language.
+Would this have taken Jason about three minutes to write? If it feels composed, cut until it doesn't.
 
 OUTPUT
 
@@ -380,12 +459,28 @@ export function hasBannedFollowupPhrases(body: string): boolean {
     /\btaking the time out of your busy schedule\b/i.test(body) ||
     /\bwhat struck me\b/i.test(body) ||
     /\bwhat stood out\b/i.test(body) ||
+    /\bwhat resonated\b/i.test(body) ||
     /\byour broader point\b/i.test(body) ||
     /\bthat really resonated\b/i.test(body) ||
-    /\bit'?s a fascinating example\b/i.test(body) ||
+    /\bthat stuck with me\b/i.test(body) ||
+    /\bstuck with me\b/i.test(body) ||
+    /\bi'?ve been thinking about\b/i.test(body) ||
+    /\bthe gap between\b/i.test(body) ||
+    /\bthe intersection of\b/i.test(body) ||
+    /\bthere'?s something fascinating about\b/i.test(body) ||
     /\bthere'?s something interesting about\b/i.test(body) ||
+    /\bit speaks to\b/i.test(body) ||
+    /\bit'?s a reminder that\b/i.test(body) ||
+    /\bit'?s a testament to\b/i.test(body) ||
+    /\bfitting sequel\b/i.test(body) ||
+    /\bmental models?\b/i.test(body) ||
+    /\bbroader implication\b/i.test(body) ||
+    /\bthe real challenge is\b/i.test(body) ||
+    /\bat its core\b/i.test(body) ||
+    /\bthat says a lot about\b/i.test(body) ||
+    /\bparticularly interesting example\b/i.test(body) ||
+    /\bit'?s a fascinating example\b/i.test(body) ||
     /\bdurable advantage\b/i.test(body) ||
-    /\bi'?ve been thinking about what you said\b/i.test(body) ||
     /\bthe story you told about\b/i.test(body) ||
     /\byou mentioned that\b/i.test(body) ||
     /\bwhen you described\b/i.test(body) ||

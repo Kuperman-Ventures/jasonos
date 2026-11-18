@@ -293,7 +293,7 @@ ${transcript ? transcript.slice(0, 10_000) : "(none)"}`;
       !/\bJason\s*$/i.test(draft.body)
         ? "Close with Best, then Jason on its own line."
         : "",
-      "No narration ('you mentioned', 'the story you told'). No artificial insight. Skip owe sentences when owes are none. If times are listed, offer those times — never ask them for windows.",
+      "No narration ('you mentioned', 'the story you told'). No artificial insight ('stuck with me', 'the gap between', 'mental models'). Ordinary spoken language — should feel like a 3-minute note. Skip owe sentences when owes are none. If times are listed, offer those times — never ask them for windows.",
     ]
       .filter(Boolean)
       .join(" ");
