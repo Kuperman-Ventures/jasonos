@@ -623,6 +623,9 @@ describe("resolveMeetingFollowupPrompt", () => {
       resolveMeetingFollowupPrompt(null).includes("Write less")
     );
     assert.ok(
+      resolveMeetingFollowupPrompt(null).includes("CRITICAL: NATURAL LANGUAGE")
+    );
+    assert.ok(
       resolveMeetingFollowupPrompt(null).includes("Executive Relationship Follow-Up")
     );
     assert.ok(resolveMeetingFollowupPrompt("  Custom rules  ").startsWith("Custom"));
