@@ -28,9 +28,18 @@ import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { recordUserAction } from "@/lib/actions/action-log";
 import { snoozeDetail } from "@/lib/actions/action-log-format";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
+import { loadBusy } from "@/lib/browning-networking/data";
+import { formatSlotLabel } from "@/lib/browning-networking/draft";
+import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { composeMeetingFollowupDraft } from "@/lib/outreach/meeting-followup-compose";
 import {
+  buildMeetingFollowupDraftPlan,
+  proposeFollowupSlots,
+  type MeetingFollowupDraftPlan,
+} from "@/lib/outreach/meeting-followup-draft-plan";
+import {
   attendeeLine,
+  firstName,
   guessFollowupDisplayName,
   isMeetingFollowupDue,
   expandSentTouchesAcrossContactAliases,
@@ -38,6 +47,7 @@ import {
   meetingEndIso,
   meetingFollowupDaysAgo,
   meetingStartIso,
+  meetingWhenPhrase,
   MEETING_FOLLOWUP_SCAN_DAYS_BACK,
   MEETING_FOLLOWUP_UNKNOWN_GUEST_MAX,
   planMeetingFollowup,
@@ -50,6 +60,8 @@ import {
   type SentRecipientTouch,
 } from "@/lib/outreach/meeting-followups";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+
+export type { MeetingFollowupDraftPlan };
 
 export interface MeetingFollowup {
   id: string;
@@ -690,24 +702,20 @@ export async function completeMeetingFollowup(id: string): Promise<ActionResult>
   return { ok: true };
 }
 
-/**
- * Pull the Granola (or Wispr) transcript for this meeting, draft from it, and
- * return a mailto: URL. Nothing is sent — Apple Mail opens with fields filled.
- */
-export async function draftMeetingFollowupMailto(
+type FollowupSourceBundle = {
+  ok: true;
+  row: FollowupRow;
+  pending: MeetingAttendee[];
+  primary: MeetingAttendee;
+  displayName: string;
+  summary: string | null;
+  transcript: string | null;
+  noteUrl: string | null;
+};
+
+async function loadMeetingFollowupSource(
   id: string
-): Promise<
-  | {
-      ok: true;
-      mailtoUrl: string;
-      subject: string;
-      body: string;
-      granola: boolean;
-      fromTranscript: boolean;
-      confirmFacts: string[];
-    }
-  | { ok: false; error: string }
-> {
+): Promise<FollowupSourceBundle | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const sb = createServiceRoleClient();
   const { data, error } = await sb
@@ -738,8 +746,7 @@ export async function draftMeetingFollowupMailto(
   const contactName =
     displayName || primary.email.split("@")[0] || row.title;
   // Always re-fetch the note for this calendar event, then load the spoken
-  // transcript separately. A cached summary must not power the wrong draft,
-  // and AI notes alone must not crowd the transcript out of the prompt.
+  // transcript separately. A cached summary must not power the wrong draft.
   const calendarEventIds = [
     row.gcal_event_id,
     typeof row.ical_uid === "string" ? row.ical_uid : null,
@@ -765,7 +772,6 @@ export async function draftMeetingFollowupMailto(
   if (granola.found) {
     noteUrl = granola.url ?? null;
     const rawSummary = granola.summary?.trim() || "";
-    // Notes only — strip any appended transcript block from older helpers.
     const marker = "--- Transcript ---";
     const markerAt = rawSummary.indexOf(marker);
     summary =
@@ -803,21 +809,30 @@ export async function draftMeetingFollowupMailto(
     }
   }
 
-  const draft = await composeMeetingFollowupDraft({
-    name: displayName,
-    email: primary.email,
-    title: row.title?.trim() || "Meeting",
+  return {
+    ok: true,
+    row,
+    pending,
+    primary,
+    displayName: displayName || contactName,
     summary,
     transcript,
-    startsAt: row.starts_at,
-  });
+    noteUrl,
+  };
+}
 
-  // Persist notes even when draft fails so the Home card still has context.
+async function persistFollowupNotes(
+  id: string,
+  summary: string | null,
+  transcript: string | null,
+  noteUrl: string | null
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sb = createServiceRoleClient();
   const storedSummary = (summary ?? transcript?.slice(0, 4_000) ?? null)?.slice(
     0,
     20_000
   );
-  const { error: noteUpdateError } = await sb
+  const { error } = await sb
     .from("meeting_followups")
     .update({
       granola_summary: storedSummary,
@@ -825,20 +840,148 @@ export async function draftMeetingFollowupMailto(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (noteUpdateError) return { ok: false, error: noteUpdateError.message };
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+/**
+ * Build the Follow-up Plan card Jason approves before any email prose.
+ * Pulls Granola/Wispr + near-term calendar free windows when the next step
+ * is scheduling a follow-up.
+ */
+export async function buildMeetingFollowupPlanCard(
+  id: string
+): Promise<
+  | {
+      ok: true;
+      plan: MeetingFollowupDraftPlan;
+      title: string;
+      recipientName: string;
+      granola: boolean;
+      fromTranscript: boolean;
+    }
+  | { ok: false; error: string }
+> {
+  const loaded = await loadMeetingFollowupSource(id);
+  if (!loaded.ok) return loaded;
+
+  const noteSave = await persistFollowupNotes(
+    id,
+    loaded.summary,
+    loaded.transcript,
+    loaded.noteUrl
+  );
+  if (!noteSave.ok) return noteSave;
+
+  if (!(loaded.summary?.trim() || loaded.transcript?.trim())) {
+    revalidate();
+    return {
+      ok: false,
+      error:
+        "No Granola or Wispr notes for this meeting. Open the note first, then Draft again.",
+    };
+  }
+
+  const who = firstName(loaded.displayName);
+  const recipientFirstName = who === "there" ? "Name" : who;
+  const whenPhrase = meetingWhenPhrase(loaded.row.starts_at);
+
+  let proposedSlots = proposeFollowupSlots({ now: new Date(), busy: [] });
+  let proposedSlotLabels = proposedSlots.map((slot) => formatSlotLabel(slot.start));
+  try {
+    const fromYmd = etToday();
+    const toYmd = addCalendarDays(fromYmd, 14);
+    const busy = await loadBusy(fromYmd, toYmd);
+    proposedSlots = proposeFollowupSlots({ now: new Date(), busy });
+    proposedSlotLabels = proposedSlots.map((slot) => formatSlotLabel(slot.start));
+  } catch (error) {
+    console.error("[meeting-followup-plan.busy]", error);
+    // Keep empty-busy proposals so Jason can still approve a schedule plan.
+  }
+
+  const plan = buildMeetingFollowupDraftPlan({
+    summary: loaded.summary,
+    transcript: loaded.transcript,
+    whenPhrase,
+    recipientFirstName,
+    proposedSlots,
+    proposedSlotLabels,
+  });
+
+  // Only attach slots when the next step is actually scheduling.
+  if (plan.nextStep.kind !== "schedule_call") {
+    plan.proposedSlots = [];
+    plan.proposedSlotLabels = [];
+  }
+
+  revalidate();
+  return {
+    ok: true,
+    plan,
+    title: loaded.row.title?.trim() || "Meeting",
+    recipientName: loaded.displayName,
+    granola: Boolean(loaded.summary || loaded.transcript),
+    fromTranscript: Boolean(loaded.transcript?.trim()),
+  };
+}
+
+/**
+ * Draft from an approved plan card and return a mailto: URL.
+ * Nothing is sent — Apple Mail opens with fields filled.
+ */
+export async function draftMeetingFollowupMailto(
+  id: string,
+  plan: MeetingFollowupDraftPlan
+): Promise<
+  | {
+      ok: true;
+      mailtoUrl: string;
+      subject: string;
+      body: string;
+      granola: boolean;
+      fromTranscript: boolean;
+      confirmFacts: string[];
+    }
+  | { ok: false; error: string }
+> {
+  if (!plan || typeof plan !== "object") {
+    return { ok: false, error: "Approve the follow-up plan before drafting." };
+  }
+
+  const loaded = await loadMeetingFollowupSource(id);
+  if (!loaded.ok) return loaded;
+
+  const noteSave = await persistFollowupNotes(
+    id,
+    loaded.summary,
+    loaded.transcript,
+    loaded.noteUrl
+  );
+  if (!noteSave.ok) return noteSave;
+
+  const draft = await composeMeetingFollowupDraft({
+    name: loaded.displayName,
+    email: loaded.primary.email,
+    title: loaded.row.title?.trim() || "Meeting",
+    summary: loaded.summary,
+    transcript: loaded.transcript,
+    startsAt: loaded.row.starts_at,
+    plan,
+  });
 
   if (!draft.ok) {
     revalidate();
     return { ok: false, error: draft.error };
   }
 
-  const to = pending.map((a) => a.email).join(", ");
+  const to = loaded.pending.map((person) => person.email).join(", ");
   const mailtoUrl = buildMailtoUrl({
     to,
     subject: draft.subject,
     body: draft.body,
   });
 
+  const sb = createServiceRoleClient();
   const { error: updateError } = await sb
     .from("meeting_followups")
     .update({
@@ -855,7 +998,7 @@ export async function draftMeetingFollowupMailto(
     mailtoUrl,
     subject: draft.subject,
     body: draft.body,
-    granola: Boolean(summary || transcript),
+    granola: Boolean(loaded.summary || loaded.transcript),
     fromTranscript: draft.usedTranscript,
     confirmFacts: draft.confirmFacts,
   };

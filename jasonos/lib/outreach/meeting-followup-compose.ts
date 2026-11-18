@@ -2,8 +2,8 @@
 // thank-you / close-the-loop follow-up email. Same drafting shape as Network
 // Screen "Draft the Ask" (JASON_CORE_VOICE + short rules + labeled sections +
 // one generateText) — different purpose: post-meeting follow-up, not an intro ask.
-// Facts come only from the meeting source. Nothing is sent — the server action
-// opens Apple Mail via mailto only when Claude returns a real draft.
+// Facts come from the approved Follow-up Plan card. Nothing is sent — the
+// server action opens Apple Mail via mailto only when Claude returns a real draft.
 
 import "server-only";
 
@@ -20,14 +20,16 @@ import {
 } from "@/lib/outreach/meeting-followup-prompt";
 import { loadMeetingFollowupPromptGuidance } from "@/lib/outreach/meeting-followup-prompt-store";
 import {
+  draftViolatesApprovedPlan,
+  formatPlanForComposePrompt,
+  type MeetingFollowupDraftPlan,
+} from "@/lib/outreach/meeting-followup-draft-plan";
+import {
   firstName,
   guessFollowupDisplayName,
   hasWrongMeetingDayLanguage,
   isUnacceptableFollowupBody,
   meetingWhenPhrase,
-  notesLookLikeFirstMeeting,
-  pickJasonOwes,
-  pickTheirOffer,
   soundsLikePitchFollowup,
   soundsLikeWrongReconnect,
 } from "@/lib/outreach/meeting-followups";
@@ -41,6 +43,8 @@ export type MeetingFollowupComposeInput = {
   transcript?: string | null;
   startsAt?: string | null;
   email?: string | null;
+  /** Approved plan card — required for mailto. Compose writes only from this. */
+  plan: MeetingFollowupDraftPlan;
 };
 
 export type MeetingFollowupComposeSuccess = {
@@ -113,7 +117,8 @@ function polish(draft: { subject: string; body: string }): {
 function draftFailsChecks(
   body: string,
   summary: string,
-  whenPhrase: string
+  whenPhrase: string,
+  plan: MeetingFollowupDraftPlan
 ): boolean {
   return (
     isUnacceptableFollowupBody(body, summary) ||
@@ -121,7 +126,8 @@ function draftFailsChecks(
     hasWrongMeetingDayLanguage(body, whenPhrase) ||
     soundsLikeWrongReconnect(body, summary) ||
     hasBannedFollowupPhrases(body) ||
-    isHollowFollowupBody(body)
+    isHollowFollowupBody(body) ||
+    draftViolatesApprovedPlan(body, plan)
   );
 }
 
@@ -143,14 +149,26 @@ function looksLikeThankYouFollowup(body: string): boolean {
   return true;
 }
 
+function confirmFactsFromPlan(plan: MeetingFollowupDraftPlan): string[] {
+  const facts = [
+    ...plan.jasonOwes.map((fact) => `Confirm you still owe: ${fact}`),
+    ...(plan.theirOffer ? [`Confirm their offer: ${plan.theirOffer}`] : []),
+    ...(plan.nextStep.kind === "schedule_call"
+      ? ["Confirm the follow-up times you are offering"]
+      : []),
+  ];
+  return facts.slice(0, 5);
+}
+
 /**
- * Draft a post-meeting thank-you / close-the-loop email via Claude.
- * Never returns a local template email — callers must not open mailto on failure.
+ * Draft a post-meeting thank-you / close-the-loop email via Claude from an
+ * approved plan card. Never returns a local template — callers must not open
+ * mailto on failure.
  */
 export async function composeMeetingFollowupDraft(
   input: MeetingFollowupComposeInput
 ): Promise<MeetingFollowupComposeResult> {
-  const whenPhrase = meetingWhenPhrase(input.startsAt);
+  const whenPhrase = input.plan.whenPhrase || meetingWhenPhrase(input.startsAt);
   const resolvedName =
     guessFollowupDisplayName({
       name: input.name,
@@ -164,12 +182,8 @@ export async function composeMeetingFollowupDraft(
     transcript,
   });
   const checkSource = notes || transcript.slice(0, 4_000) || "";
-  const owes = pickJasonOwes(checkSource);
-  const offer = pickTheirOffer(checkSource);
-  const confirmFacts = [
-    ...owes.map((fact) => `Confirm you still owe: ${fact}`),
-    ...(offer ? [`Confirm their offer: ${offer}`] : []),
-  ].slice(0, 5);
+  const plan = input.plan;
+  const confirmFacts = confirmFactsFromPlan(plan);
 
   if (!material) {
     return {
@@ -184,7 +198,6 @@ export async function composeMeetingFollowupDraft(
   const who = firstName(resolvedName);
   const greeting = who === "there" ? "Hi," : `${who},`;
   const displayName = who === "there" ? "Name" : who;
-  const firstMeet = notesLookLikeFirstMeeting(checkSource);
   const guidance = fillMeetingFollowupPrompt(
     await loadMeetingFollowupPromptGuidance(),
     {
@@ -194,7 +207,6 @@ export async function composeMeetingFollowupDraft(
     }
   );
 
-  // Same shape as draftIntroRequest: core voice + no-slop + short rules.
   const system = `${JASON_CORE_VOICE}
 
 ${NO_AI_SLOP_WRITING_RULES}
@@ -204,33 +216,22 @@ ${guidance}
 Greet by first name. Sign off "Jason" on its own line. Hyphens, not em dashes.
 Return STRICT JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
 
-  const meetingKind = firstMeet
+  const meetingKind = plan.firstMeeting
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
     : "RECONNECT only if the source clearly supports prior relationship";
 
-  const owesBlock = owes.length
-    ? owes.map((item) => `- ${item}`).join("\n")
-    : "(none found — only commit to what the notes/transcript clearly support)";
-  const offerBlock = offer ? `- ${offer}` : "(none)";
-
-  // Labeled sections like Network Screen Draft the Ask — but for a thank-you
-  // follow-up, not an intro request.
   const user = `Write the post-meeting thank-you / close-the-loop email FROM Jason TO ${who === "there" ? "the recipient" : who}.
 Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
 WHEN: ${whenPhrase}
 
-Meeting notes:
+${formatPlanForComposePrompt(plan)}
+
+Meeting notes (for grounding only — do not invent beyond the approved plan):
 ${notes ? notes.slice(0, 1_500) : "(none)"}
 
-Meeting transcript:
-${transcript ? transcript.slice(0, 10_000) : "(none)"}
-
-Jason's open commitments from Next Steps:
-${owesBlock}
-
-What they offered:
-${offerBlock}`;
+Meeting transcript (for grounding only):
+${transcript ? transcript.slice(0, 10_000) : "(none)"}`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
@@ -263,7 +264,7 @@ ${offerBlock}`;
     let facts = parsed.confirmFacts.length ? parsed.confirmFacts : confirmFacts;
 
     const accept = (body: string, subject: string, cf: string[]) => {
-      if (draftFailsChecks(body, checkSource, whenPhrase)) return null;
+      if (draftFailsChecks(body, checkSource, whenPhrase, plan)) return null;
       if (!looksLikeThankYouFollowup(body)) return null;
       return {
         ok: true as const,
@@ -278,14 +279,15 @@ ${offerBlock}`;
     const first = accept(draft.body, draft.subject, facts);
     if (first) return first;
 
-    // One rewrite only (Network Screen does zero; keep a single safety pass).
     const why = [
-      isHollowFollowupBody(draft.body) || hasBannedFollowupPhrases(draft.body)
-        ? "Last draft was fluff or used banned phrases."
+      isHollowFollowupBody(draft.body) ||
+      hasBannedFollowupPhrases(draft.body) ||
+      draftViolatesApprovedPlan(draft.body, plan)
+        ? "Last draft broke the approved plan (invented owes, asked them for times, or used banned phrases)."
         : "Last draft failed quality checks.",
       wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
       !/\bJason\s*$/i.test(draft.body) ? 'Sign off with "Jason" on its own line.' : "",
-      "Rewrite as a thank-you / close-the-loop follow-up, not an intro ask. Open on one specific thing they said. Name what Jason owes and when. Restate what they offered in one clean line. One next step with a time. Max 120 words. No bracket placeholders.",
+      "Rewrite ONLY from the approved plan. Skip owe sentences when owes are none. If times are listed, offer those times — never ask them for windows.",
     ]
       .filter(Boolean)
       .join(" ");
@@ -313,7 +315,7 @@ ${offerBlock}`;
     }
 
     return fail(
-      "Couldn't get a usable follow-up from the notes. Try Draft again, or write it in Apple Mail."
+      "Couldn't get a usable follow-up from the approved plan. Edit the plan and try again, or write it in Apple Mail."
     );
   } catch (err) {
     console.error("[meeting-followup-compose]", err);
