@@ -42,9 +42,9 @@
   --iugr-text-md: 1rem;
   --iugr-text-hero: clamp(1.9rem, 5.5vw, 3rem);
   --iugr-motion-fast: 140ms;
-  --iugr-font-display: var(--font-iugr-display), "Space Grotesk", sans-serif;
-  --iugr-font-body: var(--font-iugr-body), "IBM Plex Sans", sans-serif;
-  --iugr-font-mono: var(--font-iugr-mono), "JetBrains Mono", ui-monospace, monospace;
+  --iugr-font-display: "Space Grotesk", sans-serif;
+  --iugr-font-body: "IBM Plex Sans", sans-serif;
+  --iugr-font-mono: "JetBrains Mono", ui-monospace, monospace;
   --iugr-font: var(--iugr-font-body);
   --iugr-max: 42rem;
   --iugr-shell-max: 72rem;
