@@ -35,6 +35,7 @@ type Props = {
 /**
  * Jason approves the Follow-up Plan before any email prose is generated.
  * Approve & draft → compose from this card only → Apple Mail.
+ * Edits in this modal are what get sent to compose — not the original scan.
  */
 export function MeetingFollowupPlanDialog({
   row,
@@ -48,9 +49,12 @@ export function MeetingFollowupPlanDialog({
 
   useEffect(() => {
     if (!open || !initialPlan) return;
+    // Always keep at least one editable owe row so Jason can add one when scan found none.
+    const owes =
+      initialPlan.jasonOwes.length > 0 ? [...initialPlan.jasonOwes] : [""];
     setPlan({
       ...initialPlan,
-      jasonOwes: [...initialPlan.jasonOwes],
+      jasonOwes: owes,
       proposedSlots: [...initialPlan.proposedSlots],
       proposedSlotLabels: [...initialPlan.proposedSlotLabels],
     });
@@ -102,7 +106,8 @@ export function MeetingFollowupPlanDialog({
           <DialogTitle>Follow-up plan</DialogTitle>
           <DialogDescription>
             Approve these facts before JasonOS drafts the email for{" "}
-            {plan.recipientFirstName}. Nothing opens in Mail until you approve.
+            {plan.recipientFirstName}. Edits here are what the draft uses.
+            Nothing opens in Mail until you approve.
           </DialogDescription>
         </DialogHeader>
 
@@ -128,27 +133,57 @@ export function MeetingFollowupPlanDialog({
           </label>
 
           <div className="space-y-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              You owe
-            </span>
-            {plan.jasonOwes.length === 0 ? (
-              <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                None — email will not invent a deliverable.
-              </p>
-            ) : (
-              plan.jasonOwes.map((item, index) => (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                You owe
+              </span>
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                onClick={() =>
+                  setPlan({ ...plan, jasonOwes: [...plan.jasonOwes, ""] })
+                }
+              >
+                Add
+              </button>
+            </div>
+            {plan.jasonOwes.map((item, index) => (
+              <div key={`owe-${index}`} className="flex gap-1">
                 <Input
-                  key={`owe-${index}`}
                   value={item}
                   onChange={(event) => {
                     const next = [...plan.jasonOwes];
                     next[index] = event.target.value;
                     setPlan({ ...plan, jasonOwes: next });
                   }}
+                  placeholder="Deliverable you owe — leave blank if none"
                   className="text-sm"
                 />
-              ))
-            )}
+                {plan.jasonOwes.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0 px-2 text-muted-foreground"
+                    onClick={() => {
+                      const next = plan.jasonOwes.filter((_, i) => i !== index);
+                      setPlan({
+                        ...plan,
+                        jasonOwes: next.length > 0 ? next : [""],
+                      });
+                    }}
+                    aria-label="Remove owe"
+                  >
+                    ×
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            {plan.jasonOwes.every((item) => !item.trim()) ? (
+              <p className="text-[11px] text-muted-foreground">
+                Left blank → draft will not invent a deliverable.
+              </p>
+            ) : null}
           </div>
 
           <label className="block space-y-1">
@@ -160,10 +195,10 @@ export function MeetingFollowupPlanDialog({
               onChange={(event) =>
                 setPlan({
                   ...plan,
-                  theirOffer: event.target.value.trim() ? event.target.value : null,
+                  theirOffer: event.target.value || null,
                 })
               }
-              placeholder="None"
+              placeholder="What they offered — leave blank if none"
               className="text-sm"
             />
           </label>
