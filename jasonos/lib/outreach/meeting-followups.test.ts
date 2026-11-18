@@ -614,11 +614,14 @@ describe("resolveMeetingFollowupPrompt", () => {
       filled,
       "Open with Tuomas,. Meeting was last week. Hi Tuomas."
     );
-    assert.ok(resolveMeetingFollowupPrompt(null).includes("120 words or fewer"));
+    assert.ok(resolveMeetingFollowupPrompt(null).includes("125–200 words"));
     assert.ok(
-      resolveMeetingFollowupPrompt(null).includes("FIRST MEETING vs RECONNECT")
+      resolveMeetingFollowupPrompt(null).includes("FIRST MEETING")
     );
     assert.ok(resolveMeetingFollowupPrompt(null).includes("confirmFacts"));
+    assert.ok(
+      resolveMeetingFollowupPrompt(null).includes("relationship development")
+    );
     assert.ok(resolveMeetingFollowupPrompt("  Custom rules  ").startsWith("Custom"));
   });
 });
