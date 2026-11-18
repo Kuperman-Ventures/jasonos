@@ -133,19 +133,19 @@ function draftFailsChecks(
 
 function wordCount(body: string): number {
   return body
-    .replace(/\n*Jason\s*$/i, "")
+    .replace(/\n*(Best,?\s*)?Jason\s*$/i, "")
     .trim()
     .split(/\s+/)
     .filter(Boolean).length;
 }
 
 function looksLikeThankYouFollowup(body: string): boolean {
-  // Greeting + sign-off + real paragraphs; not a one-liner or a novel.
+  // Greeting + sign-off + real paragraphs; ~125–200 words (prompt target).
   const lines = body.replace(/\r\n/g, "\n").trim().split("\n");
   if (lines.length < 4) return false;
   if (!/\bJason\s*$/i.test(body)) return false;
   if (wordCount(body) < 40) return false;
-  if (wordCount(body) > 140) return false;
+  if (wordCount(body) > 220) return false;
   return true;
 }
 
@@ -213,24 +213,24 @@ ${NO_AI_SLOP_WRITING_RULES}
 
 ${guidance}
 
-Greet by first name. Sign off "Jason" on its own line. Hyphens, not em dashes.
+Greet by first name. Close with Best, then Jason on its own line. Hyphens, not em dashes.
 Return STRICT JSON only: {"subject":"...","body":"...","confirmFacts":[...]}`;
 
   const meetingKind = plan.firstMeeting
     ? "FIRST MEETING (do not say reconnect / catch up after years)"
     : "RECONNECT only if the source clearly supports prior relationship";
 
-  const user = `Write the post-meeting thank-you / close-the-loop email FROM Jason TO ${who === "there" ? "the recipient" : who}.
+  const user = `Write the relationship follow-up email FROM Jason TO ${who === "there" ? "the recipient" : who}.
 Meeting title: ${input.title || "Meeting"}
 Meeting kind: ${meetingKind}
 WHEN: ${whenPhrase}
 
 ${formatPlanForComposePrompt(plan)}
 
-Meeting notes (for grounding only — do not invent beyond the approved plan):
+Meeting notes (for personal / intellectual connection — do not invent beyond notes + approved plan):
 ${notes ? notes.slice(0, 1_500) : "(none)"}
 
-Meeting transcript (for grounding only):
+Meeting transcript (preferred source for personal and intellectual connection):
 ${transcript ? transcript.slice(0, 10_000) : "(none)"}`;
 
   const providerOptions = hasDirectAnthropicKey()
@@ -247,7 +247,7 @@ ${transcript ? transcript.slice(0, 10_000) : "(none)"}`;
   try {
     const { text } = await generateText({
       model: heavyModel(),
-      maxOutputTokens: 900,
+      maxOutputTokens: 1_400,
       system,
       messages: [{ role: "user", content: user }],
       providerOptions,
@@ -285,16 +285,19 @@ ${transcript ? transcript.slice(0, 10_000) : "(none)"}`;
       draftViolatesApprovedPlan(draft.body, plan)
         ? "Last draft broke the approved plan (invented owes, asked them for times, or used banned phrases)."
         : "Last draft failed quality checks.",
-      wordCount(draft.body) > 120 ? "Cut to 120 words or fewer." : "",
-      !/\bJason\s*$/i.test(draft.body) ? 'Sign off with "Jason" on its own line.' : "",
-      "Rewrite ONLY from the approved plan. Skip owe sentences when owes are none. If times are listed, offer those times — never ask them for windows.",
+      wordCount(draft.body) > 200 ? "Cut toward 125-200 words." : "",
+      wordCount(draft.body) < 80 ? "Add a real personal or intellectual thread from the transcript — not fluff." : "",
+      !/\bJason\s*$/i.test(draft.body)
+        ? 'Close with Best, then Jason on its own line.'
+        : "",
+      "Optimize for authenticity and reciprocity. Skip owe sentences when owes are none. If times are listed, offer those times — never ask them for windows. No formulaic 'what struck me' language.",
     ]
       .filter(Boolean)
       .join(" ");
 
     const { text: retryText } = await generateText({
       model: heavyModel(),
-      maxOutputTokens: 900,
+      maxOutputTokens: 1_400,
       system,
       messages: [
         { role: "user", content: user },
