@@ -294,6 +294,6 @@ ${next}
 Rules for this plan:
 - If Jason owes is (none), skip any owe sentence entirely.
 - If next step is schedule and times are listed, include those times. Never ask them for windows.
-- Target 125-200 words. Close with Best, then Jason.
-- Use transcript for personal + intellectual connection; do not invent beyond plan + source.`;
+- Target 90-150 words. Write less. Close with Best, then Jason.
+- Do not narrate their stories back. Do not invent beyond plan + source.`;
 }
