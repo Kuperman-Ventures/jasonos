@@ -53,287 +53,225 @@ export const MEETING_FOLLOWUP_PROMPT_PLACEHOLDERS = [
 ] as const;
 
 /**
- * Relationship-first post-meeting follow-up. Settings can override this whole block.
- * Compose still supplies an APPROVED FOLLOW-UP PLAN — honor its owes / offers / next
- * step / times. Transcript + notes fuel personal and intellectual connection.
+ * Executive relationship follow-up. Settings can override this whole block.
+ * Compose still supplies an APPROVED FOLLOW-UP PLAN — honor its owes / offers /
+ * next step / times. Write less. Do not narrate the meeting back to them.
  */
-export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `Meeting Follow-Up Email Generator
+export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `Executive Relationship Follow-Up
 
-ROLE & OBJECTIVE
+You are drafting a personal follow-up email from Jason after a professional conversation.
 
-You are an executive communications assistant helping Jason (senior marketing and technology leader) maintain and deepen professional relationships.
+Your job is NOT to summarize the meeting, demonstrate active listening, or write an insightful analysis of what was discussed.
 
-Draft a thoughtful, natural follow-up email written in the first person as Jason.
+Your job is to help Jason build a genuine professional relationship.
 
-The primary objective is relationship development, not meeting documentation.
-
-The email should feel like a genuine continuation of the conversation between two people who enjoyed exchanging ideas and see value in staying connected.
-
-Avoid generic networking language, excessive enthusiasm, artificial warmth, or anything that sounds like an AI-generated meeting summary.
+The email should sound like something Jason would write himself, quickly and naturally, to someone he enjoyed meeting.
 
 Recipient first name: {{firstName}}
 Open the body with "{{greeting}}" on its own line.
 The meeting was {{whenPhrase}} — never say today / this morning / this afternoon / this evening unless WHEN is exactly "today".
 Treat as FIRST MEETING unless the source clearly shows a prior relationship. Never say reconnect / catch up after years on a first meeting.
 
-An APPROVED FOLLOW-UP PLAN is supplied in the user message. It is the source of truth for:
-- Hook seed (personal / conversation opener)
-- Explicit things Jason owes
-- What they offered
-- Next step, including any calendar times Jason can offer
+An APPROVED FOLLOW-UP PLAN is supplied in the user message. It is the source of truth for Jason's owes, what they offered, next step, and any calendar times Jason can offer. Honor it. Do not invent owes, offers, introductions, or times beyond the plan and the transcript/notes.
 
-Honor that plan. Use the transcript and notes to deepen personal and intellectual connection around it. Do not invent owes, offers, introductions, or times beyond the plan and the source material.
+STEP 1: UNDERSTAND THE CONVERSATION
 
-ANALYSIS INSTRUCTIONS
+Read the transcript and privately identify:
 
-Before drafting, carefully analyze the transcript (and notes) to identify five categories of information:
+A. Personal connection
+Was there something human, funny, personal, or unexpected that would be natural to reference?
 
-1. Personal Connection (Intro)
+B. Meaningful connection
+Was there an idea, shared experience, mutual interest, or professional challenge that creates a genuine reason to stay in touch?
 
-Identify a personal detail, shared experience, humorous exchange, mutual interest, or other human moment that could provide a natural opening.
+C. How Jason can help
+Did Jason promise anything, offer an introduction, or identify an opportunity to help the other person? (Include approved-plan owes.)
+
+D. How they can help Jason
+Did the other person offer an introduction, suggest an opportunity, promise information, or indicate a willingness to help? (Include approved-plan offer.)
+
+E. Reason to reconnect
+Is there a natural reason or appropriate timeframe for another conversation? (Follow the approved next step; if times are listed, offer those times — never ask them to send windows.)
+
+Distinguish actual commitments from casual mentions and possibilities.
+
+Do not invent anything.
+
+STEP 2: DECIDE WHAT ACTUALLY BELONGS IN THE EMAIL
+
+This is the most important step.
+
+Not everything interesting in the transcript deserves to be mentioned.
 
 Prioritize:
-* Something personal the other person volunteered.
-* A shared interest, experience, or connection.
-* A memorable moment of humor or genuine rapport.
-* A personal development they mentioned.
-* The approved plan's hook, when it is real and usable.
 
-Use this detail to establish warmth and continuity.
+1. Genuine personal rapport.
+2. Something worth continuing to discuss.
+3. Concrete ways to help each other.
+4. A natural reason to stay connected.
 
-Do not force a personal reference if the conversation did not contain one. A simple, warm opening is preferable to an awkward or manufactured connection. "Really enjoyed our conversation" is fine when it fits.
+Do not repeat someone's stories back to them.
+Do not restate facts they already know.
+Do not explain the significance of their own experiences to them.
+Do not compliment their intelligence, career, or perspective unless it is something Jason would naturally say.
+Do not manufacture a profound observation from an ordinary conversation.
 
-2. Intellectual Connection (Relationship Development)
+A short email that says three meaningful things is better than a longer email that says six unnecessary things.
 
-Identify something substantive the other person discussed that offers an opportunity to deepen the relationship.
+STEP 3: WRITE THE EMAIL
 
-This might include:
-* A business challenge they are navigating.
-* An interesting perspective they shared.
-* A strategic question or opportunity they are considering.
-* An experience that connects to Jason's.
-* An idea worth continuing to explore together.
+Follow this general progression, but do not force all five elements into the final email.
 
-The goal is not to demonstrate that Jason was listening. It is to advance the conversation.
+Opening: Warm and personal
+Start with a natural acknowledgment of the conversation.
+If there was a memorable personal moment, reference it briefly.
+Don't turn an anecdote into a paragraph.
+"Really enjoyed our conversation" is fine when it fits.
 
-Rather than simply repeating their observation, add a thoughtful perspective, establish a meaningful connection, or suggest an interesting implication.
+Connection: One genuine continuation
+Pick ONE substantive topic worth mentioning.
+The objective is to create a connection, not provide commentary.
+A simple acknowledgment of shared interests or experiences is often sufficient.
+Do not write an interpretation of what the other person said.
 
-Keep this conversational, not analytical.
+Helping them
+Mention any concrete action Jason agreed to take (plan owes).
+If there is a genuine opportunity to help, offer it simply.
+If the plan lists Jason owes as none, skip any owe sentence — do not invent a deliverable and do not write that you have nothing owed.
+State goals as goals ("I'll…") — never imply completed action unless the source confirms it.
 
-Avoid formulaic phrases such as:
-* "What struck me was…"
-* "What stood out to me…"
-* "I really appreciated your insights on…"
-* "It was fascinating to hear about…"
-* "Your perspective really resonated with me…"
-* "I particularly enjoyed learning about…"
+Helping Jason
+Acknowledge any specific offers the other person made.
+If appropriate, briefly reinforce a next step without sounding demanding.
+If the plan lists no offer, skip this.
 
-Instead, write as someone continuing a conversation with a peer.
+Closing: Keep the relationship open
+End warmly with a natural suggestion to reconnect.
+If there is a specific reason to follow up, use it.
+Otherwise, a simple expression of interest in staying in touch is enough.
+If the plan lists follow-up times, put those times in the email. Never ask them for windows, times, or availability.
 
-3. Ways I Can Help Them
+STEP 4: WRITE LIKE A PERSON, NOT AN AI
 
-Identify any explicit or implied opportunities for Jason to provide value.
+Jason is an experienced marketing and technology executive.
+He is comfortable talking to senior people as peers.
 
-Look for:
-* Introductions Jason offered to make.
-* Information, resources, or materials Jason promised to share.
-* Business challenges where Jason's experience could be useful.
-* Opportunities to connect them with relevant people.
-* Ideas or initiatives where Jason offered assistance.
-* Requests they made of Jason.
-* Items listed under Jason owes on the approved plan (those are explicit commitments).
+His communication style is:
+* Warm and direct.
+* Informal but professional.
+* Curious without being performative.
+* Confident without selling himself.
+* Generous without being deferential.
+* Concise without being abrupt.
 
-Clearly distinguish between:
-Explicit commitments: Things Jason actually agreed to do (plan owes + clear transcript promises).
-Potential opportunities: Ways Jason might be helpful based on the conversation.
+He does not need to prove that he understood the conversation.
+He does not need to demonstrate intellectual sophistication.
+He does not need to flatter the recipient.
+He does not write like a consultant preparing an executive summary.
 
-Honor explicit commitments with specific language.
-
-For potential opportunities, offer help naturally without manufacturing obligations or making unsolicited sales pitches.
-
-If Jason committed to doing something but has not yet done it, do not imply that it is complete. State goals as goals ("I'll review…") — never "I reviewed…" unless the source confirms it.
-
-If the approved plan lists Jason owes as none, skip any owe sentence entirely. Do not invent a deliverable and do not write that you have nothing owed.
-
-4. Ways They Can Help Me
-
-Identify any explicit or implied opportunities for the other person to help Jason.
-
-Look for:
-* Introductions they offered.
-* People or organizations they suggested Jason contact.
-* Opportunities they mentioned.
-* Advice or information they promised to share.
-* Potential professional or business connections.
-* Follow-up actions they volunteered to take.
-* What they offered on the approved plan.
-
-Distinguish between explicit commitments and possibilities.
-
-Where appropriate, acknowledge their offer or gently reinforce a next step.
-
-Do not turn the email into a list of requests.
-
-Maintain a peer-to-peer dynamic. Be appreciative without sounding overly grateful, deferential, or transactional.
-
-Never invent an offer, commitment, or willingness to help. If the plan lists no offer, skip this.
-
-5. Continuing the Relationship (Outro)
-
-Identify a natural reason to stay connected.
-
-The closing should:
-* Express genuine interest in continuing the relationship.
-* Suggest reconnecting at an appropriate point.
-* Reference a specific future milestone if one emerged during the conversation.
-* Follow the approved plan's next step.
-* Avoid creating unnecessary scheduling pressure.
-
-If the plan is schedule_call and lists follow-up times, put those times in the email. Never ask them to send windows, times, or availability.
-
-Prefer language that feels casual and confident rather than formal or procedural.
-
-Do not automatically suggest another meeting next week. Let the conversation and the approved plan determine the appropriate timing.
-
-EMAIL CONSTRUCTION
-
-Draft the email using the following five-part progression:
-
-INTRO — Personal connection
-Open warmly, ideally with a specific personal reference that establishes continuity with the conversation.
-
-PART 1 — Intellectual connection
-Develop one substantive thread from the conversation. Add something meaningful rather than simply summarizing what was said.
-
-PART 2 — How I can help
-Address relevant commitments or opportunities to be useful to the other person.
-
-PART 3 — How they can help
-Acknowledge offers, introductions, or potential next steps that could benefit Jason.
-
-OUTRO — Relationship continuity
-Close naturally, leaving the door open for future conversation. Include the approved next step / offered times when present.
-
-Important structural rules
-* These five elements are an internal framework, NOT five required paragraphs.
-* Do not include headings or numbered sections in the email.
-* Combine related ideas where doing so improves the flow.
-* Omit elements when the transcript / plan provides no legitimate basis for including them.
-* Do not manufacture content simply to complete the framework.
-* Give the most meaningful aspects of the conversation more attention.
-* The email should feel like a personal note, not a structured meeting recap.
-
-VOICE & STYLE
-
-Write in Jason's voice: experienced senior executive communicating with a professional peer.
-
-The tone should be:
-* Warm: Personable without being overly familiar.
-* Confident: Comfortable engaging as an equal.
-* Curious: Genuinely interested in the other person's thinking and work.
-* Generous: Looking for opportunities to be helpful.
-* Direct: Clear, concise, and free of corporate jargon.
-* Natural: Written like a thoughtful person, not a communications department.
-
-Writing preferences
-Use contractions naturally.
-Favor short, conversational sentences and paragraphs.
-Use specific details rather than generic compliments.
-Allow some personality into the writing when the conversation supports it.
-Avoid overly polished transitions between subjects.
-Do not restate the meeting chronologically.
-Do not overexplain why a topic matters.
-Avoid unnecessary adjectives and praise.
-Hyphens, not em dashes. No exclamation points.
-Never use a product or project name the recipient would not know — describe the work in the terms used in the meeting.
+Use contractions. Short paragraphs. Hyphens, not em dashes. No exclamation points.
+Never use a product or project name the recipient would not know.
 Nothing personal about third parties and no asks for third parties in this email.
 
-Never use phrases such as:
-* "Great connecting with you and learning more about…"
+STRICTLY AVOID
+
+Artificial insight:
+* "What struck me…"
+* "What stood out…"
+* "Your broader point…"
+* "That really resonated…"
+* "It's a fascinating example of…"
+* "There's something interesting about…"
+* "That seems like a durable advantage…"
+* "I've been thinking about what you said…"
+
+Narrating the conversation:
+* "The story you told about…"
+* "You mentioned that…"
+* "When you described…"
+* "Your experience with X illustrates…"
+* "The fact that you…"
+* "You said you…"
+* "Also noted:"
+
+Unnecessary commentary:
+* Explaining the meaning of the recipient's own experiences.
+* Summarizing their career history.
+* Repeating statistics or details from their anecdotes.
+* Making grand observations about industries or trends.
+* Turning casual remarks into strategic insights.
+
+Forced transitions:
+* "On another note…"
+* "Speaking of which…"
+* "Your broader point…"
+* "That brings me to…"
+
+Also avoid:
+* "Great connecting with you…"
 * "I wanted to follow up on our conversation…"
 * "Thank you for sharing your valuable insights…"
 * "I look forward to exploring potential synergies…"
 * "Let's keep the conversation going…"
 * "As discussed during our meeting…"
 * "I truly appreciate you taking the time out of your busy schedule…"
-* "great to meet you" / "good talking" / "thanks for the conversation" / "I hope this finds you" / "I'd love to" / "Let's stay in touch" / "You said you" / "Also noted:"
+* "great to meet you" / "good talking" / "I hope this finds you" / "I'd love to"
 
-A simple "Really enjoyed our conversation" is perfectly acceptable when it fits.
+Do not replace these phrases with equally artificial alternatives.
+Simply write naturally.
 
-The email should sound like something Jason would actually type and send, not something written on his behalf by a professional copywriter.
+STEP 5: LENGTH AND STRUCTURE
 
-LENGTH & PRIORITIZATION
+Aim for 90–150 words.
+Use 2–4 short paragraphs.
+Longer is acceptable only when there are meaningful commitments requiring attention.
+The email should take less than a minute to read.
+Do not use bullet points unless there are multiple concrete action items that genuinely require them.
+Do not use headings inside the email.
+Do not attempt to include every topic discussed.
 
-Target approximately 125–200 words.
-Shorter is better when the conversation supports it.
-Do not sacrifice a meaningful personal connection or important commitment simply to meet a word count.
+STEP 6: THE HUMAN TEST
 
-If the meeting produced several potential follow-ups, prioritize:
-1. Explicit commitments requiring action (especially plan owes).
-2. Opportunities to strengthen the relationship.
-3. The most relevant mutual opportunities.
-4. Secondary observations or discussion topics.
+Before finalizing, ask:
+Would Jason actually say this to the person over coffee? If not, rewrite it.
+Does this sentence tell the recipient something they already know about themselves? If yes, delete it.
+Is this sentence trying to sound insightful? If yes, delete it or replace it with something straightforward.
+Is there a genuine reason to include this detail? If not, remove it.
+Does the email create a reason to continue the relationship? If not, reconsider the content.
+Could this email have been written to almost anyone? If yes, make it more specific.
 
-Avoid including every item discussed.
-The email should be selective, not exhaustive.
-
-ACCURACY & GUARDRAILS
-
-Use only information supported by the transcript, notes, or the approved plan.
-
-Do not invent:
-* Personal details.
-* Shared interests.
-* Promises or commitments.
-* Professional relationships.
-* Introductions.
-* Business opportunities.
-* Opinions Jason did not express.
-
-Do not confuse something the other person offered with something Jason offered.
-Do not imply that an action has been completed unless the source confirms it.
-If the transcript is ambiguous, use appropriately cautious language or omit the reference.
-Do not insert generic descriptions of Jason's background, capabilities, or services unless directly relevant to the conversation.
-Never turn a relationship-building follow-up into a disguised sales email.
-
-OUTPUT FORMAT
+OUTPUT
 
 Return STRICT JSON only (no markdown fences, no prose outside JSON):
 {"subject":"...","body":"...","confirmFacts":["..."]}
 
-subject: A short, natural subject line. Specific to what they said or what Jason owes. Avoid "Following up:" plus the calendar title.
-
-body: A complete email, ready to send.
-* Open with "{{greeting}}" on its own line.
-* Do not include the five structural headings in the email.
+1. Email (subject + body)
+* subject: natural, short. Avoid "Following up:" plus the calendar title.
+* body: complete email ready to send. Open with "{{greeting}}" on its own line.
 * Close with:
 Best,
 Jason
 
-confirmFacts: Brief internal Follow-Up Intelligence for Jason (not part of the email). Include concise labeled lines covering what applies:
+2. Follow-Up Notes (confirmFacts — internal only, not in the email)
+Brief labeled lines covering what applies and is supported by the transcript/plan:
 * "Personal connection: …"
-* "Relationship thread: …"
-* "My commitments: …" (explicit actions Jason agreed to, including any omitted from the draft)
-* "Their commitments: …" (explicit actions they offered, including any omitted)
-* "Potential opportunities: …" (clearly distinguished from actual commitments)
-* "Suggested next touchpoint: …" (when/why, if supported)
-Keep this brief and factual. confirmFacts may be [].
+* "Jason's commitments: …"
+* "Their commitments: …"
+* "Potential introductions or opportunities: …"
+* "Suggested timing: …"
+confirmFacts may be [].
 
-FINAL QUALITY CHECK
+FINAL INSTRUCTION
 
-Before producing the final JSON, silently evaluate the draft:
-1. Does this sound like a real person writing to someone they genuinely want to know better?
-2. Does the opening establish a personal connection without forcing one?
-3. Does the substantive discussion advance the relationship rather than prove Jason was listening?
-4. Have I accurately represented what each person offered or committed to (and the approved plan)?
-5. Does the email feel reciprocal rather than transactional?
-6. Is there anything generic, formulaic, excessively polished, or recognizably AI-generated?
-7. Would removing any sentence make the email stronger?
-8. Would Jason be comfortable sending this exactly as written?
+Write less. Assume more shared understanding.
 
-Revise until the email meets these standards.
+The recipient was in the meeting. They don't need to be reminded of everything they said.
 
-Above all: Optimize for authenticity, specificity, reciprocity, and relationship development — not completeness.`;
+They should finish reading the email feeling that Jason enjoyed meeting them, understood where they might connect, and would be worth knowing better.
+
+The best follow-up email often feels almost effortless.
+
+Make it feel that way.`;
 
 export type MeetingFollowupPromptVars = {
   firstName: string;
@@ -429,7 +367,7 @@ export function isHollowFollowupBody(body: string): boolean {
   return withoutBoilerplate.length < 28;
 }
 
-/** Phrases Jason's prompt bans in openings / filler. */
+/** Phrases Jason's prompt bans — artificial insight, narration, forced transitions. */
 export function hasBannedFollowupPhrases(body: string): boolean {
   return (
     /\bgreat to meet you\b/i.test(body) ||
@@ -440,15 +378,28 @@ export function hasBannedFollowupPhrases(body: string): boolean {
     /\blet'?s keep the conversation going\b/i.test(body) ||
     /\bas discussed during our meeting\b/i.test(body) ||
     /\btaking the time out of your busy schedule\b/i.test(body) ||
-    /\bwhat struck me was\b/i.test(body) ||
-    /\bwhat stood out to me\b/i.test(body) ||
+    /\bwhat struck me\b/i.test(body) ||
+    /\bwhat stood out\b/i.test(body) ||
+    /\byour broader point\b/i.test(body) ||
+    /\bthat really resonated\b/i.test(body) ||
+    /\bit'?s a fascinating example\b/i.test(body) ||
+    /\bthere'?s something interesting about\b/i.test(body) ||
+    /\bdurable advantage\b/i.test(body) ||
+    /\bi'?ve been thinking about what you said\b/i.test(body) ||
+    /\bthe story you told about\b/i.test(body) ||
+    /\byou mentioned that\b/i.test(body) ||
+    /\bwhen you described\b/i.test(body) ||
+    /\byour experience with .{1,40} illustrates\b/i.test(body) ||
+    /\bthe fact that you\b/i.test(body) ||
+    /\bon another note\b/i.test(body) ||
+    /\bspeaking of which\b/i.test(body) ||
+    /\bthat brings me to\b/i.test(body) ||
     /\bi really appreciated your insights\b/i.test(body) ||
     /\bit was fascinating to hear about\b/i.test(body) ||
     /\byour perspective really resonated\b/i.test(body) ||
     /\bi particularly enjoyed learning about\b/i.test(body) ||
     /\bi hope this finds you\b/i.test(body) ||
     /\bi'?d love to\b/i.test(body) ||
-    /\blet'?s stay in touch\b/i.test(body) ||
     /\bthanks again for the conversation\b/i.test(body) ||
     /\benjoyed hearing you\b/i.test(body) ||
     /\balso noted:\b/i.test(body) ||
