@@ -7,13 +7,15 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MeetingFollowupControls } from "@/components/jasonos/outreach/meeting-followup-controls";
 import { OpenContactButton } from "@/components/jasonos/outreach/open-contact-button";
+import { MeetingFollowupPlanDialog } from "@/components/jasonos/home/meeting-followup-plan-dialog";
 import {
+  buildMeetingFollowupPlanCard,
   completeMeetingFollowup,
   dismissMeetingFollowup,
-  draftMeetingFollowupMailto,
   snoozeMeetingFollowup,
   type MeetingFollowup,
 } from "@/lib/server-actions/meeting-followups";
+import type { MeetingFollowupDraftPlan } from "@/lib/outreach/meeting-followup-draft-plan";
 
 function agoLabel(iso: string): string {
   const t = Date.parse(iso);
@@ -34,6 +36,8 @@ export function MeetingFollowupsClient({
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [planRow, setPlanRow] = useState<MeetingFollowup | null>(null);
+  const [plan, setPlan] = useState<MeetingFollowupDraftPlan | null>(null);
   const visible = rows.filter((row) => !hidden.has(row.id));
 
   const run = async (id: string, action: () => Promise<{ ok: boolean; error?: string }>) => {
@@ -53,27 +57,16 @@ export function MeetingFollowupsClient({
     router.refresh();
   };
 
-  const openDraft = async (id: string) => {
-    setBusyId(id);
-    const result = await draftMeetingFollowupMailto(id);
+  const openPlan = async (row: MeetingFollowup) => {
+    setBusyId(row.id);
+    const result = await buildMeetingFollowupPlanCard(row.id);
     setBusyId(null);
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    window.location.href = result.mailtoUrl;
-    const confirm =
-      result.confirmFacts.length > 0
-        ? ` Confirm before send: ${result.confirmFacts.slice(0, 2).join(" · ")}`
-        : "";
-    toast.success(
-      (result.fromTranscript
-        ? "Draft ready from the meeting transcript — review in Apple Mail."
-        : result.granola
-          ? "Draft ready from the Granola note — review in Apple Mail."
-          : "Draft ready — review in Apple Mail before you send.") + confirm
-    );
-    router.refresh();
+    setPlanRow(row);
+    setPlan(result.plan);
   };
 
   return (
@@ -85,9 +78,9 @@ export function MeetingFollowupsClient({
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Past calendar meetings (Google + Outlook) with a JasonOS contact where
-          one or more attendees still need an email. Draft uses the Granola note
-          when one exists. Unanswered outbound without a meeting is under Email
-          follow-ups below.
+          one or more attendees still need an email. Draft opens a plan card to
+          approve first, then uses the Granola note when one exists. Unanswered
+          outbound without a meeting is under Email follow-ups below.
         </p>
       </div>
       {!calendarConnected ? (
@@ -133,7 +126,7 @@ export function MeetingFollowupsClient({
                   size="sm"
                   variant="calendar"
                   disabled={busyId === row.id}
-                  onClick={() => void openDraft(row.id)}
+                  onClick={() => void openPlan(row)}
                 >
                   Draft follow-up
                 </Button>
@@ -174,6 +167,29 @@ export function MeetingFollowupsClient({
           ))}
         </ul>
       )}
+
+      <MeetingFollowupPlanDialog
+        row={planRow}
+        plan={plan}
+        open={Boolean(planRow && plan)}
+        onOpenChange={(next) => {
+          if (!next) {
+            setPlanRow(null);
+            setPlan(null);
+          }
+        }}
+        onDrafted={(result) => {
+          window.location.href = result.mailtoUrl;
+          toast.success(
+            result.fromTranscript
+              ? "Draft ready from the meeting transcript — review in Apple Mail."
+              : result.granola
+                ? "Draft ready from the Granola note — review in Apple Mail."
+                : "Draft ready — review in Apple Mail before you send."
+          );
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

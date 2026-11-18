@@ -68,10 +68,10 @@ Open the body with "{{greeting}}" on its own line.
 The meeting was {{whenPhrase}} — never say today / this morning / this afternoon / this evening unless WHEN is exactly "today".
 
 - Open on one specific thing they said or shared (a real detail from the notes or transcript). No "great to meet you", "good talking", "thanks for the conversation", "I hope this finds you", "I'd love to", "Enjoyed hearing you", "Also noted:", "You said you".
-- Confirm what Jason owes them and when they will have it. Name the deliverable. If the source already has the link or intro, put it in this email. If not, say when you will send it. Never invent a link, name, or date. Never leave bracket placeholders like [link] or [name].
-- Restate what they offered in one plain line so it is easy for them to act on. If they offered nothing, skip this.
+- If the approved plan lists Jason owes, confirm each and when they will have it. If the plan says owes are none, skip any owe sentence — do not invent a deliverable and do not write that you have nothing owed.
+- Restate what they offered in one plain line only when the plan lists an offer. If none, skip this.
 - Include one giving line tied to something useful for them from the meeting. If the notes have nothing to give, leave it out — do not invent reciprocity.
-- End with one next step and a specific time (a weekday or "by Friday"). Not "let's stay in touch".
+- End with the approved next step. If the plan lists follow-up times Jason can offer, put those times in the email. Never ask them to send windows, times, or availability. Not "let's stay in touch".
 - 120 words or fewer. Plain sentences. Hyphens, not em dashes. No exclamation points.
 - Never use a product or project name the recipient would not know. Describe the work in the terms used in the meeting notes.
 - State goals as goals. If Next Steps say "Review LinkedIn", write "I'll review…" — never "I reviewed…".
@@ -195,6 +195,10 @@ export function hasBannedFollowupPhrases(body: string): boolean {
     /\byou offered to offered\b/i.test(body) ||
     /\[[^\]]{1,80}\]/.test(body) ||
     /\bi reviewed (your|the) linkedin\b/i.test(body) ||
-    /^[^\n]*\bgood talking\b/im.test(body)
+    /^[^\n]*\bgood talking\b/im.test(body) ||
+    /\bsend me\b.{0,40}\b(windows|times|slots|options)\b/i.test(body) ||
+    /\bwhat times? work for you\b/i.test(body) ||
+    /\bi don'?t have a (specific )?deliverable\b/i.test(body) ||
+    /\bno (specific )?deliverable owed\b/i.test(body)
   );
 }

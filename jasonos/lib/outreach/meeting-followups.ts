@@ -495,12 +495,17 @@ export function pickJasonOwes(source: string | null | undefined): string[] {
       .replace(/\s+/g, " ")
       .trim();
     if (!text) continue;
-    // Owner tags like "(Jason)" mark his owes.
+    // Require ownership cues — do not treat every Next Steps bullet as Jason's.
     const jasonOwned =
       /\(jason\)/i.test(line) ||
       /\bjason (to|will)\b/i.test(text) ||
       /\bboth to\b/i.test(text) ||
-      inNext;
+      /\bi(?:'|’)ll\b/i.test(text) ||
+      (inNext &&
+        /\b(linkedin|introduc|send|review|share|check out|look through|introduce)\b/i.test(
+          text
+        ) &&
+        !/\bschedule\b.{0,40}\b(follow[- ]?up|call|meeting)\b/i.test(text));
     if (!jasonOwned) continue;
     text = text
       .replace(/\s*\(jason\)\s*/gi, " ")
@@ -508,6 +513,13 @@ export function pickJasonOwes(source: string | null | undefined): string[] {
       .replace(/\bboth to\s+/gi, "")
       .replace(/\s+/g, " ")
       .trim();
+    // Scheduling a follow-up is a next_step, not a deliverable owe.
+    if (
+      /\bschedule\b/i.test(text) &&
+      /\b(follow[- ]?up|call|meeting)\b/i.test(text)
+    ) {
+      continue;
+    }
     if (
       /\b(linkedin|introduc|chatwell|send|review|share|check out|look through|introduce|advertima|consequential)\b/i.test(
         text
