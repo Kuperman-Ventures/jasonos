@@ -10,7 +10,10 @@ export const config: VercelConfig = {
   // Turbopack's Google font loader fails on Vercel when this app sits in a
   // subfolder: the build root becomes the CoSA repo, and next/font/google
   // then errors with "queries have exactly one entry". Webpack loads those
-  // fonts normally.
+  // fonts, but Google still sometimes returns extensionless /l/font?kit=
+  // URLs and the 16.2.4 webpack loader crashes (next.js#99114). The
+  // postinstall script scripts/patch-next-google-font.mjs applies the
+  // 16.4.3 extension fallback until Next is upgraded.
   buildCommand: "next build --webpack",
   // Skip preview builds if the commit didn't touch the jasonos/ subfolder.
   // Always build `main` so production deploys don't get skipped when a push
