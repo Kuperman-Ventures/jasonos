@@ -72,11 +72,12 @@ export const config: VercelConfig = {
       path: "/api/browning-networking/run?source=cron",
       schedule: "30 11 * * 1-5",
     },
-    // Browning holds — weekdays every hour (EDT). Releases unbooked Hold ·
-    // events inside 24 hours without waiting for the morning full run.
+    // Browning holds — every hour, all week. Releases unbooked Hold · events
+    // inside 24 hours. Must run Sat/Sun too: a Monday hold needs to drop on
+    // Sunday, and weekday-only cron left those on the calendar all weekend.
     {
       path: "/api/browning-networking/holds?source=cron",
-      schedule: "5 * * * 1-5",
+      schedule: "5 * * * *",
     },
     // Browning meeting reminders — weekdays every hour (EDT). Attendee
     // reminder + Jason RSVP alert inside the 24h window.
