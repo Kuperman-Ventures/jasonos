@@ -100,6 +100,7 @@ describe("public JasonOS paths", () => {
     assert.equal(isCronPath("/api/browning-networking/holds"), true);
     assert.equal(isCronPath("/api/browning-networking/reminders"), true);
     assert.equal(isCronPath("/api/family-meeting/freeze-print"), true);
+    assert.equal(isCronPath("/api/webinars/week-email"), true);
     assert.equal(isCronPath("/api/dashboard/action-queue"), false);
   });
 });

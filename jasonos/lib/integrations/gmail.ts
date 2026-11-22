@@ -29,7 +29,10 @@ import {
   isCalendarProxyAddress,
 } from "@/lib/outreach/mail-noise";
 import { GMAIL_EXCLUDE_DRAFTS_QUERY, shouldCountGmailMessageForTouch } from "@/lib/integrations/gmail-labels";
-import { buildPlainTextRawMessage } from "@/lib/integrations/gmail-mime";
+import {
+  buildHtmlRawMessage,
+  buildPlainTextRawMessage,
+} from "@/lib/integrations/gmail-mime";
 
 export { encodeMimeHeader } from "@/lib/integrations/gmail-mime";
 
@@ -1056,13 +1059,27 @@ export async function sendGmailMessage(input: {
   bcc?: string;
   subject: string;
   body: string;
+  /** When set, sends multipart/alternative with this HTML part. */
+  htmlBody?: string;
   threadId?: string | null;
   inReplyTo?: string | null;
 }): Promise<
   | { ok: true; id: string }
   | { ok: false; error: string; needsReconnect?: boolean }
 > {
-  const raw = encodeBase64Url(buildPlainTextRawMessage(input));
+  const raw = encodeBase64Url(
+    input.htmlBody
+      ? buildHtmlRawMessage({
+          to: input.to,
+          cc: input.cc,
+          bcc: input.bcc,
+          subject: input.subject,
+          body: input.body,
+          htmlBody: input.htmlBody,
+          inReplyTo: input.inReplyTo,
+        })
+      : buildPlainTextRawMessage(input)
+  );
   const payload: { raw: string; threadId?: string } = { raw };
   if (input.threadId) payload.threadId = input.threadId;
 

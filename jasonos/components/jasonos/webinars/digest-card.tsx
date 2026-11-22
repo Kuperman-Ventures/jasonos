@@ -28,7 +28,7 @@ export function DigestCard({ digest }: { digest: WebinarDigestRow | null }) {
     return (
       <p className="flex items-center gap-2 rounded-[6px] border border-dashed border-[rgba(32,30,29,0.22)] bg-[#ffffff] px-4 py-3 text-[13px] text-[#605d5d]">
         <CalendarDays size={16} strokeWidth={2} />
-        Friday digest publishes at 6:16pm.
+        Friday digest publishes at 6:16pm. Monday morning email covers last week.
       </p>
     );
   }

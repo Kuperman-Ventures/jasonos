@@ -1218,3 +1218,166 @@ export async function getTopicPage(input: {
     takeaways,
   };
 }
+
+/** Confirmed+published sessions for one calendar week (Monday → Sunday). */
+export async function getWebinarWeekForEmail(weekStart: string): Promise<{
+  week_start: string;
+  topics: Array<
+    WebinarTopicRow & {
+      sessions: Array<WebinarSessionRow & { takeaways: WebinarTakeawayRow[] }>;
+    }
+  >;
+  actions: WebinarActionView[];
+}> {
+  const week = weekStart.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) {
+    throw new Error("week_start must be YYYY-MM-DD (Monday, America/New_York).");
+  }
+  const monday = mondayStartOfWeekYmd(week);
+  if (monday !== week) {
+    throw new Error(`week_start must be a Monday (got ${week}, Monday is ${monday}).`);
+  }
+  const weekEnd = addDaysYmd(monday, 6);
+  const sb = jasonosDb();
+
+  const [{ data: topicRows, error: topicErr }, { data: sessions, error: sessionErr }] =
+    await Promise.all([
+      sb.from("webinar_topics").select("*").order("sort_order", { ascending: true }),
+      sb
+        .from("webinar_sessions")
+        .select("*")
+        .eq("status", "confirmed")
+        .not("published_at", "is", null)
+        .gte("session_date", monday)
+        .lte("session_date", weekEnd)
+        .order("session_date", { ascending: false })
+        .order("started_at", { ascending: false }),
+    ]);
+  if (topicErr) fail(topicErr);
+  if (sessionErr) fail(sessionErr);
+
+  const allTopics = (topicRows ?? []) as WebinarTopicRow[];
+  const published = (sessions ?? []) as WebinarSessionRow[];
+  const publishedIds = published.map((session) => session.id);
+  let takeaways: WebinarTakeawayRow[] = [];
+  if (publishedIds.length) {
+    const { data: takes, error: takeErr } = await sb
+      .from("webinar_takeaways")
+      .select("*")
+      .in("session_id", publishedIds)
+      .order("sort_order", { ascending: true });
+    if (takeErr) fail(takeErr);
+    takeaways = (takes ?? []) as WebinarTakeawayRow[];
+  }
+
+  const byTopic = new Map<string, Array<WebinarSessionRow & { takeaways: WebinarTakeawayRow[] }>>();
+  for (const session of published) {
+    if (!session.topic_slug) continue;
+    const list = byTopic.get(session.topic_slug) ?? [];
+    list.push({
+      ...session,
+      takeaways: takeaways.filter((takeaway) => takeaway.session_id === session.id),
+    });
+    byTopic.set(session.topic_slug, list);
+  }
+
+  const topics = allTopics
+    .filter((topic) => (byTopic.get(topic.slug)?.length ?? 0) > 0)
+    .map((topic) => ({ ...topic, sessions: byTopic.get(topic.slug) ?? [] }));
+
+  const sessionById = new Map(published.map((session) => [session.id, session]));
+  const actions = takeaways
+    .filter((takeaway) => takeaway.is_action)
+    .flatMap((takeaway) => {
+      const session = sessionById.get(takeaway.session_id);
+      if (!session) return [];
+      return [
+        {
+          id: takeaway.id,
+          text: takeaway.text,
+          lead: takeaway.lead ?? "",
+          session_title: session.title,
+          session_id: session.id,
+          track: takeaway.track,
+          card_id: takeaway.card_id,
+          session_date: session.session_date,
+          started_at: session.started_at,
+          sort_order: takeaway.sort_order,
+        },
+      ];
+    })
+    .sort((a, b) => {
+      if (a.session_date !== b.session_date) return a.session_date < b.session_date ? 1 : -1;
+      const aStart = a.started_at ?? "";
+      const bStart = b.started_at ?? "";
+      if (aStart !== bStart) return aStart < bStart ? 1 : -1;
+      return a.sort_order - b.sort_order;
+    })
+    .map((row) => ({
+      id: row.id,
+      text: row.text,
+      lead: row.lead,
+      session_title: row.session_title,
+      session_id: row.session_id,
+      track: row.track,
+      card_id: row.card_id,
+    }));
+
+  return { week_start: monday, topics, actions };
+}
+
+export type WebinarWeekEmailRow = {
+  week_start: string;
+  subject: string;
+  to_email: string;
+  gmail_message_id: string | null;
+  session_count: number;
+  takeaway_count: number;
+  action_count: number;
+  topic_count: number;
+  sent_at: string;
+};
+
+export async function getWebinarWeekEmailSend(
+  weekStart: string
+): Promise<WebinarWeekEmailRow | null> {
+  const { data, error } = await jasonosDb()
+    .from("webinar_week_emails")
+    .select("*")
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  if (error) fail(error);
+  return (data as WebinarWeekEmailRow | null) ?? null;
+}
+
+export async function recordWebinarWeekEmailSend(input: {
+  week_start: string;
+  subject: string;
+  to_email: string;
+  gmail_message_id: string | null;
+  session_count: number;
+  takeaway_count: number;
+  action_count: number;
+  topic_count: number;
+}): Promise<WebinarWeekEmailRow> {
+  const { data, error } = await jasonosDb()
+    .from("webinar_week_emails")
+    .upsert(
+      {
+        week_start: input.week_start,
+        subject: input.subject,
+        to_email: input.to_email,
+        gmail_message_id: input.gmail_message_id,
+        session_count: input.session_count,
+        takeaway_count: input.takeaway_count,
+        action_count: input.action_count,
+        topic_count: input.topic_count,
+        sent_at: new Date().toISOString(),
+      },
+      { onConflict: "week_start" }
+    )
+    .select("*")
+    .single();
+  if (error) fail(error);
+  return data as WebinarWeekEmailRow;
+}

@@ -43,6 +43,7 @@ export const config: VercelConfig = {
     "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/holds/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/reminders/route.ts": { maxDuration: 60 },
+    "app/api/webinars/week-email/route.ts": { maxDuration: 60 },
     // Daily Sync: Gmail/Outlook/Calendar/Beeper + follow-up capture.
     "app/api/sync/daily/route.ts": { maxDuration: 300 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
@@ -88,6 +89,12 @@ export const config: VercelConfig = {
     {
       path: "/api/family-meeting/freeze-print?source=cron",
       schedule: "59 3 * * 6",
+    },
+    // Webinar week email — Monday 7:00am ET during EST (12:00 UTC).
+    // During EDT this fires at 8:00am ET. Summarizes the previous Mon–Sun week.
+    {
+      path: "/api/webinars/week-email?source=cron",
+      schedule: "0 12 * * 1",
     },
   ],
 };
